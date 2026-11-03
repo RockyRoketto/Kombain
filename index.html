@@ -339,15 +339,28 @@
       <section class="card">
         <h2>Формат</h2>
         <div id="fmtGroups"></div>
+        <div class="note" data-k="small" style="margin-top:12px">Видео станет MP4, картинки и звук останутся в своём формате (WAV и FLAC — в MP3).
+          Если сжатый файл выйдет не меньше оригинала, его не будет — оригинал остаётся как есть.</div>
       </section>
 
       <section class="card">
         <h2>Параметры</h2>
-        <div class="field" data-k="video">
-          <div><span class="lb">Качество (CRF)</span><span class="hint">меньше = лучше, но тяжелее файл</span></div>
+        <div class="field" data-k="small">
+          <div><span class="lb">Кодек видео</span><span class="hint">H.264 открывается вообще везде</span></div>
+          <select id="codec">
+            <option value="h265" selected>H.265 — меньше</option>
+            <option value="h264">H.264 — совместимее</option>
+          </select>
+        </div>
+        <div class="field" data-k="video small">
+          <div><span class="lb">Уложить видео в, МБ</span><span class="hint">пусто = не ограничивать</span></div>
+          <input type="number" id="target" min="1" step="any" placeholder="—">
+        </div>
+        <div class="field" data-k="video small">
+          <div><span class="lb">Качество (CRF)</span><span class="hint" id="crfHint">меньше = лучше, но тяжелее файл</span></div>
           <div class="rng"><input type="range" id="crf" min="0" max="51" value="23"><output id="crfVal">23</output></div>
         </div>
-        <div class="field" data-k="video" data-f="x26">
+        <div class="field" data-k="video small" data-f="x26">
           <div><span class="lb">Скорость кодирования</span><span class="hint">медленнее = файл меньше</span></div>
           <select id="speed">
             <option value="ultrafast">Максимально быстро</option>
@@ -357,15 +370,15 @@
             <option value="slow">Медленно, компактнее</option>
           </select>
         </div>
-        <div class="field" data-k="video audio">
+        <div class="field" data-k="video audio small">
           <span class="lb">Аудио, kbps</span>
           <input type="number" id="abr" min="32" max="512" step="32" value="192">
         </div>
-        <div class="field" data-k="video gif image">
+        <div class="field" data-k="video gif image small">
           <div><span class="lb">Высота, px</span><span class="hint">пусто = как в оригинале</span></div>
           <input type="number" id="height" min="16" placeholder="—">
         </div>
-        <div class="field" data-k="video gif">
+        <div class="field" data-k="video gif small">
           <div><span class="lb">FPS</span><span class="hint">пусто = как в оригинале</span></div>
           <input type="number" id="fps" min="1" placeholder="—">
         </div>
@@ -436,14 +449,16 @@ const NATIVE = !!(window.chrome && window.chrome.webview);   // своё окн�
 const NATIVE_DROP = NATIVE && typeof window.chrome.webview.postMessageWithAdditionalObjects === 'function';
 if (NATIVE) document.documentElement.classList.add('native');
 const FORMATS = {
+  small:{n:'Сжать, формат как был',k:'small'},
   mp4:{n:'MP4 H.264',k:'video'}, mp4h265:{n:'MP4 H.265',k:'video'}, webm:{n:'WebM',k:'video'},
   mov:{n:'MOV',k:'video'}, mkv:{n:'MKV без перекодирования',k:'copy'},
   gif:{n:'GIF',k:'gif'}, png:{n:'PNG',k:'image'}, jpg:{n:'JPG',k:'image'}, webp:{n:'WEBP',k:'image'},
   mp3:{n:'MP3',k:'audio'}, m4a:{n:'M4A',k:'audio'}, ogg:{n:'OGG',k:'audio'}, wav:{n:'WAV',k:'audio'}, flac:{n:'FLAC',k:'audio'}
 };
-const GROUPS = [['Видео',['mp4','mp4h265','webm','mov','mkv']],['Анимация и картинки',['gif','png','jpg','webp']],['Аудио',['mp3','m4a','ogg','wav','flac']]];
+const GROUPS = [['Сжатие',['small']],['Видео',['mp4','mp4h265','webm','mov','mkv']],['Анимация и картинки',['gif','png','jpg','webp']],['Аудио',['mp3','m4a','ogg','wav','flac']]];
 const PRESETS = [
-  {n:'Сжать видео', s:{format:'mp4', crf:28, speed:'fast', height:''}},
+  {n:'Сжать без потери качества', s:{format:'small', codec:'h265', crf:26, speed:'medium', height:'', fps:''}},
+  {n:'Видео до 25 МБ для почты', s:{format:'small', codec:'h264', crf:23, speed:'medium', target:25, height:'', fps:''}},
   {n:'720p для сайта', s:{format:'mp4', crf:25, speed:'medium', height:'720'}},
   {n:'Только звук MP3', s:{format:'mp3', abr:192}},
   {n:'GIF 480p', s:{format:'gif', height:'480', fps:'15'}},
@@ -474,7 +489,7 @@ function fmtSize(n) {
 }
 
 // ---------- настройки ----------
-const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir'];
+const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target'];
 const CHECKS = ['overwrite', 'copyDup'];
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
@@ -513,11 +528,13 @@ function applyKind() {
   const k = FORMATS[fmt].k;
   document.querySelectorAll('[data-k]').forEach(el => {
     let show = el.dataset.k.split(' ').includes(k);
-    if (show && el.dataset.f === 'x26') show = ['mp4','mp4h265','mov','webm'].includes(fmt);
+    if (show && el.dataset.f === 'x26') show = ['mp4','mp4h265','mov','webm','small'].includes(fmt);
     el.classList.toggle('hide', !show);
   });
   document.querySelectorAll('#fmtGroups .chip').forEach(c => c.classList.toggle('on', c.dataset.f === fmt));
   $('crfVal').textContent = $('crf').value;
+  $('crfHint').textContent = +$('target').value > 0 ? 'если видео и так влезает в размер'
+    : k === 'small' ? (($('codec').value === 'h264' ? '20–23' : '24–28') + ' — разницы на глаз не видно') : 'меньше = лучше, но тяжелее файл';
 }
 function buildFormats() {
   $('fmtGroups').innerHTML = GROUPS.map(([t, ids]) =>
@@ -533,11 +550,8 @@ $('presets').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   const s = PRESETS[+c.dataset.p].s;
   fmt = s.format;
-  if (s.crf !== undefined) $('crf').value = s.crf;
-  if (s.speed !== undefined) $('speed').value = s.speed;
-  if (s.abr !== undefined) $('abr').value = s.abr;
-  if (s.height !== undefined) $('height').value = s.height;
-  if (s.fps !== undefined) $('fps').value = s.fps;
+  $('target').value = '';   // размер — только у пресета, где он задан
+  Object.keys(s).forEach(k => { if (k !== 'format') $(k).value = s[k]; });
   applyKind(); save();
 });
 buildFormats(); load(); applyKind(); renderOut();
@@ -563,7 +577,7 @@ $('outNote').addEventListener('click', e => {
 const res = {};   // последний результат по каждому файлу (путь -> состояние с сервера)
 let lastIdx = null;
 function render() {
-  const labels = {pending:'ожидает', ok:'готово', error:'ошибка', skipped:'пропущен', canceled:'остановлен'};
+  const labels = {pending:'ожидает', ok:'готово', error:'ошибка', skipped:'пропущен', kept:'как есть', canceled:'остановлен'};
   $('empty').classList.toggle('hide', files.length > 0);
   $('list').classList.toggle('hide', files.length === 0);
   $('listbar').classList.toggle('hide', files.length === 0);
@@ -581,10 +595,11 @@ function render() {
           const d = Math.round((1 - s.dstSize / s.srcSize) * 100);
           sub = fmtSize(s.srcSize) + ' → ' + fmtSize(s.dstSize) + ' · сохранено в ' + esc(dirOf(s.dst));
           status = d >= 0 ? `−${d}%` : `+${-d}%`;
+          if (s.msg) sub = esc(s.msg) + ' · ' + sub;
         }
         if (s.status === 'skipped') sub = 'уже есть: ' + esc(base(s.dst)) + ' — пропущен';
         else if (s.status === 'error') sub = esc(s.hint || s.msg);
-        else if (s.msg) sub = esc(s.msg);
+        else if (s.msg && s.status !== 'ok') sub = esc(s.msg);
       }
     }
     const dis = snap.running || it.uploading;
@@ -727,7 +742,8 @@ function currentReq() {
     height: $('height').value, fps: $('fps').value, extra: $('extra').value,
     outDir: outMode === 'folder' ? $('outDir').value.trim() : '', dropOut,
     sameDir: outMode === 'same', overwrite: $('overwrite').checked, copy: $('copyDup').checked,
-    jobs: +$('jobs').value || 1
+    jobs: +$('jobs').value || 1,
+    codec: $('codec').value, targetMB: +$('target').value > 0 ? +$('target').value : 0
   };
 }
 // startBatch: запуск пачки; base — настройки (по умолчанию текущие), over — разовые поправки (копия/перезапись)
@@ -842,11 +858,17 @@ function batchDone(s) {
     toast({id: 'done', type: 'info', title: 'Остановлено', text: `Готово ${ok.length} из ${fl.length}. Недоделанные файлы удалены.`, ttl: 8000});
     return;
   }
-  if (!ok.length) return; // про пропуски и ошибки уже сказали
+  const kept = fl.filter(f => f.status === 'kept');
+  const keptText = kept.length ? `Оставил как есть: ${plural(kept.length, 'файл', 'файла', 'файлов')} — меньше не получилось или и так влезали.` : '';
+  if (!ok.length) { // про пропуски и ошибки уже сказали
+    if (kept.length) toast({id: 'done', type: 'info', title: 'Сжимать нечего', text: esc(keptText), list: nameList(kept, f => `${esc(f.name)} — ${esc(f.msg)}`), ttl: 12000});
+    return;
+  }
   const src = ok.reduce((a, f) => a + (f.srcSize || 0), 0), dst = ok.reduce((a, f) => a + (f.dstSize || 0), 0);
   const d = src && dst ? Math.round((1 - dst / src) * 100) : null;
   toast({id: 'done', type: 'ok', title: `Готово: ${plural(ok.length, 'файл', 'файла', 'файлов')}`,
-    text: src && dst ? `${fmtSize(src)} → ${fmtSize(dst)}` + (d !== null ? (d >= 0 ? ` (меньше на ${d}%)` : ` (больше на ${-d}%)`) : '') : '',
+    text: (src && dst ? `${fmtSize(src)} → ${fmtSize(dst)}` + (d !== null ? (d >= 0 ? ` (меньше на ${d}%)` : ` (больше на ${-d}%)`) : '') : '') +
+      (keptText ? (src && dst ? '<br>' : '') + esc(keptText) : ''),
     actions: [{t: 'Открыть папку', primary: true, fn: async () => { const r = await api('open-output'); if (r.error) say('warn', 'Папка', r.error); }}],
     ttl: 12000});
 }
@@ -886,11 +908,12 @@ async function openPreview(it) {
   $('pvMeta').innerHTML = m.map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
 }
 function outLine() {
-  const F = FORMATS[fmt], k = F.k, h = $('height').value, fps = $('fps').value, bits = [];
-  if (k === 'video') bits.push('качество CRF ' + $('crf').value);
-  if (['video', 'gif', 'image'].includes(k)) bits.push(h ? 'высота ' + h + ' px' : 'размер как в оригинале');
-  if (['video', 'gif'].includes(k) && fps) bits.push(fps + ' fps');
-  if (['video', 'audio'].includes(k)) bits.push('звук ' + $('abr').value + ' kbps');
+  const F = FORMATS[fmt], k = F.k, h = $('height').value, fps = $('fps').value, t = +$('target').value, bits = [];
+  if (k === 'small') bits.push('видео → MP4 ' + ($('codec').value === 'h264' ? 'H.264' : 'H.265'));
+  if (['video', 'small'].includes(k)) bits.push(t > 0 ? 'видео не больше ' + esc($('target').value) + ' МБ' : 'качество CRF ' + $('crf').value);
+  if (['video', 'gif', 'image', 'small'].includes(k)) bits.push(h ? 'высота ' + h + ' px' : 'размер как в оригинале');
+  if (['video', 'gif', 'small'].includes(k) && fps) bits.push(fps + ' fps');
+  if (['video', 'audio', 'small'].includes(k)) bits.push('звук ' + $('abr').value + ' kbps');
   return `Получится: <b>${esc(F.n)}</b>` + (bits.length ? ' · ' + bits.join(' · ') : '');
 }
 $('pvClose').onclick = () => { prevPath = ''; $('prev').classList.add('hide'); };
@@ -1099,7 +1122,7 @@ async function poll() {
     appBanner(s); ffBanner(s); renderSetup(s); renderInstallBtn(s);
     renderOut();
     const fl = s.files || [];
-    const done = fl.filter(f => ['ok','error','skipped','canceled'].includes(f.status)).length;
+    const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
     const part = fl.filter(f => f.status === 'running').reduce((a, f) => a + (f.pct || 0) / 100, 0);
     $('total').style.width = fl.length ? ((done + part) / fl.length * 100) + '%' : '0';
     $('summary').textContent = s.running ? `Идёт: ${done} из ${fl.length}` : (s.summary || (pending ? 'Копирую файлы…' : 'Добавь файлы и жми кнопку'));

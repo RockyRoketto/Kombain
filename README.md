@@ -13,7 +13,7 @@
 
 | Файл | Что в нём |
 |---|---|
-| main.go | форматы, состояние, скачивание ffmpeg, buildArgs, probe (длительность + альфа), convert/runFF (повтор в безопасном режиме), errSummary, outPath, HTTP API, main() |
+| main.go | форматы, состояние, скачивание ffmpeg, buildArgs, probe (длительность, разрешение, звук, альфа), convert/runFF (повтор в безопасном режиме), режим «Сжать» (compressFormat; результат не меньше оригинала — удаляется, статус kept), «уложить в N МБ» (planRate → два прохода с битрейтом, при нехватке — меньше разрешение), errSummary, outPath, HTTP API, main() |
 | update.go | версия программы (appVersion), settings.json, проверка свежего ffmpeg (gyan.dev release-version → GitHub BtbN), сравнение версий |
 | selfupdate.go | обновление самой программы: последний релиз этого репозитория → скачать Konvertor.exe (размер + sha256) → заменить себя → перезапуск `--updated` |
 | install_windows.go | установка для пользователя без админа: %LOCALAPPDATA%\Programs\Konvertor, ярлыки «Пуск»/рабочий стол, запись в «Установленные приложения», удаление `Konvertor.exe --uninstall`, замена exe при обновлении |
@@ -28,7 +28,7 @@
 | rsrc_windows_amd64.syso | собранные ресурсы (go-winres), Go подхватывает сам |
 | assets-original/ | исходники фото шапки и иконки |
 | tools/setversion.py | прописывает appVersion в rsrc_windows_amd64.syso без go-winres (если длина номера версии не изменилась) |
-| *_test.go | тесты: разбор версий и источников ffmpeg, релизов GitHub, `ffmpeg -i` и превью (`go test ./...`) |
+| *_test.go | тесты: разбор версий и источников ffmpeg, релизов GitHub, `ffmpeg -i`, превью, сжатие и «уложить в N МБ» с настоящим ffmpeg (`go test ./...`) |
 | .github/workflows/release.yml | GitHub Actions: по тегу vX.Y.Z проверки, go-winres, сборка exe, релиз с текстом из CHANGELOG.md |
 | release.cmd / release.sh | выпуск версии одной командой (release.cmd запускает release.sh через bash из Git for Windows) |
 | CHANGELOG.md | что нового по версиям |

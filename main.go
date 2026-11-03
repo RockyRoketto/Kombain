@@ -56,6 +56,32 @@ var formats = map[string]Format{
 	"png":     {"png", "image", nil},
 	"jpg":     {"jpg", "image", []string{"-q:v", "2"}},
 	"webp":    {"webp", "image", []string{"-quality", "85"}},
+	"small":   {"", "compress", nil}, // «Сжать»: формат выбирается по исходнику, см. compressFormat
+}
+
+// compressFormat: во что сжимать файл в режиме «Сжать». Видео → MP4, картинки и звук — в свой же формат
+// (WAV/FLAC/WMA → MP3, BMP/TIFF → PNG без потерь). Пустой Ext — сжимать не умеем, причина во втором значении.
+func compressFormat(src string, req StartReq) (Format, string) {
+	switch strings.ToLower(filepath.Ext(src)) {
+	case ".jpg", ".jpeg":
+		return Format{"jpg", "image", []string{"-q:v", "4"}}, ""
+	case ".png", ".bmp", ".tif", ".tiff":
+		return Format{"png", "image", []string{"-compression_level", "9", "-pred", "mixed"}}, ""
+	case ".webp":
+		return Format{"webp", "image", []string{"-quality", "80"}}, ""
+	case ".gif":
+		return Format{}, "GIF не сжимаю — сделай из него MP4, будет в разы меньше"
+	case ".mp3", ".wav", ".flac", ".wma":
+		return formats["mp3"], ""
+	case ".m4a", ".aac":
+		return formats["m4a"], ""
+	case ".ogg", ".opus":
+		return formats["ogg"], ""
+	}
+	if req.Codec == "h264" {
+		return formats["mp4"], ""
+	}
+	return formats["mp4h265"], ""
 }
 
 var presets = map[string]bool{"ultrafast": true, "veryfast": true, "fast": true, "medium": true, "slow": true}
@@ -78,12 +104,14 @@ type FileState struct {
 	Path    string  `json:"path"`
 	Name    string  `json:"name"`
 	Dst     string  `json:"dst"`
-	Status  string  `json:"status"` // pending, running, ok, error, skipped, canceled
+	Status  string  `json:"status"` // pending, running, ok, error, skipped, kept (сжимать не стал), canceled
 	Pct     float64 `json:"pct"`
 	Msg     string  `json:"msg"`
 	Hint    string  `json:"hint"` // понятное человеку объяснение ошибки
 	SrcSize int64   `json:"srcSize"`
 	DstSize int64   `json:"dstSize"`
+
+	f Format // во что конвертировать (в режиме «Сжать» — своё для каждого файла)
 }
 
 type DL struct {
@@ -127,6 +155,8 @@ type StartReq struct {
 	Overwrite bool     `json:"overwrite"`
 	Copy      bool     `json:"copy"` // если результат уже есть — сделать копию «имя (1).mp4»
 	Jobs      int      `json:"jobs"`
+	Codec     string   `json:"codec"`    // режим «Сжать»: h265 (по умолчанию) или h264
+	TargetMB  float64  `json:"targetMB"` // уложить видео в столько МБ (0 — не ограничивать)
 }
 
 func ffName() string {
@@ -417,19 +447,17 @@ var alphaRe = regexp.MustCompile(`\b(yuva\w*|rgba\w*|argb|bgra|abgr|gbrap\w*|ya8
 type srcInfo struct {
 	dur   float64
 	alpha bool
+	w, h  int
+	fps   float64
+	audio bool
 }
 
 func probe(ffm, src string) srcInfo {
 	cmd := exec.Command(ffm, "-hide_banner", "-i", src)
 	hide(cmd)
 	out, _ := cmd.CombinedOutput()
-	var si srcInfo
-	if m := durRe.FindSubmatch(out); m != nil {
-		h, _ := strconv.ParseFloat(string(m[1]), 64)
-		mi, _ := strconv.ParseFloat(string(m[2]), 64)
-		sec, _ := strconv.ParseFloat(string(m[3]), 64)
-		si.dur = h*3600 + mi*60 + sec
-	}
+	mi := parseMediaInfo(string(out))
+	si := srcInfo{dur: mi.Dur, w: mi.W, h: mi.H, fps: mi.FPS, audio: mi.ACodec != ""}
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.Contains(line, "Stream #") && strings.Contains(line, "Video:") {
 			si.alpha = alphaRe.MatchString(line)
@@ -450,7 +478,107 @@ func num(s string) string {
 	return ""
 }
 
-func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool) []string {
+// ---------- «уложить в N МБ»: два прохода с рассчитанным битрейтом ----------
+
+type rate struct {
+	vk, ak int    // битрейт видео и звука, кбит/с
+	height string // уменьшенная высота, если битрейта мало для исходного разрешения
+	pass   int    // 1 или 2
+	dir    string // папка для журналов первого прохода
+}
+
+// planRate: битрейт, при котором видео длиной si.dur уложится в target байт
+func planRate(target int64, si srcInfo, req StartReq) (rate, error) {
+	if si.dur <= 0 {
+		return rate{}, fmt.Errorf("не удалось узнать длительность видео, поэтому не могу рассчитать размер")
+	}
+	total := float64(target) * 8 / 1000 / si.dur * 0.96 // кбит/с, 4% — запас на контейнер
+	ak := req.ABR
+	if ak <= 0 {
+		ak = 128
+	}
+	if lim := int(total * 0.12); ak > lim { // звуку — не больше 12% места
+		ak = max(lim, 32)
+	}
+	vk := int(total)
+	if si.audio {
+		vk -= ak
+	}
+	if vk < 60 {
+		need := (60 + float64(ak)) * 1000 / 8 * si.dur / 0.96 / (1 << 20)
+		return rate{}, fmt.Errorf("в %s МБ это видео не влезет даже в плохом качестве — нужно хотя бы %.0f МБ", mbStr(float64(target)/(1<<20)), need+1)
+	}
+	r := rate{vk: vk, ak: ak, height: num(req.Height)}
+	if r.height != "" || si.w <= 0 || si.h <= 0 {
+		return r, nil
+	}
+	fps := si.fps
+	if v, err := strconv.ParseFloat(num(req.FPS), 64); err == nil && v > 0 {
+		fps = v
+	}
+	if fps <= 0 || fps > 120 {
+		fps = 30
+	}
+	// мало бит на пиксель — картинка развалится на квадраты, лучше уменьшить разрешение
+	short0 := min(si.w, si.h) // меньшая сторона: у вертикального видео это ширина
+	cur := short0
+	for _, s := range []int{1080, 720, 540, 480, 360} {
+		k := float64(cur) / float64(short0)
+		if float64(vk)*1000/(float64(si.w*si.h)*k*k*fps) >= 0.045 {
+			break
+		}
+		if s < cur {
+			cur = s
+			r.height = strconv.Itoa(si.h * s / short0 / 2 * 2)
+		}
+	}
+	return r, nil
+}
+
+func mbStr(mb float64) string {
+	return strings.Replace(strconv.FormatFloat(mb, 'f', -1, 64), ".", ",", 1)
+}
+
+// rateArgs: аргументы кодека с CRF → с битрейтом и номером прохода.
+// В первом проходе звука и настоящего файла нет — убираем всё, что к ним относится.
+func rateArgs(a []string, r *rate) []string {
+	var out []string
+	x265 := false
+	for j := 0; j < len(a); j++ {
+		k := a[j]
+		switch k {
+		case "-crf", "-b:v":
+			j++
+			continue
+		case "-c:a", "-movflags", "-tag:v":
+			if r.pass == 1 {
+				j++
+				continue
+			}
+		case "-b:a":
+			j++
+			if r.pass == 2 {
+				out = append(out, k, strconv.Itoa(r.ak)+"k")
+			}
+			continue
+		case "-c:v":
+			x265 = j+1 < len(a) && a[j+1] == "libx265"
+		}
+		out = append(out, k)
+	}
+	out = append(out, "-b:v", strconv.Itoa(r.vk)+"k")
+	if x265 { // у libx265 свои параметры; путь без «C:», он ломает x265-params — журнал лежит в рабочей папке
+		out = append(out, "-x265-params", fmt.Sprintf("pass=%d:stats=x265.log", r.pass))
+	} else {
+		out = append(out, "-pass", strconv.Itoa(r.pass), "-passlogfile", filepath.Join(r.dir, "pass"))
+	}
+	if r.pass == 1 {
+		out = append(out, "-an", "-f", "null")
+	}
+	return out
+}
+
+func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, rc *rate) []string {
 	preset := req.Preset
 	if !presets[preset] {
 		preset = "medium"
@@ -461,9 +589,13 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool) [
 		fargs = append(fargs, rep.Replace(a))
 	}
 	h, fps := num(req.Height), num(req.FPS)
+	if rc != nil && f.Kind == "video" {
+		fargs = rateArgs(fargs, rc)
+		h = rc.height
+	}
 
 	args := []string{"-hide_banner", "-nostdin", "-loglevel", "error", "-progress", "pipe:1", "-nostats"}
-	if req.Overwrite {
+	if req.Overwrite || (rc != nil && rc.pass == 1) {
 		args = append(args, "-y")
 	} else if fileExists(dst) && fileSize(dst) == 0 {
 		args = append(args, "-y") // пустой огрызок от прошлой попытки
@@ -570,12 +702,46 @@ func (s *Server) set(i int, fn func(fs *FileState)) {
 	s.mu.Unlock()
 }
 
-func (s *Server) convert(ctx context.Context, i int, req StartReq, f Format, ffm string) {
-	var src, dst string
+// kept: файл не трогаем — результат удалён, оригинал остаётся как есть
+func (s *Server) kept(i int, msg string) {
+	name := ""
+	s.set(i, func(fs *FileState) { fs.Status = "kept"; fs.Pct = 100; fs.Msg = msg; name = fs.Name })
+	s.addLog("[как есть] %s: %s", name, msg)
+}
+
+// encodeTarget: два прохода с битрейтом из r. Если файл всё же вышел больше target — ещё раз с поправкой.
+func (s *Server) encodeTarget(ctx context.Context, i int, ffm string, f Format, req StartReq, src, dst string, si srcInfo, safe bool, r rate, target int64) (string, error) {
+	dir, err := os.MkdirTemp("", "konv-pass-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	r.dir = dir
+	for try := 0; ; try++ {
+		r.pass = 1
+		stderr, err := s.runFF(ctx, i, ffm, buildArgs(f, req, src, os.DevNull, si, safe, &r), si.dur, dir, 0, 0.4)
+		if err != nil {
+			return stderr, err
+		}
+		r.pass = 2
+		stderr, err = s.runFF(ctx, i, ffm, buildArgs(f, req, src, dst, si, safe, &r), si.dur, dir, 0.4, 0.6)
+		size := fileSize(dst)
+		if err != nil || try == 1 || size <= target {
+			return stderr, err
+		}
+		r.vk = int(float64(r.vk) * float64(target) / float64(size) * 0.97)
+		req.Overwrite = true
+		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = "чуть не влезло, жму сильнее" })
+	}
+}
+
+func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	s.mu.Lock()
-	src, dst = s.files[i].Path, s.files[i].Dst
+	src, dst, f, name, status := s.files[i].Path, s.files[i].Dst, s.files[i].f, s.files[i].Name, s.files[i].Status
 	s.mu.Unlock()
-	name := s.files[i].Name
+	if status != "pending" { // «как есть» решено заранее
+		return
+	}
 
 	if !req.Overwrite && fileExists(dst) && fileSize(dst) > 0 {
 		s.set(i, func(fs *FileState) { fs.Status = "skipped"; fs.Msg = "уже существует" })
@@ -584,15 +750,53 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, f Format, ffm
 	}
 	s.set(i, func(fs *FileState) { fs.Status = "running"; fs.Msg = "" })
 	si := probe(ffm, src)
+	srcSize := fileSize(src)
+	small := req.Format == "small"
 
-	stderr, err := s.runFF(ctx, i, ffm, buildArgs(f, req, src, dst, si, false), si.dur)
+	var target int64
+	if f.Kind == "video" && req.TargetMB > 0 {
+		target = int64(req.TargetMB * (1 << 20))
+	}
+	if small && target > 0 && srcSize <= target {
+		s.kept(i, fmt.Sprintf("и так меньше %s МБ", mbStr(req.TargetMB)))
+		return
+	}
+	var r rate
+	twoPass := false
+	if target > 0 {
+		var err error
+		if r, err = planRate(target, si, req); err != nil {
+			s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = err.Error(); fs.Hint = err.Error() })
+			s.addLog("[ошибка] %s: %v", name, err)
+			return
+		}
+		twoPass = srcSize > target // уже влезает — пробуем обычным способом, он быстрее
+	}
+	encode := func(req StartReq, safe bool) (string, error) {
+		if twoPass {
+			return s.encodeTarget(ctx, i, ffm, f, req, src, dst, si, safe, r, target)
+		}
+		return s.runFF(ctx, i, ffm, buildArgs(f, req, src, dst, si, safe, nil), si.dur, "", 0, 1)
+	}
+
+	stderr, err := encode(req, false)
 	if err != nil && ctx.Err() == nil && (f.Kind == "video" || f.Kind == "gif") && !strings.Contains(stderr, "Error opening input") {
 		os.Remove(dst)
 		s.addLog("[повтор] %s: первая попытка не удалась, пробую в безопасном режиме\n    %s", name, errSummary(stderr, err, 6))
 		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = "повтор в безопасном режиме" })
-		r := req
-		r.Overwrite = true // файл от первой попытки уже удалён
-		stderr, err = s.runFF(ctx, i, ffm, buildArgs(f, r, src, dst, si, true), si.dur)
+		rq := req
+		rq.Overwrite = true // файл от первой попытки уже удалён
+		stderr, err = encode(rq, true)
+	}
+	if err == nil && ctx.Err() == nil && target > 0 && !twoPass && fileSize(dst) > target {
+		s.set(i, func(fs *FileState) {
+			fs.Pct = 0
+			fs.Msg = "не влезло, пересжимаю под размер"
+		})
+		twoPass = true
+		rq := req
+		rq.Overwrite = true
+		stderr, err = encode(rq, false)
 	}
 
 	if ctx.Err() != nil {
@@ -608,13 +812,27 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, f Format, ffm
 		return
 	}
 	size := fileSize(dst)
-	s.set(i, func(fs *FileState) { fs.Status = "ok"; fs.Pct = 100; fs.DstSize = size; fs.Msg = "" })
+	if small && size >= srcSize {
+		os.Remove(dst)
+		s.kept(i, "уже сжат лучше — оригинал оставил как есть")
+		return
+	}
+	msg := ""
+	if twoPass && r.height != "" && r.height != num(req.Height) {
+		msg = "уменьшил высоту до " + r.height + " px, чтобы влезло"
+	}
+	if target > 0 && size > target {
+		msg = "вышло чуть больше " + mbStr(req.TargetMB) + " МБ"
+	}
+	s.set(i, func(fs *FileState) { fs.Status = "ok"; fs.Pct = 100; fs.DstSize = size; fs.Msg = msg })
 	s.addLog("[ok] %s", filepath.Base(dst))
 }
 
-// runFF запускает ffmpeg и обновляет процент выполнения
-func (s *Server) runFF(ctx context.Context, i int, ffm string, args []string, dur float64) (string, error) {
+// runFF запускает ffmpeg и обновляет процент выполнения: lo..lo+span от всей работы над файлом
+// (у двух проходов — две части). dir — рабочая папка ffmpeg (пусто — как у программы).
+func (s *Server) runFF(ctx context.Context, i int, ffm string, args []string, dur float64, dir string, lo, span float64) (string, error) {
 	cmd := exec.CommandContext(ctx, ffm, args...)
+	cmd.Dir = dir
 	hide(cmd)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -631,7 +849,7 @@ func (s *Server) runFF(ctx context.Context, i int, ffm string, args []string, du
 		if strings.HasPrefix(line, "out_time_us=") && dur > 0 {
 			us, e := strconv.ParseFloat(strings.TrimPrefix(line, "out_time_us="), 64)
 			if e == nil {
-				p := us / 1e6 / dur * 100
+				p := (lo + us/1e6/dur*span) * 100
 				if p > 99 {
 					p = 99
 				}
@@ -725,10 +943,17 @@ func (s *Server) run(req StartReq, ffm string) {
 	used := map[string]bool{}
 	var states []*FileState
 	for _, p := range req.Files {
-		states = append(states, &FileState{
-			Path: p, Name: filepath.Base(p), Dst: outPath(p, req, f.Ext, used),
-			Status: "pending", SrcSize: fileSize(p),
-		})
+		st := &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p), f: f}
+		why := ""
+		if f.Kind == "compress" {
+			st.f, why = compressFormat(p, req)
+		}
+		if why != "" {
+			st.Status, st.Msg = "kept", why
+		} else {
+			st.Dst = outPath(p, req, st.f.Ext, used)
+		}
+		states = append(states, st)
 	}
 	s.mu.Lock()
 	s.files = states
@@ -751,7 +976,7 @@ func (s *Server) run(req StartReq, ffm string) {
 		go func() {
 			defer wg.Done()
 			for i := range idx {
-				s.convert(ctx, i, req, f, ffm)
+				s.convert(ctx, i, req, ffm)
 			}
 		}()
 	}
@@ -765,7 +990,7 @@ func (s *Server) run(req StartReq, ffm string) {
 	wg.Wait()
 
 	s.mu.Lock()
-	var ok, bad, skip, canc int
+	var ok, bad, skip, kept, canc int
 	for _, fs := range s.files {
 		switch fs.Status {
 		case "ok":
@@ -774,6 +999,8 @@ func (s *Server) run(req StartReq, ffm string) {
 			bad++
 		case "skipped":
 			skip++
+		case "kept":
+			kept++
 		default:
 			fs.Status = "canceled"
 			canc++
@@ -784,6 +1011,9 @@ func (s *Server) run(req StartReq, ffm string) {
 		title = "Остановлено"
 	}
 	s.summary = fmt.Sprintf("%s: успешно %d, ошибок %d, пропущено %d", title, ok, bad, skip)
+	if kept > 0 {
+		s.summary += fmt.Sprintf(", оставлено как есть %d", kept)
+	}
 	s.running = false
 	s.cancel = nil
 	s.mu.Unlock()
