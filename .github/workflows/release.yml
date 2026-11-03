@@ -1,0 +1,61 @@
+# Сборка Konvertor.exe и выпуск релиза на GitHub.
+# Запускается тегом vX.Y.Z (его ставит release.cmd) или вручную во вкладке Actions (тогда — только сборка, без релиза).
+name: Сборка и релиз
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Версия
+        id: ver
+        run: |
+          ver=$(grep -oP 'appVersion\s*=\s*"\K[0-9.]+' update.go)
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$ver" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::тег $GITHUB_REF_NAME, а в update.go appVersion = $ver"
+            exit 1
+          fi
+
+      - name: Проверки
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "::error::gofmt"; exit 1; }
+          GOOS=windows go vet . || true
+          go test ./...
+
+      - name: Ресурсы exe (иконка, версия, манифест)
+        run: |
+          go install github.com/tc-hib/go-winres@latest
+          "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --out rsrc
+
+      - name: Сборка
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H=windowsgui" -o Konvertor.exe .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Konvertor-${{ steps.ver.outputs.ver }}
+          path: Konvertor.exe
+
+      - name: Релиз
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.ver.outputs.ver }}
+        run: |
+          # текст релиза — раздел «## X.Y.Z» из CHANGELOG.md
+          awk -v v="$VER" 'index($0, "## " v) == 1 { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Новая версия $VER" > notes.md
+          gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Конвертор 9000 $VER" --notes-file notes.md

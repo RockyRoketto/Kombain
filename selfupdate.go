@@ -1,0 +1,243 @@
+package main
+
+// Обновление самой программы: свежий релиз на GitHub (Releases) → скачать Konvertor.exe → заменить себя → перезапуск.
+// Релизы собирает GitHub Actions (.github/workflows/release.yml) по тегу vX.Y.Z.
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const updateRepo = "RockyRoketto/Konverter-9000"
+
+// FFB_FEED подменяет и этот адрес (/app-release.json) — только для тестов
+var appReleaseURL = "https://api.github.com/repos/" + updateRepo + "/releases/latest"
+
+func init() {
+	if f := strings.TrimRight(os.Getenv("FFB_FEED"), "/"); f != "" {
+		appReleaseURL = f + "/app-release.json"
+	}
+}
+
+// AppUpd — что известно о новой версии программы (уходит в интерфейс)
+type AppUpd struct {
+	Supported bool    `json:"supported"` // умеем ли заменить себя (только Windows)
+	Checked   bool    `json:"checked"`
+	CheckErr  string  `json:"checkErr,omitempty"`
+	Latest    string  `json:"latest"` // «1.5.0»; пусто — не знаем
+	Notes     string  `json:"notes"`  // что нового (текст релиза)
+	Page      string  `json:"page"`   // страница релиза
+	Update    bool    `json:"update"` // есть версия новее нашей
+	Skipped   bool    `json:"skipped"`
+	Active    bool    `json:"active"` // качается
+	Pct       float64 `json:"pct"`
+	Err       string  `json:"err,omitempty"`
+	Restart   bool    `json:"restart"` // заменили, перезапускаемся
+
+	url    string
+	size   int64
+	sha256 string
+}
+
+type appRelease struct {
+	ver, notes, page, url, sha256 string
+	size                          int64
+}
+
+// latestApp разбирает ответ GitHub: тег «v1.5.0», файл Konvertor.exe
+func latestApp() (appRelease, error) {
+	b, err := httpGet(appReleaseURL, 4<<20)
+	if err != nil {
+		return appRelease{}, err
+	}
+	var rel struct {
+		Tag    string `json:"tag_name"`
+		Body   string `json:"body"`
+		Page   string `json:"html_url"`
+		Draft  bool   `json:"draft"`
+		Pre    bool   `json:"prerelease"`
+		Assets []struct {
+			Name   string `json:"name"`
+			URL    string `json:"browser_download_url"`
+			Size   int64  `json:"size"`
+			Digest string `json:"digest"` // «sha256:…»
+		} `json:"assets"`
+	}
+	if err := json.Unmarshal(b, &rel); err != nil {
+		return appRelease{}, fmt.Errorf("непонятный ответ GitHub")
+	}
+	ver := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(rel.Tag), "v"), "V")
+	if !plainVerRe.MatchString(ver) || rel.Draft || rel.Pre {
+		return appRelease{}, fmt.Errorf("в релизе нет номера версии")
+	}
+	r := appRelease{ver: ver, notes: strings.TrimSpace(rel.Body), page: rel.Page}
+	if len([]rune(r.notes)) > 1500 {
+		r.notes = string([]rune(r.notes)[:1500]) + "…"
+	}
+	for _, a := range rel.Assets {
+		if strings.EqualFold(a.Name, "Konvertor.exe") {
+			r.url, r.size = a.URL, a.Size
+			if d, ok := strings.CutPrefix(a.Digest, "sha256:"); ok {
+				r.sha256 = strings.ToLower(d)
+			}
+		}
+	}
+	if r.url == "" {
+		return appRelease{}, fmt.Errorf("в релизе %s нет Konvertor.exe", ver)
+	}
+	return r, nil
+}
+
+func (s *Server) refreshAppLocked() {
+	u := &s.appUpd
+	u.Update = u.Latest != "" && cmpVer(u.Latest, appVersion) > 0
+	u.Skipped = u.Latest != "" && u.Latest == s.settings.SkipApp
+}
+
+// checkApp: при запуске в фоне спрашиваем GitHub, нет ли версии новее
+func (s *Server) checkApp() {
+	rel, err := latestApp()
+	s.mu.Lock()
+	u := &s.appUpd
+	u.Supported = canSelfUpdate()
+	u.Checked = true
+	if err != nil {
+		u.CheckErr = err.Error()
+	} else {
+		u.CheckErr = ""
+		u.Latest, u.Notes, u.Page = rel.ver, rel.notes, rel.page
+		u.url, u.size, u.sha256 = rel.url, rel.size, rel.sha256
+	}
+	s.refreshAppLocked()
+	upd := u.Update
+	s.mu.Unlock()
+	if err != nil {
+		s.addLog("Не удалось проверить новую версию Конвертора: %v", err)
+	} else if upd {
+		s.addLog("Вышел Конвертор %s", rel.ver)
+	}
+}
+
+// updateApp качает новый exe и ставит его на место текущего, потом перезапускает программу
+func (s *Server) updateApp() error {
+	s.mu.Lock()
+	u := &s.appUpd
+	switch {
+	case u.Active || u.Restart:
+		s.mu.Unlock()
+		return nil
+	case !u.Supported:
+		s.mu.Unlock()
+		return fmt.Errorf("обновление доступно только в Windows")
+	case !u.Update || u.url == "":
+		s.mu.Unlock()
+		return fmt.Errorf("новой версии нет")
+	case s.running:
+		s.mu.Unlock()
+		return fmt.Errorf("сначала дождись конца конвертации")
+	}
+	u.Active, u.Pct, u.Err = true, 0, ""
+	url, size, sum, ver := u.url, u.size, u.sha256, u.Latest
+	s.mu.Unlock()
+
+	go func() {
+		path, err := s.fetchApp(url, size, sum)
+		if err == nil {
+			s.mu.Lock()
+			if s.running { // вдруг успели запустить конвертацию, пока качалось
+				err = fmt.Errorf("сначала дождись конца конвертации")
+			}
+			// «без установки» нажимали на этой версии — не спрашиваем снова на новой
+			st := s.settings
+			if st.SetupDeclined == appVersion {
+				st.SetupDeclined = ver
+				s.settings = st
+			}
+			s.mu.Unlock()
+			if err == nil {
+				saveSettings(st)
+				err = replaceSelf(path)
+			}
+		}
+		if err != nil {
+			os.Remove(filepath.Join(dataDir(), "update", "Konvertor.exe"))
+			s.mu.Lock()
+			s.appUpd.Active, s.appUpd.Err = false, err.Error()
+			s.mu.Unlock()
+			s.addLog("Обновление Конвертора: %v", err)
+			return
+		}
+		s.mu.Lock()
+		s.appUpd.Active, s.appUpd.Pct, s.appUpd.Restart = false, 100, true
+		s.mu.Unlock()
+		s.addLog("Конвертор обновлён до %s, перезапускаю", ver)
+		restartSelf(s)
+	}()
+	return nil
+}
+
+// fetchApp скачивает exe в dataDir/update и проверяет размер, сумму и что это вообще exe
+func (s *Server) fetchApp(url string, size int64, sum string) (string, error) {
+	dir := filepath.Join(dataDir(), "update")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Konvertor9000/"+appVersion)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	total := resp.ContentLength
+	if total <= 0 {
+		total = size
+	}
+	path := filepath.Join(dir, "Konvertor.exe")
+	out, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.New()
+	cr := &countReader{r: io.TeeReader(resp.Body, h), total: total, cb: func(p float64) {
+		s.mu.Lock()
+		s.appUpd.Pct = p
+		s.mu.Unlock()
+	}}
+	n, err := io.Copy(out, io.LimitReader(cr, 200<<20))
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return "", err
+	}
+	if size > 0 && n != size {
+		return "", fmt.Errorf("скачалось %d байт из %d", n, size)
+	}
+	if sum != "" && hex.EncodeToString(h.Sum(nil)) != sum {
+		return "", fmt.Errorf("файл повреждён при скачивании (не сошлась контрольная сумма)")
+	}
+	head := make([]byte, 2)
+	if f, err := os.Open(path); err == nil {
+		io.ReadFull(f, head)
+		f.Close()
+	}
+	if !bytes.Equal(head, []byte("MZ")) {
+		return "", fmt.Errorf("скачался не exe-файл")
+	}
+	return path, nil
+}
