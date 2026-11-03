@@ -239,7 +239,26 @@
   .log{white-space:pre-wrap;font:12px/1.55 Consolas,"Cascadia Mono",monospace;color:#b2b2ba;max-height:180px;overflow:auto;background:var(--s2);
     border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}
 
+  /* ----- вкладки ----- */
+  .tabs{display:flex;gap:6px;margin-top:16px;padding:5px;background:var(--s1);border:1px solid var(--line);border-radius:18px;width:max-content;max-width:100%}
+  .tab{background:none;border:0;border-radius:13px;padding:8px 18px;display:flex;flex-direction:column;align-items:flex-start;line-height:1.3;
+    color:#c8c8ce;font-weight:600;transition:.12s}
+  .tab span{font-size:11.5px;color:var(--dim);font-weight:400}
+  .tab:hover{background:var(--s2)}
+  .tab.on{background:var(--accbg);color:var(--acc2);box-shadow:inset 0 0 0 1px rgba(233,184,114,.5)}
+  .need{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .need div{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:10px;background:var(--s2);font-size:13px;
+    color:var(--dim);border:1px solid transparent}
+  .need div.got{color:var(--tx);border-color:rgba(111,212,154,.25)}
+  .need div i{font-style:normal;color:var(--dim2)}
+  .need div.got i{color:var(--ok)}
+  .dirrow{margin-top:4px}
+  .dirrow+.lb{margin-top:12px}
+  .tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--accbg);color:var(--acc2);margin-left:6px;vertical-align:1px}
+  .tag.big{background:rgba(255,107,112,.1);color:#ff9a9d}
+
   @media (max-width:860px){
+    .tabs{width:auto} .tab{flex:1}
     .main{grid-template-columns:1fr}
     .hero-text{max-width:100%} .hero-img{width:80%;opacity:.55}
     h1{font-size:32px}
@@ -286,7 +305,56 @@
     <div class="bar hide" id="ffProg" style="margin-top:12px"><i></i></div>
   </div>
 
-  <div class="main">
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-t="conv">Конвертер<span>любые файлы, любой формат</span></button>
+    <button class="tab" data-t="banner">Баннеры<span>PNG → JPEG + WebP одной кнопкой</span></button>
+  </nav>
+
+  <!-- вкладка «Баннеры» -->
+  <div class="main hide" id="bannerView">
+    <section class="drop" id="bDrop">
+      <div class="drop-head">
+        <button class="btn sm" id="bAddFiles">+ Файлы</button>
+        <button class="btn sm" id="bAddFolder">+ Папка</button>
+        <button class="btn sm" id="bClear">Очистить</button>
+        <span class="cnt" id="bCnt"></span>
+      </div>
+      <div class="empty" id="bEmpty">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
+        </svg>
+        <b>Перетащи сюда PNG или папку с ними</b>
+        <span>Берутся только PNG, из папки — вместе с подпапками</span>
+      </div>
+      <div class="list" id="bList"></div>
+    </section>
+
+    <div>
+      <section class="card">
+        <h2>Нужные файлы <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
+        <div class="need" id="bNeed"></div>
+        <div class="note">Эти PNG станут JPEG и WebP. PNG больше 500 КБ (все, не только из списка) уменьшатся до размера из имени
+          и <b style="word-break:normal">перезапишутся на месте</b>; если всё равно больше — станут 256-цветными.</div>
+      </section>
+
+      <section class="card">
+        <h2>Куда сохранять</h2>
+        <span class="lb">JPEG</span>
+        <div class="rowf dirrow">
+          <input type="text" id="jpgDir" placeholder="Папка не выбрана">
+          <button class="btn" data-pick="jpgDir">Выбрать</button>
+        </div>
+        <span class="lb" style="display:block">WebP</span>
+        <div class="rowf dirrow">
+          <input type="text" id="webpDir" placeholder="Папка не выбрана">
+          <button class="btn" data-pick="webpDir">Выбрать</button>
+        </div>
+        <div class="note">Файлы с тем же именем в этих папках перезапишутся. Папки запоминаются.</div>
+      </section>
+    </div>
+  </div>
+
+  <div class="main" id="convView">
     <!-- левая колонка: файлы и папка сохранения -->
     <div>
     <section class="drop" id="drop">
@@ -409,6 +477,7 @@
     <button class="btn sm hide" id="openOut">Открыть папку</button>
     <button class="btn danger hide" id="stop">Стоп</button>
     <button class="btn primary" id="start">Конвертировать</button>
+    <button class="btn primary hide" id="bStart">Кодировать</button>
   </div>
 </div>
 
@@ -489,13 +558,14 @@ function fmtSize(n) {
 }
 
 // ---------- настройки ----------
-const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target'];
+const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir'];
 const CHECKS = ['overwrite', 'copyDup'];
+let tab = 'conv';        // вкладка: 'conv' — конвертер, 'banner' — баннеры
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
 function save() {
   try {
-    const o = {fmt, outMode, dropOut};
+    const o = {fmt, outMode, dropOut, tab};
     FIELDS.forEach(k => o[k] = $(k).value); CHECKS.forEach(k => o[k] = $(k).checked);
     localStorage.setItem('konv9000', JSON.stringify(o));
   } catch (e) {}
@@ -505,6 +575,7 @@ function load() {
     const o = JSON.parse(localStorage.getItem('konv9000') || '{}');
     if (o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
+    if (o.tab === 'banner' || o.tab === 'conv') tab = o.tab;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
     FIELDS.forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
     CHECKS.forEach(k => { if (o[k] !== undefined) $(k).checked = o[k]; });
@@ -677,17 +748,21 @@ $('pickOut').onclick = () => dialog(async () => {
 
 // ---------- перетаскивание ----------
 let dragDepth = 0;
-const dropEl = $('drop');
+const dropEl = () => $(tab === 'banner' ? 'bDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl.classList.add('over'); });
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropEl.classList.remove('over'); });
+window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropEl().classList.remove('over'); });
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
-  e.preventDefault(); dragDepth = 0; dropEl.classList.remove('over');
+  e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over');
   if (snap.running) return;
   if (NATIVE_DROP) {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
+  }
+  if (tab === 'banner') {   // браузер даёт только копии, а пережатые PNG надо записать на место
+    say('warn', 'Перетаскивание не подойдёт', 'В браузере перетащенные файлы приходят копиями, и PNG не перезапишутся. Нажми «+ Файлы» или «+ Папка».');
+    return;
   }
   // entries нужно получить синхронно, пока dataTransfer жив
   const entries = [];
@@ -697,7 +772,7 @@ window.addEventListener('drop', e => {
   }
   collect(entries).then(list => enqueueUpload(list));
 });
-window.__konvDrop = list => addInfos(list);
+window.__konvDrop = list => tab === 'banner' ? bAdd(list) : addInfos(list);
 function readAll(reader) {
   return new Promise(res => {
     const out = [];
@@ -882,7 +957,7 @@ async function openPreview(it) {
   prevPath = it.path;
   $('pvName').textContent = it.name;
   $('pvBig').innerHTML = `<img src="${thumbUrl(it.path, .1, 160)}" alt="">`;
-  $('pvStrip').innerHTML = ''; $('pvMeta').innerHTML = '<div>Читаю файл…</div>'; $('pvOut').innerHTML = outLine();
+  $('pvStrip').innerHTML = ''; $('pvMeta').innerHTML = '<div>Читаю файл…</div>'; $('pvOut').innerHTML = outLine(); $('pvOut').classList.toggle('hide', tab !== 'conv');
   $('prev').classList.remove('hide');
   $('pvClose').focus();
   const mi = await api('info', {path: it.path});
@@ -1092,9 +1167,12 @@ function updateButtons() {
   const noFF = !snap.ffmpeg;
   $('start').disabled = snap.running || noFF || pending > 0 || !!(snap.dl && snap.dl.active);
   $('stop').classList.toggle('hide', !snap.running);
-  $('start').classList.toggle('hide', snap.running);
   $('addFiles').disabled = $('addFolder').disabled = $('clearBtn').disabled = snap.running;
-  const anyOk = (snap.files || []).some(f => f.status === 'ok');
+  $('bAddFiles').disabled = $('bAddFolder').disabled = $('bClear').disabled = snap.running;
+  $('bStart').disabled = $('start').disabled;
+  $('start').classList.toggle('hide', snap.running || tab !== 'conv');
+  $('bStart').classList.toggle('hide', snap.running || tab !== 'banner');
+  const anyOk = (snap.files || []).some(f => f.status === 'ok' && f.dst);
   $('openOut').classList.toggle('hide', snap.running || !anyOk);
 }
 function beep() {
@@ -1113,7 +1191,8 @@ async function poll() {
   const s = await api('state');
   if (!s.error) {
     snap = s;
-    (s.files || []).forEach(f => { res[f.path] = f; });
+    const conv = s.batch !== 'banner';
+    (s.files || []).forEach(f => { (conv ? res : bres)[f.path] = f; });
     const dl = s.dl || {}, inst = (s.app || {}).install || {};
     if (ffWasActive && !dl.active && !dl.err && s.ffmpeg && hadFF) ffDoneUntil = Date.now() + 8000;
     if (!dl.active) hadFF = !!s.ffmpeg;
@@ -1127,18 +1206,117 @@ async function poll() {
     $('total').style.width = fl.length ? ((done + part) / fl.length * 100) + '%' : '0';
     $('summary').textContent = s.running ? `Идёт: ${done} из ${fl.length}` : (s.summary || (pending ? 'Копирую файлы…' : 'Добавь файлы и жми кнопку'));
     document.title = s.running ? `${done}/${fl.length} · Конвертер 9000` : 'Конвертер 9000';
-    batchEvents(s);
-    if (prevRunning && !s.running) { beep(); batchDone(s); }
+    if (conv) batchEvents(s);
+    if (prevRunning && !s.running) { beep(); conv ? batchDone(s) : bDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';
     prevRunning = s.running;
     const log = $('logWrap'), bottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
     log.textContent = (s.log || []).join('\n');
     if (bottom) log.scrollTop = log.scrollHeight;
-    updateButtons(); render();
+    if (!s.running && !s.summary && !pending && tab === 'banner') $('summary').textContent = 'Добавь PNG, выбери папки и жми «Кодировать»';
+    updateButtons(); render(); bRender();
   }
   setTimeout(poll, 700);
 }
-render(); poll();
+
+// ---------- вкладка «Баннеры» ----------
+let bFiles = [];          // {name, dir, path, size}
+const bres = {};          // путь -> состояние с сервера (последний прогон баннеров)
+// имя без расширения: нижний регистр, латинская x (вместо × и русской х), без пробелов
+const bKey = n => n.replace(/\.[^.]+$/, '').toLowerCase().replace(/[×х]/g, 'x').replace(/\s/g, '');
+const bWanted = n => (snap.banner || []).find(w => w.toLowerCase() === bKey(n)) || '';
+function setTab(t) {
+  tab = t; save();
+  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+  $('convView').classList.toggle('hide', tab !== 'conv');
+  $('bannerView').classList.toggle('hide', tab !== 'banner');
+  updateButtons(); bRender();
+}
+$('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t); });
+function bAdd(list) {
+  const have = new Set(bFiles.map(f => f.path.toLowerCase()));
+  for (const f of list || []) {
+    if (!/\.png$/i.test(f.path) || have.has(f.path.toLowerCase())) continue;
+    bFiles.push({name: base(f.path), dir: dirOf(f.path), path: f.path, size: f.size});
+    have.add(f.path.toLowerCase());
+  }
+  // сначала файлы из списка, в его порядке
+  const order = n => { const i = (snap.banner || []).indexOf(bWanted(n)); return i < 0 ? 99 : i; };
+  bFiles.sort((a, b) => order(a.name) - order(b.name));
+  bRender();
+}
+let bLast = '';
+function bRender() {
+  const labels = {pending:'ожидает', running:'<span class="spin"></span>', ok:'готово', error:'ошибка', canceled:'остановлен'};
+  const names = snap.banner || [], got = new Set(bFiles.map(f => bWanted(f.name)).filter(Boolean));
+  const html = names.map(n => `<div class="${got.has(n) ? 'got' : ''}">${esc(n)}<i>${got.has(n) ? '✓' : 'нет'}</i></div>`).join('');
+  const list =
+    bFiles.map(it => {
+      const s = bres[it.path], w = bWanted(it.name);
+      let cls = '', status = '', sub = esc(it.dir) + ' · ' + fmtSize(it.size);
+      if (it.size > 500 * 1024) sub += '<span class="tag big">больше 500 КБ</span>';
+      if (!w) sub += '<span class="tag">не из списка</span>';
+      if (s) {
+        cls = s.status; status = labels[s.status] || '';
+        if (s.status === 'error') sub = esc(s.hint || s.msg);
+        else if (s.msg) sub = esc(s.msg);
+      }
+      return `<div class="f sel ${cls}" title="${esc(it.path)}">` +
+        (snap.ffmpeg ? `<div class="badge th" data-bprev="${esc(it.path)}" title="Посмотреть"><img src="${thumbUrl(it.path, .1, 160) + (s && s.dstSize ? '&v=' + s.dstSize : '')}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">png</span></div>`
+                     : '<div class="badge">png</div>') +
+        `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
+        `<div class="pill">${status}</div>` + (snap.running ? '' : `<button class="x" data-bx="${esc(it.path)}" title="Убрать из списка">✕</button>`) + '</div>';
+    }).join('');
+  if (html + list === bLast) return;   // не перерисовываем без нужды — иначе мигают превью
+  bLast = html + list;
+  $('bNeed').innerHTML = html;
+  $('bList').innerHTML = list;
+  $('bFound').textContent = names.length ? `найдено ${got.size} из ${names.length}` : '';
+  $('bEmpty').classList.toggle('hide', bFiles.length > 0);
+  $('bList').classList.toggle('hide', !bFiles.length);
+  $('bCnt').textContent = bFiles.length ? bFiles.length + ' PNG' : '';
+}
+$('bList').addEventListener('click', e => {
+  const pv = e.target.closest('[data-bprev]');
+  if (pv) { const it = bFiles.find(f => f.path === pv.dataset.bprev); if (it) openPreview(it); return; }
+  const x = e.target.closest('[data-bx]');
+  if (x && !snap.running) { bFiles = bFiles.filter(f => f.path !== x.dataset.bx); delete bres[x.dataset.bx]; bRender(); }
+});
+$('bAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); bAdd(r.files); });
+$('bAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); bAdd(r.files); });
+$('bClear').onclick = () => { if (!snap.running) { bFiles = []; Object.keys(bres).forEach(k => delete bres[k]); bRender(); } };
+document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => dialog(async () => {
+  const r = await api('pick-folder', {purpose:'out'});
+  if (r.error) alert(r.error);
+  if (r.path) { $(b.dataset.pick).value = r.path; save(); }
+}));
+$('bStart').onclick = async () => {
+  if (snap.running) return;
+  if (!bFiles.length) { say('warn', 'Список пуст', 'Добавь PNG: перетащи их в окно или нажми «+ Файлы».'); return; }
+  const jpgDir = $('jpgDir').value.trim(), webpDir = $('webpDir').value.trim();
+  if (!jpgDir || !webpDir) { say('warn', 'Куда сохранять?', 'Выбери папки для JPEG и для WebP.'); return; }
+  if (!bFiles.some(f => bWanted(f.name))) { say('warn', 'Нет нужных файлов', 'Среди добавленных PNG нет ни одного из списка — проверь имена.'); return; }
+  bFiles.forEach(f => delete bres[f.path]);
+  snap.files = []; newBatch(); bLast = '';
+  const r = await api('banners', {files: bFiles.map(f => f.path), jpgDir, webpDir});
+  if (r.error) say('err', 'Не запустилось', r.error);
+};
+function bDone(s) {
+  const fl = s.files || [], er = fl.filter(f => f.status === 'error');
+  const made = fl.filter(f => f.status === 'ok' && f.dst).length;
+  const miss = (s.banner || []).filter(n => !fl.some(f => bWanted(f.name) === n));
+  const open = p => async () => { const r = await api('open-dir', {path: p}); if (r.error) say('warn', 'Папка', r.error); };
+  toast({id: 'done', type: er.length ? 'err' : miss.length || fl.some(f => f.status === 'canceled') ? 'warn' : 'ok',
+    title: fl.some(f => f.status === 'canceled') ? 'Остановлено' : `Готово: ${made} JPEG + ${made} WebP`,
+    text: esc(s.summary || ''),
+    list: er.map(f => `<b style="display:inline;font-size:12.5px;color:#d4d4d8">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`)
+      .concat(miss.length ? ['Не было в списке файлов: ' + miss.map(esc).join(', ')] : []),
+    actions: made ? [{t: 'Открыть JPEG', primary: true, keep: true, fn: open($('jpgDir').value.trim())},
+                     {t: 'Открыть WebP', keep: true, fn: open($('webpDir').value.trim())}] : [],
+    ttl: er.length ? 0 : 15000});
+}
+
+render(); setTab(tab); poll();
 </script>
 </body>
 </html>

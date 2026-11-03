@@ -14,6 +14,7 @@
 | Файл | Что в нём |
 |---|---|
 | main.go | форматы, состояние, скачивание ffmpeg, buildArgs, probe (длительность, разрешение, звук, альфа), convert/runFF (повтор в безопасном режиме), режим «Сжать» (compressFormat; результат не меньше оригинала — удаляется, статус kept), «уложить в N МБ» (planRate → два прохода с битрейтом, при нехватке — меньше разрешение), errSummary, outPath, HTTP API, main() |
+| banner.go | вкладка «Баннеры» (`/api/banners`): PNG больше 500 КБ → размер из имени (WxH), перезапись на месте, при необходимости 256 цветов; PNG из списка bannerNames → JPG (q 2) в одну папку → WebP (80) в другую |
 | update.go | версия программы (appVersion), settings.json, проверка свежего ffmpeg (gyan.dev release-version → GitHub BtbN), сравнение версий |
 | selfupdate.go | обновление самой программы: последний релиз этого репозитория → скачать Konvertor.exe (размер + sha256) → заменить себя → перезапуск `--updated` |
 | install_windows.go | установка для пользователя без админа: %LOCALAPPDATA%\Programs\Konvertor, ярлыки «Пуск»/рабочий стол, запись в «Установленные приложения», удаление `Konvertor.exe --uninstall`, замена exe при обновлении |

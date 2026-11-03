@@ -131,6 +131,7 @@ type Server struct {
 	files   []*FileState
 	log     []string
 	summary string
+	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры»
 	cancel  context.CancelFunc
 
 	ffv      FFVer       // версии ffmpeg: своя и свежая
@@ -957,6 +958,7 @@ func (s *Server) run(req StartReq, ffm string) {
 	}
 	s.mu.Lock()
 	s.files = states
+	s.batch = "conv"
 	s.running = true
 	s.cancel = cancel
 	s.summary = ""
@@ -1112,6 +1114,8 @@ func (s *Server) routes() *http.ServeMux {
 			"files":      s.files,
 			"log":        s.log,
 			"summary":    s.summary,
+			"batch":      s.batch,
+			"banner":     bannerNames,
 			"defaultOut": defaultOut(),
 			"ffv":        s.ffv,
 			"appUpd":     s.appUpd,
@@ -1296,6 +1300,35 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var req BannerReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, map[string]any{"error": "bad request"})
+			return
+		}
+		req.JpgDir, req.WebpDir = strings.TrimSpace(req.JpgDir), strings.TrimSpace(req.WebpDir)
+		s.mu.Lock()
+		ffm, running, dl, upd := s.ffmpeg, s.running, s.dl.Active, s.appUpd.Active || s.appUpd.Restart
+		s.mu.Unlock()
+		switch {
+		case upd:
+			writeJSON(w, map[string]any{"error": "подожди, ставится новая версия Конвертера"})
+		case running:
+			writeJSON(w, map[string]any{"error": "уже идёт обработка"})
+		case dl:
+			writeJSON(w, map[string]any{"error": "подожди, ffmpeg ещё скачивается"})
+		case ffm == "":
+			writeJSON(w, map[string]any{"error": "ffmpeg не найден"})
+		case len(req.Files) == 0:
+			writeJSON(w, map[string]any{"error": "нет файлов"})
+		case req.JpgDir == "" || req.WebpDir == "":
+			writeJSON(w, map[string]any{"error": "выбери папки для JPEG и WebP"})
+		default:
+			go s.runBanners(req, ffm)
+			writeJSON(w, map[string]any{"ok": true})
+		}
+	}))
+
 	mux.HandleFunc("/api/cancel", s.api(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		if s.cancel != nil {
@@ -1309,7 +1342,7 @@ func (s *Server) routes() *http.ServeMux {
 		dir := ""
 		s.mu.Lock()
 		for _, fs := range s.files {
-			if fs.Status == "ok" {
+			if fs.Status == "ok" && fs.Dst != "" {
 				dir = filepath.Dir(fs.Dst)
 				break
 			}
@@ -1320,6 +1353,19 @@ func (s *Server) routes() *http.ServeMux {
 			return
 		}
 		openFolder(dir)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/open-dir", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if st, err := os.Stat(body.Path); err != nil || !st.IsDir() {
+			writeJSON(w, map[string]any{"error": "папки нет"})
+			return
+		}
+		openFolder(body.Path)
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
