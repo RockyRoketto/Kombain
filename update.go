@@ -19,7 +19,7 @@ import (
 
 const (
 	appName    = "Конвертер 9000"
-	appVersion = "1.6.0"
+	appVersion = "1.7.0"
 	appAuthor  = "Dmitrii Trudnikov"
 )
 
