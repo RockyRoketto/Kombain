@@ -58,4 +58,4 @@ jobs:
           # текст релиза — раздел «## X.Y.Z» из CHANGELOG.md
           awk -v v="$VER" 'index($0, "## " v) == 1 { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "Новая версия $VER" > notes.md
-          gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Конвертор 9000 $VER" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Конвертер 9000 $VER" --notes-file notes.md

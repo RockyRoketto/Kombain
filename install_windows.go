@@ -27,6 +27,9 @@ import (
 
 const uninstallKey = `Software\Microsoft\Windows\CurrentVersion\Uninstall\Konvertor9000`
 
+// так назывались ярлыки до переименования в «Конвертер 9000»
+const oldShortcutName = "Конвертор 9000.lnk"
+
 var (
 	pCoUninitialize = ole32.NewProc("CoUninitialize")
 
@@ -120,10 +123,11 @@ func doInstall(desktop bool) error {
 	if err := os.MkdirAll(installDir(), 0o755); err != nil {
 		return err
 	}
+	renameOldShortcuts()
 	if !strings.EqualFold(src, filepath.Clean(dst)) {
 		if err := copyFile(src, dst); err != nil {
 			if fileExists(dst) {
-				return fmt.Errorf("не получилось заменить %s — похоже, установленный Конвертор сейчас открыт. Закрой его и попробуй ещё раз", dst)
+				return fmt.Errorf("не получилось заменить %s — похоже, установленный Конвертер сейчас открыт. Закрой его и попробуй ещё раз", dst)
 			}
 			return fmt.Errorf("не получилось скопировать программу: %v", err)
 		}
@@ -148,6 +152,17 @@ func doInstall(desktop bool) error {
 		}
 	}
 	return writeUninstallEntry(dst)
+}
+
+// renameOldShortcuts: ярлыки со старым названием в «Пуске» и на рабочем столе переименовать в новое
+func renameOldShortcuts() {
+	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
+		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
+			if old := filepath.Join(dir, oldShortcutName); fileExists(old) {
+				os.Rename(old, filepath.Join(dir, shortcutName))
+			}
+		}
+	}
 }
 
 func writeUninstallEntry(exe string) error {
@@ -235,7 +250,7 @@ func restartSelf(s *Server) {
 	cmd := exec.Command(self, "--updated")
 	cmd.Dir = filepath.Dir(self)
 	if err := cmd.Start(); err != nil {
-		msgBox("Конвертор обновлён, но сам перезапуститься не смог. Открой его заново.", mbOK|mbIconInfo)
+		msgBox("Конвертер обновлён, но сам перезапуститься не смог. Открой его заново.", mbOK|mbIconInfo)
 	}
 	s.stopAll()
 	os.Exit(0)
@@ -252,6 +267,9 @@ func afterUpdate(inst InstallInfo) InstallInfo {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
+	if inst.Installed {
+		renameOldShortcuts()
+	}
 	if inst.Installed && inst.Version != appVersion {
 		if writeUninstallEntry(selfExe()) == nil {
 			return installInfo()
@@ -269,7 +287,7 @@ func msgBox(text string, flags uintptr) uintptr {
 func runUninstall() {
 	// программа открыта (держит свой порт) — сначала пусть закроют
 	if ln, err := net.Listen("tcp", "127.0.0.1:47831"); err != nil {
-		msgBox("Конвертор сейчас открыт. Закрой его и запусти удаление ещё раз.", mbOK|mbIconWarn)
+		msgBox("Конвертер сейчас открыт. Закрой его и запусти удаление ещё раз.", mbOK|mbIconWarn)
 		return
 	} else {
 		ln.Close()
@@ -282,6 +300,7 @@ func runUninstall() {
 	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
 		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
 			os.Remove(filepath.Join(dir, shortcutName))
+			os.Remove(filepath.Join(dir, oldShortcutName))
 		}
 	}
 	registry.DeleteKey(registry.CURRENT_USER, uninstallKey)
@@ -292,7 +311,7 @@ func runUninstall() {
 	if !inside {
 		os.RemoveAll(dir)
 	}
-	msgBox("Конвертор удалён.", mbOK|mbIconInfo)
+	msgBox("Конвертер удалён.", mbOK|mbIconInfo)
 	if !inside {
 		return
 	}

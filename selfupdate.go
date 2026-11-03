@@ -120,9 +120,9 @@ func (s *Server) checkApp() {
 	upd := u.Update
 	s.mu.Unlock()
 	if err != nil {
-		s.addLog("Не удалось проверить новую версию Конвертора: %v", err)
+		s.addLog("Не удалось проверить новую версию Конвертера: %v", err)
 	} else if upd {
-		s.addLog("Вышел Конвертор %s", rel.ver)
+		s.addLog("Вышел Конвертер %s", rel.ver)
 	}
 }
 
@@ -172,13 +172,13 @@ func (s *Server) updateApp() error {
 			s.mu.Lock()
 			s.appUpd.Active, s.appUpd.Err = false, err.Error()
 			s.mu.Unlock()
-			s.addLog("Обновление Конвертора: %v", err)
+			s.addLog("Обновление Конвертера: %v", err)
 			return
 		}
 		s.mu.Lock()
 		s.appUpd.Active, s.appUpd.Pct, s.appUpd.Restart = false, 100, true
 		s.mu.Unlock()
-		s.addLog("Конвертор обновлён до %s, перезапускаю", ver)
+		s.addLog("Конвертер обновлён до %s, перезапускаю", ver)
 		restartSelf(s)
 	}()
 	return nil

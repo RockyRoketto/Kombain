@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/favicon.png">
-<title>Конвертор 9000</title>
+<title>Конвертер 9000</title>
 <style>
   :root{
     --bg:#0c0c0e; --s1:#151518; --s2:#1b1b1f; --s3:#232328;
@@ -34,8 +34,8 @@
   .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,12,14,.55),transparent 60%);pointer-events:none}
   .hero-text{position:relative;z-index:2;max-width:55%}
   .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:8px;font-weight:600}
-  h1{margin:0;font-size:40px;line-height:1.05;font-weight:800;letter-spacing:-.035em}
-  h1 span{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--acc);margin-top:4px}
+  h1{margin:0;font-size:40px;line-height:1.05;font-weight:800;letter-spacing:-.035em;white-space:nowrap}
+  h1 span{color:var(--acc)}
   .hero p{margin:12px 0 0;color:#b9b9c0;max-width:340px}
   .hero-top{position:absolute;top:16px;right:16px;z-index:3;display:flex;gap:8px}
   .exit,.instb{background:rgba(12,12,14,.55);backdrop-filter:blur(10px);
@@ -242,7 +242,7 @@
   @media (max-width:860px){
     .main{grid-template-columns:1fr}
     .hero-text{max-width:100%} .hero-img{width:80%;opacity:.55}
-    h1{font-size:32px} h1 span{font-size:21px}
+    h1{font-size:32px}
     .dock-in{flex-wrap:wrap}
   }
 </style>
@@ -253,8 +253,8 @@
   <header class="hero">
     <div class="hero-text">
       <div class="eyebrow">пакетный конвертер</div>
-      <h1>Конвертор<span>9000</span></h1>
-      <p>Кидай пачку файлов, забирай пачку в нужном формате.</p>
+      <h1>Конвертер <span>9000</span></h1>
+      <p>Видео, аудио и картинки — пачкой в нужный формат. Умеет сжимать без смены формата и укладывать видео в заданный размер в МБ.</p>
     </div>
     <img class="hero-img" src="/hero.jpg" alt="">
     <div class="hero-top">
@@ -428,7 +428,7 @@
   <div class="mcard">
     <div class="eyebrow" id="stEyebrow">установка</div>
     <h3 id="stTitle">Установить на компьютер?</h3>
-    <p id="stSub">Конвертор появится в меню «Пуск» и в «Установленных приложениях», а при запуске сам проверит, не вышел ли новый ffmpeg.</p>
+    <p id="stSub">Конвертер появится в меню «Пуск» и в «Установленных приложениях», а при запуске сам проверит, не вышел ли новый ffmpeg.</p>
     <div id="stOpts">
       <label class="sw" id="stDeskRow"><span>Ярлык на рабочем столе</span><input type="checkbox" id="stDesk" checked><i></i></label>
       <label class="sw" id="stFFRow"><span id="stFFText">ffmpeg: проверяю свежую версию…</span><input type="checkbox" id="stFF"><i></i></label>
@@ -981,9 +981,9 @@ function renderSetup(s) {
     return;
   }
   $('stEyebrow').textContent = up ? 'обновление' : 'установка';
-  $('stTitle').textContent = up ? `Обновить Конвертор ${inst.version} → ${app.version}?` : 'Установить на компьютер?';
+  $('stTitle').textContent = up ? `Обновить Конвертер ${inst.version} → ${app.version}?` : 'Установить на компьютер?';
   $('stSub').textContent = up ? 'Заменим установленную программу этой версией. Ярлыки и настройки останутся.'
-    : 'Конвертор появится в меню «Пуск» и в «Установленных приложениях», а при запуске сам проверит, не вышла ли новая версия Конвертора или ffmpeg.';
+    : 'Конвертер появится в меню «Пуск» и в «Установленных приложениях», а при запуске сам проверит, не вышла ли новая версия Конвертера или ffmpeg.';
   if (!setupBusy) $('stGo').textContent = up ? 'Обновить' : 'Установить';
   $('stLater').textContent = up ? 'Не сейчас' : 'Без установки';
   const row = ffSetupRow(s), cb = $('stFF');
@@ -1043,7 +1043,7 @@ function ffBanner(s) {
   if (btn) $('ffDl').textContent = btn;
   $('ffNote').textContent = note;
 }
-// ---------- плашка новой версии Конвертора ----------
+// ---------- плашка новой версии Конвертера ----------
 let appDismissed = false;
 function appBanner(s) {
   const u = s.appUpd || {}, run = !!s.running;
@@ -1067,11 +1067,11 @@ function appBanner(s) {
   $('appGo').title = run ? 'Сначала дождись конца конвертации' : '';
   $('appProg').firstElementChild.style.width = (u.pct || 0) + '%';
   let text = '';
-  if (mode === 'upd') text = `<b>Вышел Конвертор ${esc(u.latest)}.</b> У тебя ${esc((s.app || {}).version || '')}. Обновить? Программа перезапустится сама.` +
+  if (mode === 'upd') text = `<b>Вышел Конвертер ${esc(u.latest)}.</b> У тебя ${esc((s.app || {}).version || '')}. Обновить? Программа перезапустится сама.` +
     (run ? ' Можно будет после конца конвертации.' : '');
-  else if (mode === 'dl') text = `<b>Скачиваю Конвертор ${esc(u.latest)}…</b> ${Math.round(u.pct || 0)}%`;
-  else if (mode === 'err') text = '<b>Не удалось обновить Конвертор:</b> ' + esc(u.err) + '. Старая версия работает как раньше.';
-  else text = `<b>Конвертор обновлён до ${esc(u.latest)} ✓</b> Перезапускаю…`;
+  else if (mode === 'dl') text = `<b>Скачиваю Конвертер ${esc(u.latest)}…</b> ${Math.round(u.pct || 0)}%`;
+  else if (mode === 'err') text = '<b>Не удалось обновить Конвертер:</b> ' + esc(u.err) + '. Старая версия работает как раньше.';
+  else text = `<b>Конвертер обновлён до ${esc(u.latest)} ✓</b> Перезапускаю…`;
   $('appText').innerHTML = text;
   if (mode === 'upd') $('appNotes').textContent = u.notes;
 }
@@ -1126,7 +1126,7 @@ async function poll() {
     const part = fl.filter(f => f.status === 'running').reduce((a, f) => a + (f.pct || 0) / 100, 0);
     $('total').style.width = fl.length ? ((done + part) / fl.length * 100) + '%' : '0';
     $('summary').textContent = s.running ? `Идёт: ${done} из ${fl.length}` : (s.summary || (pending ? 'Копирую файлы…' : 'Добавь файлы и жми кнопку'));
-    document.title = s.running ? `${done}/${fl.length} · Конвертор 9000` : 'Конвертор 9000';
+    document.title = s.running ? `${done}/${fl.length} · Конвертер 9000` : 'Конвертер 9000';
     batchEvents(s);
     if (prevRunning && !s.running) { beep(); batchDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';

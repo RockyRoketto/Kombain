@@ -1142,7 +1142,7 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
-	// новая версия Конвертора: скачать, заменить себя и перезапуститься
+	// новая версия Конвертера: скачать, заменить себя и перезапуститься
 	mux.HandleFunc("/api/app-update", s.api(func(w http.ResponseWriter, r *http.Request) {
 		if err := s.updateApp(); err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
@@ -1273,7 +1273,7 @@ func (s *Server) routes() *http.ServeMux {
 		ffm, running, dl, upd := s.ffmpeg, s.running, s.dl.Active, s.appUpd.Active || s.appUpd.Restart
 		s.mu.Unlock()
 		if upd {
-			writeJSON(w, map[string]any{"error": "подожди, ставится новая версия Конвертора"})
+			writeJSON(w, map[string]any{"error": "подожди, ставится новая версия Конвертера"})
 			return
 		}
 		if running {

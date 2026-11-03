@@ -181,7 +181,7 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 			if running {
 				r, _, _ := pMessageBoxW.Call(hwnd,
 					uintptr(unsafe.Pointer(u16("Идёт конвертация. Остановить и закрыть программу?"))),
-					uintptr(unsafe.Pointer(u16("Конвертор 9000"))), mbYesNo|mbIconQuestion)
+					uintptr(unsafe.Pointer(u16("Конвертер 9000"))), mbYesNo|mbIconQuestion)
 				if r != idYes {
 					return 0
 				}
@@ -234,7 +234,7 @@ func createMainWindow() {
 
 	mainHwnd, _, _ = pCreateWindowExW.Call(0,
 		uintptr(unsafe.Pointer(className)),
-		uintptr(unsafe.Pointer(u16("Конвертор 9000"))),
+		uintptr(unsafe.Pointer(u16("Конвертер 9000"))),
 		wsOverlappedWindow, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0, 0, hInstance, 0)
 
 	// тёмный заголовок окна (Windows 10 20H1+ / 11)

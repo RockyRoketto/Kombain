@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	appName    = "Конвертор 9000"
+	appName    = "Конвертер 9000"
 	appVersion = "1.6.0"
 	appAuthor  = "Dmitrii Trudnikov"
 )
@@ -45,7 +45,7 @@ func init() {
 type Settings struct {
 	SkipFFmpeg    string `json:"skipFFmpeg,omitempty"`    // «пропустить эту версию ffmpeg»
 	SetupDeclined string `json:"setupDeclined,omitempty"` // версия программы, на которой нажали «без установки»
-	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию Конвертора»
+	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию Конвертера»
 }
 
 func settingsPath() string { return filepath.Join(dataDir(), "settings.json") }
