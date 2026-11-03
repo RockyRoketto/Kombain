@@ -30,7 +30,7 @@
 | tools/setversion.py | прописывает appVersion в rsrc_windows_amd64.syso без go-winres (если длина номера версии не изменилась) |
 | *_test.go | тесты: разбор версий и источников ffmpeg, релизов GitHub, `ffmpeg -i` и превью (`go test ./...`) |
 | .github/workflows/release.yml | GitHub Actions: по тегу vX.Y.Z проверки, go-winres, сборка exe, релиз с текстом из CHANGELOG.md |
-| release.cmd / release.ps1 | выпуск версии одной командой |
+| release.cmd / release.sh | выпуск версии одной командой (release.cmd запускает release.sh через bash из Git for Windows) |
 | CHANGELOG.md | что нового по версиям |
 
 ## Выпуск новой версии
