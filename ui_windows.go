@@ -562,7 +562,7 @@ func shellItemPath(item unsafe.Pointer) string {
 	return s
 }
 
-func showDialog(owner uintptr, folders, multi bool, title string) ([]string, error) {
+func showDialog(owner uintptr, folders, multi bool, title, typeName, typePattern string) ([]string, error) {
 	var dlg unsafe.Pointer
 	hr, _, _ := pCoCreateInstance.Call(uintptr(unsafe.Pointer(&clsidFileOpenDialog)), 0, 1,
 		uintptr(unsafe.Pointer(&iidFileOpenDialog)), uintptr(unsafe.Pointer(&dlg)))
@@ -587,7 +587,7 @@ func showDialog(owner uintptr, folders, multi bool, title string) ([]string, err
 
 	if !folders {
 		specs := []filterSpec{
-			{u16(tr("dlg.mediaFiles")), u16("*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.wmv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.3gp;*.gif;*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff")},
+			{u16(typeName), u16(typePattern)},
 			{u16(tr("dlg.allFiles")), u16("*.*")},
 		}
 		comCall(dlg, 4, uintptr(len(specs)), uintptr(unsafe.Pointer(&specs[0]))) // SetFileTypes
@@ -633,7 +633,7 @@ func showDialog(owner uintptr, folders, multi bool, title string) ([]string, err
 }
 
 // dialogOnUI показывает диалог в оконном потоке; в режиме браузера — поверх всех окон
-func dialogOnUI(folders, multi bool, title string) ([]string, error) {
+func dialogOnUI(folders, multi bool, title, typeName, typePattern string) ([]string, error) {
 	type res struct {
 		p []string
 		e error
@@ -655,7 +655,7 @@ func dialogOnUI(folders, multi bool, title string) ([]string, error) {
 			pAttachThreadInput.Call(fgThread, me, 0)
 			owner = tmp
 		}
-		p, e := showDialog(owner, folders, multi, title)
+		p, e := showDialog(owner, folders, multi, title, typeName, typePattern)
 		if tmp != 0 {
 			pDestroyWindow.Call(tmp)
 		}
@@ -666,11 +666,21 @@ func dialogOnUI(folders, multi bool, title string) ([]string, error) {
 }
 
 func pickFiles() ([]string, error) {
-	return dialogOnUI(false, true, tr("dlg.pickFiles"))
+	return dialogOnUI(false, true, tr("dlg.pickFiles"), tr("dlg.mediaFiles"),
+		"*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.wmv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.3gp;*.gif;*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff")
 }
 
 func pickFolder() (string, error) {
-	p, err := dialogOnUI(true, false, tr("dlg.pickFolder"))
+	p, err := dialogOnUI(true, false, tr("dlg.pickFolder"), "", "")
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
+// pickSound: свой звук для конца пачки; только форматы, которые умеет играть окно программы
+func pickSound() (string, error) {
+	p, err := dialogOnUI(false, false, tr("dlg.pickSound"), tr("dlg.audioFiles"), "*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus")
 	if err != nil || len(p) == 0 {
 		return "", err
 	}

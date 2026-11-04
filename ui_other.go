@@ -15,6 +15,10 @@ func pickFolder() (string, error) {
 	return "", errT("dlg.onlyWindows")
 }
 
+func pickSound() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
+
 func windowThemeChanged() {} // своего окна здесь нет, страницу в браузере красит CSS
 func windowLangChanged()  {}
 

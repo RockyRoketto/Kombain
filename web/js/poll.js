@@ -25,17 +25,6 @@ function renderSummary(s) {
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }
-function beep() {
-  try {
-    const c = new (window.AudioContext || window.webkitAudioContext)();
-    [660, 880].forEach((f, i) => {
-      const t = c.currentTime + i * .14, o = c.createOscillator(), g = c.createGain();
-      o.frequency.value = f; o.connect(g); g.connect(c.destination);
-      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
-      o.start(t); o.stop(t + .2);
-    });
-  } catch (e) {}
-}
 
 async function poll() {
   const s = await api('state');
@@ -61,7 +50,7 @@ async function poll() {
     renderSummary(s);
     if (conv) batchEvents(s);
     if (doneSeq === null) doneSeq = s.batchSeq;   // пачки до открытия страницы не наши
-    if (!s.running && s.batchSeq !== doneSeq) { doneSeq = s.batchSeq; beep(); conv ? batchDone(s) : bDone(s); }
+    if (!s.running && s.batchSeq !== doneSeq) { doneSeq = s.batchSeq; batchSound(s); conv ? batchDone(s) : bDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';
     const log = $('logWrap'), bottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
     const logText = (s.log || []).join('\n');

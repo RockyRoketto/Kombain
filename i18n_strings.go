@@ -111,6 +111,8 @@ var goDict = map[string]map[string]string{
 		"dlg.allFiles":    "Все файлы",
 		"dlg.pickFiles":   "Выбери файлы для конвертации",
 		"dlg.pickFolder":  "Выбери папку",
+		"dlg.audioFiles":  "Звуковые файлы",
+		"dlg.pickSound":   "Выбери звук",
 		"dlg.onlyWindows": "диалоги выбора доступны только в Windows",
 	},
 	langEN: {
@@ -221,6 +223,8 @@ var goDict = map[string]map[string]string{
 		"dlg.allFiles":    "All files",
 		"dlg.pickFiles":   "Select files to convert",
 		"dlg.pickFolder":  "Select a folder",
+		"dlg.audioFiles":  "Audio files",
+		"dlg.pickSound":   "Select a sound",
 		"dlg.onlyWindows": "selection dialogs are available only on Windows",
 	},
 }

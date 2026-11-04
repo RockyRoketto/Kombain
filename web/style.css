@@ -287,6 +287,9 @@
   .field:not(.hide)~.field{border-top:1px solid var(--line)}
   .field label,.field .lb{color:var(--tx2)}
   .field .hint{display:block;font-size:11px;color:var(--dim2)}
+  .soundc{display:flex;align-items:center;gap:6px;min-width:0}
+  .soundc select{width:176px;min-width:0;text-overflow:ellipsis}
+  .soundc .btn{flex:none}
   input[type=number],input[type=text],select{background:var(--s2);color:var(--tx);border:1px solid var(--line2);border-radius:10px;
     padding:7px 10px;font:inherit;outline:none;transition:.12s}
   input[type=number]{width:92px;text-align:right}

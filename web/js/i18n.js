@@ -21,7 +21,7 @@ function applyLang() {
   document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
   document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
   // тексты, которые ставит сам код; показанные раньше всплывашки, сообщения и лог остаются как были
-  buildFormats(); applyKind(); renderOut();
+  buildFormats(); applyKind(); renderOut(); renderSounds();
   newsBanner(snap); appBanner(snap); ffBanner(snap); renderSetup(snap); renderInstallBtn(snap);
   render(); bLast = ''; bRender(); updateButtons(); renderSummary(snap);
 }

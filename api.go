@@ -273,6 +273,19 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, res)
 	}))
 
+	mux.HandleFunc("/api/sounds", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"sounds": systemSounds()})
+	}))
+
+	mux.HandleFunc("/api/pick-sound", s.api(func(w http.ResponseWriter, r *http.Request) {
+		p, err := pickSound()
+		res := map[string]any{"path": p}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		writeJSON(w, res)
+	}))
+
 	// перетащенные в окно файлы: копируем во временную папку
 	mux.HandleFunc("/api/upload", s.api(func(w http.ResponseWriter, r *http.Request) {
 		name := safeName(r.URL.Query().Get("name"))
