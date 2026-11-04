@@ -1,13 +1,15 @@
 // ---------- плашка ffmpeg: нет / скачивается / вышла новая версия ----------
-let ffDismissed = false, ffWasActive = false, ffDoneUntil = 0;
+// «Не сейчас» запоминает версию: когда выйдет более новая, плашка появится снова
+let ffDismissed = null, ffWasActive = false, ffDoneUntil = 0;
 function ffBanner(s) {
   const dl = s.dl || {}, v = s.ffv || {}, noFF = !s.ffmpeg;
+  const off = ffDismissed === (v.latest || '');
   let mode = '';
   if (dl.active) mode = 'dl';
   else if (noFF) mode = 'none';
-  else if (dl.err && !ffDismissed) mode = 'err';
+  else if (dl.err && !off) mode = 'err';
   else if (Date.now() < ffDoneUntil) mode = 'done';
-  else if (v.update && !v.skipped && !ffDismissed) mode = 'upd';
+  else if (v.update && !v.skipped && !off) mode = 'upd';
   if (!$('setup').classList.contains('hide')) mode = ''; // всё видно в окне установки
   const b = $('ffBanner');
   b.classList.toggle('hide', !mode);
@@ -41,15 +43,26 @@ function ffBanner(s) {
   if (btn) $('ffDl').textContent = btn;
   $('ffNote').textContent = note;
 }
+// ---------- плашка «Что нового» после обновления ----------
+let newsClosed = false;
+function newsBanner(s) {
+  const on = !!s.news && !newsClosed && $('setup').classList.contains('hide');
+  $('newsBanner').classList.toggle('hide', !on);
+  if (!on) return;
+  $('newsText').innerHTML = `<b>Конвертер обновлён до ${esc((s.app || {}).version || '')}.</b> Что нового:`;
+  if ($('newsNotes').textContent !== s.news) $('newsNotes').textContent = s.news; // не сбрасывать прокрутку при каждом опросе
+}
+$('newsOk').onclick = () => { newsClosed = true; newsBanner(snap); api('news-seen'); };
 // ---------- плашка новой версии Конвертера ----------
-let appDismissed = false;
+let appDismissed = null;
 function appBanner(s) {
   const u = s.appUpd || {}, run = !!s.running;
+  const off = appDismissed === (u.latest || '');
   let mode = '';
   if (u.restart) mode = 'restart';
   else if (u.active) mode = 'dl';
-  else if (u.update && u.supported && u.err && !appDismissed) mode = 'err';
-  else if (u.update && u.supported && !u.skipped && !appDismissed) mode = 'upd';
+  else if (u.update && u.supported && u.err && !off) mode = 'err';
+  else if (u.update && u.supported && !u.skipped && !off) mode = 'upd';
   if (!$('setup').classList.contains('hide')) mode = '';
   const b = $('appBanner');
   b.classList.toggle('hide', !mode);
@@ -77,6 +90,7 @@ $('appGo').onclick = async () => {
   const r = await api('app-update');
   if (r.error) say('err', 'Обновление', r.error);
 };
-$('appLater').onclick = () => { appDismissed = true; appBanner(snap); };
-$('appSkip').onclick = async () => { await api('app-skip'); appDismissed = true; appBanner(snap); };
+const appDismiss = () => { appDismissed = (snap.appUpd || {}).latest || ''; appBanner(snap); };
+$('appLater').onclick = appDismiss;
+$('appSkip').onclick = async () => { await api('app-skip'); appDismiss(); };
 

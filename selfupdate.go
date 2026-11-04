@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const updateRepo = "RockyRoketto/Konverter-9000"
@@ -101,17 +102,22 @@ func (s *Server) refreshAppLocked() {
 	u.Skipped = u.Latest != "" && u.Latest == s.settings.SkipApp
 }
 
-// checkApp: при запуске в фоне спрашиваем GitHub, нет ли версии новее
+// checkApp спрашивает GitHub, нет ли версии новее: при запуске и потом из watchUpdates.
+// В лог пишем только перемены, иначе открытая неделями программа засорит его одним и тем же.
 func (s *Server) checkApp() {
 	rel, err := latestApp()
 	s.mu.Lock()
 	u := &s.appUpd
+	wasErr, prev := u.CheckErr != "", u.Latest
 	u.Supported = canSelfUpdate()
 	u.Checked = true
 	if err != nil {
 		u.CheckErr = err.Error()
 	} else {
 		u.CheckErr = ""
+		if rel.ver != prev {
+			u.Err = "" // ошибка прошлой попытки обновиться относилась к старой версии
+		}
 		u.Latest, u.Notes, u.Page = rel.ver, rel.notes, rel.page
 		u.url, u.size, u.sha256 = rel.url, rel.size, rel.sha256
 	}
@@ -119,9 +125,52 @@ func (s *Server) checkApp() {
 	upd := u.Update
 	s.mu.Unlock()
 	if err != nil {
-		s.addLog("Не удалось проверить новую версию Конвертера: %v", err)
-	} else if upd {
+		if !wasErr {
+			s.addLog("Не удалось проверить новую версию Конвертера: %v", err)
+		}
+	} else if upd && rel.ver != prev {
 		s.addLog("Вышел Конвертер %s", rel.ver)
+	}
+}
+
+// Пока программа открыта, обновления проверяются раз в updateEvery.
+// На один запуск это несколько запросов к GitHub за сутки: лимит без входа считается на адрес, а в офисе он общий.
+const (
+	updateEvery = 6 * time.Hour
+	updateTick  = time.Minute
+)
+
+// updateDue: пора ли проверять снова. Часы перевели назад — тоже пора, иначе ждали бы их долго.
+func updateDue(last, now time.Time) bool {
+	d := now.Sub(last)
+	return d >= updateEvery || d < 0
+}
+
+// watchUpdates повторяет проверку, пока программа открыта.
+// Round(0) убирает монотонные часы: сравниваем обычное время, и после спящего режима проверка не опоздает.
+func (s *Server) watchUpdates() {
+	last := time.Now().Round(0)
+	for {
+		time.Sleep(updateTick)
+		now := time.Now().Round(0)
+		if updateDue(last, now) {
+			last = now
+			s.recheckUpdates()
+		}
+	}
+}
+
+// recheckUpdates не трогает то, что сейчас скачивается: плашка не должна менять текст на ходу
+func (s *Server) recheckUpdates() {
+	s.mu.Lock()
+	app := !s.appUpd.Active && !s.appUpd.Restart
+	ff := !s.dl.Active
+	s.mu.Unlock()
+	if app {
+		s.checkApp()
+	}
+	if ff {
+		s.checkLatestFF()
 	}
 }
 

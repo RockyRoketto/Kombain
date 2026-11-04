@@ -55,6 +55,7 @@ type Server struct {
 	settings Settings    // settings.json
 	inst     InstallInfo // установлена ли программа
 	appUpd   AppUpd      // новая версия самой программы
+	news     string      // текст плашки «Что нового», пусто — плашки нет
 }
 
 type StartReq struct {

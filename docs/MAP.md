@@ -31,7 +31,7 @@
 | Сводки в заголовках разделов | `web/js/settings.js` (`applyKind`, `renderParamSum`, `renderPresets`, `renderOut`) |
 | Список файлов | `web/js/filelist.js` |
 | Всплывашки, итог пачки | `web/js/toasts.js` |
-| Плашки обновлений | `web/js/updates.js`; логика — `update.go`, `selfupdate.go` |
+| Плашки обновлений и «Что нового» | `web/js/updates.js`; логика — `update.go`, `selfupdate.go`, `whatsnew.go` |
 | Установка и удаление | `install_windows.go`, `web/js/setup.js` |
 | Окно, перетаскивание, диалоги | `ui_windows.go`, `web/js/drop.js` |
 | Превью | `media.go`, `web/js/preview.js` |
@@ -60,9 +60,10 @@
 | `web.go` | сборка страницы `buildPage`, порядок скриптов `webJS` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `bannerNames`, `bannerWanted`, `bannerDims`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler` |
-| `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `httpGet`, `InstallInfo` |
+| `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
-| `selfupdate.go` | `updateRepo`, `latestApp`, `checkApp`, `updateApp`, `fetchApp` |
+| `selfupdate.go` | `updateRepo`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
+| `whatsnew.go` | плашка «Что нового»: `changelogSince` (разбор вшитого `CHANGELOG.md`), `whatsNewSince`, `initNews`, `newsSeen` |
 | `install_windows.go` | `doInstall`, `createShortcut`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
 | `ui_windows.go` | `runUI`, `wndProc`, `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
 | `install_other.go`, `ui_other.go`, `hide_*.go` | заглушки не для Windows и запуск процессов без окна |
@@ -100,7 +101,7 @@
 | Пачка | `start`, `banners`, `cancel`, `state` |
 | Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
-| Программа | `settings`, `app-update`, `app-skip`, `install`, `setup-later`, `exit` |
+| Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 
 Вне `/api`: `/` (страница), `/hero.jpg`, `/favicon.png`, `/thumb` (токен в параметре `t`).
 

@@ -84,11 +84,18 @@ func startServer() *Server {
 	if fixed { // чистим хвосты от прошлого запуска (только если нет другого живого экземпляра)
 		os.RemoveAll(dropDir())
 	}
+	inst := installInfo()
+	prevInstalled := "" // запись об установке afterUpdate перепишет, а прошлая версия нужна для «Что нового»
+	if inst.Installed {
+		prevInstalled = inst.Version
+	}
 	s := &Server{token: hex.EncodeToString(tok), host: ln.Addr().String(), ownsDrop: fixed, last: time.Now(), ffmpeg: findFFmpeg(),
-		settings: loadSettings(), inst: afterUpdate(installInfo())}
+		settings: loadSettings(), inst: afterUpdate(inst)}
+	s.initNews(prevInstalled, hasArg("--updated"))
 	s.addLog("%s %s", appName, appVersion)
 	go s.checkFFmpeg()
 	go s.checkApp()
+	go s.watchUpdates()
 	go http.Serve(ln, s.routes())
 	return s
 }

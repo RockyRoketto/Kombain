@@ -108,6 +108,7 @@
   .banner.okb b{color:var(--ok)}
   .banner .bar{flex-basis:100%}
   .banner-notes{flex-basis:100%;color:var(--dim);white-space:pre-wrap;max-height:72px;overflow:auto}
+  .news-notes{max-height:112px}
   .brow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .linkbtn{background:none;border:0;padding:4px 2px;color:var(--dim);font-size:13px;text-decoration:underline;text-underline-offset:3px}
   .linkbtn:hover{color:var(--tx2)}

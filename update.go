@@ -46,6 +46,7 @@ type Settings struct {
 	SkipFFmpeg    string `json:"skipFFmpeg,omitempty"`    // «пропустить эту версию ffmpeg»
 	SetupDeclined string `json:"setupDeclined,omitempty"` // версия программы, на которой нажали «без установки»
 	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию Конвертера»
+	SeenVersion   string `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
 	Theme         string `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
 }
 
@@ -236,11 +237,19 @@ func (s *Server) checkFFmpeg() {
 	s.ffv.Checking = true
 	s.mu.Unlock()
 	s.setLocalFF()
+	s.checkLatestFF()
+}
+
+// checkLatestFF узнаёт свежий релиз: при запуске и потом из watchUpdates. В лог пишем только перемены.
+func (s *Server) checkLatestFF() {
 	ver, urls, err := latestFFmpeg()
 	s.mu.Lock()
+	wasErr, prev := s.ffv.CheckErr != "", s.ffv.Latest
 	s.ffv.Checking, s.ffv.Checked = false, true
-	s.ffv.Latest = ver
-	s.ffURLs = urls
+	if ver != "" || prev == "" { // пропавшая сеть не стирает то, что уже узнали
+		s.ffv.Latest = ver
+		s.ffURLs = urls
+	}
 	s.ffv.CheckErr = ""
 	if err != nil {
 		s.ffv.CheckErr = err.Error()
@@ -248,8 +257,10 @@ func (s *Server) checkFFmpeg() {
 	s.refreshFFLocked()
 	s.mu.Unlock()
 	if err != nil {
-		s.addLog("Не удалось проверить свежую версию ffmpeg: %v", err)
-	} else if ver != "" {
+		if !wasErr {
+			s.addLog("Не удалось проверить свежую версию ffmpeg: %v", err)
+		}
+	} else if ver != "" && ver != prev {
 		s.addLog("Свежий ffmpeg: %s", ver)
 	}
 }

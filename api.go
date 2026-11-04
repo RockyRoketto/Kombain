@@ -100,6 +100,7 @@ func (s *Server) routes() *http.ServeMux {
 			"defaultOut": defaultOut(),
 			"ffv":        s.ffv,
 			"appUpd":     s.appUpd,
+			"news":       s.news,
 			"app": map[string]any{
 				"version":   appVersion,
 				"install":   s.inst,
@@ -175,6 +176,11 @@ func (s *Server) routes() *http.ServeMux {
 		s.refreshAppLocked()
 		s.mu.Unlock()
 		saveSettings(st)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/news-seen", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.newsSeen()
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 

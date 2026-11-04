@@ -75,6 +75,12 @@ __CSS__
 
 <div class="wrap">
   <div class="banners">
+    <div id="newsBanner" class="banner okb hide">
+      <div id="newsText"></div>
+      <div class="brow"><button id="newsOk" class="btn sm">Понятно</button></div>
+      <div id="newsNotes" class="banner-notes news-notes"></div>
+    </div>
+
     <div id="appBanner" class="banner hide">
       <div id="appText"></div>
       <div class="brow" id="appRow">
@@ -277,7 +283,7 @@ __CSS__
   <div class="mcard">
     <div class="eyebrow" id="stEyebrow">установка</div>
     <h3 id="stTitle">Установить на компьютер?</h3>
-    <p id="stSub">Конвертер появится в меню «Пуск» и в «Установленных приложениях», а при запуске сам проверит, не вышел ли новый ffmpeg.</p>
+    <p id="stSub">Конвертер появится в меню «Пуск» и в «Установленных приложениях» и сам будет проверять, не вышла ли новая версия Конвертера или ffmpeg.</p>
     <div id="stOpts">
       <label class="sw" id="stDeskRow"><span>Ярлык на рабочем столе</span><input type="checkbox" id="stDesk" checked><i></i></label>
       <label class="sw" id="stFFRow"><span id="stFFText">ffmpeg: проверяю свежую версию…</span><input type="checkbox" id="stFF"><i></i></label>

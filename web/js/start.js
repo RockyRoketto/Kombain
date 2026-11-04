@@ -36,10 +36,11 @@ $('start').onclick = async () => {
 $('stop').onclick = () => api('cancel');
 $('openOut').onclick = async () => { const r = await api('open-output'); if (r.error) alert(r.error); };
 $('ffDl').onclick = async () => {
-  ffDismissed = false;
+  ffDismissed = null;
   const r = await api('download-ffmpeg');
   if (r.error) alert(r.error);
 };
-$('ffLater').onclick = () => { ffDismissed = true; ffBanner(snap); };
-$('ffSkip').onclick = async () => { ffDismissed = true; await api('ffmpeg-skip'); ffBanner(snap); };
+const ffDismiss = () => { ffDismissed = (snap.ffv || {}).latest || ''; ffBanner(snap); };
+$('ffLater').onclick = ffDismiss;
+$('ffSkip').onclick = async () => { await api('ffmpeg-skip'); ffDismiss(); };
 
