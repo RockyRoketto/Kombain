@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -190,38 +189,13 @@ func (s *Server) fetchApp(url string, size int64, sum string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "Konvertor9000/"+appVersion)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-	total := resp.ContentLength
-	if total <= 0 {
-		total = size
-	}
 	path := filepath.Join(dir, "Konvertor.exe")
-	out, err := os.Create(path)
-	if err != nil {
-		return "", err
-	}
 	h := sha256.New()
-	cr := &countReader{r: io.TeeReader(resp.Body, h), total: total, cb: func(p float64) {
+	n, err := download(url, path, size, 200<<20, h, func(p float64) {
 		s.mu.Lock()
 		s.appUpd.Pct = p
 		s.mu.Unlock()
-	}}
-	n, err := io.Copy(out, io.LimitReader(cr, 200<<20))
-	if cerr := out.Close(); err == nil {
-		err = cerr
-	}
+	})
 	if err != nil {
 		return "", err
 	}

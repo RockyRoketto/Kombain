@@ -2,7 +2,7 @@
 
 Программа для Windows: пакетная конвертация видео, аудио и картинок через ffmpeg.
 Один exe на Go: локальный HTTP-сервер (127.0.0.1:47831, токен X-Token) + своё окно на WebView2,
-которое показывает интерфейс index.html.
+которое показывает интерфейс из папки web/.
 
 **Скачать последнюю версию:** https://github.com/RockyRoketto/Konverter-9000/releases/latest/download/Konvertor.exe
 
@@ -11,28 +11,11 @@
 
 ## Что где
 
-| Файл | Что в нём |
-|---|---|
-| main.go | форматы, состояние, скачивание ffmpeg, buildArgs, probe (длительность, разрешение, звук, альфа), convert/runFF (повтор в безопасном режиме), режим «Сжать» (compressFormat; результат не меньше оригинала — удаляется, статус kept), «уложить в N МБ» (planRate → два прохода с битрейтом, при нехватке — меньше разрешение), errSummary, outPath, HTTP API, main() |
-| banner.go | вкладка «Баннеры» (`/api/banners`): PNG больше 500 КБ → размер из имени (WxH), перезапись на месте, при необходимости 256 цветов; PNG из списка bannerNames → JPG (q 2) в одну папку → WebP (80) в другую |
-| update.go | версия программы (appVersion), settings.json, проверка свежего ffmpeg (gyan.dev release-version → GitHub BtbN), сравнение версий |
-| selfupdate.go | обновление самой программы: последний релиз этого репозитория → скачать Konvertor.exe (размер + sha256) → заменить себя → перезапуск `--updated` |
-| install_windows.go | установка для пользователя без админа: %LOCALAPPDATA%\Programs\Konvertor, ярлыки «Пуск»/рабочий стол, запись в «Установленные приложения», удаление `Konvertor.exe --uninstall`, замена exe при обновлении |
-| install_other.go | заглушки для Linux/macOS; `FFB_FAKE_INSTALL=1` — показать окно установки при тестах |
-| media.go | превью (`/thumb`: кадр видео, картинка, обложка или волна звука) и сведения о файле (`/api/info`), кэш в памяти |
-| ui_windows.go | окно Win32 + WebView2 (github.com/wailsapp/go-webview2), перетаскивание с настоящими путями, диалоги выбора файлов, запасной режим через браузер |
-| ui_other.go | Linux/macOS: открывает вкладку браузера; `FFB_NO_BROWSER=1` печатает URL и токен |
-| hide_windows.go / hide_other.go | запуск ffmpeg без окон консоли |
-| index.html | весь интерфейс (HTML/CSS/JS), вшит через go:embed; `__TOKEN__` заменяется токеном |
-| hero.jpg, favicon.png | фото шапки и иконка вкладки (go:embed) |
-| winres/ | winres.json + icon*.png: иконка exe, манифест (DPI per-monitor v2, Common Controls v6), версия |
-| rsrc_windows_amd64.syso | собранные ресурсы (go-winres), Go подхватывает сам |
-| assets-original/ | исходники фото шапки и иконки |
-| tools/setversion.py | прописывает appVersion в rsrc_windows_amd64.syso без go-winres (если длина номера версии не изменилась) |
-| *_test.go | тесты: разбор версий и источников ffmpeg, релизов GitHub, `ffmpeg -i`, превью, сжатие и «уложить в N МБ» с настоящим ffmpeg (`go test ./...`) |
-| .github/workflows/release.yml | GitHub Actions: по тегу vX.Y.Z проверки, go-winres, сборка exe, релиз с текстом из CHANGELOG.md |
-| release.cmd / release.sh | выпуск версии одной командой (release.cmd запускает release.sh через bash из Git for Windows) |
-| CHANGELOG.md | что нового по версиям |
+Полная карта кода: [docs/MAP.md](docs/MAP.md). Коротко:
+
+- Go: `main.go` (запуск), `api.go` (HTTP), `convert.go` и `ffargs.go` (конвертация), `banner.go` (вкладка «Баннеры»), `update.go` и `selfupdate.go` (обновления), `install_windows.go` и `ui_windows.go` (установка и окно).
+- Интерфейс: `web/` (`index.html`, `style.css`, `js/*.js`), вшит через go:embed и собирается в одну страницу при запуске.
+- Выпуск: `release.cmd` / `release.sh`, `.github/workflows/release.yml`, `CHANGELOG.md`.
 
 ## Выпуск новой версии
 

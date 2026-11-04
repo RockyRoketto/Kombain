@@ -1,0 +1,342 @@
+package main
+
+// HTTP: отдача страницы и картинок, все ручки /api/*.
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(v)
+}
+
+func (s *Server) api(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != s.host || r.Header.Get("X-Token") != s.token {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		s.mu.Lock()
+		s.last = time.Now()
+		s.mu.Unlock()
+		h(w, r)
+	}
+}
+
+func (s *Server) routes() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" || r.Host != s.host {
+			http.NotFound(w, r)
+			return
+		}
+		s.mu.Lock()
+		s.last = time.Now()
+		s.mu.Unlock()
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		io.WriteString(w, strings.ReplaceAll(indexHTML, "__TOKEN__", s.token))
+	})
+
+	mux.HandleFunc("/hero.jpg", func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != s.host {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(heroJPG)
+	})
+
+	mux.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != s.host {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(faviconPNG)
+	})
+
+	mux.HandleFunc("/thumb", s.thumbHandler)
+
+	mux.HandleFunc("/api/info", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.mu.Lock()
+		ffm := s.ffmpeg
+		s.mu.Unlock()
+		if ffm == "" {
+			writeJSON(w, MediaInfo{Error: "ffmpeg не найден"})
+			return
+		}
+		writeJSON(w, getMediaInfo(ffm, body.Path))
+	}))
+
+	mux.HandleFunc("/api/state", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		writeJSON(w, map[string]any{
+			"ffmpeg":     s.ffmpeg,
+			"dl":         s.dl,
+			"running":    s.running,
+			"files":      s.files,
+			"log":        s.log,
+			"summary":    s.summary,
+			"batch":      s.batch,
+			"banner":     bannerNames,
+			"defaultOut": defaultOut(),
+			"ffv":        s.ffv,
+			"appUpd":     s.appUpd,
+			"app": map[string]any{
+				"version":   appVersion,
+				"install":   s.inst,
+				"setupSeen": s.settings.SetupDeclined == appVersion,
+			},
+		})
+	}))
+
+	mux.HandleFunc("/api/download-ffmpeg", s.api(func(w http.ResponseWriter, r *http.Request) {
+		if err := s.downloadFFmpeg(); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	// «пропустить эту версию ffmpeg»
+	mux.HandleFunc("/api/ffmpeg-skip", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.settings.SkipFFmpeg = s.ffv.Latest
+		st := s.settings
+		s.refreshFFLocked()
+		s.mu.Unlock()
+		saveSettings(st)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	// новая версия Конвертера: скачать, заменить себя и перезапуститься
+	mux.HandleFunc("/api/app-update", s.api(func(w http.ResponseWriter, r *http.Request) {
+		if err := s.updateApp(); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/app-skip", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.settings.SkipApp = s.appUpd.Latest
+		st := s.settings
+		s.refreshAppLocked()
+		s.mu.Unlock()
+		saveSettings(st)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	// установка на компьютер (+ по желанию скачать/обновить ffmpeg)
+	mux.HandleFunc("/api/install", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Desktop bool `json:"desktop"`
+			FFmpeg  bool `json:"ffmpeg"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if err := doInstall(body.Desktop); err != nil {
+			s.addLog("Установка: %v", err)
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		inst := installInfo()
+		s.mu.Lock()
+		s.inst = inst
+		s.mu.Unlock()
+		s.addLog("Установлено в %s", inst.Dir)
+		res := map[string]any{"ok": true, "dir": inst.Dir}
+		if body.FFmpeg {
+			if err := s.downloadFFmpeg(); err != nil {
+				res["ffError"] = err.Error()
+			}
+		}
+		writeJSON(w, res)
+	}))
+
+	// «без установки»: больше не спрашивать (до следующей версии программы)
+	mux.HandleFunc("/api/setup-later", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.settings.SetupDeclined = appVersion
+		st := s.settings
+		s.mu.Unlock()
+		saveSettings(st)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/pick-files", s.api(func(w http.ResponseWriter, r *http.Request) {
+		paths, err := pickFiles()
+		res := map[string]any{"files": infos(paths)}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		writeJSON(w, res)
+	}))
+
+	mux.HandleFunc("/api/pick-folder", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Purpose string `json:"purpose"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		dir, err := pickFolder()
+		res := map[string]any{}
+		if err != nil {
+			res["error"] = err.Error()
+		} else if dir != "" {
+			if body.Purpose == "add" {
+				res["files"] = walkMedia(dir)
+			} else {
+				res["path"] = dir
+			}
+		}
+		writeJSON(w, res)
+	}))
+
+	// перетащенные в окно файлы: копируем во временную папку
+	mux.HandleFunc("/api/upload", s.api(func(w http.ResponseWriter, r *http.Request) {
+		name := safeName(r.URL.Query().Get("name"))
+		sub := make([]byte, 6)
+		rand.Read(sub)
+		dir := filepath.Join(dropDir(), hex.EncodeToString(sub))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		dst := filepath.Join(dir, name)
+		f, err := os.Create(dst)
+		if err != nil {
+			os.RemoveAll(dir)
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		n, err := io.Copy(f, r.Body)
+		f.Close()
+		if err != nil {
+			os.RemoveAll(dir)
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, FileInfo{Path: dst, Size: n})
+	}))
+
+	mux.HandleFunc("/api/discard", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Paths []string `json:"paths"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		for _, p := range body.Paths {
+			cleanupTemp(p)
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/start", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var req StartReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, map[string]any{"error": "bad request"})
+			return
+		}
+		if _, ok := formats[req.Format]; !ok || len(req.Files) == 0 {
+			writeJSON(w, map[string]any{"error": "нет файлов или неизвестный формат"})
+			return
+		}
+		ffm, err := s.begin("уже идёт конвертация")
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		go s.run(req, ffm)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var req BannerReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, map[string]any{"error": "bad request"})
+			return
+		}
+		req.JpgDir, req.WebpDir = strings.TrimSpace(req.JpgDir), strings.TrimSpace(req.WebpDir)
+		switch {
+		case len(req.Files) == 0:
+			writeJSON(w, map[string]any{"error": "нет файлов"})
+			return
+		case req.JpgDir == "" || req.WebpDir == "":
+			writeJSON(w, map[string]any{"error": "выбери папки для JPEG и WebP"})
+			return
+		}
+		ffm, err := s.begin("уже идёт обработка")
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		go s.runBanners(req, ffm)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/cancel", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		if s.cancel != nil {
+			s.cancel()
+		}
+		s.mu.Unlock()
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/open-output", s.api(func(w http.ResponseWriter, r *http.Request) {
+		dir := ""
+		s.mu.Lock()
+		for _, fs := range s.files {
+			if fs.Status == "ok" && fs.Dst != "" {
+				dir = filepath.Dir(fs.Dst)
+				break
+			}
+		}
+		s.mu.Unlock()
+		if dir == "" {
+			writeJSON(w, map[string]any{"error": "нет готовых файлов"})
+			return
+		}
+		openFolder(dir)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/open-dir", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if st, err := os.Stat(body.Path); err != nil || !st.IsDir() {
+			writeJSON(w, map[string]any{"error": "папки нет"})
+			return
+		}
+		openFolder(body.Path)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/exit", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"ok": true})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			s.stopAll()
+			os.Exit(0)
+		}()
+	}))
+	return mux
+}
