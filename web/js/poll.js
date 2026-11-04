@@ -1,6 +1,6 @@
 $('exitBtn').onclick = async () => {
   await api('exit');
-  document.body.innerHTML = '<p style="padding:40px;color:var(--dim);font:15px system-ui">Программа закрыта. Можно закрыть вкладку.</p>';
+  document.body.innerHTML = `<p style="padding:40px;color:var(--dim);font:15px system-ui">${t('exit.closed')}</p>`;
 };
 $('logBtn').onclick = () => $('logWrap').classList.toggle('hide');
 
@@ -15,6 +15,15 @@ function updateButtons() {
   $('bStart').classList.toggle('hide', snap.running || tab !== 'banner');
   const anyOk = (snap.files || []).some(f => f.status === 'ok' && f.dst);
   $('openOut').classList.toggle('hide', snap.running || !anyOk);
+}
+// итог в нижней панели и заголовок вкладки
+function renderSummary(s) {
+  const fl = s.files || [];
+  const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
+  $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
+    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t('dock.idleBanner') : t('dock.idle'));
+  $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
+  document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }
 function beep() {
   try {
@@ -45,8 +54,7 @@ async function poll() {
     const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
     const part = fl.filter(f => f.status === 'running').reduce((a, f) => a + (f.pct || 0) / 100, 0);
     $('total').style.width = fl.length ? ((done + part) / fl.length * 100) + '%' : '0';
-    $('summary').textContent = s.running ? `Идёт: ${done} из ${fl.length}` : (s.summary || (pending ? 'Копирую файлы…' : 'Добавь файлы и жми кнопку'));
-    document.title = s.running ? `${done}/${fl.length} · Конвертер 9000` : 'Конвертер 9000';
+    renderSummary(s);
     if (conv) batchEvents(s);
     if (prevRunning && !s.running) { beep(); conv ? batchDone(s) : bDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';
@@ -55,7 +63,6 @@ async function poll() {
     const logText = (s.log || []).join('\n');
     if (log.textContent !== logText) log.textContent = logText;   // иначе сбрасывается выделение текста в логе
     if (bottom) log.scrollTop = log.scrollHeight;
-    if (!s.running && !s.summary && !pending && tab === 'banner') $('summary').textContent = 'Добавь PNG, выбери папки и жми «Кодировать»';
     updateButtons(); render(); bRender();
   }
   setTimeout(poll, 700);

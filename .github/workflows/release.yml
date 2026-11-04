@@ -55,7 +55,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VER: ${{ steps.ver.outputs.ver }}
         run: |
-          # текст релиза — раздел «## X.Y.Z» из CHANGELOG.md
-          awk -v v="$VER" 'index($0, "## " v) == 1 { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md > notes.md
+          # текст релиза — разделы «## X.Y.Z» из CHANGELOG.md и CHANGELOG.en.md; строку «### English» ищет программа (splitNotes)
+          section() { awk -v v="$VER" 'index($0, "## " v) == 1 { f = 1; next } /^## / { f = 0 } f' "$1"; }
+          section CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "Новая версия $VER" > notes.md
+          section CHANGELOG.en.md > notes.en.md
+          if [ -s notes.en.md ]; then { printf '\n### English\n\n'; cat notes.en.md; } >> notes.md; fi
           gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Конвертер 9000 $VER" --notes-file notes.md

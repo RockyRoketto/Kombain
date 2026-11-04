@@ -13,7 +13,7 @@ function currentReq() {
 }
 // startBatch: запуск пачки; base — настройки (по умолчанию текущие), over — разовые поправки (копия/перезапись)
 async function startBatch(paths, base, over) {
-  if (snap.running) { say('warn', 'Подожди', 'Сейчас идёт конвертация — дождись конца или останови её.'); return; }
+  if (snap.running) { say('warn', t('start.waitTitle'), t('start.wait')); return; }
   paths.forEach(p => delete res[p]);
   snap.files = [];
   newBatch();
@@ -21,16 +21,16 @@ async function startBatch(paths, base, over) {
   startSent = true;
   const r = await api('start', lastReq);
   startSent = false;
-  if (r.error) say('err', 'Не запустилось', r.error);
+  if (r.error) say('err', t('start.failed'), r.error);
   else snap.running = true;   // точное состояние придёт со следующим опросом
 }
 $('start').onclick = async () => {
   if (startSent || snap.running) return;   // двойной клик: опрос состояния ещё не успел обновить кнопку
-  if (!files.length) { say('warn', 'Список пуст', 'Добавь файлы: перетащи их в окно или нажми «+ Файлы».'); return; }
+  if (!files.length) { say('warn', t('start.emptyTitle'), t('start.empty')); return; }
   const chosen = files.filter(f => f.sel && f.path);
-  if (!chosen.length) { say('warn', 'Ничего не отмечено', 'Отметь галочками файлы, которые надо конвертировать.'); return; }
+  if (!chosen.length) { say('warn', t('start.noneTitle'), t('start.none')); return; }
   if (pending) return;
-  if (outMode === 'folder' && !$('outDir').value.trim()) { say('warn', 'Куда сохранять?', 'Выбери папку для сохранения или переключись на «Рядом с оригиналом».'); return; }
+  if (outMode === 'folder' && !$('outDir').value.trim()) { say('warn', t('start.whereTitle'), t('start.where')); return; }
   startBatch(chosen.map(f => f.path));
 };
 $('stop').onclick = () => api('cancel');

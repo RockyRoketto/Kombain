@@ -20,7 +20,7 @@ func themeRequest(s *Server, token, body string) *httptest.ResponseRecorder {
 	return w
 }
 
-func pageTheme(t *testing.T, s *Server) string {
+func pageBody(t *testing.T, s *Server) string {
 	t.Helper()
 	w := httptest.NewRecorder()
 	s.routes().ServeHTTP(w, httptest.NewRequest("GET", "http://"+testHost+"/", nil))
@@ -29,10 +29,16 @@ func pageTheme(t *testing.T, s *Server) string {
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("страница: %d", res.StatusCode)
 	}
-	if strings.Contains(string(b), "__THEME__") || strings.Contains(string(b), "__TOKEN__") {
+	return string(b)
+}
+
+func pageTheme(t *testing.T, s *Server) string {
+	t.Helper()
+	body := pageBody(t, s)
+	if strings.Contains(body, "__THEME__") || strings.Contains(body, "__TOKEN__") {
 		t.Error("в странице остались метки")
 	}
-	_, rest, ok := strings.Cut(string(b), "let themePref = '")
+	_, rest, ok := strings.Cut(body, "let themePref = '")
 	if !ok {
 		t.Fatal("в странице нет themePref")
 	}
@@ -104,12 +110,12 @@ func TestThemeSetting(t *testing.T) {
 
 // Цвета окна до загрузки страницы и --bg в CSS должны совпадать, иначе окно мигнёт при запуске.
 func TestThemeWindowColours(t *testing.T) {
-	_, light, ok := strings.Cut(indexHTML, `:root[data-theme="light"]{`)
+	_, light, ok := strings.Cut(pages[langRU], `:root[data-theme="light"]{`)
 	if !ok {
 		t.Fatal("в странице нет светлой темы")
 	}
 	want := func(c [3]uint8) string { return fmt.Sprintf("--bg:#%02x%02x%02x", c[0], c[1], c[2]) }
-	if !strings.Contains(indexHTML[:len(indexHTML)-len(light)], want(bgDark)) {
+	if !strings.Contains(pages[langRU][:len(pages[langRU])-len(light)], want(bgDark)) {
 		t.Errorf("тёмная тема: нет %s", want(bgDark))
 	}
 	if !strings.Contains(light, want(bgLight)) {

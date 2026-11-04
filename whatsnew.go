@@ -1,6 +1,6 @@
 package main
 
-// Плашка «Что нового» после обновления: показывает пункты CHANGELOG.md
+// Плашка «Что нового» после обновления: показывает пункты CHANGELOG.md (или CHANGELOG.en.md)
 // от последней версии, которую пользователь уже видел, до текущей.
 
 import (
@@ -10,6 +10,9 @@ import (
 
 //go:embed CHANGELOG.md
 var changelogMD string
+
+//go:embed CHANGELOG.en.md
+var changelogEnMD string
 
 // changelogSince собирает разделы версий новее since и не новее upTo, свежие сверху.
 // since пусто — только раздел upTo. Если версий несколько, перед пунктами стоит номер версии.
@@ -75,6 +78,7 @@ func whatsNewSince(seen, installed string, updated bool) (since string, show boo
 func (s *Server) initNews(installed string, updated bool) {
 	if since, show := whatsNewSince(s.settings.SeenVersion, installed, updated); show {
 		s.news = changelogSince(changelogMD, since, appVersion)
+		s.newsEn = changelogSince(changelogEnMD, since, appVersion) // оба языка: выбор можно сменить, пока плашка открыта
 	}
 	if s.news == "" && s.settings.SeenVersion != appVersion {
 		s.settings.SeenVersion = appVersion
@@ -85,7 +89,7 @@ func (s *Server) initNews(installed string, updated bool) {
 // newsSeen: пользователь закрыл плашку
 func (s *Server) newsSeen() {
 	s.mu.Lock()
-	s.news = ""
+	s.news, s.newsEn = "", ""
 	s.settings.SeenVersion = appVersion
 	st := s.settings
 	s.mu.Unlock()

@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	appName    = "Конвертер 9000"
 	appVersion = "1.7.0"
 	appAuthor  = "Dmitrii Trudnikov"
 )
@@ -48,6 +47,7 @@ type Settings struct {
 	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию Конвертера»
 	SeenVersion   string `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
 	Theme         string `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
+	Lang          string `json:"lang,omitempty"`          // язык интерфейса, см. i18n.go; пусто = русский
 }
 
 func settingsPath() string { return filepath.Join(dataDir(), "settings.json") }
@@ -258,10 +258,10 @@ func (s *Server) checkLatestFF() {
 	s.mu.Unlock()
 	if err != nil {
 		if !wasErr {
-			s.addLog("Не удалось проверить свежую версию ffmpeg: %v", err)
+			s.logT("log.ffCheckFailed", err)
 		}
 	} else if ver != "" && ver != prev {
-		s.addLog("Свежий ffmpeg: %s", ver)
+		s.logT("log.ffLatest", ver)
 	}
 }
 

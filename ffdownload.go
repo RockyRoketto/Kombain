@@ -85,7 +85,7 @@ func download(url, path string, size, limit int64, extra io.Writer, progress fun
 
 func stallErr(ctx context.Context, err error) error {
 	if ctx.Err() != nil {
-		return fmt.Errorf("связь зависла: больше %d с нет данных", int(dlStall.Seconds()))
+		return errT("err.stalled", int(dlStall.Seconds()))
 	}
 	return err
 }
@@ -100,7 +100,7 @@ func (s *Server) downloadFFmpeg() error {
 	}
 	if s.running {
 		s.mu.Unlock()
-		return fmt.Errorf("сначала дождись конца конвертации")
+		return errT("err.waitConvert")
 	}
 	s.dl = DL{Active: true}
 	urls := s.ffURLs
@@ -139,7 +139,7 @@ func (s *Server) downloadFFmpeg() error {
 		ver := s.ffv.LocalRaw
 		s.mu.Unlock()
 		if lastErr == nil {
-			s.addLog("ffmpeg готов: %s", ver)
+			s.logT("log.ffReady", ver)
 		}
 	}()
 	return nil
@@ -188,5 +188,5 @@ func (s *Server) tryDownload(url string) error {
 			return os.Rename(tmp, filepath.Join(dir, ffName()))
 		}
 	}
-	return fmt.Errorf("ffmpeg не найден в архиве")
+	return errT("err.ffNotInArchive")
 }

@@ -42,7 +42,7 @@ func compressFormat(src string, req StartReq) (Format, string) {
 	case ".webp":
 		return Format{"webp", "image", []string{"-quality", "80"}}, ""
 	case ".gif":
-		return Format{}, "GIF не сжимаю — сделай из него MP4, будет в разы меньше"
+		return Format{}, tr("compress.gifNo")
 	case ".mp3", ".wav", ".flac", ".wma":
 		return formats["mp3"], ""
 	case ".m4a", ".aac":

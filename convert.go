@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +24,7 @@ func (s *Server) set(i int, fn func(fs *FileState)) {
 func (s *Server) kept(i int, msg string) {
 	name := ""
 	s.set(i, func(fs *FileState) { fs.Status = "kept"; fs.Pct = 100; fs.Msg = msg; name = fs.Name })
-	s.addLog("[как есть] %s: %s", name, msg)
+	s.logT("log.kept", name, msg)
 }
 
 // encodeTarget: два прохода с битрейтом из r. Если файл всё же вышел больше target — ещё раз с поправкой.
@@ -50,7 +49,7 @@ func (s *Server) encodeTarget(ctx context.Context, i int, ffm string, f Format, 
 		}
 		r.vk = int(float64(r.vk) * float64(target) / float64(size) * 0.97)
 		req.Overwrite = true
-		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = "чуть не влезло, жму сильнее" })
+		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = tr("conv.squeezeMore") })
 	}
 }
 
@@ -67,8 +66,8 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	}
 
 	if !req.Overwrite && fileExists(dst) && fileSize(dst) > 0 {
-		s.set(i, func(fs *FileState) { fs.Status = "skipped"; fs.Msg = "уже существует" })
-		s.addLog("[пропуск] %s (результат уже есть)", name)
+		s.set(i, func(fs *FileState) { fs.Status = "skipped"; fs.Msg = tr("conv.exists") })
+		s.logT("log.skipped", name)
 		return
 	}
 	s.set(i, func(fs *FileState) { fs.Status = "running"; fs.Msg = "" })
@@ -81,7 +80,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		target = int64(req.TargetMB * (1 << 20))
 	}
 	if small && target > 0 && srcSize <= target {
-		s.kept(i, fmt.Sprintf("и так меньше %s МБ", mbStr(req.TargetMB)))
+		s.kept(i, tr("conv.alreadySmaller", mbStr(req.TargetMB)))
 		return
 	}
 	var r rate
@@ -90,7 +89,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		var err error
 		if r, err = planRate(target, si, req); err != nil {
 			s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = err.Error(); fs.Hint = err.Error() })
-			s.addLog("[ошибка] %s: %v", name, err)
+			s.logT("log.error", name, err)
 			return
 		}
 		twoPass = srcSize > target // уже влезает — пробуем обычным способом, он быстрее
@@ -105,8 +104,8 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	stderr, err := encode(req, false)
 	if err != nil && ctx.Err() == nil && (f.Kind == "video" || f.Kind == "gif") && !strings.Contains(stderr, "Error opening input") {
 		os.Remove(dst)
-		s.addLog("[повтор] %s: первая попытка не удалась, пробую в безопасном режиме\n    %s", name, errSummary(stderr, err, 6))
-		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = "повтор в безопасном режиме" })
+		s.logT("log.retry", name, errSummary(stderr, err, 6))
+		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = tr("conv.retry") })
 		rq := req
 		rq.Overwrite = true // файл от первой попытки уже удалён
 		stderr, err = encode(rq, true)
@@ -114,7 +113,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	if err == nil && ctx.Err() == nil && target > 0 && !twoPass && fileSize(dst) > target {
 		s.set(i, func(fs *FileState) {
 			fs.Pct = 0
-			fs.Msg = "не влезло, пересжимаю под размер"
+			fs.Msg = tr("conv.refit")
 		})
 		twoPass = true
 		rq := req
@@ -131,21 +130,21 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		os.Remove(dst)
 		short, hint := errSummary(stderr, err, 2), friendlyErr(stderr, err)
 		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = short; fs.Hint = hint })
-		s.addLog("[ошибка] %s:\n    %s", name, errSummary(stderr, err, 8))
+		s.logT("log.errorLong", name, errSummary(stderr, err, 8))
 		return
 	}
 	size := fileSize(dst)
 	if small && size >= srcSize {
 		os.Remove(dst)
-		s.kept(i, "уже сжат лучше — оригинал оставил как есть")
+		s.kept(i, tr("conv.noGain"))
 		return
 	}
 	msg := ""
 	if twoPass && r.height != "" && r.height != num(req.Height) {
-		msg = "уменьшил высоту до " + r.height + " px, чтобы влезло"
+		msg = tr("conv.heightReduced", r.height)
 	}
 	if target > 0 && size > target {
-		msg = "вышло чуть больше " + mbStr(req.TargetMB) + " МБ"
+		msg = tr("conv.slightlyOver", mbStr(req.TargetMB))
 	}
 	s.set(i, func(fs *FileState) { fs.Status = "ok"; fs.Pct = 100; fs.DstSize = size; fs.Msg = msg })
 	s.addLog("[ok] %s", filepath.Base(dst))
@@ -261,13 +260,13 @@ func (s *Server) run(req StartReq, ffm string) {
 			canc++
 		}
 	}
-	title := "Готово"
+	title := tr("batch.done")
 	if canc > 0 {
-		title = "Остановлено"
+		title = tr("batch.stopped")
 	}
-	s.summary = fmt.Sprintf("%s: успешно %d, ошибок %d, пропущено %d", title, ok, bad, skip)
+	s.summary = tr("batch.summary", title, ok, bad, skip)
 	if kept > 0 {
-		s.summary += fmt.Sprintf(", оставлено как есть %d", kept)
+		s.summary += tr("batch.summaryKept", kept)
 	}
 	s.running = false
 	s.cancel = nil

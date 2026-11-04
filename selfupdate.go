@@ -8,10 +8,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -32,10 +32,11 @@ type AppUpd struct {
 	Supported bool    `json:"supported"` // умеем ли заменить себя (только Windows)
 	Checked   bool    `json:"checked"`
 	CheckErr  string  `json:"checkErr,omitempty"`
-	Latest    string  `json:"latest"` // «1.5.0»; пусто — не знаем
-	Notes     string  `json:"notes"`  // что нового (текст релиза)
-	Page      string  `json:"page"`   // страница релиза
-	Update    bool    `json:"update"` // есть версия новее нашей
+	Latest    string  `json:"latest"`  // «1.5.0»; пусто — не знаем
+	Notes     string  `json:"notes"`   // что нового (текст релиза)
+	NotesEn   string  `json:"notesEn"` // то же по-английски; пусто, если в релизе его нет
+	Page      string  `json:"page"`    // страница релиза
+	Update    bool    `json:"update"`  // есть версия новее нашей
 	Skipped   bool    `json:"skipped"`
 	Active    bool    `json:"active"` // качается
 	Pct       float64 `json:"pct"`
@@ -48,8 +49,26 @@ type AppUpd struct {
 }
 
 type appRelease struct {
-	ver, notes, page, url, sha256 string
-	size                          int64
+	ver, notes, notesEn, page, url, sha256 string
+	size                                   int64
+}
+
+// В тексте релиза сначала идёт русский раздел, потом после этой строки английский (см. release.yml).
+var notesEnRe = regexp.MustCompile(`(?m)^### English[ \t\r]*$`)
+
+// splitNotes делит текст релиза по языкам. У старых релизов английской части нет.
+func splitNotes(body string) (ru, en string) {
+	short := func(s string) string {
+		s = strings.TrimSpace(s)
+		if r := []rune(s); len(r) > 1500 {
+			return string(r[:1500]) + "…"
+		}
+		return s
+	}
+	if loc := notesEnRe.FindStringIndex(body); loc != nil {
+		return short(body[:loc[0]]), short(body[loc[1]:])
+	}
+	return short(body), ""
 }
 
 // latestApp разбирает ответ GitHub: тег «v1.5.0», файл Konvertor.exe
@@ -72,16 +91,14 @@ func latestApp() (appRelease, error) {
 		} `json:"assets"`
 	}
 	if err := json.Unmarshal(b, &rel); err != nil {
-		return appRelease{}, fmt.Errorf("непонятный ответ GitHub")
+		return appRelease{}, errT("upd.badAnswer")
 	}
 	ver := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(rel.Tag), "v"), "V")
 	if !plainVerRe.MatchString(ver) || rel.Draft || rel.Pre {
-		return appRelease{}, fmt.Errorf("в релизе нет номера версии")
+		return appRelease{}, errT("upd.noVersion")
 	}
-	r := appRelease{ver: ver, notes: strings.TrimSpace(rel.Body), page: rel.Page}
-	if len([]rune(r.notes)) > 1500 {
-		r.notes = string([]rune(r.notes)[:1500]) + "…"
-	}
+	r := appRelease{ver: ver, page: rel.Page}
+	r.notes, r.notesEn = splitNotes(rel.Body)
 	for _, a := range rel.Assets {
 		if strings.EqualFold(a.Name, "Konvertor.exe") {
 			r.url, r.size = a.URL, a.Size
@@ -91,7 +108,7 @@ func latestApp() (appRelease, error) {
 		}
 	}
 	if r.url == "" {
-		return appRelease{}, fmt.Errorf("в релизе %s нет Konvertor.exe", ver)
+		return appRelease{}, errT("upd.noExe", ver)
 	}
 	return r, nil
 }
@@ -118,7 +135,7 @@ func (s *Server) checkApp() {
 		if rel.ver != prev {
 			u.Err = "" // ошибка прошлой попытки обновиться относилась к старой версии
 		}
-		u.Latest, u.Notes, u.Page = rel.ver, rel.notes, rel.page
+		u.Latest, u.Notes, u.NotesEn, u.Page = rel.ver, rel.notes, rel.notesEn, rel.page
 		u.url, u.size, u.sha256 = rel.url, rel.size, rel.sha256
 	}
 	s.refreshAppLocked()
@@ -126,10 +143,10 @@ func (s *Server) checkApp() {
 	s.mu.Unlock()
 	if err != nil {
 		if !wasErr {
-			s.addLog("Не удалось проверить новую версию Конвертера: %v", err)
+			s.logT("log.appCheckFailed", err)
 		}
 	} else if upd && rel.ver != prev {
-		s.addLog("Вышел Конвертер %s", rel.ver)
+		s.logT("log.appNew", rel.ver)
 	}
 }
 
@@ -184,13 +201,13 @@ func (s *Server) updateApp() error {
 		return nil
 	case !u.Supported:
 		s.mu.Unlock()
-		return fmt.Errorf("обновление доступно только в Windows")
+		return errT("upd.onlyWindows")
 	case !u.Update || u.url == "":
 		s.mu.Unlock()
-		return fmt.Errorf("новой версии нет")
+		return errT("upd.noUpdate")
 	case s.running:
 		s.mu.Unlock()
-		return fmt.Errorf("сначала дождись конца конвертации")
+		return errT("err.waitConvert")
 	}
 	u.Active, u.Pct, u.Err = true, 0, ""
 	url, size, sum, ver := u.url, u.size, u.sha256, u.Latest
@@ -201,7 +218,7 @@ func (s *Server) updateApp() error {
 		if err == nil {
 			s.mu.Lock()
 			if s.running { // вдруг успели запустить конвертацию, пока качалось
-				err = fmt.Errorf("сначала дождись конца конвертации")
+				err = errT("err.waitConvert")
 			}
 			// «без установки» нажимали на этой версии — не спрашиваем снова на новой
 			st := s.settings
@@ -220,13 +237,13 @@ func (s *Server) updateApp() error {
 			s.mu.Lock()
 			s.appUpd.Active, s.appUpd.Err = false, err.Error()
 			s.mu.Unlock()
-			s.addLog("Обновление Конвертера: %v", err)
+			s.logT("log.appUpdateFailed", err)
 			return
 		}
 		s.mu.Lock()
 		s.appUpd.Active, s.appUpd.Pct, s.appUpd.Restart = false, 100, true
 		s.mu.Unlock()
-		s.addLog("Конвертер обновлён до %s, перезапускаю", ver)
+		s.logT("log.appUpdated", ver)
 		restartSelf(s)
 	}()
 	return nil
@@ -249,10 +266,10 @@ func (s *Server) fetchApp(url string, size int64, sum string) (string, error) {
 		return "", err
 	}
 	if size > 0 && n != size {
-		return "", fmt.Errorf("скачалось %d байт из %d", n, size)
+		return "", errT("upd.shortFile", n, size)
 	}
 	if sum != "" && hex.EncodeToString(h.Sum(nil)) != sum {
-		return "", fmt.Errorf("файл повреждён при скачивании (не сошлась контрольная сумма)")
+		return "", errT("upd.badSum")
 	}
 	head := make([]byte, 2)
 	if f, err := os.Open(path); err == nil {
@@ -260,7 +277,7 @@ func (s *Server) fetchApp(url string, size int64, sum string) (string, error) {
 		f.Close()
 	}
 	if !bytes.Equal(head, []byte("MZ")) {
-		return "", fmt.Errorf("скачался не exe-файл")
+		return "", errT("upd.notExe")
 	}
 	return path, nil
 }

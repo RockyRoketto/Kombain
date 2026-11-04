@@ -1,6 +1,8 @@
 package main
 
 import (
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -27,6 +29,48 @@ func TestChangelogSince(t *testing.T) {
 func TestChangelogHasCurrentVersion(t *testing.T) {
 	if strings.TrimSpace(changelogSince(changelogMD, "", appVersion)) == "" {
 		t.Fatalf("в CHANGELOG.md нет раздела %s", appVersion)
+	}
+}
+
+// Английский журнал ведётся вручную вместе с русским: в них должны быть одни и те же версии
+func TestChangelogEnglish(t *testing.T) {
+	re := regexp.MustCompile(`(?m)^## (\S+)`)
+	versions := func(md string) []string {
+		var out []string
+		for _, m := range re.FindAllStringSubmatch(md, -1) {
+			out = append(out, m[1])
+		}
+		return out
+	}
+	if ru, en := versions(changelogMD), versions(changelogEnMD); !slices.Equal(ru, en) {
+		t.Errorf("разные версии в журналах: %v и %v", ru, en)
+	}
+	if cyrillic.MatchString(changelogEnMD) {
+		t.Errorf("кириллица в CHANGELOG.en.md: %s", cyrillic.FindString(changelogEnMD))
+	}
+	if strings.TrimSpace(changelogSince(changelogEnMD, "", appVersion)) == "" {
+		t.Fatalf("в CHANGELOG.en.md нет раздела %s", appVersion)
+	}
+}
+
+func TestSplitNotes(t *testing.T) {
+	cases := []struct{ body, ru, en string }{
+		{"- новое", "- новое", ""}, // старый релиз
+		{"- новое\n\n### English\n\n- new\n", "- новое", "- new"},
+		{"- новое\r\n\r\n### English\r\n\r\n- new\r\n", "- новое", "- new"},
+		{"- новое ### English", "- новое ### English", ""}, // только отдельной строкой
+		{"", "", ""},
+	}
+	for _, c := range cases {
+		if ru, en := splitNotes(c.body); ru != c.ru || en != c.en {
+			t.Errorf("%q: %q, %q", c.body, ru, en)
+		}
+	}
+	// русский текст не должен съедать место английского: длина считается отдельно
+	long := strings.Repeat("я", 2000)
+	ru, en := splitNotes(long + "\n### English\n" + long)
+	if len([]rune(ru)) != 1501 || len([]rune(en)) != 1501 {
+		t.Errorf("обрезка: %d и %d", len([]rune(ru)), len([]rune(en)))
 	}
 }
 
@@ -60,15 +104,15 @@ func TestNewsLifecycle(t *testing.T) {
 
 	s := &Server{settings: Settings{SeenVersion: "0.0.1"}}
 	s.initNews("", true)
-	if s.news == "" {
-		t.Fatal("плашка не появилась")
+	if s.news == "" || s.newsEn == "" || s.news == s.newsEn {
+		t.Fatalf("плашка не появилась на обоих языках: %q, %q", s.news, s.newsEn)
 	}
 	if got := loadSettings().SeenVersion; got == appVersion {
 		t.Fatal("версия отмечена просмотренной до «Понятно»")
 	}
 	s.newsSeen()
-	if s.news != "" || loadSettings().SeenVersion != appVersion {
-		t.Fatalf("после «Понятно»: %q, %+v", s.news, loadSettings())
+	if s.news != "" || s.newsEn != "" || loadSettings().SeenVersion != appVersion {
+		t.Fatalf("после «Понятно»: %q, %q, %+v", s.news, s.newsEn, loadSettings())
 	}
 
 	s = &Server{settings: loadSettings()}

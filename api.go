@@ -41,11 +41,11 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		s.mu.Lock()
 		s.last = time.Now()
-		theme := normTheme(s.settings.Theme)
+		theme, lang := normTheme(s.settings.Theme), normLang(s.settings.Lang)
 		s.mu.Unlock()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme).WriteString(w, indexHTML)
+		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme).WriteString(w, pages[lang])
 	})
 
 	mux.HandleFunc("/hero.jpg", func(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func (s *Server) routes() *http.ServeMux {
 		ffm := s.ffmpeg
 		s.mu.Unlock()
 		if ffm == "" {
-			writeJSON(w, MediaInfo{Error: "ffmpeg не найден"})
+			writeJSON(w, MediaInfo{Error: tr("err.ffmpegMissing")})
 			return
 		}
 		writeJSON(w, getMediaInfo(ffm, body.Path))
@@ -101,6 +101,7 @@ func (s *Server) routes() *http.ServeMux {
 			"ffv":        s.ffv,
 			"appUpd":     s.appUpd,
 			"news":       s.news,
+			"newsEn":     s.newsEn,
 			"app": map[string]any{
 				"version":   appVersion,
 				"install":   s.inst,
@@ -114,31 +115,45 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/settings", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Theme *string `json:"theme"`
+			Lang  *string `json:"lang"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
-			writeJSON(w, map[string]any{"error": "неверный запрос"})
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
 		if body.Theme != nil && !validTheme(*body.Theme) {
-			writeJSON(w, map[string]any{"error": "неизвестная тема"})
+			writeJSON(w, map[string]any{"error": tr("err.unknownTheme")})
+			return
+		}
+		if body.Lang != nil && !validLang(*body.Lang) {
+			writeJSON(w, map[string]any{"error": tr("err.unknownLang")})
 			return
 		}
 		s.mu.Lock()
 		var saveErr error
 		if body.Theme != nil {
 			s.settings.Theme = *body.Theme
+		}
+		if body.Lang != nil {
+			s.settings.Lang = *body.Lang
+			setLang(*body.Lang)
+		}
+		if body.Theme != nil || body.Lang != nil {
 			saveErr = saveSettings(s.settings) // под замком: быстрые переключения не перепутают порядок записи
 		}
-		theme := normTheme(s.settings.Theme)
+		theme, lang := normTheme(s.settings.Theme), normLang(s.settings.Lang)
 		s.mu.Unlock()
 		if body.Theme != nil {
 			windowThemeChanged()
 		}
+		if body.Lang != nil {
+			windowLangChanged()
+		}
 		if saveErr != nil {
-			writeJSON(w, map[string]any{"error": saveErr.Error(), "theme": theme})
+			writeJSON(w, map[string]any{"error": saveErr.Error(), "theme": theme, "lang": lang})
 			return
 		}
-		writeJSON(w, map[string]any{"ok": true, "theme": theme})
+		writeJSON(w, map[string]any{"ok": true, "theme": theme, "lang": lang})
 	}))
 
 	mux.HandleFunc("/api/download-ffmpeg", s.api(func(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +207,7 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 		if err := doInstall(body.Desktop); err != nil {
-			s.addLog("Установка: %v", err)
+			s.logT("log.install", err)
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
@@ -200,7 +215,7 @@ func (s *Server) routes() *http.ServeMux {
 		s.mu.Lock()
 		s.inst = inst
 		s.mu.Unlock()
-		s.addLog("Установлено в %s", inst.Dir)
+		s.logT("log.installed", inst.Dir)
 		res := map[string]any{"ok": true, "dir": inst.Dir}
 		if body.FFmpeg {
 			if err := s.downloadFFmpeg(); err != nil {
@@ -289,14 +304,14 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/start", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var req StartReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, map[string]any{"error": "bad request"})
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
 		if _, ok := formats[req.Format]; !ok || len(req.Files) == 0 {
-			writeJSON(w, map[string]any{"error": "нет файлов или неизвестный формат"})
+			writeJSON(w, map[string]any{"error": tr("err.noFilesOrFormat")})
 			return
 		}
-		ffm, err := s.begin("уже идёт конвертация")
+		ffm, err := s.begin(tr("err.busyConvert"))
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
@@ -308,19 +323,19 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var req BannerReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, map[string]any{"error": "bad request"})
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
 		req.JpgDir, req.WebpDir = strings.TrimSpace(req.JpgDir), strings.TrimSpace(req.WebpDir)
 		switch {
 		case len(req.Files) == 0:
-			writeJSON(w, map[string]any{"error": "нет файлов"})
+			writeJSON(w, map[string]any{"error": tr("err.noFiles")})
 			return
 		case req.JpgDir == "" || req.WebpDir == "":
-			writeJSON(w, map[string]any{"error": "выбери папки для JPEG и WebP"})
+			writeJSON(w, map[string]any{"error": tr("err.pickBannerDirs")})
 			return
 		}
-		ffm, err := s.begin("уже идёт обработка")
+		ffm, err := s.begin(tr("err.busyBanner"))
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
@@ -349,7 +364,7 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		s.mu.Unlock()
 		if dir == "" {
-			writeJSON(w, map[string]any{"error": "нет готовых файлов"})
+			writeJSON(w, map[string]any{"error": tr("err.noDoneFiles")})
 			return
 		}
 		openFolder(dir)
@@ -362,7 +377,7 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 		if st, err := os.Stat(body.Path); err != nil || !st.IsDir() {
-			writeJSON(w, map[string]any{"error": "папки нет"})
+			writeJSON(w, map[string]any{"error": tr("err.noFolder")})
 			return
 		}
 		openFolder(body.Path)

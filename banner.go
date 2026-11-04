@@ -75,7 +75,7 @@ func ffQuiet(ctx context.Context, ffm string, args ...string) error {
 func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 	w, h, ok := bannerDims(src)
 	if !ok {
-		return "", fmt.Errorf("в имени нет размера вида 800x260 — не знаю, до какого уменьшать")
+		return "", errT("banner.noDims")
 	}
 	dir, name := filepath.Dir(src), filepath.Base(src)
 	tmp, tmp2 := filepath.Join(dir, "_tmp_"+name), filepath.Join(dir, "_tmp2_"+name)
@@ -85,13 +85,13 @@ func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 		"-frames:v", "1", "-compression_level", "9", "-pred", "mixed", tmp); err != nil {
 		return "", err
 	}
-	done, out := "уменьшен до "+w+"×"+h, tmp
+	done, out := tr("banner.shrunk", w, h), tmp
 	if fileSize(tmp) > bannerLimit {
 		if err := ffQuiet(ctx, ffm, "-i", tmp, "-filter_complex",
 			"split[a][b];[a]palettegen=max_colors=256[p];[b][p]paletteuse=dither=none", "-frames:v", "1", tmp2); err != nil {
 			return "", err
 		}
-		done, out = done+", 256 цветов", tmp2
+		done, out = done+tr("banner.colors"), tmp2
 	}
 	if err := os.Rename(out, src); err != nil {
 		return "", err
@@ -107,7 +107,7 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 		st := &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p)}
 		if n := bannerWanted(p); n != "" {
 			if _, dup := wanted[n]; dup {
-				st.Msg = "такое имя уже есть в списке — беру первый файл"
+				st.Msg = tr("banner.dup")
 			} else {
 				wanted[n] = i
 				st.Dst = filepath.Join(req.JpgDir, strings.TrimSuffix(st.Name, filepath.Ext(st.Name))+".jpg")
@@ -129,7 +129,7 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 	fail := func(i int, what string, err error) {
 		bad++
 		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = what; fs.Hint = what + ": " + err.Error() })
-		s.addLog("[ошибка] %s — %s: %v", states[i].Name, what, err)
+		s.logT("log.bannerError", states[i].Name, what, err)
 	}
 	for i, st := range states {
 		if ctx.Err() != nil {
@@ -142,10 +142,10 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 		}
 		if st.SrcSize > bannerLimit {
 			if isTemp(st.Path) {
-				notes = append(notes, "больше 500 КБ, но это копия из браузера — оригинал не пережат")
+				notes = append(notes, tr("banner.browserCopy"))
 			} else if done, err := shrinkPNG(ctx, ffm, st.Path); err != nil {
 				if ctx.Err() == nil {
-					fail(i, "не удалось пережать PNG", err)
+					fail(i, tr("banner.shrinkFailed"), err)
 				}
 				continue
 			} else {
@@ -159,13 +159,13 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 			webp := filepath.Join(req.WebpDir, stem+".webp")
 			if err := ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-q:v", "2", st.Dst); err != nil {
 				if ctx.Err() == nil {
-					fail(i, "не получился JPG", err)
+					fail(i, tr("banner.jpgFailed"), err)
 				}
 				continue
 			}
 			if err := ffQuiet(ctx, ffm, "-i", st.Dst, "-frames:v", "1", "-c:v", "libwebp", "-quality", "80", webp); err != nil {
 				if ctx.Err() == nil {
-					fail(i, "не получился WebP", err)
+					fail(i, tr("banner.webpFailed"), err)
 				}
 				continue
 			}
@@ -173,7 +173,7 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 			notes = append(notes, fmt.Sprintf("JPG %s · WebP %s", fmtKB(fileSize(st.Dst)), fmtKB(fileSize(webp))))
 			s.addLog("[ok] %s → JPG + WebP", st.Name)
 		} else if bannerWanted(st.Path) == "" {
-			notes = append(notes, "не из списка — только проверка размера")
+			notes = append(notes, tr("banner.notListed"))
 		}
 		msg := strings.Join(notes, " · ")
 		s.set(i, func(fs *FileState) { fs.Status = "ok"; fs.Pct = 100; fs.Msg = msg; fs.DstSize = fileSize(fs.Path) })
@@ -187,11 +187,11 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 			canc = true
 		}
 	}
-	title := "Готово"
+	title := tr("batch.done")
 	if canc {
-		title = "Остановлено"
+		title = tr("batch.stopped")
 	}
-	s.summary = fmt.Sprintf("%s: JPG и WebP — %d из %d, пережато PNG %d, ошибок %d", title, ok, len(wanted), shrunk, bad)
+	s.summary = tr("banner.summary", title, ok, len(wanted), shrunk, bad)
 	s.running = false
 	s.cancel = nil
 	s.mu.Unlock()
@@ -199,4 +199,4 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 	s.addLog("%s", s.summary)
 }
 
-func fmtKB(n int64) string { return fmt.Sprintf("%d КБ", (n+512)>>10) }
+func fmtKB(n int64) string { return tr("unit.kb", (n+512)>>10) }

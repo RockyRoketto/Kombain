@@ -8,12 +8,12 @@ import (
 
 func TestPageAssembled(t *testing.T) {
 	for _, p := range []string{"__CSS__", "__JS__"} {
-		if strings.Contains(indexHTML, p) {
+		if strings.Contains(pages[langRU], p) {
 			t.Errorf("в странице осталось %s", p)
 		}
 	}
 	for _, want := range []string{"const TOKEN = '__TOKEN__'", "--acc:#e9b872", `id="convView"`, "setTab(tab); poll();"} {
-		if !strings.Contains(indexHTML, want) {
+		if !strings.Contains(pages[langRU], want) {
 			t.Errorf("в странице нет %q", want)
 		}
 	}

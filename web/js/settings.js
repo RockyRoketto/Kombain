@@ -27,18 +27,18 @@ function renderOut() {
   document.querySelectorAll('#outMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === outMode));
   $('folderRow').classList.toggle('hide', outMode !== 'folder');
   const dir = $('outDir').value.trim();
-  const drop = dropOut || snap.defaultOut || 'Видео\\Konvertor';
+  const drop = dropOut || snap.defaultOut || t('out.defaultDir');
   const note = outMode === 'same'
     ? (NATIVE_DROP || !files.some(f => f.temp)
-        ? 'Результат ляжет в ту же папку, где лежит исходник.'
-        : `Результат ляжет в ту же папку, где лежит исходник.<br>Перетащенные в браузер файлы (браузер не сообщает, откуда они) → <b>${esc(drop)}</b> <button class="linkb" data-act="drop">изменить</button>`)
-    : (dir ? `Всё сохранится в <b>${esc(dir)}</b>.<br>Папка запоминается для следующих запусков.`
-           : 'Выбери папку. Она запомнится для следующих запусков.');
+        ? t('out.noteSame')
+        : t('out.noteSame') + '<br>' + t('out.noteBrowser', {dir: esc(drop)}))
+    : (dir ? t('out.noteFolder', {dir: esc(dir)})
+           : t('out.notePick'));
   if (note !== lastNote) { $('outNote').innerHTML = note; lastNote = note; }
   const name = base(dir.replace(/[\\/]+$/, '')) || dir;
-  const sum = [outMode === 'same' ? 'Рядом с оригиналом' : dir ? 'В папку ' + name : 'Папка не выбрана'];
-  if ($('copyDup').checked) sum.push('копия');
-  if ($('overwrite').checked) sum.push('перезапись');
+  const sum = [outMode === 'same' ? t('out.same') : dir ? t('out.sumFolder', {name}) : t('out.noFolder')];
+  if ($('copyDup').checked) sum.push(t('out.sumCopy'));
+  if ($('overwrite').checked) sum.push(t('out.sumOverwrite'));
   $('outSum').textContent = sum.join(' · ');
   $('outSum').title = outMode === 'folder' ? dir : '';
 }
@@ -48,7 +48,7 @@ function renderParamSum() {
   const val = id => vis(id) ? $(id).value.trim() : '';
   const sum = [];
   if (val('codec')) sum.push($('codec').value === 'h264' ? 'H.264' : 'H.265');
-  if (+val('target') > 0) sum.push('до ' + val('target') + ' МБ');
+  if (+val('target') > 0) sum.push(t('param.upTo', {v: val('target')}));
   if (val('crf')) sum.push('CRF ' + val('crf'));
   if (val('speed') && val('speed') !== 'medium') sum.push($('speed').selectedOptions[0].textContent);
   if (val('abr')) sum.push(val('abr') + ' kbps');
@@ -57,7 +57,7 @@ function renderParamSum() {
   const gif = FORMATS[fmt].k === 'gif';   // пустые поля GIF на деле значат 480p и 15 кадров (buildArgs)
   if (gif && !val('height')) sum.unshift('480p');
   if (gif && !val('fps')) sum.push('15 FPS');
-  $('paramsSum').textContent = sum.join(' · ') || (FORMATS[fmt].k === 'copy' ? 'настраивать нечего' : 'как в оригинале');
+  $('paramsSum').textContent = sum.join(' · ') || (FORMATS[fmt].k === 'copy' ? t('param.nothing') : t('param.asOriginal'));
 }
 const presetValues = p => Object.assign({}, PRESET_BASE, p.s);
 // пресет подсвечен, пока настройки совпадают с его рецептом
@@ -67,9 +67,9 @@ function renderPresets() {
     const p = PRESETS[+b.dataset.p], v = presetValues(p);
     const on = fmt === v.format && Object.keys(v).every(k => k === 'format' || String($(k).value) === String(v[k]));
     b.classList.toggle('on', on);
-    if (on) active = p.n;
+    if (on) active = t(p.n);
   });
-  $('presetSum').textContent = active || 'не выбран';
+  $('presetSum').textContent = active || t('preset.none');
 }
 function applyKind() {
   const k = FORMATS[fmt].k;
@@ -80,18 +80,18 @@ function applyKind() {
   });
   document.querySelectorAll('#fmtGroups .chip').forEach(c => c.classList.toggle('on', c.dataset.f === fmt));
   $('crfVal').textContent = $('crf').value;
-  $('crfHint').textContent = +$('target').value > 0 ? 'если видео и так влезает в размер'
-    : k === 'small' ? (($('codec').value === 'h264' ? '20–23' : '24–28') + ' — разницы на глаз не видно') : 'меньше = лучше, но тяжелее файл';
+  $('crfHint').textContent = +$('target').value > 0 ? t('crf.hintTarget')
+    : k === 'small' ? t('crf.hintSmall', {range: $('codec').value === 'h264' ? '20–23' : '24–28'}) : t('crf.hint');
   renderParamSum(); renderPresets();
-  $('fmtSum').textContent = FORMATS[fmt].n;
+  $('fmtSum').textContent = fmtName(fmt);
   // свои аргументы теперь спрятаны в панели: точка на шестерёнке напоминает, что они заданы
   $('gearBtn').classList.toggle('dot', !!$('extra').value.trim());
 }
 function buildFormats() {
-  $('fmtGroups').innerHTML = GROUPS.map(([t, ids]) =>
-    `<div class="fgroup"><small>${t}</small><div class="chips">` +
-    ids.map(id => `<button class="chip" data-f="${id}">${FORMATS[id].n}</button>`).join('') + `</div></div>`).join('');
-  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="pre" data-p="${i}"><b>${p.n}</b><span>${p.d}</span></button>`).join('');
+  $('fmtGroups').innerHTML = GROUPS.map(([g, ids]) =>
+    `<div class="fgroup"><small>${t(g)}</small><div class="chips">` +
+    ids.map(id => `<button class="chip" data-f="${id}">${fmtName(id)}</button>`).join('') + `</div></div>`).join('');
+  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="pre" data-p="${i}"><b>${t(p.n)}</b><span>${t(p.d)}</span></button>`).join('');
 }
 $('fmtGroups').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
@@ -142,7 +142,23 @@ $('themeSeg').addEventListener('click', async e => {
   themePref = b.dataset.v;
   applyTheme(); renderTheme();
   const r = await api('settings', {theme: themePref});
-  if (r.error) say('warn', 'Тема не сохранилась', r.error);
+  if (r.error) say('warn', t('theme.saveFailed'), r.error);
+});
+// язык: применение в applyLang (i18n.js), выбор хранит программа в settings.json
+function renderLang() {
+  document.querySelectorAll('#langSeg .segb').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === lang);
+    b.setAttribute('aria-pressed', b.dataset.v === lang);
+  });
+}
+renderLang();
+$('langSeg').addEventListener('click', async e => {
+  const b = e.target.closest('.segb');
+  if (!b || b.dataset.v === lang) return;
+  lang = b.dataset.v;
+  applyLang(); renderLang();
+  const r = await api('settings', {lang});
+  if (r.error) say('warn', t('lang.saveFailed'), r.error);
 });
 $('outMode').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b) return;

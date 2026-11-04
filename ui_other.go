@@ -8,14 +8,15 @@ import (
 )
 
 func pickFiles() ([]string, error) {
-	return nil, fmt.Errorf("диалоги выбора доступны только в Windows")
+	return nil, errT("dlg.onlyWindows")
 }
 
 func pickFolder() (string, error) {
-	return "", fmt.Errorf("диалоги выбора доступны только в Windows")
+	return "", errT("dlg.onlyWindows")
 }
 
 func windowThemeChanged() {} // своего окна здесь нет, страницу в браузере красит CSS
+func windowLangChanged()  {}
 
 func runUI(s *Server) {
 	if os.Getenv("FFB_NO_BROWSER") == "" {

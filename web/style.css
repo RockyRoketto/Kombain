@@ -273,8 +273,9 @@
   .segb.on{background:var(--accbg);border-color:rgba(var(--acl-rgb),.55)}
   .segb.on b{color:var(--acct2)}
   .seg3{grid-template-columns:repeat(3,1fr);gap:6px}
-  .seg3 .segb{padding:6px 2px;border-radius:10px;align-items:center;text-align:center}
-  .seg3 .segb b{font-size:12.5px;white-space:nowrap}
+  .seg2{gap:6px}
+  .seg3 .segb,.seg2 .segb{padding:6px 2px;border-radius:10px;align-items:center;text-align:center}
+  .seg3 .segb b,.seg2 .segb b{font-size:12.5px;white-space:nowrap}
   .note{margin-top:10px;font-size:12px;color:var(--dim);line-height:1.55}
   .note b{color:var(--tx-note);font-weight:500;word-break:break-all}
   .linkb{background:none;border:0;padding:0;color:var(--acct);text-decoration:underline;text-underline-offset:3px;font-size:12px}

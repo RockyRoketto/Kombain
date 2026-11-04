@@ -29,11 +29,11 @@ func TestLatestApp(t *testing.T) {
 	appReleaseURL = srv.URL + "/rel"
 	defer func() { appReleaseURL = old }()
 
-	release = `{"tag_name":"v9.1.0","body":"- новое","html_url":"page","assets":[
+	release = `{"tag_name":"v9.1.0","body":"- новое\r\n\r\n### English\r\n\r\n- new\r\n","html_url":"page","assets":[
 	 {"name":"notes.txt","browser_download_url":"x"},
 	 {"name":"Konvertor.exe","browser_download_url":"` + srv.URL + `/Konvertor.exe","size":11,"digest":"sha256:` + hex.EncodeToString(sum[:]) + `"}]}`
 	r, err := latestApp()
-	if err != nil || r.ver != "9.1.0" || r.notes != "- новое" || r.size != 11 || r.sha256 != hex.EncodeToString(sum[:]) {
+	if err != nil || r.ver != "9.1.0" || r.notes != "- новое" || r.notesEn != "- new" || r.size != 11 || r.sha256 != hex.EncodeToString(sum[:]) {
 		t.Fatalf("got %+v %v", r, err)
 	}
 

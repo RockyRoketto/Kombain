@@ -30,13 +30,20 @@ const uninstallKey = `Software\Microsoft\Windows\CurrentVersion\Uninstall\Konver
 // так назывались ярлыки до переименования в «Конвертер 9000»
 const oldShortcutName = "Конвертор 9000.lnk"
 
+// shortcutFile: ярлык называется на языке, выбранном при установке
+func shortcutFile() string { return tr("app.name") + ".lnk" }
+
+// shortcutNames: все названия, которые ярлык мог получить раньше
+func shortcutNames() []string {
+	return []string{oldShortcutName, goDict[langRU]["app.name"] + ".lnk", goDict[langEN]["app.name"] + ".lnk"}
+}
+
 var (
 	pCoUninitialize = ole32.NewProc("CoUninitialize")
 
 	clsidShellLink = windows.GUID{Data1: 0x00021401, Data4: [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
 	iidShellLinkW  = windows.GUID{Data1: 0x000214F9, Data4: [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
 	iidPersistFile = windows.GUID{Data1: 0x0000010B, Data4: [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
-	shortcutName   = appName + ".lnk"
 	mbOK           = uintptr(0x00)
 	mbIconInfo     = uintptr(0x40)
 	mbIconWarn     = uintptr(0x30)
@@ -118,7 +125,7 @@ func copyFile(src, dst string) error {
 func doInstall(desktop bool) error {
 	src, dst := selfExe(), installExe()
 	if src == "" {
-		return fmt.Errorf("не понял, где лежит сама программа")
+		return errT("inst.noSelf")
 	}
 	if err := os.MkdirAll(installDir(), 0o755); err != nil {
 		return err
@@ -127,25 +134,25 @@ func doInstall(desktop bool) error {
 	if !strings.EqualFold(src, filepath.Clean(dst)) {
 		if err := copyFile(src, dst); err != nil {
 			if fileExists(dst) {
-				return fmt.Errorf("не получилось заменить %s — похоже, установленный Конвертер сейчас открыт. Закрой его и попробуй ещё раз", dst)
+				return errT("inst.replaceBusy", dst)
 			}
-			return fmt.Errorf("не получилось скопировать программу: %v", err)
+			return errT("inst.copyFailed", err)
 		}
 	}
 
 	if dir, err := windows.KnownFolderPath(windows.FOLDERID_Programs, 0); err == nil {
-		if err := createShortcut(filepath.Join(dir, shortcutName), dst); err != nil {
-			return fmt.Errorf("ярлык в меню «Пуск»: %v", err)
+		if err := createShortcut(filepath.Join(dir, shortcutFile()), dst); err != nil {
+			return errT("inst.startShortcut", err)
 		}
 	}
 	desk := ""
 	if dir, err := windows.KnownFolderPath(windows.FOLDERID_Desktop, 0); err == nil {
-		desk = filepath.Join(dir, shortcutName)
+		desk = filepath.Join(dir, shortcutFile())
 	}
 	if desk != "" {
 		if desktop {
 			if err := createShortcut(desk, dst); err != nil {
-				return fmt.Errorf("ярлык на рабочем столе: %v", err)
+				return errT("inst.deskShortcut", err)
 			}
 		} else {
 			os.Remove(desk)
@@ -154,12 +161,15 @@ func doInstall(desktop bool) error {
 	return writeUninstallEntry(dst)
 }
 
-// renameOldShortcuts: ярлыки со старым названием в «Пуске» и на рабочем столе переименовать в новое
+// renameOldShortcuts: ярлыки со старым названием или на другом языке в «Пуске» и на рабочем столе переименовать в новое
 func renameOldShortcuts() {
+	cur := shortcutFile()
 	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
 		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
-			if old := filepath.Join(dir, oldShortcutName); fileExists(old) {
-				os.Rename(old, filepath.Join(dir, shortcutName))
+			for _, name := range shortcutNames() {
+				if old := filepath.Join(dir, name); name != cur && fileExists(old) {
+					os.Rename(old, filepath.Join(dir, cur))
+				}
 			}
 		}
 	}
@@ -168,10 +178,10 @@ func renameOldShortcuts() {
 func writeUninstallEntry(exe string) error {
 	k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallKey, registry.SET_VALUE)
 	if err != nil {
-		return fmt.Errorf("запись в «Установленные приложения»: %v", err)
+		return errT("inst.uninstallEntry", err)
 	}
 	defer k.Close()
-	k.SetStringValue("DisplayName", appName)
+	k.SetStringValue("DisplayName", tr("app.name"))
 	k.SetStringValue("DisplayVersion", appVersion)
 	k.SetStringValue("Publisher", appAuthor)
 	k.SetStringValue("DisplayIcon", exe+",0")
@@ -202,10 +212,10 @@ func createShortcut(lnk, target string) error {
 	}
 	defer comRelease(sl)
 
-	comCall(sl, 20, uintptr(unsafe.Pointer(u16(target))))                                      // SetPath
-	comCall(sl, 9, uintptr(unsafe.Pointer(u16(filepath.Dir(target)))))                         // SetWorkingDirectory
-	comCall(sl, 7, uintptr(unsafe.Pointer(u16("Пакетный конвертер видео, аудио и картинок")))) // SetDescription
-	comCall(sl, 17, uintptr(unsafe.Pointer(u16(target))), 0)                                   // SetIconLocation
+	comCall(sl, 20, uintptr(unsafe.Pointer(u16(target))))                // SetPath
+	comCall(sl, 9, uintptr(unsafe.Pointer(u16(filepath.Dir(target)))))   // SetWorkingDirectory
+	comCall(sl, 7, uintptr(unsafe.Pointer(u16(tr("app.shortcutDesc"))))) // SetDescription
+	comCall(sl, 17, uintptr(unsafe.Pointer(u16(target))), 0)             // SetIconLocation
 
 	var pf unsafe.Pointer
 	if r := comCall(sl, 0, uintptr(unsafe.Pointer(&iidPersistFile)), uintptr(unsafe.Pointer(&pf))); int32(r) < 0 || pf == nil {
@@ -214,7 +224,7 @@ func createShortcut(lnk, target string) error {
 	defer comRelease(pf)
 	os.MkdirAll(filepath.Dir(lnk), 0o755)
 	if r := comCall(pf, 6, uintptr(unsafe.Pointer(u16(lnk))), 1); int32(r) < 0 { // Save
-		return fmt.Errorf("сохранение ярлыка 0x%08X", uint32(r))
+		return errT("inst.saveShortcut", uint32(r))
 	}
 	return nil
 }
@@ -228,16 +238,16 @@ func canSelfUpdate() bool { return selfExe() != "" }
 func replaceSelf(newExe string) error {
 	self := selfExe()
 	if self == "" {
-		return fmt.Errorf("не понял, где лежит сама программа")
+		return errT("inst.noSelf")
 	}
 	old := self + ".old"
 	os.Remove(old)
 	if err := os.Rename(self, old); err != nil {
-		return fmt.Errorf("не получилось заменить %s: в эту папку нельзя писать. Скачай новую версию вручную", self)
+		return errT("inst.notWritable", self)
 	}
 	if err := copyFile(newExe, self); err != nil {
 		os.Rename(old, self)
-		return fmt.Errorf("не получилось записать новую версию: %v", err)
+		return errT("inst.writeFailed", err)
 	}
 	os.Remove(newExe)
 	return nil
@@ -250,7 +260,7 @@ func restartSelf(s *Server) {
 	cmd := exec.Command(self, "--updated")
 	cmd.Dir = filepath.Dir(self)
 	if err := cmd.Start(); err != nil {
-		msgBox("Конвертер обновлён, но сам перезапуститься не смог. Открой его заново.", mbOK|mbIconInfo)
+		msgBox(tr("inst.restartFailed"), mbOK|mbIconInfo)
 	}
 	s.stopAll()
 	os.Exit(0)
@@ -279,7 +289,7 @@ func afterUpdate(inst InstallInfo) InstallInfo {
 }
 
 func msgBox(text string, flags uintptr) uintptr {
-	r, _, _ := pMessageBoxW.Call(0, uintptr(unsafe.Pointer(u16(text))), uintptr(unsafe.Pointer(u16(appName))), flags)
+	r, _, _ := pMessageBoxW.Call(0, uintptr(unsafe.Pointer(u16(text))), uintptr(unsafe.Pointer(u16(tr("app.name")))), flags)
 	return r
 }
 
@@ -287,20 +297,21 @@ func msgBox(text string, flags uintptr) uintptr {
 func runUninstall() {
 	// программа открыта (держит свой порт) — сначала пусть закроют
 	if ln, err := net.Listen("tcp", "127.0.0.1:47831"); err != nil {
-		msgBox("Конвертер сейчас открыт. Закрой его и запусти удаление ещё раз.", mbOK|mbIconWarn)
+		msgBox(tr("inst.uninstallOpen"), mbOK|mbIconWarn)
 		return
 	} else {
 		ln.Close()
 	}
-	if msgBox("Удалить «"+appName+"» с компьютера?\n\nВместе с ним удалятся скачанный ffmpeg и настройки. Сконвертированные файлы останутся на месте.",
+	if msgBox(tr("inst.uninstallAsk", tr("app.name")),
 		mbYesNo|mbIconQuestion|mbDefButton2) != idYes {
 		return
 	}
 
 	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
 		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
-			os.Remove(filepath.Join(dir, shortcutName))
-			os.Remove(filepath.Join(dir, oldShortcutName))
+			for _, name := range shortcutNames() {
+				os.Remove(filepath.Join(dir, name))
+			}
 		}
 	}
 	registry.DeleteKey(registry.CURRENT_USER, uninstallKey)
@@ -311,7 +322,7 @@ func runUninstall() {
 	if !inside {
 		os.RemoveAll(dir)
 	}
-	msgBox("Конвертер удалён.", mbOK|mbIconInfo)
+	msgBox(tr("inst.uninstallDone"), mbOK|mbIconInfo)
 	if !inside {
 		return
 	}

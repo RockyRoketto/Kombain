@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="ru">
+<html lang="__LANG__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/favicon.png">
-<title>Конвертер 9000</title>
+<title data-i18n="app.name"></title>
 <script>
 // тема ставится раньше первой отрисовки, поэтому страница не мигает другой темой; выбор подставляет сервер
 let themePref = '__THEME__';   // dark, light или system
@@ -26,17 +26,17 @@ __CSS__
 <header class="hero">
   <div class="hero-in">
     <img class="hero-img" src="/hero.jpg" alt="">
-    <h1>Конвертер <span>9000</span></h1>
+    <h1 data-i18n="app.h1"></h1>
     <nav class="tabs" id="tabs">
-      <button class="tab on" data-t="conv">Конвертер</button>
-      <button class="tab" data-t="banner">Баннеры</button>
+      <button class="tab on" data-t="conv" data-i18n="tab.conv"></button>
+      <button class="tab" data-t="banner" data-i18n="tab.banner"></button>
     </nav>
     <div class="hero-right">
       <div class="hero-side">
-        <button class="instb hide" id="installBtn" title="Установить программу на компьютер">Установить</button>
+        <button class="instb hide" id="installBtn" data-i18n-title="install.title" data-i18n="install.btn"></button>
         <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
       </div>
-      <button class="gear" id="gearBtn" title="Настройки" aria-label="Настройки" aria-expanded="false" aria-controls="setPanel">
+      <button class="gear" id="gearBtn" data-i18n-title="settings" data-i18n-aria="settings" aria-expanded="false" aria-controls="setPanel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.9l.1-.1a1.7 1.7 0 0 0-1.2-2.8H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.9-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
@@ -45,29 +45,37 @@ __CSS__
     </div>
 
     <!-- панель настроек: новая группа — ещё один .setp-group -->
-    <div class="setp hide" id="setPanel" role="dialog" aria-label="Настройки">
+    <div class="setp hide" id="setPanel" role="dialog" data-i18n-aria="settings">
       <section class="setp-group">
-        <h2>Оформление</h2>
+        <h2 data-i18n="setp.look"></h2>
         <div class="seg seg3" id="themeSeg">
-          <button class="segb" data-v="dark"><b>Тёмная</b></button>
-          <button class="segb" data-v="light"><b>Светлая</b></button>
-          <button class="segb" data-v="system" title="Следовать настройке Windows"><b>Как в Windows</b></button>
+          <button class="segb" data-v="dark"><b data-i18n="theme.dark"></b></button>
+          <button class="segb" data-v="light"><b data-i18n="theme.light"></b></button>
+          <button class="segb" data-v="system" data-i18n-title="theme.systemTitle"><b data-i18n="theme.system"></b></button>
         </div>
       </section>
       <section class="setp-group">
-        <h2>Конвертация</h2>
+        <h2 data-i18n="setp.lang"></h2>
+        <!-- названия языков не переводятся: каждый записан на своём языке -->
+        <div class="seg seg2" id="langSeg">
+          <button class="segb" data-v="ru" lang="ru"><b>Русский</b></button>
+          <button class="segb" data-v="en" lang="en"><b>English</b></button>
+        </div>
+      </section>
+      <section class="setp-group">
+        <h2 data-i18n="setp.conv"></h2>
         <div class="field">
-          <div><span class="lb">Файлов одновременно</span><span class="hint">2–4 ускоряют пачку</span></div>
+          <div><span class="lb" data-i18n="setp.jobs"></span><span class="hint" data-i18n="setp.jobsHint"></span></div>
           <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         </div>
         <div class="stack">
-          <span class="lb">Свои аргументы ffmpeg</span>
-          <input type="text" id="extra" placeholder="например: -ss 5 -t 10">
+          <span class="lb" data-i18n="setp.extra"></span>
+          <input type="text" id="extra" data-i18n-ph="setp.extraPh">
         </div>
       </section>
       <!-- в своём окне программу закрывает крестик, эта кнопка только для браузера -->
       <section class="setp-group exit">
-        <button class="btn sm" id="exitBtn" title="Закрыть программу">Закрыть программу</button>
+        <button class="btn sm" id="exitBtn" data-i18n-title="exit.btn" data-i18n="exit.btn"></button>
       </section>
     </div>
   </div>
@@ -77,28 +85,28 @@ __CSS__
   <div class="banners">
     <div id="newsBanner" class="banner okb hide">
       <div id="newsText"></div>
-      <div class="brow"><button id="newsOk" class="btn sm">Понятно</button></div>
+      <div class="brow"><button id="newsOk" class="btn sm" data-i18n="btn.gotIt"></button></div>
       <div id="newsNotes" class="banner-notes news-notes"></div>
     </div>
 
     <div id="appBanner" class="banner hide">
       <div id="appText"></div>
       <div class="brow" id="appRow">
-        <button id="appGo" class="btn primary sm">Обновить</button>
-        <button id="appLater" class="btn sm">Не сейчас</button>
-        <button id="appSkip" class="linkbtn">Пропустить эту версию</button>
+        <button id="appGo" class="btn primary sm" data-i18n="btn.update"></button>
+        <button id="appLater" class="btn sm" data-i18n="btn.later"></button>
+        <button id="appSkip" class="linkbtn" data-i18n="btn.skipVersion"></button>
       </div>
       <div id="appNotes" class="banner-notes hide"></div>
       <div class="bar hide" id="appProg"><i></i></div>
     </div>
 
     <div id="ffBanner" class="banner hide">
-      <div id="ffText"><b>ffmpeg не найден.</b></div>
+      <div id="ffText" data-i18n="ffu.notFound"></div>
       <div class="brow" id="ffRow">
-        <button id="ffDl" class="btn primary sm">Скачать ffmpeg автоматически (~100 МБ)</button>
-        <button id="ffLater" class="btn sm hide">Не сейчас</button>
-        <button id="ffSkip" class="linkbtn hide">Пропустить эту версию</button>
-        <span style="color:var(--dim)" id="ffNote">Скачается один раз и сохранится.</span>
+        <button id="ffDl" class="btn primary sm" data-i18n="ffu.dlBtn"></button>
+        <button id="ffLater" class="btn sm hide" data-i18n="btn.later"></button>
+        <button id="ffSkip" class="linkbtn hide" data-i18n="btn.skipVersion"></button>
+        <span style="color:var(--dim)" id="ffNote" data-i18n="ffu.oneTime"></span>
       </div>
       <div class="bar hide" id="ffProg"><i></i></div>
     </div>
@@ -108,41 +116,41 @@ __CSS__
   <div class="main hide" id="bannerView">
     <section class="drop" id="bDrop">
       <div class="drop-head">
-        <button class="btn sm" id="bAddFiles">+ Файлы</button>
-        <button class="btn sm" id="bAddFolder">+ Папка</button>
-        <button class="btn sm" id="bClear">Очистить</button>
+        <button class="btn sm" id="bAddFiles" data-i18n="add.files"></button>
+        <button class="btn sm" id="bAddFolder" data-i18n="add.folder"></button>
+        <button class="btn sm" id="bClear" data-i18n="btn.clear"></button>
         <span class="cnt" id="bCnt"></span>
       </div>
       <div class="empty" id="bEmpty">
         <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
         </svg>
-        <b>Перетащи сюда PNG или папку с ними</b>
-        <span>Берутся только PNG, из папки — вместе с подпапками</span>
+        <b data-i18n="b.dropTitle"></b>
+        <span data-i18n="b.dropSub"></span>
       </div>
       <div class="list" id="bList"></div>
     </section>
 
     <div class="col">
       <section class="card">
-        <h2>Нужные файлы <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
+        <h2><span data-i18n="b.need"></span> <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
         <div class="need" id="bNeed"></div>
-        <div class="note" title="Эти PNG станут JPEG и WebP. Если после уменьшения PNG всё равно больше 500 КБ, он станет 256-цветным.">Станут JPEG и WebP. Все PNG больше 500 КБ, даже не из списка, уменьшатся и <b style="word-break:normal">перезапишутся на месте</b>.</div>
+        <div class="note" data-i18n-title="b.noteTitle" data-i18n="b.note"></div>
       </section>
 
       <section class="card">
-        <h2>Куда сохранять</h2>
+        <h2 data-i18n="acc.out"></h2>
         <span class="lb">JPEG</span>
         <div class="rowf dirrow">
-          <input type="text" id="jpgDir" placeholder="Папка не выбрана">
-          <button class="btn" data-pick="jpgDir">Выбрать</button>
+          <input type="text" id="jpgDir" data-i18n-ph="out.noFolder">
+          <button class="btn" data-pick="jpgDir" data-i18n="btn.pick"></button>
         </div>
         <span class="lb" style="display:block">WebP</span>
         <div class="rowf dirrow">
-          <input type="text" id="webpDir" placeholder="Папка не выбрана">
-          <button class="btn" data-pick="webpDir">Выбрать</button>
+          <input type="text" id="webpDir" data-i18n-ph="out.noFolder">
+          <button class="btn" data-pick="webpDir" data-i18n="btn.pick"></button>
         </div>
-        <div class="note">Файлы с тем же именем в этих папках перезапишутся.</div>
+        <div class="note" data-i18n="b.overwriteNote"></div>
       </section>
     </div>
   </div>
@@ -151,24 +159,24 @@ __CSS__
     <!-- левая колонка: файлы -->
     <section class="drop" id="drop">
       <div class="drop-head">
-        <button class="btn sm" id="addFiles">+ Файлы</button>
-        <button class="btn sm" id="addFolder">+ Папка</button>
-        <button class="btn sm" id="clearBtn">Очистить</button>
+        <button class="btn sm" id="addFiles" data-i18n="add.files"></button>
+        <button class="btn sm" id="addFolder" data-i18n="add.folder"></button>
+        <button class="btn sm" id="clearBtn" data-i18n="btn.clear"></button>
         <span class="cnt" id="cnt"></span>
       </div>
       <div class="empty" id="empty">
         <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
         </svg>
-        <b>Перетащи файлы или папки сюда</b>
-        <span>Можно целую пачку сразу, папки разберутся сами</span>
+        <b data-i18n="drop.title"></b>
+        <span data-i18n="drop.sub"></span>
       </div>
       <div class="listbar hide" id="listbar">
-        <label class="ck"><input type="checkbox" id="selAll"><span id="selTxt">Все</span></label>
-        <button class="linkb" id="selInv">инвертировать</button>
-        <button class="linkb" id="selErr">только с ошибками</button>
+        <label class="ck"><input type="checkbox" id="selAll"><span id="selTxt" data-i18n="list.all"></span></label>
+        <button class="linkb" id="selInv" data-i18n="list.invert"></button>
+        <button class="linkb" id="selErr" data-i18n="list.errorsOnly"></button>
         <span class="sp"></span>
-        <button class="linkb" id="rmDone">убрать готовые</button>
+        <button class="linkb" id="rmDone" data-i18n="list.removeDone"></button>
       </div>
       <div class="list" id="list"></div>
     </section>
@@ -176,75 +184,74 @@ __CSS__
     <!-- правая колонка: настройки -->
     <div class="col">
       <section class="acc open" id="accFmt">
-        <button class="acc-h" aria-expanded="true"><span class="acc-t">Формат</span><span class="acc-s" id="fmtSum"></span></button>
+        <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="acc.format"></span><span class="acc-s" id="fmtSum"></span></button>
         <div class="acc-b" id="fmtGroups"></div>
       </section>
 
       <section class="acc" id="accPresets">
-        <button class="acc-h" aria-expanded="false"><span class="acc-t">Быстрые пресеты</span><span class="acc-s" id="presetSum"></span></button>
+        <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.presets"></span><span class="acc-s" id="presetSum"></span></button>
         <div class="acc-b"><div class="pgrid" id="presets"></div></div>
       </section>
 
       <section class="acc" id="accParams">
-        <button class="acc-h" aria-expanded="false"><span class="acc-t">Параметры</span><span class="acc-s" id="paramsSum"></span></button>
+        <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="paramsSum"></span></button>
         <div class="acc-b">
-          <div class="note" data-k="small">Видео станет MP4, картинки и звук останутся в своём формате (WAV и FLAC — в MP3).
-            Если сжатый файл выйдет не меньше оригинала, его не будет — оригинал остаётся как есть.</div>
-          <div class="note" data-k="copy">Дорожки копируются без перекодирования, поэтому настраивать нечего.</div>
+          <div class="note" data-k="small" data-i18n="param.smallNote"></div>
+          <div class="note" data-k="copy" data-i18n="param.copyNote"></div>
           <div class="field" data-k="small">
-            <div><span class="lb">Кодек видео</span><span class="hint">H.264 открывается вообще везде</span></div>
+            <div><span class="lb" data-i18n="codec.lb"></span><span class="hint" data-i18n="codec.hint"></span></div>
             <select id="codec">
-              <option value="h265" selected>H.265 — меньше</option>
-              <option value="h264">H.264 — совместимее</option>
+              <option value="h265" selected data-i18n="codec.h265"></option>
+              <option value="h264" data-i18n="codec.h264"></option>
             </select>
           </div>
           <div class="field" data-k="video small">
-            <div><span class="lb">Уложить видео в, МБ</span><span class="hint">пусто = не ограничивать</span></div>
+            <div><span class="lb" data-i18n="target.lb"></span><span class="hint" data-i18n="target.hint"></span></div>
             <input type="number" id="target" min="1" step="any" placeholder="—">
           </div>
           <div class="field" data-k="video small">
-            <div><span class="lb">Качество (CRF)</span><span class="hint" id="crfHint">меньше = лучше, но тяжелее файл</span></div>
+            <div><span class="lb" data-i18n="crf.lb"></span><span class="hint" id="crfHint" data-i18n="crf.hint"></span></div>
             <div class="rng"><input type="range" id="crf" min="0" max="51" value="23"><output id="crfVal">23</output></div>
           </div>
           <div class="field" data-k="video small" data-f="x26">
-            <div><span class="lb">Скорость кодирования</span><span class="hint">медленнее = файл меньше</span></div>
+            <div><span class="lb" data-i18n="speed.lb"></span><span class="hint" data-i18n="speed.hint"></span></div>
             <select id="speed">
-              <option value="ultrafast">Максимально быстро</option>
-              <option value="veryfast">Очень быстро</option>
-              <option value="fast">Быстро</option>
-              <option value="medium" selected>Обычная</option>
-              <option value="slow">Медленно, компактнее</option>
+              <option value="ultrafast" data-i18n="speed.ultrafast"></option>
+              <option value="veryfast" data-i18n="speed.veryfast"></option>
+              <option value="fast" data-i18n="speed.fast"></option>
+              <option value="medium" selected data-i18n="speed.medium"></option>
+              <option value="slow" data-i18n="speed.slow"></option>
             </select>
           </div>
           <div class="field" data-k="video audio small">
-            <span class="lb">Аудио, kbps</span>
+            <span class="lb" data-i18n="abr.lb"></span>
             <input type="number" id="abr" min="32" max="512" step="32" value="192">
           </div>
           <div class="field" data-k="video gif image small">
-            <div><span class="lb">Высота, px</span><span class="hint">пусто = как в оригинале</span></div>
+            <div><span class="lb" data-i18n="height.lb"></span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="height" min="16" placeholder="—">
           </div>
           <div class="field" data-k="video gif small">
-            <div><span class="lb">FPS</span><span class="hint">пусто = как в оригинале</span></div>
+            <div><span class="lb">FPS</span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="fps" min="1" placeholder="—">
           </div>
         </div>
       </section>
 
       <section class="acc" id="accOut">
-        <button class="acc-h" aria-expanded="false"><span class="acc-t">Куда сохранять</span><span class="acc-s" id="outSum"></span></button>
+        <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.out"></span><span class="acc-s" id="outSum"></span></button>
         <div class="acc-b">
           <div class="seg" id="outMode">
-            <button class="segb on" data-m="same"><b>Рядом с оригиналом</b><span>в ту же папку, где лежит файл</span></button>
-            <button class="segb" data-m="folder"><b>В свою папку</b><span>одна папка для всех результатов</span></button>
+            <button class="segb on" data-m="same"><b data-i18n="out.same"></b><span data-i18n="out.sameSub"></span></button>
+            <button class="segb" data-m="folder"><b data-i18n="out.folder"></b><span data-i18n="out.folderSub"></span></button>
           </div>
           <div id="folderRow" class="rowf hide" style="margin-top:8px">
-            <input type="text" id="outDir" placeholder="Папка не выбрана">
-            <button class="btn" id="pickOut">Выбрать</button>
+            <input type="text" id="outDir" data-i18n-ph="out.noFolder">
+            <button class="btn" id="pickOut" data-i18n="btn.pick"></button>
           </div>
           <div class="note" id="outNote"></div>
-          <label class="sw" style="margin-top:8px"><span>Если файл уже есть — создать копию<small style="display:block;color:var(--dim);font-size:12px">рядом появится «имя (1).mp4»</small></span><input type="checkbox" id="copyDup"><i></i></label>
-          <label class="sw"><span>Если файл уже есть — перезаписать</span><input type="checkbox" id="overwrite"><i></i></label>
+          <label class="sw" style="margin-top:8px"><span data-i18n="out.copyDup"></span><input type="checkbox" id="copyDup"><i></i></label>
+          <label class="sw"><span data-i18n="out.overwrite"></span><input type="checkbox" id="overwrite"><i></i></label>
         </div>
       </section>
     </div>
@@ -256,14 +263,14 @@ __CSS__
   <div id="logWrap" class="log hide"></div>
   <div class="dock-in">
     <div class="dock-info">
-      <div class="t" id="summary">Добавь файлы и жми кнопку</div>
+      <div class="t" id="summary" data-i18n="dock.idle"></div>
       <div class="bar"><i id="total"></i></div>
     </div>
-    <button class="logbtn" id="logBtn">лог</button>
-    <button class="btn sm hide" id="openOut">Открыть папку</button>
-    <button class="btn danger hide" id="stop">Стоп</button>
-    <button class="btn primary" id="start">Конвертировать</button>
-    <button class="btn primary hide" id="bStart">Кодировать</button>
+    <button class="logbtn" id="logBtn" data-i18n="btn.log"></button>
+    <button class="btn sm hide" id="openOut" data-i18n="btn.openFolder"></button>
+    <button class="btn danger hide" id="stop" data-i18n="btn.stop"></button>
+    <button class="btn primary" id="start" data-i18n="btn.start"></button>
+    <button class="btn primary hide" id="bStart" data-i18n="btn.encode"></button>
   </div>
 </div>
 
@@ -271,7 +278,7 @@ __CSS__
 
 <div id="prev" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="pvName">
   <div class="mcard pcard">
-    <div class="phead"><h3 id="pvName"></h3><button class="x" id="pvClose" title="Закрыть">✕</button></div>
+    <div class="phead"><h3 id="pvName"></h3><button class="x" id="pvClose" data-i18n-title="btn.close">✕</button></div>
     <div class="pbig" id="pvBig"></div>
     <div class="strip" id="pvStrip"></div>
     <div class="pmeta" id="pvMeta"></div>
@@ -281,19 +288,19 @@ __CSS__
 
 <div id="setup" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="stTitle">
   <div class="mcard">
-    <div class="eyebrow" id="stEyebrow">установка</div>
-    <h3 id="stTitle">Установить на компьютер?</h3>
-    <p id="stSub">Конвертер появится в меню «Пуск» и в «Установленных приложениях» и сам будет проверять, не вышла ли новая версия Конвертера или ffmpeg.</p>
+    <div class="eyebrow" id="stEyebrow" data-i18n="setup.eyebrowInstall"></div>
+    <h3 id="stTitle" data-i18n="setup.title"></h3>
+    <p id="stSub" data-i18n="setup.sub"></p>
     <div id="stOpts">
-      <label class="sw" id="stDeskRow"><span>Ярлык на рабочем столе</span><input type="checkbox" id="stDesk" checked><i></i></label>
-      <label class="sw" id="stFFRow"><span id="stFFText">ffmpeg: проверяю свежую версию…</span><input type="checkbox" id="stFF"><i></i></label>
+      <label class="sw" id="stDeskRow"><span data-i18n="setup.desktop"></span><input type="checkbox" id="stDesk" checked><i></i></label>
+      <label class="sw" id="stFFRow"><span id="stFFText" data-i18n="setup.ffChecking"></span><input type="checkbox" id="stFF"><i></i></label>
     </div>
     <div class="mnote" id="stNote"></div>
     <div class="bar hide" id="stProg" style="margin-top:10px"><i></i></div>
     <div class="merr hide" id="stErr"></div>
     <div class="mact">
-      <button class="linkbtn" id="stLater">Без установки</button>
-      <button class="btn primary" id="stGo">Установить</button>
+      <button class="linkbtn" id="stLater" data-i18n="setup.later"></button>
+      <button class="btn primary" id="stGo" data-i18n="install.btn"></button>
     </div>
   </div>
 </div>

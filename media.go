@@ -108,26 +108,31 @@ func runQuiet(ffm string, timeout time.Duration, args ...string) ([]byte, []byte
 func getMediaInfo(ffm, p string) MediaInfo {
 	key, ok := fileKey(p)
 	if !ok {
-		return MediaInfo{Error: "файл не найден"}
+		return MediaInfo{Error: tr("media.notFound")}
 	}
 	mcache.mu.Lock()
 	mi, hit := mcache.info[key]
 	mcache.mu.Unlock()
 	if hit {
-		return mi
+		return withMediaError(mi)
 	}
 	_, e := runQuiet(ffm, 20*time.Second, "-hide_banner", "-i", p)
 	mi = parseMediaInfo(string(e))
 	mi.Size = fileSize(p)
-	if mi.VCodec == "" && mi.ACodec == "" {
-		mi.Error = "ffmpeg не смог прочитать файл"
-	}
 	mcache.mu.Lock()
 	if len(mcache.info) > 2000 {
 		mcache.info = map[string]MediaInfo{}
 	}
 	mcache.info[key] = mi
 	mcache.mu.Unlock()
+	return withMediaError(mi)
+}
+
+// withMediaError: текст ошибки добавляется уже после кэша, чтобы после смены языка не отдать его на старом
+func withMediaError(mi MediaInfo) MediaInfo {
+	if mi.VCodec == "" && mi.ACodec == "" {
+		mi.Error = tr("media.cantRead")
+	}
 	return mi
 }
 

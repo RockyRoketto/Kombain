@@ -28,6 +28,7 @@
 | Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`) |
 | Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
 | Настройка, которую должен знать Go | `update.go` (`Settings`), `api.go` (`/api/settings`) |
+| Тексты и язык | страница: `web/i18n.json`, в разметке метки `data-i18n`, в коде `t()` и `tn()` из `web/js/i18n.js`; Go: `i18n_strings.go`, `tr()`, `errT()`, `logT()` из `i18n.go`; переключатель: `web/js/settings.js` (`renderLang`) |
 | Сводки в заголовках разделов | `web/js/settings.js` (`applyKind`, `renderParamSum`, `renderPresets`, `renderOut`) |
 | Список файлов | `web/js/filelist.js` |
 | Всплывашки, итог пачки | `web/js/toasts.js` |
@@ -49,7 +50,7 @@
 | Файл | Что внутри |
 |---|---|
 | `main.go` | `main`, `startServer`, `stopAll`, `idleExit`, `openBrowser` |
-| `state.go` | типы `Server`, `FileState`, `StartReq`, `DL`, `FileInfo`; `begin`, `addLog` |
+| `state.go` | типы `Server`, `FileState`, `StartReq`, `DL`, `FileInfo`; `begin`, `addLog`, `logT` |
 | `formats.go` | `Format`, `formats`, `compressFormat`, `presets`, `mediaExt` |
 | `files.go` | `dataDir`, `dropDir`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `ffargs.go` | `probe`, `planRate`, `rateArgs`, `buildArgs`, `num`, `mbStr` |
@@ -57,13 +58,14 @@
 | `fferrors.go` | `friendlyErr` (для человека), `errSummary` (для лога) |
 | `ffdownload.go` | `download` (общее скачивание, защита от зависания), `downloadFFmpeg`, `tryDownload` |
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
-| `web.go` | сборка страницы `buildPage`, порядок скриптов `webJS` |
+| `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `bannerNames`, `bannerWanted`, `bannerDims`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler` |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
-| `selfupdate.go` | `updateRepo`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
-| `whatsnew.go` | плашка «Что нового»: `changelogSince` (разбор вшитого `CHANGELOG.md`), `whatsNewSince`, `initNews`, `newsSeen` |
+| `i18n.go`, `i18n_strings.go` | язык интерфейса: `normLang`, `setLang`, `tr`, `errT`; словарь `goDict` |
+| `selfupdate.go` | `updateRepo`, `splitNotes`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
+| `whatsnew.go` | плашка «Что нового»: `changelogSince` (разбор вшитых `CHANGELOG.md` и `CHANGELOG.en.md`), `whatsNewSince`, `initNews`, `newsSeen` |
 | `install_windows.go` | `doInstall`, `createShortcut`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
 | `ui_windows.go` | `runUI`, `wndProc`, `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
 | `install_other.go`, `ui_other.go`, `hide_*.go` | заглушки не для Windows и запуск процессов без окна |
@@ -77,10 +79,12 @@
 
 | Файл | Что внутри |
 |---|---|
-| `index.html` | разметка всех экранов и окон; метки `__CSS__`, `__JS__`; в `<head>` — `applyTheme` (тема до первой отрисовки, значение `__THEME__` подставляет `routes`) |
+| `index.html` | разметка всех экранов и окон без текстов (метки `data-i18n`); метки `__CSS__`, `__JS__`, `__LANG__`; в `<head>` — `applyTheme` (тема до первой отрисовки, значение `__THEME__` подставляет `routes`) |
 | `style.css` | все стили; цвета только в переменных тем в начале файла |
-| `js/core.js` | `TOKEN`, `FORMATS`, `GROUPS`, `PRESET_BASE`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
-| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, `renderTheme`, обработчики настроек |
+| `i18n.json` | тексты страницы на обоих языках; значения могут содержать HTML, подстановки `{имя}`, формы числа через `|` |
+| `js/i18n.js` | словарь в странице, `lang`, `t`, `tn`, `applyLang` (смена языка без перезапуска) |
+| `js/core.js` | `TOKEN`, `FORMATS`, `fmtName`, `GROUPS`, `PRESET_BASE`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
+| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, `renderTheme`, `renderLang`, обработчики настроек |
 | `js/filelist.js` | `render`, `addInfos`, `dropItems`, выделение |
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
@@ -88,7 +92,7 @@
 | `js/preview.js` | `openPreview`, `outLine`, `thumbUrl` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
-| `js/poll.js` | `poll`, `updateButtons`, `beep`, кнопки «Закрыть программу» (только в браузере) и «лог» |
+| `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, `beep`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
@@ -111,7 +115,7 @@
 |---|---|
 | `release.cmd`, `release.sh` | выпуск версии одной командой |
 | `.github/workflows/release.yml` | проверки, сборка exe, релиз по тегу |
-| `CHANGELOG.md` | что нового; раздел версии становится текстом релиза и плашки в программе |
+| `CHANGELOG.md`, `CHANGELOG.en.md` | что нового на двух языках; разделы версии становятся текстом релиза и плашек в программе (`splitNotes` в `selfupdate.go`) |
 | `winres/`, `rsrc_windows_amd64.syso` | иконка, манифест и свойства exe |
 | `tools/setversion.py` | правка версии в syso без go-winres |
 | `assets-original/` | исходники фото и иконки |

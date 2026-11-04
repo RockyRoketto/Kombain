@@ -92,7 +92,7 @@ func startServer() *Server {
 	s := &Server{token: hex.EncodeToString(tok), host: ln.Addr().String(), ownsDrop: fixed, last: time.Now(), ffmpeg: findFFmpeg(),
 		settings: loadSettings(), inst: afterUpdate(inst)}
 	s.initNews(prevInstalled, hasArg("--updated"))
-	s.addLog("%s %s", appName, appVersion)
+	s.addLog("%s %s", tr("app.name"), appVersion)
 	go s.checkFFmpeg()
 	go s.checkApp()
 	go s.watchUpdates()
@@ -112,6 +112,7 @@ func hasArg(a string) bool {
 }
 
 func main() {
+	setLang(loadSettings().Lang)
 	if len(os.Args) > 1 && os.Args[1] == "--uninstall" {
 		runUninstall()
 		return

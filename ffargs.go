@@ -63,7 +63,7 @@ type rate struct {
 // planRate: битрейт, при котором видео длиной si.dur уложится в target байт
 func planRate(target int64, si srcInfo, req StartReq) (rate, error) {
 	if si.dur <= 0 {
-		return rate{}, fmt.Errorf("не удалось узнать длительность видео, поэтому не могу рассчитать размер")
+		return rate{}, errT("rate.noDuration")
 	}
 	total := float64(target) * 8 / 1000 / si.dur * 0.96 // кбит/с, 4% — запас на контейнер
 	ak := req.ABR
@@ -79,7 +79,7 @@ func planRate(target int64, si srcInfo, req StartReq) (rate, error) {
 	}
 	if vk < 60 {
 		need := (60 + float64(ak)) * 1000 / 8 * si.dur / 0.96 / (1 << 20)
-		return rate{}, fmt.Errorf("в %s МБ это видео не влезет даже в плохом качестве — нужно хотя бы %.0f МБ", mbStr(float64(target)/(1<<20)), need+1)
+		return rate{}, errT("rate.tooSmall", mbStr(float64(target)/(1<<20)), need+1)
 	}
 	r := rate{vk: vk, ak: ak, height: num(req.Height)}
 	if r.height != "" || si.w <= 0 || si.h <= 0 {
@@ -109,7 +109,11 @@ func planRate(target int64, si srcInfo, req StartReq) (rate, error) {
 }
 
 func mbStr(mb float64) string {
-	return strings.Replace(strconv.FormatFloat(mb, 'f', -1, 64), ".", ",", 1)
+	s := strconv.FormatFloat(mb, 'f', -1, 64)
+	if currentLang() == langRU {
+		s = strings.Replace(s, ".", ",", 1)
+	}
+	return s
 }
 
 // rateArgs: аргументы кодека с CRF → с битрейтом и номером прохода.

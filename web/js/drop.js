@@ -23,7 +23,7 @@ window.addEventListener('drop', e => {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
   }
   if (tab === 'banner') {   // браузер даёт только копии, а пережатые PNG надо записать на место
-    say('warn', 'Перетаскивание не подойдёт', 'В браузере перетащенные файлы приходят копиями, и PNG не перезапишутся. Нажми «+ Файлы» или «+ Папка».');
+    say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
     return;
   }
   // entries нужно получить синхронно, пока dataTransfer жив
@@ -62,7 +62,7 @@ function enqueueUpload(list) {
         const r = await fetch('/api/upload?name=' + encodeURIComponent(f.name), {method:'POST', headers:{'X-Token':TOKEN}, body: f});
         const j = await r.json();
         if (j.path) { it.path = j.path; it.size = j.size; it.uploading = false; }
-        else { files = files.filter(x => x !== it); alert('Не удалось скопировать ' + f.name + ': ' + (j.error || '')); }
+        else { files = files.filter(x => x !== it); alert(t('drop.copyFailed', {name: f.name, err: j.error || ''})); }
       } catch (e) { files = files.filter(x => x !== it); }
       pending--; render(); updateButtons();
     });

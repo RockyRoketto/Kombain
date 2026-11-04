@@ -56,6 +56,7 @@ var (
 	pMessageBoxW              = user32.NewProc("MessageBoxW")
 	pSetWindowPos             = user32.NewProc("SetWindowPos")
 	pSetClassLongPtrW         = user32.NewProc("SetClassLongPtrW")
+	pSetWindowTextW           = user32.NewProc("SetWindowTextW")
 	pCreateSolidBrush         = gdi32.NewProc("CreateSolidBrush")
 	pCoInitializeEx           = ole32.NewProc("CoInitializeEx")
 	pCoCreateInstance         = ole32.NewProc("CoCreateInstance")
@@ -198,8 +199,8 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 			srv.mu.Unlock()
 			if running {
 				r, _, _ := pMessageBoxW.Call(hwnd,
-					uintptr(unsafe.Pointer(u16("Идёт конвертация. Остановить и закрыть программу?"))),
-					uintptr(unsafe.Pointer(u16("Конвертер 9000"))), mbYesNo|mbIconQuestion)
+					uintptr(unsafe.Pointer(u16(tr("ui.closeAsk")))),
+					uintptr(unsafe.Pointer(u16(tr("app.name")))), mbYesNo|mbIconQuestion)
 				if r != idYes {
 					return 0
 				}
@@ -251,7 +252,7 @@ func createMainWindow() {
 
 	mainHwnd, _, _ = pCreateWindowExW.Call(0,
 		uintptr(unsafe.Pointer(className)),
-		uintptr(unsafe.Pointer(u16("Конвертер 9000"))),
+		uintptr(unsafe.Pointer(u16(tr("app.name")))),
 		wsOverlappedWindow, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0, 0, hInstance, 0)
 
 	applyWindowTheme()
@@ -319,6 +320,13 @@ func applyWindowTheme() {
 func windowThemeChanged() {
 	if mainHwnd != 0 {
 		runOnUI(applyWindowTheme)
+	}
+}
+
+// windowLangChanged: заголовок окна на новом языке (вызывается из обработчика API)
+func windowLangChanged() {
+	if mainHwnd != 0 {
+		runOnUI(func() { pSetWindowTextW.Call(mainHwnd, uintptr(unsafe.Pointer(u16(tr("app.name"))))) })
 	}
 }
 
@@ -519,8 +527,8 @@ func showDialog(owner uintptr, folders, multi bool, title string) ([]string, err
 
 	if !folders {
 		specs := []filterSpec{
-			{u16("Видео, аудио, картинки"), u16("*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.wmv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.3gp;*.gif;*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff")},
-			{u16("Все файлы"), u16("*.*")},
+			{u16(tr("dlg.mediaFiles")), u16("*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.wmv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.3gp;*.gif;*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff")},
+			{u16(tr("dlg.allFiles")), u16("*.*")},
 		}
 		comCall(dlg, 4, uintptr(len(specs)), uintptr(unsafe.Pointer(&specs[0]))) // SetFileTypes
 		runtime.KeepAlive(specs)
@@ -598,11 +606,11 @@ func dialogOnUI(folders, multi bool, title string) ([]string, error) {
 }
 
 func pickFiles() ([]string, error) {
-	return dialogOnUI(false, true, "Выбери файлы для конвертации")
+	return dialogOnUI(false, true, tr("dlg.pickFiles"))
 }
 
 func pickFolder() (string, error) {
-	p, err := dialogOnUI(true, false, "Выбери папку")
+	p, err := dialogOnUI(true, false, tr("dlg.pickFolder"))
 	if err != nil || len(p) == 0 {
 		return "", err
 	}

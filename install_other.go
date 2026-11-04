@@ -22,15 +22,15 @@ func doInstall(desktop bool) error {
 		time.Sleep(700 * time.Millisecond)
 		return nil
 	}
-	return fmt.Errorf("установка доступна только в Windows")
+	return errT("inst.onlyWindows")
 }
 
-func runUninstall() { fmt.Println("удаление доступно только в Windows") }
+func runUninstall() { fmt.Println(tr("inst.uninstallOnlyOS")) }
 
 // обновление самой программы — тоже только в Windows
 func canSelfUpdate() bool { return false }
 func replaceSelf(string) error {
-	return fmt.Errorf("обновление доступно только в Windows")
+	return errT("upd.onlyWindows")
 }
 func restartSelf(*Server)                      {}
 func afterUpdate(inst InstallInfo) InstallInfo { return inst }

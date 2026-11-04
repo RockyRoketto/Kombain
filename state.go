@@ -56,6 +56,7 @@ type Server struct {
 	inst     InstallInfo // установлена ли программа
 	appUpd   AppUpd      // новая версия самой программы
 	news     string      // текст плашки «Что нового», пусто — плашки нет
+	newsEn   string      // он же по-английски
 }
 
 type StartReq struct {
@@ -77,6 +78,9 @@ type StartReq struct {
 	TargetMB  float64  `json:"targetMB"` // уложить видео в столько МБ (0 — не ограничивать)
 }
 
+// logT: строка лога из словаря, на языке, выбранном в момент записи
+func (s *Server) logT(key string, a ...any) { s.addLog("%s", tr(key, a...)) }
+
 func (s *Server) addLog(format string, a ...any) {
 	line := fmt.Sprintf(format, a...)
 	s.mu.Lock()
@@ -94,13 +98,13 @@ func (s *Server) begin(busy string) (string, error) {
 	defer s.mu.Unlock()
 	switch {
 	case s.appUpd.Active || s.appUpd.Restart:
-		return "", fmt.Errorf("подожди, ставится новая версия Конвертера")
+		return "", errT("err.updating")
 	case s.running:
 		return "", fmt.Errorf("%s", busy)
 	case s.dl.Active:
-		return "", fmt.Errorf("подожди, ffmpeg ещё скачивается")
+		return "", errT("err.ffDownloading")
 	case s.ffmpeg == "":
-		return "", fmt.Errorf("ffmpeg не найден")
+		return "", errT("err.ffmpegMissing")
 	}
 	s.running = true
 	s.files = nil // пока новая пачка не готова, интерфейс не должен снова увидеть статусы прошлой

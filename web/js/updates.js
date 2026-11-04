@@ -25,19 +25,19 @@ function ffBanner(s) {
   $('ffProg').firstElementChild.style.width = (dl.pct || 0) + '%';
   let text = '', btn = '', note = '';
   if (mode === 'none') {
-    text = dl.err ? '<b>Не удалось скачать ffmpeg:</b> ' + esc(dl.err) : '<b>ffmpeg не найден.</b>' + (v.latest ? ` Скачаем свежий ${esc(v.latest)}.` : '');
-    btn = 'Скачать ffmpeg автоматически (~100 МБ)'; note = 'Скачается один раз и сохранится.';
+    text = dl.err ? t('ffu.dlFailed', {err: esc(dl.err)}) : t('ffu.notFound') + (v.latest ? t('ffu.willFetch', {v: esc(v.latest)}) : '');
+    btn = t('ffu.dlBtn'); note = t('ffu.oneTime');
   } else if (mode === 'dl') {
-    text = noFF ? '<b>Скачиваю ffmpeg…</b>' : `<b>Обновляю ffmpeg${v.latest ? ' до ' + esc(v.latest) : ''}…</b> Конвертировать можно будет сразу после.`;
-    note = 'Скачивание: ' + Math.round(dl.pct || 0) + '%';
+    text = noFF ? t('ffu.downloading') : v.latest ? t('ffu.updatingTo', {v: esc(v.latest)}) : t('ffu.updating');
+    note = t('ffu.progress', {pct: Math.round(dl.pct || 0)});
   } else if (mode === 'err') {
-    text = '<b>Не удалось обновить ffmpeg:</b> ' + esc(dl.err) + '. Старый остался и работает.';
-    btn = 'Повторить';
+    text = t('ffu.updFailed', {err: esc(dl.err)});
+    btn = t('btn.retry');
   } else if (mode === 'upd') {
-    text = `<b>Вышел ffmpeg ${esc(v.latest)}.</b> У тебя ${esc(v.local)}. Обновить? (~100 МБ)`;
-    btn = 'Обновить';
+    text = t('ffu.available', {v: esc(v.latest), local: esc(v.local)});
+    btn = t('btn.update');
   } else if (mode === 'done') {
-    text = `<b>ffmpeg обновлён ✓</b> Теперь ${esc(v.local || shortVer(v.localRaw))}.`;
+    text = t('ffu.updated', {v: esc(v.local || shortVer(v.localRaw))});
   }
   $('ffText').innerHTML = text;
   if (btn) $('ffDl').textContent = btn;
@@ -49,8 +49,9 @@ function newsBanner(s) {
   const on = !!s.news && !newsClosed && $('setup').classList.contains('hide');
   $('newsBanner').classList.toggle('hide', !on);
   if (!on) return;
-  $('newsText').innerHTML = `<b>Конвертер обновлён до ${esc((s.app || {}).version || '')}.</b> Что нового:`;
-  if ($('newsNotes').textContent !== s.news) $('newsNotes').textContent = s.news; // не сбрасывать прокрутку при каждом опросе
+  $('newsText').innerHTML = t('app.news', {v: esc((s.app || {}).version || '')});
+  const news = lang === 'en' && s.newsEn ? s.newsEn : s.news;
+  if ($('newsNotes').textContent !== news) $('newsNotes').textContent = news; // не сбрасывать прокрутку при каждом опросе
 }
 $('newsOk').onclick = () => { newsClosed = true; newsBanner(snap); api('news-seen'); };
 // ---------- плашка новой версии Конвертера ----------
@@ -74,21 +75,21 @@ function appBanner(s) {
   show('appProg', mode === 'dl');
   show('appNotes', mode === 'upd' && !!u.notes);
   $('appGo').disabled = run;
-  $('appGo').textContent = mode === 'err' ? 'Повторить' : 'Обновить';
-  $('appGo').title = run ? 'Сначала дождись конца конвертации' : '';
+  $('appGo').textContent = mode === 'err' ? t('btn.retry') : t('btn.update');
+  $('appGo').title = run ? t('app.waitConvert') : '';
   $('appProg').firstElementChild.style.width = (u.pct || 0) + '%';
   let text = '';
-  if (mode === 'upd') text = `<b>Вышел Конвертер ${esc(u.latest)}.</b> У тебя ${esc((s.app || {}).version || '')}. Обновить? Программа перезапустится сама.` +
-    (run ? ' Можно будет после конца конвертации.' : '');
-  else if (mode === 'dl') text = `<b>Скачиваю Конвертер ${esc(u.latest)}…</b> ${Math.round(u.pct || 0)}%`;
-  else if (mode === 'err') text = '<b>Не удалось обновить Конвертер:</b> ' + esc(u.err) + '. Старая версия работает как раньше.';
-  else text = `<b>Конвертер обновлён до ${esc(u.latest)} ✓</b> Перезапускаю…`;
+  if (mode === 'upd') text = t('app.available', {v: esc(u.latest), cur: esc((s.app || {}).version || '')}) +
+    (run ? t('app.afterConvert') : '');
+  else if (mode === 'dl') text = t('app.downloading', {v: esc(u.latest), pct: Math.round(u.pct || 0)});
+  else if (mode === 'err') text = t('app.failed', {err: esc(u.err)});
+  else text = t('app.restarting', {v: esc(u.latest)});
   $('appText').innerHTML = text;
-  if (mode === 'upd') $('appNotes').textContent = u.notes;
+  if (mode === 'upd') $('appNotes').textContent = lang === 'en' && u.notesEn ? u.notesEn : u.notes;
 }
 $('appGo').onclick = async () => {
   const r = await api('app-update');
-  if (r.error) say('err', 'Обновление', r.error);
+  if (r.error) say('err', t('app.updateTitle'), r.error);
 };
 const appDismiss = () => { appDismissed = (snap.appUpd || {}).latest || ''; appBanner(snap); };
 $('appLater').onclick = appDismiss;

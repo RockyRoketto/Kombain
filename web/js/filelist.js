@@ -2,14 +2,14 @@
 const res = {};   // последний результат по каждому файлу (путь -> состояние с сервера)
 let lastIdx = null, lastList = '';
 function render() {
-  const labels = {pending:'ожидает', ok:'готово', error:'ошибка', skipped:'пропущен', kept:'как есть', canceled:'остановлен'};
+  const labels = {pending:t('status.pending'), ok:t('status.ok'), error:t('status.error'), skipped:t('status.skipped'), kept:t('status.kept'), canceled:t('status.canceled')};
   $('empty').classList.toggle('hide', files.length > 0);
   $('list').classList.toggle('hide', files.length === 0);
   $('listbar').classList.toggle('hide', files.length === 0);
   const html = files.map((it, i) => {
     const s = it.path ? res[it.path] : null;
     let cls = '', status = '', sub = '', pb = '';
-    if (it.uploading) { status = '<span class="spin"></span>копирую'; sub = fmtSize(it.size); }
+    if (it.uploading) { status = '<span class="spin"></span>' + t('list.copying'); sub = fmtSize(it.size); }
     else {
       sub = (it.temp ? '' : esc(it.dir)) + (it.size ? (it.temp ? '' : ' · ') + fmtSize(it.size) : '');
       if (s) {
@@ -18,11 +18,11 @@ function render() {
         else status = labels[s.status] || '';
         if (s.status === 'ok' && s.srcSize && s.dstSize) {
           const d = Math.round((1 - s.dstSize / s.srcSize) * 100);
-          sub = fmtSize(s.srcSize) + ' → ' + fmtSize(s.dstSize) + ' · сохранено в ' + esc(dirOf(s.dst));
+          sub = fmtSize(s.srcSize) + ' → ' + fmtSize(s.dstSize) + ' · ' + t('list.savedIn', {dir: esc(dirOf(s.dst))});
           status = d >= 0 ? `−${d}%` : `+${-d}%`;
           if (s.msg) sub = esc(s.msg) + ' · ' + sub;
         }
-        if (s.status === 'skipped') sub = 'уже есть: ' + esc(base(s.dst)) + ' — пропущен';
+        if (s.status === 'skipped') sub = t('list.skipped', {name: esc(base(s.dst))});
         else if (s.status === 'error') sub = esc(s.hint || s.msg);
         else if (s.msg && s.status !== 'ok') sub = esc(s.msg);
       }
@@ -31,20 +31,20 @@ function render() {
     return `<div class="f ${cls}${it.sel ? ' sel' : ''}" data-i="${i}" title="${esc(it.path || it.name)}">` +
       `<label class="ck"><input type="checkbox" ${it.sel ? 'checked' : ''} ${dis ? 'disabled' : ''}></label>` +
       (it.path && snap.ffmpeg
-        ? `<div class="badge th" data-prev="${i}" title="Посмотреть"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
+        ? `<div class="badge th" data-prev="${i}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
         : `<div class="badge">${esc(ext(it.name))}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
       `<div class="pill">${status}</div>` +
-      (snap.running ? '' : `<button class="x" title="Убрать из списка">✕</button>`) + pb + `</div>`;
+      (snap.running ? '' : `<button class="x" title="${t('list.remove')}">✕</button>`) + pb + `</div>`;
   }).join('');
   // опрос идёт каждые 700 мс: без изменений не перерисовываем, иначе теряются клики и мигают превью
   if (html !== lastList) { $('list').innerHTML = html; lastList = html; }
   const n = files.length, k = files.filter(f => f.sel).length;
-  $('cnt').textContent = n ? (k === n ? n + ' шт.' : `выбрано ${k} из ${n}`) : '';
+  $('cnt').textContent = n ? (k === n ? tn(n, 'n.pcs') : t('list.selected', {k, n})) : '';
   const m = $('selAll');
   m.checked = n > 0 && k === n; m.indeterminate = k > 0 && k < n; m.disabled = snap.running;
-  $('selTxt').textContent = (n > 0 && k === n) ? 'Снять все' : 'Выбрать все';
-  $('start').textContent = n ? `Конвертировать (${k})` : 'Конвертировать';
+  $('selTxt').textContent = (n > 0 && k === n) ? t('list.clearAll') : t('list.selectAll');
+  $('start').textContent = n ? t('btn.startN', {k}) : t('btn.start');
 }
 function addInfos(list) {
   const have = new Set(files.map(f => f.path));
