@@ -11,48 +11,72 @@ __CSS__
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header class="hero">
-    <div class="hero-text">
-      <div class="eyebrow">пакетный конвертер</div>
-      <h1>Конвертер <span>9000</span></h1>
-      <p>Видео, аудио и картинки — пачкой в нужный формат. Умеет сжимать без смены формата и укладывать видео в заданный размер в МБ.</p>
-    </div>
+<header class="hero">
+  <div class="hero-in">
     <img class="hero-img" src="/hero.jpg" alt="">
-    <div class="hero-top">
-      <button class="instb hide" id="installBtn" title="Установить программу на компьютер">Установить</button>
-      <button class="exit" id="exitBtn" title="Закрыть программу">Выход</button>
+    <h1>Конвертер <span>9000</span></h1>
+    <nav class="tabs" id="tabs">
+      <button class="tab on" data-t="conv">Конвертер</button>
+      <button class="tab" data-t="banner">Баннеры</button>
+    </nav>
+    <div class="hero-right">
+      <div class="hero-side">
+        <button class="instb hide" id="installBtn" title="Установить программу на компьютер">Установить</button>
+        <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
+      </div>
+      <button class="gear" id="gearBtn" title="Настройки" aria-label="Настройки" aria-expanded="false" aria-controls="setPanel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.9l.1-.1a1.7 1.7 0 0 0-1.2-2.8H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.9-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+        </svg>
+      </button>
     </div>
-    <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
-  </header>
 
-  <div id="appBanner" class="banner hide">
-    <div id="appText"></div>
-    <div id="appNotes" class="hide" style="margin-top:8px;color:var(--dim);white-space:pre-wrap;font-size:13px;max-height:140px;overflow:auto"></div>
-    <div class="brow" id="appRow">
-      <button id="appGo" class="btn primary" style="padding:9px 18px;font-size:14px">Обновить</button>
-      <button id="appLater" class="btn sm">Не сейчас</button>
-      <button id="appSkip" class="linkbtn">Пропустить эту версию</button>
+    <!-- панель настроек: новая группа — ещё один .setp-group -->
+    <div class="setp hide" id="setPanel" role="dialog" aria-label="Настройки">
+      <section class="setp-group">
+        <h2>Конвертация</h2>
+        <div class="field">
+          <div><span class="lb">Файлов одновременно</span><span class="hint">2–4 ускоряют пачку</span></div>
+          <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div class="stack">
+          <span class="lb">Свои аргументы ffmpeg</span>
+          <input type="text" id="extra" placeholder="например: -ss 5 -t 10">
+        </div>
+      </section>
+      <!-- в своём окне программу закрывает крестик, эта кнопка только для браузера -->
+      <section class="setp-group exit">
+        <button class="btn sm" id="exitBtn" title="Закрыть программу">Закрыть программу</button>
+      </section>
     </div>
-    <div class="bar hide" id="appProg" style="margin-top:12px"><i></i></div>
   </div>
+</header>
 
-  <div id="ffBanner" class="banner hide">
-    <div id="ffText"><b>ffmpeg не найден.</b></div>
-    <div class="brow" id="ffRow">
-      <button id="ffDl" class="btn primary" style="padding:9px 18px;font-size:14px">Скачать ffmpeg автоматически (~100 МБ)</button>
-      <button id="ffLater" class="btn sm hide">Не сейчас</button>
-      <button id="ffSkip" class="linkbtn hide">Пропустить эту версию</button>
-      <span style="color:var(--dim)" id="ffNote">Скачается один раз и сохранится.</span>
+<div class="wrap">
+  <div class="banners">
+    <div id="appBanner" class="banner hide">
+      <div id="appText"></div>
+      <div class="brow" id="appRow">
+        <button id="appGo" class="btn primary sm">Обновить</button>
+        <button id="appLater" class="btn sm">Не сейчас</button>
+        <button id="appSkip" class="linkbtn">Пропустить эту версию</button>
+      </div>
+      <div id="appNotes" class="banner-notes hide"></div>
+      <div class="bar hide" id="appProg"><i></i></div>
     </div>
-    <div class="bar hide" id="ffProg" style="margin-top:12px"><i></i></div>
-  </div>
 
-  <nav class="tabs" id="tabs">
-    <button class="tab on" data-t="conv">Конвертер<span>любые файлы, любой формат</span></button>
-    <button class="tab" data-t="banner">Баннеры<span>PNG → JPEG + WebP одной кнопкой</span></button>
-  </nav>
+    <div id="ffBanner" class="banner hide">
+      <div id="ffText"><b>ffmpeg не найден.</b></div>
+      <div class="brow" id="ffRow">
+        <button id="ffDl" class="btn primary sm">Скачать ffmpeg автоматически (~100 МБ)</button>
+        <button id="ffLater" class="btn sm hide">Не сейчас</button>
+        <button id="ffSkip" class="linkbtn hide">Пропустить эту версию</button>
+        <span style="color:var(--dim)" id="ffNote">Скачается один раз и сохранится.</span>
+      </div>
+      <div class="bar hide" id="ffProg"><i></i></div>
+    </div>
+  </div>
 
   <!-- вкладка «Баннеры» -->
   <div class="main hide" id="bannerView">
@@ -73,12 +97,11 @@ __CSS__
       <div class="list" id="bList"></div>
     </section>
 
-    <div>
+    <div class="col">
       <section class="card">
         <h2>Нужные файлы <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
         <div class="need" id="bNeed"></div>
-        <div class="note">Эти PNG станут JPEG и WebP. PNG больше 500 КБ (все, не только из списка) уменьшатся до размера из имени
-          и <b style="word-break:normal">перезапишутся на месте</b>; если всё равно больше — станут 256-цветными.</div>
+        <div class="note" title="Эти PNG станут JPEG и WebP. Если после уменьшения PNG всё равно больше 500 КБ, он станет 256-цветным.">Станут JPEG и WebP. Все PNG больше 500 КБ, даже не из списка, уменьшатся и <b style="word-break:normal">перезапишутся на месте</b>.</div>
       </section>
 
       <section class="card">
@@ -93,14 +116,13 @@ __CSS__
           <input type="text" id="webpDir" placeholder="Папка не выбрана">
           <button class="btn" data-pick="webpDir">Выбрать</button>
         </div>
-        <div class="note">Файлы с тем же именем в этих папках перезапишутся. Папки запоминаются.</div>
+        <div class="note">Файлы с тем же именем в этих папках перезапишутся.</div>
       </section>
     </div>
   </div>
 
   <div class="main" id="convView">
-    <!-- левая колонка: файлы и папка сохранения -->
-    <div>
+    <!-- левая колонка: файлы -->
     <section class="drop" id="drop">
       <div class="drop-head">
         <button class="btn sm" id="addFiles">+ Файлы</button>
@@ -125,93 +147,87 @@ __CSS__
       <div class="list" id="list"></div>
     </section>
 
-    <section class="card" style="margin-top:16px">
-      <h2>Куда сохранять</h2>
-      <div class="seg" id="outMode">
-        <button class="segb on" data-m="same"><b>Рядом с оригиналом</b><span>в ту же папку, где лежит файл</span></button>
-        <button class="segb" data-m="folder"><b>В свою папку</b><span>одна папка для всех результатов</span></button>
-      </div>
-      <div id="folderRow" class="rowf hide" style="margin-top:10px">
-        <input type="text" id="outDir" placeholder="Папка не выбрана">
-        <button class="btn" id="pickOut">Выбрать</button>
-      </div>
-      <div class="note" id="outNote"></div>
-      <label class="sw" style="margin-top:8px"><span>Если файл уже есть — создать копию<small style="display:block;color:var(--dim);font-size:12px">рядом появится «имя (1).mp4»</small></span><input type="checkbox" id="copyDup"><i></i></label>
-      <label class="sw"><span>Если файл уже есть — перезаписать</span><input type="checkbox" id="overwrite"><i></i></label>
-    </section>
-    </div>
-
     <!-- правая колонка: настройки -->
-    <div>
-      <section class="card">
-        <h2>Быстрые пресеты</h2>
-        <div class="chips" id="presets"></div>
+    <div class="col">
+      <section class="acc open" id="accFmt">
+        <button class="acc-h" aria-expanded="true"><span class="acc-t">Формат</span><span class="acc-s" id="fmtSum"></span></button>
+        <div class="acc-b" id="fmtGroups"></div>
       </section>
 
-      <section class="card">
-        <h2>Формат</h2>
-        <div id="fmtGroups"></div>
-        <div class="note" data-k="small" style="margin-top:12px">Видео станет MP4, картинки и звук останутся в своём формате (WAV и FLAC — в MP3).
-          Если сжатый файл выйдет не меньше оригинала, его не будет — оригинал остаётся как есть.</div>
+      <section class="acc" id="accPresets">
+        <button class="acc-h" aria-expanded="false"><span class="acc-t">Быстрые пресеты</span><span class="acc-s" id="presetSum"></span></button>
+        <div class="acc-b"><div class="pgrid" id="presets"></div></div>
       </section>
 
-      <section class="card">
-        <h2>Параметры</h2>
-        <div class="field" data-k="small">
-          <div><span class="lb">Кодек видео</span><span class="hint">H.264 открывается вообще везде</span></div>
-          <select id="codec">
-            <option value="h265" selected>H.265 — меньше</option>
-            <option value="h264">H.264 — совместимее</option>
-          </select>
-        </div>
-        <div class="field" data-k="video small">
-          <div><span class="lb">Уложить видео в, МБ</span><span class="hint">пусто = не ограничивать</span></div>
-          <input type="number" id="target" min="1" step="any" placeholder="—">
-        </div>
-        <div class="field" data-k="video small">
-          <div><span class="lb">Качество (CRF)</span><span class="hint" id="crfHint">меньше = лучше, но тяжелее файл</span></div>
-          <div class="rng"><input type="range" id="crf" min="0" max="51" value="23"><output id="crfVal">23</output></div>
-        </div>
-        <div class="field" data-k="video small" data-f="x26">
-          <div><span class="lb">Скорость кодирования</span><span class="hint">медленнее = файл меньше</span></div>
-          <select id="speed">
-            <option value="ultrafast">Максимально быстро</option>
-            <option value="veryfast">Очень быстро</option>
-            <option value="fast">Быстро</option>
-            <option value="medium" selected>Обычная</option>
-            <option value="slow">Медленно, компактнее</option>
-          </select>
-        </div>
-        <div class="field" data-k="video audio small">
-          <span class="lb">Аудио, kbps</span>
-          <input type="number" id="abr" min="32" max="512" step="32" value="192">
-        </div>
-        <div class="field" data-k="video gif image small">
-          <div><span class="lb">Высота, px</span><span class="hint">пусто = как в оригинале</span></div>
-          <input type="number" id="height" min="16" placeholder="—">
-        </div>
-        <div class="field" data-k="video gif small">
-          <div><span class="lb">FPS</span><span class="hint">пусто = как в оригинале</span></div>
-          <input type="number" id="fps" min="1" placeholder="—">
-        </div>
-        <div class="field">
-          <div><span class="lb">Файлов одновременно</span><span class="hint">2–4 ускоряют пачку</span></div>
-          <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
-        </div>
-        <div class="stack">
-          <span class="lb">Свои аргументы ffmpeg</span>
-          <input type="text" id="extra" placeholder="например: -ss 5 -t 10">
+      <section class="acc" id="accParams">
+        <button class="acc-h" aria-expanded="false"><span class="acc-t">Параметры</span><span class="acc-s" id="paramsSum"></span></button>
+        <div class="acc-b">
+          <div class="note" data-k="small">Видео станет MP4, картинки и звук останутся в своём формате (WAV и FLAC — в MP3).
+            Если сжатый файл выйдет не меньше оригинала, его не будет — оригинал остаётся как есть.</div>
+          <div class="note" data-k="copy">Дорожки копируются без перекодирования, поэтому настраивать нечего.</div>
+          <div class="field" data-k="small">
+            <div><span class="lb">Кодек видео</span><span class="hint">H.264 открывается вообще везде</span></div>
+            <select id="codec">
+              <option value="h265" selected>H.265 — меньше</option>
+              <option value="h264">H.264 — совместимее</option>
+            </select>
+          </div>
+          <div class="field" data-k="video small">
+            <div><span class="lb">Уложить видео в, МБ</span><span class="hint">пусто = не ограничивать</span></div>
+            <input type="number" id="target" min="1" step="any" placeholder="—">
+          </div>
+          <div class="field" data-k="video small">
+            <div><span class="lb">Качество (CRF)</span><span class="hint" id="crfHint">меньше = лучше, но тяжелее файл</span></div>
+            <div class="rng"><input type="range" id="crf" min="0" max="51" value="23"><output id="crfVal">23</output></div>
+          </div>
+          <div class="field" data-k="video small" data-f="x26">
+            <div><span class="lb">Скорость кодирования</span><span class="hint">медленнее = файл меньше</span></div>
+            <select id="speed">
+              <option value="ultrafast">Максимально быстро</option>
+              <option value="veryfast">Очень быстро</option>
+              <option value="fast">Быстро</option>
+              <option value="medium" selected>Обычная</option>
+              <option value="slow">Медленно, компактнее</option>
+            </select>
+          </div>
+          <div class="field" data-k="video audio small">
+            <span class="lb">Аудио, kbps</span>
+            <input type="number" id="abr" min="32" max="512" step="32" value="192">
+          </div>
+          <div class="field" data-k="video gif image small">
+            <div><span class="lb">Высота, px</span><span class="hint">пусто = как в оригинале</span></div>
+            <input type="number" id="height" min="16" placeholder="—">
+          </div>
+          <div class="field" data-k="video gif small">
+            <div><span class="lb">FPS</span><span class="hint">пусто = как в оригинале</span></div>
+            <input type="number" id="fps" min="1" placeholder="—">
+          </div>
         </div>
       </section>
 
+      <section class="acc" id="accOut">
+        <button class="acc-h" aria-expanded="false"><span class="acc-t">Куда сохранять</span><span class="acc-s" id="outSum"></span></button>
+        <div class="acc-b">
+          <div class="seg" id="outMode">
+            <button class="segb on" data-m="same"><b>Рядом с оригиналом</b><span>в ту же папку, где лежит файл</span></button>
+            <button class="segb" data-m="folder"><b>В свою папку</b><span>одна папка для всех результатов</span></button>
+          </div>
+          <div id="folderRow" class="rowf hide" style="margin-top:8px">
+            <input type="text" id="outDir" placeholder="Папка не выбрана">
+            <button class="btn" id="pickOut">Выбрать</button>
+          </div>
+          <div class="note" id="outNote"></div>
+          <label class="sw" style="margin-top:8px"><span>Если файл уже есть — создать копию<small style="display:block;color:var(--dim);font-size:12px">рядом появится «имя (1).mp4»</small></span><input type="checkbox" id="copyDup"><i></i></label>
+          <label class="sw"><span>Если файл уже есть — перезаписать</span><input type="checkbox" id="overwrite"><i></i></label>
+        </div>
+      </section>
     </div>
   </div>
-
-  <div id="logWrap" class="log hide"></div>
 </div>
 
 <!-- нижняя панель -->
 <div class="dock">
+  <div id="logWrap" class="log hide"></div>
   <div class="dock-in">
     <div class="dock-info">
       <div class="t" id="summary">Добавь файлы и жми кнопку</div>

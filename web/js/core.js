@@ -9,14 +9,16 @@ const FORMATS = {
   gif:{n:'GIF',k:'gif'}, png:{n:'PNG',k:'image'}, jpg:{n:'JPG',k:'image'}, webp:{n:'WEBP',k:'image'},
   mp3:{n:'MP3',k:'audio'}, m4a:{n:'M4A',k:'audio'}, ogg:{n:'OGG',k:'audio'}, wav:{n:'WAV',k:'audio'}, flac:{n:'FLAC',k:'audio'}
 };
-const GROUPS = [['Сжатие',['small']],['Видео',['mp4','mp4h265','webm','mov','mkv']],['Анимация и картинки',['gif','png','jpg','webp']],['Аудио',['mp3','m4a','ogg','wav','flac']]];
+const GROUPS = [['Видео',['mp4','mp4h265','webm','mov','mkv']],['Фото',['jpg','png','webp']],['Аудио',['mp3','m4a','ogg','wav','flac']],['Анимация',['gif']],['Сжатие',['small']]];
+// пресет — готовый рецепт под задачу: всё, что в нём не указано, берётся из PRESET_BASE
+const PRESET_BASE = {codec:'h265', target:'', crf:23, speed:'medium', abr:192, height:'', fps:''};
 const PRESETS = [
-  {n:'Сжать без потери качества', s:{format:'small', codec:'h265', crf:26, speed:'medium', height:'', fps:''}},
-  {n:'Видео до 25 МБ для почты', s:{format:'small', codec:'h264', crf:23, speed:'medium', target:25, height:'', fps:''}},
-  {n:'720p для сайта', s:{format:'mp4', crf:25, speed:'medium', height:'720'}},
-  {n:'Только звук MP3', s:{format:'mp3', abr:192}},
-  {n:'GIF 480p', s:{format:'gif', height:'480', fps:'15'}},
-  {n:'Картинки в WebP', s:{format:'webp', height:''}}
+  {n:'Сжать файлы', d:'Формат прежний, на глаз разницы нет', s:{format:'small', crf:26}},
+  {n:'Видео для почты', d:'До 25 МБ, открывается везде', s:{format:'small', codec:'h264', target:25}},
+  {n:'Видео для сайта', d:'И для чатов: MP4, 720p, лёгкий файл', s:{format:'mp4', crf:25, abr:128, height:720}},
+  {n:'Достать звук', d:'Из видео в MP3, 192 kbps', s:{format:'mp3'}},
+  {n:'GIF из видео', d:'480p, 15 кадров в секунду', s:{format:'gif', height:480, fps:15}},
+  {n:'Фото для сайта', d:'WEBP, размер в пикселях прежний', s:{format:'webp'}}
 ];
 const MEDIA = /\.(mp4|mov|mkv|avi|webm|flv|wmv|m4v|mpg|mpeg|ts|mts|3gp|gif|mp3|wav|flac|m4a|aac|ogg|opus|wma|png|jpe?g|webp|bmp|tiff?)$/i;
 const $ = id => document.getElementById(id);

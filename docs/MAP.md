@@ -16,7 +16,7 @@
 | Задача | Файлы |
 |---|---|
 | Новый формат вывода | `formats.go` (`formats`) + `web/js/core.js` (`FORMATS`, `GROUPS`) |
-| Новый пресет | `web/js/core.js` (`PRESETS`) |
+| Новый пресет | `web/js/core.js` (`PRESETS`, значения по умолчанию в `PRESET_BASE`) |
 | Новое входное расширение | `formats.go` (`mediaExt`), `web/js/core.js` (`MEDIA`), `ui_windows.go` (фильтр в `showDialog`) |
 | Аргументы ffmpeg | `ffargs.go` (`buildArgs`) |
 | Режим «Сжать» | `formats.go` (`compressFormat`), `convert.go` (`convert`) |
@@ -25,6 +25,8 @@
 | Имя и папка результата | `files.go` (`outPath`) |
 | Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
+| Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`) |
+| Сводки в заголовках разделов | `web/js/settings.js` (`applyKind`, `renderParamSum`, `renderPresets`, `renderOut`) |
 | Список файлов | `web/js/filelist.js` |
 | Всплывашки, итог пачки | `web/js/toasts.js` |
 | Плашки обновлений | `web/js/updates.js`; логика — `update.go`, `selfupdate.go` |
@@ -73,8 +75,8 @@
 |---|---|
 | `index.html` | разметка всех экранов и окон; метки `__CSS__`, `__JS__` |
 | `style.css` | все стили |
-| `js/core.js` | `TOKEN`, `FORMATS`, `GROUPS`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
-| `js/settings.js` | `save`, `load`, `renderOut`, `applyKind`, `buildFormats`, обработчики настроек |
+| `js/core.js` | `TOKEN`, `FORMATS`, `GROUPS`, `PRESET_BASE`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
+| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, обработчики настроек |
 | `js/filelist.js` | `render`, `addInfos`, `dropItems`, выделение |
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
@@ -82,7 +84,7 @@
 | `js/preview.js` | `openPreview`, `outLine`, `thumbUrl` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
-| `js/poll.js` | `poll`, `updateButtons`, `beep`, кнопки «Выход» и «лог» |
+| `js/poll.js` | `poll`, `updateButtons`, `beep`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
