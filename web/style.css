@@ -330,7 +330,10 @@
   .field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
   .field:not(.hide)~.field{border-top:1px solid var(--line)}
   .field label,.field .lb{color:var(--tx2)}
-  .field .hint{display:block;font-size:11px;color:var(--dim2)}
+  .field .hint,.join-hint{display:block;font-size:11px;color:var(--dim2)}
+  #joinBox{margin-bottom:8px;border-bottom:1px solid var(--line)}
+  #joinBox .sw{border-top:0}
+  #joinBox .field{border-top:1px solid var(--line)}
   .soundc{display:flex;align-items:center;gap:6px;min-width:0}
   .soundc select{width:176px;min-width:0;text-overflow:ellipsis}
   .soundc .btn{flex:none}

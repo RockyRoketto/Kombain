@@ -53,8 +53,11 @@ func TestFormatsMatchPage(t *testing.T) {
 		}
 		return regexp.MustCompile("(?i)" + string(m[1]))
 	}
-	media, trim := re("web/js/core.js", "MEDIA"), re("web/js/trim.js", "TRIMMABLE")
+	media, trim, images := re("web/js/core.js", "MEDIA"), re("web/js/trim.js", "TRIMMABLE"), re("web/js/core.js", "IMAGES")
 	for e := range mediaExt {
+		if images.MatchString("a"+e) != imageExt[e] {
+			t.Errorf("%s: IMAGES должен быть %v", e, imageExt[e])
+		}
 		if !media.MatchString("a" + e) {
 			t.Errorf("%s нет в MEDIA", e)
 		}
@@ -103,7 +106,7 @@ func TestEveryFormatEncodes(t *testing.T) {
 		"максимум": {CRF: 51, ABR: 512, Preset: "ultrafast"},
 	}
 	for id, f := range formats {
-		if f.Kind == "compress" {
+		if f.Kind == "compress" || f.Kind == "seq" { // кадры проверяет sequence_test.go
 			continue
 		}
 		if f.moving() {

@@ -25,6 +25,10 @@ type srcInfo struct {
 	w, h  int
 	fps   float64
 	audio bool
+
+	decoder string // чем открыть файл, чтобы не потерять прозрачность (VP8, VP9)
+	pngFmt  string // в каком формате писать кадры PNG; пусто — ffmpeg подберёт сам
+	joinFPS string // не пусто: вход — список кадров (writeFrameList), значение — кадров в секунду
 }
 
 func probe(ctx context.Context, ffm, src string) srcInfo {
@@ -39,7 +43,20 @@ func probe(ctx context.Context, ffm, src string) srcInfo {
 			break
 		}
 	}
+	si.decoder, si.pngFmt = snapPlan(string(out))
+	if si.decoder != "" {
+		si.alpha = true
+	}
 	return si
+}
+
+// gifFilter: палитра на весь ролик или своя на каждый кадр (лучше при смене сцен, файл больше)
+func gifFilter(fps, h string, perFrame bool) string {
+	gen, use := "palettegen", "paletteuse"
+	if perFrame {
+		gen, use = "palettegen=stats_mode=single", "paletteuse=new=1"
+	}
+	return fmt.Sprintf("[0:v]fps=%s,scale=-1:%s:flags=lanczos,split[s0][s1];[s0]%s[p];[s1][p]%s", fps, h, gen, use)
 }
 
 // скорость VP9: чем больше cpu-used, тем быстрее (по умолчанию libvpx жутко медленный)
@@ -223,6 +240,9 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		h = rc.height
 	}
 	fitCodecLimits(fargs)
+	if si.joinFPS != "" && fps == "" {
+		fps = si.joinFPS // ровная частота кадров: список кадров сам её не задаёт
+	}
 	if f.standardFPS() {
 		want := si.fps
 		if v, err := strconv.ParseFloat(fps, 64); err == nil {
@@ -241,8 +261,17 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 	} else {
 		args = append(args, "-n")
 	}
-	if start, length, ok := req.trim(src); ok { // до -i: быстро и точно, при копировании потоков — по ключевым кадрам
-		args = append(args, "-ss", strconv.FormatFloat(start, 'f', 3, 64), "-t", strconv.FormatFloat(length, 'f', 3, 64))
+	if si.joinFPS != "" {
+		args = append(args, "-r", si.joinFPS, "-f", "concat", "-safe", "0")
+	} else if si.decoder != "" && f.Kind != "copy" {
+		args = append(args, "-c:v", si.decoder) // встроенные декодеры VP8 и VP9 отбрасывают прозрачность
+	}
+	start, length, trimmed := req.trim(src)
+	if trimmed {
+		args = append(args, "-ss", strconv.FormatFloat(start, 'f', 3, 64))
+		if f.Kind != "seq" { // -t до -i неточен: для кадров граница задаётся фильтром trim
+			args = append(args, "-t", strconv.FormatFloat(length, 'f', 3, 64)) // до -i: быстро и точно, при копировании потоков — по ключевым кадрам
+		}
 	}
 	args = append(args, "-i", src)
 
@@ -254,8 +283,26 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		if h == "" {
 			h = "480"
 		}
-		fc := fmt.Sprintf("[0:v]fps=%s,scale=-1:%s:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse", fps, h)
-		args = append(args, "-filter_complex", fc, "-loop", "0")
+		args = append(args, "-filter_complex", gifFilter(fps, h, req.GifPalette == "frame"), "-loop", "0")
+	case "seq":
+		var vf []string
+		if trimmed {
+			vf = append(vf, "trim=duration="+strconv.FormatFloat(length, 'f', 6, 64))
+		}
+		if h != "" {
+			vf = append(vf, "scale=-1:"+h)
+		}
+		if fps != "" {
+			vf = append(vf, "fps="+fps)
+		}
+		if len(vf) > 0 {
+			args = append(args, "-vf", strings.Join(vf, ","))
+		}
+		if si.pngFmt != "" {
+			args = append(args, "-pix_fmt", si.pngFmt)
+		}
+		args = append(args, "-fps_mode", "passthrough", "-start_number", "1", "-c:v", "png", "-f", "image2")
+		dst = seqPattern(dst, src)
 	case "image":
 		args = append(args, "-frames:v", "1")
 		var vf []string
@@ -294,6 +341,8 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 			args = append(args, "-pix_fmt", pf, "-deadline", "good", "-cpu-used", vp9Speed[preset])
 			if f.codec() == "libvpx-vp9" {
 				args = append(args, "-row-mt", "1")
+			} else if si.alpha {
+				args = append(args, "-auto-alt-ref", "0") // без этого VP8 с прозрачностью не запускается
 			}
 		case "libaom-av1":
 			args = append(args, "-row-mt", "1", "-cpu-used", aomSpeed[preset])

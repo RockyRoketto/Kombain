@@ -387,7 +387,7 @@ func (s *Server) routes() *http.ServeMux {
 			return
 		}
 		go s.run(req, ffm)
-		writeJSON(w, map[string]any{"ok": true})
+		writeJSON(w, map[string]any{"ok": true, "joined": joinLeads(req)})
 	}))
 
 	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {

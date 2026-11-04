@@ -210,7 +210,16 @@ __CSS__
     <div class="col">
       <section class="acc open" id="accFmt">
         <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="acc.format"></span><span class="acc-s" id="fmtSum"></span></button>
-        <div class="acc-b" id="fmtGroups"></div>
+        <div class="acc-b">
+          <div id="joinBox" class="hide">
+            <label class="sw"><span><span data-i18n="join.lb"></span><span class="hint join-hint" data-i18n="join.hint"></span></span><input type="checkbox" id="joinSeq"><i></i></label>
+            <div class="field" id="joinFpsRow">
+              <span class="lb" data-i18n="join.fps"></span>
+              <input type="number" id="joinFps" min="1" max="240" step="any" value="25">
+            </div>
+          </div>
+          <div id="fmtGroups"></div>
+        </div>
       </section>
 
       <section class="acc" id="accPresets">
@@ -231,6 +240,7 @@ __CSS__
           <div class="note" data-k="copy" data-i18n="param.copyNote"></div>
           <div class="note" data-k="fixed" data-i18n="param.fixedNote"></div>
           <div class="note" data-k="vfix pro" data-i18n="param.qualityNote"></div>
+          <div class="note" data-k="seq" data-i18n="param.seqNote"></div>
           <div class="field" data-k="small">
             <div><span class="lb" data-i18n="codec.lb"></span><span class="hint" data-i18n="codec.hint"></span></div>
             <select id="codec">
@@ -260,11 +270,18 @@ __CSS__
             <span class="lb" data-i18n="abr.lb"></span>
             <input type="number" id="abr" min="32" max="512" step="32" value="192">
           </div>
-          <div class="field" data-k="video vfix pro gif anim image small">
+          <div class="field" data-k="gif">
+            <div><span class="lb" data-i18n="gifpal.lb"></span><span class="hint" data-i18n="gifpal.hint"></span></div>
+            <select id="gifPalette">
+              <option value="" selected data-i18n="gifpal.common"></option>
+              <option value="frame" data-i18n="gifpal.frame"></option>
+            </select>
+          </div>
+          <div class="field" data-k="video vfix pro gif anim image seq small">
             <div><span class="lb" data-i18n="height.lb"></span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="height" min="16" placeholder="—">
           </div>
-          <div class="field" data-k="video vfix pro gif anim small">
+          <div class="field" data-k="video vfix pro gif anim seq small">
             <div><span class="lb">FPS</span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="fps" min="1" placeholder="—">
           </div>

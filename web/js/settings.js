@@ -1,5 +1,5 @@
 // ---------- настройки ----------
-const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir'];
+const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir','gifPalette','joinFps'];
 const CHECKS = ['overwrite', 'copyDup', 'bAutoDirs'];
 let tab = 'conv';        // вкладка: 'conv' — конвертер, 'banner' — баннеры
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
@@ -57,6 +57,7 @@ function renderParamSum() {
   const gif = FORMATS[fmt].k === 'gif';   // пустые поля GIF на деле значат 480p и 15 кадров (buildArgs)
   if (gif && !val('height')) sum.unshift('480p');
   if (gif && !val('fps')) sum.push('15 FPS');
+  if (val('gifPalette')) sum.push(t('gifpal.frameShort'));
   $('paramsSum').textContent = sum.join(' · ') || (['copy', 'fixed'].includes(FORMATS[fmt].k) ? t('param.nothing') : t('param.asOriginal'));
 }
 const presetValues = p => Object.assign({}, PRESET_BASE, p.s);
@@ -71,7 +72,7 @@ function saveUserPresets() { try { localStorage.setItem('konv9000.presets', JSON
 function userPresetDesc(s) {
   const k = FORMATS[s.format].k, bits = [fmtName(s.format)];
   if (['video', 'small'].includes(k)) bits.push(+s.target > 0 ? t('param.upTo', {v: s.target}) : 'CRF ' + s.crf);
-  if (['video', 'vfix', 'pro', 'gif', 'anim', 'image', 'small'].includes(k) && s.height) bits.push(s.height + 'p');
+  if (['video', 'vfix', 'pro', 'gif', 'anim', 'image', 'seq', 'small'].includes(k) && s.height) bits.push(s.height + 'p');
   if (['video', 'vfix', 'audio', 'small'].includes(k)) bits.push(s.abr + ' kbps');
   return bits.join(' · ');
 }
@@ -94,6 +95,17 @@ function buildPresets() {
     userPresets.map((p, i) => `<div class="prew"><button class="pre" data-u="${i}" title="${esc(p.n)}"><b>${esc(p.n)}</b><span>${esc(userPresetDesc(p.s))}</span></button>` +
       `<button class="x prex" data-ux="${i}" title="${t('preset.delete')}" aria-label="${t('preset.delete')}">✕</button></div>`).join('');
 }
+// «Собрать картинки в одно видео»: только когда это возможно. Галочка не запоминается между запусками:
+// забытая, она превратила бы следующую пачку фото в видео.
+const joinAvailable = () => ['video', 'vfix', 'pro', 'gif', 'anim'].includes(FORMATS[fmt].k) &&
+  files.filter(f => f.sel && IMAGES.test(f.name)).length >= 2;
+const joinOn = () => joinAvailable() && $('joinSeq').checked;
+function renderJoin() {
+  $('joinBox').classList.toggle('hide', !joinAvailable());
+  $('joinFpsRow').classList.toggle('hide', !$('joinSeq').checked);
+  $('fmtSum').textContent = fmtName(fmt) + (joinOn() ? ' · ' + t('join.short') : '');
+}
+$('joinSeq').addEventListener('change', renderJoin);
 function applyKind() {
   const k = FORMATS[fmt].k;
   document.querySelectorAll('[data-k]').forEach(el => {
@@ -109,7 +121,7 @@ function applyKind() {
   $('crfHint').textContent = +$('target').value > 0 ? t('crf.hintTarget')
     : k === 'small' ? t('crf.hintSmall', {range: $('codec').value === 'h264' ? '20–23' : '24–28'}) : t('crf.hint');
   renderParamSum(); renderPresets();
-  $('fmtSum').textContent = fmtName(fmt);
+  renderJoin();
   // свои аргументы теперь спрятаны в панели: точка на шестерёнке напоминает, что они заданы
   $('gearBtn').classList.toggle('dot', !!$('extra').value.trim());
 }

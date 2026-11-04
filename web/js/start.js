@@ -9,13 +9,16 @@ function currentReq() {
     sameDir: outMode === 'same', overwrite: $('overwrite').checked, copy: $('copyDup').checked,
     jobs: +$('jobs').value || 1,
     codec: $('codec').value, targetMB: +$('target').value > 0 ? +$('target').value : 0,
+    join: joinOn(), joinFps: $('joinFps').value, gifPalette: $('gifPalette').value,
     trims: Object.fromEntries(files.filter(f => f.trim && f.path).map(f => [f.path, f.trim]))
   };
 }
 // startBatch: запуск пачки; base — настройки (по умолчанию текущие), over — разовые поправки (копия/перезапись)
 async function startBatch(paths, base, over) {
   if (snap.running) { say('warn', t('start.waitTitle'), t('start.wait')); return; }
+  paths = withFrames(paths);
   paths.forEach(p => delete res[p]);
+  joined = {};
   snap.files = [];
   newBatch();
   lastReq = Object.assign({}, base || currentReq(), over || {}, {files: paths});
@@ -23,7 +26,13 @@ async function startBatch(paths, base, over) {
   const r = await api('start', lastReq);
   startSent = false;
   if (r.error) say('err', t('start.failed'), r.error);
-  else snap.running = true;   // точное состояние придёт со следующим опросом
+  else { snap.running = true; joined = r.joined || {}; }   // точное состояние придёт со следующим опросом
+}
+// повтор из всплывашки знает только первый кадр видео: возвращаем остальные
+function withFrames(paths) {
+  const wanted = new Set(paths), out = new Set(paths);
+  for (const [frame, lead] of Object.entries(joined)) if (wanted.has(lead)) out.add(frame);
+  return [...out];
 }
 $('start').onclick = async () => {
   if (startSent || snap.running) return;   // двойной клик: опрос состояния ещё не успел обновить кнопку

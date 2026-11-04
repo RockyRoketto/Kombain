@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,7 @@ func (s *Server) encodeTarget(ctx context.Context, i int, ffm string, f Format, 
 func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	s.mu.Lock()
 	src, dst, f, name, status := s.files[i].Path, s.files[i].Dst, s.files[i].f, s.files[i].Name, s.files[i].Status
+	frames, framesSize := s.files[i].frames, s.files[i].SrcSize
 	s.mu.Unlock()
 	if status != "pending" { // «как есть» решено заранее
 		return
@@ -65,14 +67,40 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		return
 	}
 
-	if !req.Overwrite && fileExists(dst) && fileSize(dst) > 0 {
+	if !req.Overwrite && hasResult(dst) {
 		s.set(i, func(fs *FileState) { fs.Status = "skipped"; fs.Msg = tr("conv.exists") })
 		s.logT("log.skipped", name)
 		return
 	}
 	s.set(i, func(fs *FileState) { fs.Status = "running"; fs.Msg = "" })
-	si := probe(ctx, ffm, src)
+	fail := func(err error) {
+		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = err.Error(); fs.Hint = err.Error() })
+		s.logT("log.error", name, err)
+	}
+	si := probe(ctx, ffm, src) // у списка кадров берём сведения с первого: размер и прозрачность
 	srcSize := fileSize(src)
+	if len(frames) > 0 {
+		if err := checkFrameSizes(frames); err != nil {
+			fail(err)
+			return
+		}
+		rateStr, rateVal := joinRate(req)
+		list, err := writeFrameList(frames)
+		if err != nil {
+			fail(err)
+			return
+		}
+		defer os.Remove(list)
+		src, srcSize = list, framesSize
+		si.joinFPS, si.fps, si.dur = rateStr, rateVal, float64(len(frames))/rateVal
+	}
+	if f.Kind == "seq" {
+		seqRemove(dst, src) // перезапись: кадры прошлой, более длинной версии не должны остаться
+		if err := os.MkdirAll(dst, 0o755); err != nil {
+			fail(err)
+			return
+		}
+	}
 	small := req.Format == "small"
 	expect := srcSize // сколько весит то, что кодируем
 	start, length, trimmed := req.trim(src)
@@ -97,8 +125,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	if target > 0 {
 		var err error
 		if r, err = planRate(target, si, req); err != nil {
-			s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = err.Error(); fs.Hint = err.Error() })
-			s.logT("log.error", name, err)
+			fail(err)
 			return
 		}
 		twoPass = expect > target // уже влезает — пробуем обычным способом, он быстрее
@@ -131,15 +158,32 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	}
 
 	if ctx.Err() != nil {
-		os.Remove(dst)
+		removeResult(f, src, dst)
 		s.set(i, func(fs *FileState) { fs.Status = "canceled"; fs.Msg = "" })
 		return
 	}
 	if err != nil {
-		os.Remove(dst)
+		removeResult(f, src, dst)
 		short, hint := errSummary(stderr, err, 2), friendlyErr(stderr, err)
 		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = short; fs.Hint = hint })
 		s.logT("log.errorLong", name, errSummary(stderr, err, 8))
+		return
+	}
+	if f.Kind == "seq" {
+		made := seqFrames(dst, src)
+		if len(made) == 0 { // например, кусок обрезки целиком за концом файла
+			seqRemove(dst, src)
+			fail(errors.New(tr("snap.noFrame")))
+			return
+		}
+		var size int64
+		for _, p := range made {
+			size += fileSize(p)
+		}
+		s.set(i, func(fs *FileState) {
+			fs.Status, fs.Pct, fs.DstSize, fs.Msg = "ok", 100, size, tr("seq.done", len(made))
+		})
+		s.addLog("[ok] %s", filepath.Base(dst))
 		return
 	}
 	size := fileSize(dst)
@@ -203,16 +247,39 @@ func (s *Server) run(req StartReq, ffm string) {
 	for _, p := range req.Files { // результат не должен затереть другой исходник из этой же пачки (a.mov → a.mp4)
 		used[strings.ToLower(p)] = true
 	}
+	groups := map[string][]string{} // первый кадр → все кадры будущего видео
+	inGroup := map[string]bool{}
+	if canJoin(req, f) {
+		for _, g := range joinGroups(req.Files) {
+			groups[g[0]] = g
+			for _, p := range g {
+				inGroup[p] = true
+			}
+		}
+	}
 	var states []*FileState
 	for _, p := range req.Files {
+		if inGroup[p] && groups[p] == nil {
+			continue
+		}
 		st := &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p), f: f}
 		why := ""
 		if f.Kind == "compress" {
 			st.f, why = compressFormat(p, req)
 		}
-		if why != "" {
+		switch g := groups[p]; {
+		case why != "":
 			st.Status, st.Msg = "kept", why
-		} else {
+		case g != nil:
+			stem := joinStem(p)
+			st.frames, st.Name, st.SrcSize = g, tr("seq.joinName", stem, len(g)), 0
+			for _, frame := range g {
+				st.SrcSize += fileSize(frame)
+			}
+			st.Dst = outPath(filepath.Join(filepath.Dir(p), stem+".frames"), req, f.Ext, used)
+		case f.Kind == "seq":
+			st.Dst = seqOutPath(p, req, used)
+		default:
 			st.Dst = outPath(p, req, st.f.Ext, used)
 		}
 		states = append(states, st)

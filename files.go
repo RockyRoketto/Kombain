@@ -149,7 +149,15 @@ func safeName(n string) string {
 }
 
 func outPath(src string, req StartReq, ext string, used map[string]bool) string {
-	stem := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+	return outPathNamed(src, fileStem(src), "."+ext, req, used)
+}
+
+// seqOutPath: папка для кадров этого видео
+func seqOutPath(src string, req StartReq, used map[string]bool) string {
+	return outPathNamed(src, fileStem(src)+tr("seq.dirSuffix"), "", req, used)
+}
+
+func outPathNamed(src, stem, suffix string, req StartReq, used map[string]bool) string {
 	od := strings.TrimSpace(req.OutDir)
 	folder := filepath.Dir(src)
 	switch {
@@ -181,9 +189,9 @@ func outPath(src string, req StartReq, ext string, used map[string]bool) string 
 		case n > 1:
 			name = fmt.Sprintf("%s_converted_%d", stem, n)
 		}
-		dst := filepath.Join(folder, name+"."+ext)
+		dst := filepath.Join(folder, name+suffix)
 		key := strings.ToLower(dst)
-		if strings.EqualFold(dst, src) || used[key] || (copyMode && fileSize(dst) > 0) {
+		if strings.EqualFold(dst, src) || used[key] || (copyMode && hasResult(dst)) {
 			continue
 		}
 		used[key] = true

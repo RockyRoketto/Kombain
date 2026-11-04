@@ -1,13 +1,16 @@
 // ---------- список файлов ----------
 const res = {};   // последний результат по каждому файлу (путь -> состояние с сервера)
+let joined = {};  // кадр -> первый кадр его видео: у собранного видео одно состояние на все строки
+const resOf = it => res[joined[it.path] || it.path];
 let lastIdx = null, lastList = '';
 function render() {
+  renderJoin();
   const labels = {pending:t('status.pending'), ok:t('status.ok'), error:t('status.error'), skipped:t('status.skipped'), kept:t('status.kept'), canceled:t('status.canceled')};
   $('empty').classList.toggle('hide', files.length > 0);
   $('list').classList.toggle('hide', files.length === 0);
   $('listbar').classList.toggle('hide', files.length === 0);
   const html = files.map((it, i) => {
-    const s = it.path ? res[it.path] : null;
+    const s = it.path ? resOf(it) : null;
     let cls = '', status = '', sub = '', pb = '';
     if (it.uploading) { status = '<span class="spin"></span>' + t('list.copying'); sub = fmtSize(it.size); }
     else {
@@ -87,8 +90,8 @@ $('list').addEventListener('click', e => {
 });
 $('selAll').addEventListener('change', e => { files.forEach(f => { if (!f.uploading) f.sel = e.target.checked; }); render(); });
 $('selInv').onclick = () => { if (!snap.running) { files.forEach(f => { if (!f.uploading) f.sel = !f.sel; }); render(); } };
-$('selErr').onclick = () => { if (!snap.running) { files.forEach(f => { f.sel = !!(f.path && res[f.path] && res[f.path].status === 'error'); }); render(); } };
-$('rmDone').onclick = () => { if (!snap.running) dropItems(f => f.path && res[f.path] && res[f.path].status === 'ok'); };
+$('selErr').onclick = () => { if (!snap.running) { files.forEach(f => { f.sel = !!(f.path && resOf(f) && resOf(f).status === 'error'); }); render(); } };
+$('rmDone').onclick = () => { if (!snap.running) dropItems(f => f.path && resOf(f) && resOf(f).status === 'ok'); };
 $('clearBtn').onclick = () => {
   if (snap.running) return;
   const tmp = files.filter(f => f.temp && f.path).map(f => f.path);

@@ -14,7 +14,7 @@ const FORMATS = {
   prores422:{n:'ProRes 422',k:'pro'}, prores4444:{n:'ProRes 4444',k:'pro'}, dnxhr:{n:'DNxHR',k:'pro'}, dnxhrmxf:{n:'DNxHR MXF',k:'pro'}, mxf:{n:'MXF MPEG-2',k:'pro'},
   cineform:{n:'CineForm',k:'pro'}, ffv1:{n:'FFV1',k:'pro'}, utvideo:{n:'Ut Video',k:'pro'}, huffyuv:{n:'HuffYUV',k:'pro'}, qtrle:{n:'QuickTime RLE',k:'pro'}, x264ll:{i:'fmt.x264ll',k:'pro'}, mjpeg:{n:'MJPEG',k:'pro'},
   // картинки
-  jpg:{n:'JPG',k:'image'}, png:{n:'PNG',k:'image'}, webp:{n:'WEBP',k:'image'}, avif:{n:'AVIF',k:'image'}, tiff:{n:'TIFF',k:'image'}, bmp:{n:'BMP',k:'image'}, tga:{n:'TGA',k:'image'},
+  jpg:{n:'JPG',k:'image'}, png:{n:'PNG',k:'image'}, pngseq:{i:'fmt.pngseq',k:'seq'}, webp:{n:'WEBP',k:'image'}, avif:{n:'AVIF',k:'image'}, tiff:{n:'TIFF',k:'image'}, bmp:{n:'BMP',k:'image'}, tga:{n:'TGA',k:'image'},
   jp2:{n:'JPEG 2000',k:'image'}, ico:{n:'ICO',k:'image'}, dpx:{n:'DPX',k:'image'}, exr:{n:'EXR',k:'image'}, hdr:{n:'HDR',k:'image'}, qoi:{n:'QOI',k:'image'},
   // анимация
   gif:{n:'GIF',k:'gif'}, apng:{n:'APNG',k:'anim'}, animwebp:{i:'fmt.animwebp',k:'anim'}, animavif:{i:'fmt.animavif',k:'anim'},
@@ -32,7 +32,7 @@ const fmtName = id => FORMATS[id].i ? t(FORMATS[id].i) : FORMATS[id].n;
 const GROUPS = [
   ['group.video',['mp4','mp4h265','webm','mov','mkv','avi264','mp4av1','wmv','mkv264','mkv265','mov265','flv','ts','mpg2','m4v','avixvid','webmav1','webmvp8','m2ts','vob','3gp','mpg1','ogv']],
   ['group.compress',['small']],
-  ['group.photo',['jpg','png','webp','tiff','bmp','avif','ico','tga','jp2','exr','hdr','dpx','qoi']],
+  ['group.photo',['jpg','png','pngseq','webp','tiff','bmp','avif','ico','tga','jp2','exr','hdr','dpx','qoi']],
   ['group.audio',['mp3','m4a','aac','ogg','wma','opus','ac3','vorbis','eac3','mp2','dts','amr']],
   ['group.lossless',['wav','flac','alac','aiff','mka','wv','tta','caf','w64']],
   ['group.anim',['gif','animwebp','apng','animavif']],
@@ -49,6 +49,7 @@ const PRESETS = [
   {n:'preset.gif.n', d:'preset.gif.d', s:{format:'gif', height:480, fps:15}},
   {n:'preset.photo.n', d:'preset.photo.d', s:{format:'webp'}}
 ];
+const IMAGES = /\.(png|jpe?g|webp|bmp|tiff?|avif|jp2|j2k|tga|ico|dpx|exr|hdr|qoi|ppm|pgm|pbm|pam|pcx|sgi|ras|xbm|xwd)$/i;
 const MEDIA = /\.(mp4|mov|mkv|avi|webm|flv|wmv|m4v|mpg|mpeg|ts|mts|m2ts|mxf|vob|ogv|dv|nut|3gp|3g2|asf|f4v|rm|rmvb|divx|swf|gif|apng|mp3|wav|flac|m4a|m4b|aac|ogg|oga|opus|wma|aiff?|ac3|eac3|dts|mp2|wv|tta|mka|caf|au|w64|amr|awb|spx|gsm|voc|mmf|ra|ape|png|jpe?g|webp|bmp|tiff?|avif|jp2|j2k|tga|ico|dpx|exr|hdr|qoi|ppm|pgm|pbm|pam|pcx|sgi|ras|xbm|xwd)$/i;
 const $ = id => document.getElementById(id);
 let files = [];            // {name, dir, path, size, uploading, temp, sel}

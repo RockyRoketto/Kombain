@@ -27,7 +27,8 @@ type FileState struct {
 	SrcSize int64   `json:"srcSize"`
 	DstSize int64   `json:"dstSize"`
 
-	f Format // во что конвертировать (в режиме «Сжать» — своё для каждого файла)
+	f      Format   // во что конвертировать (в режиме «Сжать» — своё для каждого файла)
+	frames []string // картинки, которые собираются в это видео; Path — первая из них
 }
 
 type DL struct {
@@ -82,6 +83,10 @@ type StartReq struct {
 	Jobs      int      `json:"jobs"`
 	Codec     string   `json:"codec"`    // режим «Сжать»: h265 (по умолчанию) или h264
 	TargetMB  float64  `json:"targetMB"` // уложить видео в столько МБ (0 — не ограничивать)
+
+	Join       bool   `json:"join"`       // собрать картинки каждой папки в одно видео
+	JoinFPS    string `json:"joinFps"`    // кадров в секунду для такого видео
+	GifPalette string `json:"gifPalette"` // "frame": своя палитра на каждый кадр
 
 	Trims map[string]Trim `json:"trims"` // обрезка: путь исходника → какой кусок оставить
 }

@@ -17,6 +17,7 @@ import (
 //	anim   — анимация без звука: высота, FPS
 //	gif    — то же, но со своей палитрой и значениями по умолчанию
 //	image  — один кадр: высота
+//	seq    — папка кадров PNG (sequence.go): высота, FPS
 //	audio  — битрейт звука
 //	fixed  — настраивать нечего, всё определяет сам формат
 //	copy   — дорожки копируются как есть
@@ -106,19 +107,20 @@ var formats = map[string]Format{
 	"mjpeg":      fm("avi", "pro", "-c:v mjpeg -q:v 3 -pix_fmt yuvj420p"+pcmA),
 
 	// Картинки
-	"png":  fm("png", "image", ""),
-	"jpg":  fm("jpg", "image", "-q:v 2"),
-	"webp": fm("webp", "image", "-quality 85"),
-	"avif": fm("avif", "image", "-c:v libaom-av1 -crf 30 -still-picture 1 -pix_fmt yuv420p -an"),
-	"tiff": fm("tiff", "image", "-c:v tiff -compression_algo lzw"),
-	"bmp":  fm("bmp", "image", "-c:v bmp"),
-	"tga":  fm("tga", "image", "-c:v targa"),
-	"jp2":  fm("jp2", "image", "-c:v libopenjpeg"),
-	"ico":  fm("ico", "image", "").vf("scale='min(256,iw)':'min(256,ih)':force_original_aspect_ratio=decrease"),
-	"dpx":  fm("dpx", "image", "-c:v dpx"),
-	"exr":  fm("exr", "image", "-c:v exr -pix_fmt gbrpf32le"),
-	"hdr":  fm("hdr", "image", "-c:v hdr"),
-	"qoi":  fm("qoi", "image", "-c:v qoi"),
+	"png":    fm("png", "image", ""),
+	"pngseq": fm("", "seq", ""),
+	"jpg":    fm("jpg", "image", "-q:v 2"),
+	"webp":   fm("webp", "image", "-quality 85"),
+	"avif":   fm("avif", "image", "-c:v libaom-av1 -crf 30 -still-picture 1 -pix_fmt yuv420p -an"),
+	"tiff":   fm("tiff", "image", "-c:v tiff -compression_algo lzw"),
+	"bmp":    fm("bmp", "image", "-c:v bmp"),
+	"tga":    fm("tga", "image", "-c:v targa"),
+	"jp2":    fm("jp2", "image", "-c:v libopenjpeg"),
+	"ico":    fm("ico", "image", "").vf("scale='min(256,iw)':'min(256,ih)':force_original_aspect_ratio=decrease"),
+	"dpx":    fm("dpx", "image", "-c:v dpx"),
+	"exr":    fm("exr", "image", "-c:v exr -pix_fmt gbrpf32le"),
+	"hdr":    fm("hdr", "image", "-c:v hdr"),
+	"qoi":    fm("qoi", "image", "-c:v qoi"),
 
 	// Анимация
 	"gif":      fm("gif", "gif", ""),
