@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -192,6 +193,32 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 	mcache.thumb[key] = b
 	mcache.mu.Unlock()
 	return b
+}
+
+// mediaHandler отдаёт файл целиком для просмотра в окне обрезки; ServeContent сам умеет перемотку (Range)
+func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if r.Host != s.host || q.Get("t") != s.token {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	p := q.Get("p")
+	if !mediaExt[strings.ToLower(filepath.Ext(p))] {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || st.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeContent(w, r, filepath.Base(p), st.ModTime(), f)
 }
 
 func (s *Server) thumbHandler(w http.ResponseWriter, r *http.Request) {

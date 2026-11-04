@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<link rel="icon" href="/favicon.png">
+<link rel="icon" href="/favicon.png?v=__VER__">
 <title data-i18n="app.name"></title>
 <script>
 // тема ставится раньше первой отрисовки, поэтому страница не мигает другой темой; выбор подставляет сервер
@@ -25,17 +25,17 @@ __CSS__
 <body>
 <header class="hero">
   <div class="hero-in">
-    <img class="hero-img" src="/hero.jpg" alt="">
-    <h1 data-i18n="app.h1"></h1>
+    <img class="hero-img" src="/hero.jpg?v=__VER__" alt="">
+    <div class="hero-title">
+      <h1 data-i18n="app.h1"></h1>
+      <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
+    </div>
     <nav class="tabs" id="tabs">
       <button class="tab on" data-t="conv" data-i18n="tab.conv"></button>
       <button class="tab" data-t="banner" data-i18n="tab.banner"></button>
     </nav>
     <div class="hero-right">
-      <div class="hero-side">
-        <button class="instb hide" id="installBtn" data-i18n-title="install.title" data-i18n="install.btn"></button>
-        <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
-      </div>
+      <button class="instb hide" id="installBtn" data-i18n-title="install.title" data-i18n="install.btn"></button>
       <button class="gear" id="gearBtn" data-i18n-title="settings" data-i18n-aria="settings" aria-expanded="false" aria-controls="setPanel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -139,17 +139,24 @@ __CSS__
       </section>
 
       <section class="card">
+        <label class="sw"><span data-i18n="b.autoDirs"></span><input type="checkbox" id="bAutoDirs"><i></i></label>
+      </section>
+
+      <section class="card">
         <h2 data-i18n="acc.out"></h2>
-        <span class="lb">JPEG</span>
-        <div class="rowf dirrow">
-          <input type="text" id="jpgDir" data-i18n-ph="out.noFolder">
-          <button class="btn" data-pick="jpgDir" data-i18n="btn.pick"></button>
+        <div id="bManualDirs">
+          <span class="lb">JPEG</span>
+          <div class="rowf dirrow">
+            <input type="text" id="jpgDir" data-i18n-ph="out.noFolder">
+            <button class="btn" data-pick="jpgDir" data-i18n="btn.pick"></button>
+          </div>
+          <span class="lb" style="display:block">WebP</span>
+          <div class="rowf dirrow">
+            <input type="text" id="webpDir" data-i18n-ph="out.noFolder">
+            <button class="btn" data-pick="webpDir" data-i18n="btn.pick"></button>
+          </div>
         </div>
-        <span class="lb" style="display:block">WebP</span>
-        <div class="rowf dirrow">
-          <input type="text" id="webpDir" data-i18n-ph="out.noFolder">
-          <button class="btn" data-pick="webpDir" data-i18n="btn.pick"></button>
-        </div>
+        <div class="note" id="bAutoNote"></div>
         <div class="note" data-i18n="b.overwriteNote"></div>
       </section>
     </div>
@@ -190,7 +197,13 @@ __CSS__
 
       <section class="acc" id="accPresets">
         <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.presets"></span><span class="acc-s" id="presetSum"></span></button>
-        <div class="acc-b"><div class="pgrid" id="presets"></div></div>
+        <div class="acc-b">
+          <div class="pgrid" id="presets"></div>
+          <div class="rowf psave">
+            <input type="text" id="presetName" maxlength="40" data-i18n-ph="preset.namePh">
+            <button class="btn" id="presetSave" data-i18n-title="preset.saveTitle" data-i18n="preset.save"></button>
+          </div>
+        </div>
       </section>
 
       <section class="acc" id="accParams">
@@ -283,6 +296,40 @@ __CSS__
     <div class="strip" id="pvStrip"></div>
     <div class="pmeta" id="pvMeta"></div>
     <div class="pout" id="pvOut"></div>
+  </div>
+</div>
+
+<div id="trim" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="trName">
+  <div class="mcard pcard">
+    <div class="phead"><h3 id="trName"></h3><button class="x" id="trClose" data-i18n-title="btn.close">✕</button></div>
+    <div class="note" id="trMsg"></div>
+    <div id="trBody" class="hide">
+      <div class="trstage" id="trStage">
+        <video id="trVideo" preload="metadata" playsinline></video>
+        <img id="trFrame" class="hide" alt="">
+      </div>
+      <div class="tl" id="trLine">
+        <div class="tl-bg" id="trBg"></div>
+        <div class="tl-dim l" id="trDimL"></div>
+        <div class="tl-dim r" id="trDimR"></div>
+        <div class="tl-sel" id="trSel"></div>
+        <div class="tl-ph" id="trPh"></div>
+        <button class="tl-h" id="trHs" role="slider" aria-valuemin="0" data-i18n-aria="trim.start"></button>
+        <button class="tl-h" id="trHe" role="slider" aria-valuemin="0" data-i18n-aria="trim.end"></button>
+      </div>
+      <div class="trrow">
+        <label class="trf"><span data-i18n="trim.start"></span><input type="text" id="trStart" inputmode="decimal" spellcheck="false"></label>
+        <button class="btn sm" id="trSetS" data-i18n-title="trim.setStartTitle" data-i18n="trim.setStart"></button>
+        <button class="btn sm trplay" id="trPlay"></button>
+        <button class="btn sm" id="trSetE" data-i18n-title="trim.setEndTitle" data-i18n="trim.setEnd"></button>
+        <label class="trf"><span data-i18n="trim.end"></span><input type="text" id="trEnd" inputmode="decimal" spellcheck="false"></label>
+      </div>
+      <div class="note trnote"><span data-i18n="trim.length"></span> <b id="trLen"></b> · <span data-i18n="trim.note"></span></div>
+    </div>
+    <div class="mact">
+      <button class="linkbtn" id="trReset" data-i18n="trim.reset"></button>
+      <button class="btn primary" id="trApply" data-i18n="trim.apply"></button>
+    </div>
   </div>
 </div>
 

@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -48,6 +49,8 @@ type Settings struct {
 	SeenVersion   string `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
 	Theme         string `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
 	Lang          string `json:"lang,omitempty"`          // язык интерфейса, см. i18n.go; пусто = русский
+	BannerJpgRel  string `json:"bannerJpgRel,omitempty"`  // где папка JPEG относительно папки PNG, см. banner.go
+	BannerWebpRel string `json:"bannerWebpRel,omitempty"` // то же для WebP
 }
 
 func settingsPath() string { return filepath.Join(dataDir(), "settings.json") }
@@ -60,16 +63,33 @@ func loadSettings() Settings {
 	return st
 }
 
+var settingsMu sync.Mutex
+
 func saveSettings(st Settings) error {
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
 	if err := os.MkdirAll(dataDir(), 0o755); err != nil {
 		return err
 	}
+	// копия программы, открытая раньше, держит в памяти старые настройки: «Что нового» не должно от этого вернуться
+	if seen := loadSettings().SeenVersion; seen != "" && cmpVer(seen, st.SeenVersion) > 0 {
+		st.SeenVersion = seen
+	}
 	b, _ := json.MarshalIndent(st, "", "  ")
-	tmp := settingsPath() + ".part"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	f, err := os.CreateTemp(dataDir(), "settings-*.part") // своё имя: другая копия не подменит файл на полпути
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, settingsPath())
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	_, err = f.Write(b)
+	if e := f.Close(); err == nil {
+		err = e
+	}
+	if err != nil {
+		return err
+	}
+	return replaceFile(context.Background(), tmp, settingsPath()) // антивирус может держать файл долю секунды
 }
 
 // ---------- версии ----------

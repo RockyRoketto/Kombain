@@ -1,6 +1,6 @@
 // ---------- настройки ----------
 const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir'];
-const CHECKS = ['overwrite', 'copyDup'];
+const CHECKS = ['overwrite', 'copyDup', 'bAutoDirs'];
 let tab = 'conv';        // вкладка: 'conv' — конвертер, 'banner' — баннеры
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
@@ -60,16 +60,39 @@ function renderParamSum() {
   $('paramsSum').textContent = sum.join(' · ') || (FORMATS[fmt].k === 'copy' ? t('param.nothing') : t('param.asOriginal'));
 }
 const presetValues = p => Object.assign({}, PRESET_BASE, p.s);
+// свои пресеты: {n: название, s: рецепт как у готовых}
+let userPresets = [];
+try {
+  const up = JSON.parse(localStorage.getItem('konv9000.presets') || '[]');
+  if (Array.isArray(up)) userPresets = up.filter(p => p && typeof p.n === 'string' && p.s && FORMATS[p.s.format]);
+} catch (e) {}
+function saveUserPresets() { try { localStorage.setItem('konv9000.presets', JSON.stringify(userPresets)); } catch (e) {} }
+// под названием своего пресета — коротко, что в нём
+function userPresetDesc(s) {
+  const k = FORMATS[s.format].k, bits = [fmtName(s.format)];
+  if (['video', 'small'].includes(k)) bits.push(+s.target > 0 ? t('param.upTo', {v: s.target}) : 'CRF ' + s.crf);
+  if (['video', 'gif', 'image', 'small'].includes(k) && s.height) bits.push(s.height + 'p');
+  if (['video', 'audio', 'small'].includes(k)) bits.push(s.abr + ' kbps');
+  return bits.join(' · ');
+}
+// кнопка пресета → его рецепт: готовые по номеру в PRESETS, свои по номеру в userPresets
+const presetOf = b => b.dataset.u !== undefined ? {name: userPresets[+b.dataset.u].n, v: presetValues(userPresets[+b.dataset.u])}
+  : {name: t(PRESETS[+b.dataset.p].n), v: presetValues(PRESETS[+b.dataset.p])};
 // пресет подсвечен, пока настройки совпадают с его рецептом
 function renderPresets() {
   let active = '';
   document.querySelectorAll('#presets .pre').forEach(b => {
-    const p = PRESETS[+b.dataset.p], v = presetValues(p);
+    const {name, v} = presetOf(b);
     const on = fmt === v.format && Object.keys(v).every(k => k === 'format' || String($(k).value) === String(v[k]));
     b.classList.toggle('on', on);
-    if (on) active = t(p.n);
+    if (on && !active) active = name;
   });
   $('presetSum').textContent = active || t('preset.none');
+}
+function buildPresets() {
+  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="pre" data-p="${i}"><b>${t(p.n)}</b><span>${t(p.d)}</span></button>`).join('') +
+    userPresets.map((p, i) => `<div class="prew"><button class="pre" data-u="${i}" title="${esc(p.n)}"><b>${esc(p.n)}</b><span>${esc(userPresetDesc(p.s))}</span></button>` +
+      `<button class="x prex" data-ux="${i}" title="${t('preset.delete')}" aria-label="${t('preset.delete')}">✕</button></div>`).join('');
 }
 function applyKind() {
   const k = FORMATS[fmt].k;
@@ -91,19 +114,33 @@ function buildFormats() {
   $('fmtGroups').innerHTML = GROUPS.map(([g, ids]) =>
     `<div class="fgroup"><small>${t(g)}</small><div class="chips">` +
     ids.map(id => `<button class="chip" data-f="${id}">${fmtName(id)}</button>`).join('') + `</div></div>`).join('');
-  $('presets').innerHTML = PRESETS.map((p, i) => `<button class="pre" data-p="${i}"><b>${t(p.n)}</b><span>${t(p.d)}</span></button>`).join('');
+  buildPresets();
 }
 $('fmtGroups').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   fmt = c.dataset.f; applyKind(); save();
 });
 $('presets').addEventListener('click', e => {
+  const del = e.target.closest('[data-ux]');
+  if (del) { userPresets.splice(+del.dataset.ux, 1); saveUserPresets(); buildPresets(); renderPresets(); return; }
   const c = e.target.closest('.pre'); if (!c) return;
-  const v = presetValues(PRESETS[+c.dataset.p]);
+  const {v} = presetOf(c);
   fmt = v.format;
   Object.keys(v).forEach(k => { if (k !== 'format') $(k).value = v[k]; });
   applyKind(); save();
 });
+// сохранить текущие настройки как свой пресет; то же название заменяет прежний
+$('presetSave').onclick = () => {
+  const name = $('presetName').value.trim();
+  if (!name) { $('presetName').focus(); return; }
+  const s = {format: fmt};
+  Object.keys(PRESET_BASE).forEach(k => { s[k] = $(k).value; });
+  const was = userPresets.findIndex(p => p.n.toLowerCase() === name.toLowerCase());
+  if (was >= 0) userPresets[was] = {n: name, s}; else userPresets.push({n: name, s});
+  saveUserPresets(); buildPresets(); renderPresets();
+  $('presetName').value = '';
+};
+$('presetName').addEventListener('keydown', e => { if (e.key === 'Enter') $('presetSave').click(); });
 buildFormats(); load(); applyKind(); renderOut();
 [...FIELDS, ...CHECKS].forEach(k => $(k).addEventListener('input', () => { save(); applyKind(); renderOut(); }));
 // «копия» и «перезаписать» друг друга исключают

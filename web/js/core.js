@@ -26,7 +26,7 @@ const $ = id => document.getElementById(id);
 let files = [];            // {name, dir, path, size, uploading, temp, sel}
 let fmt = 'mp4';
 let snap = {files:[], running:false, ffmpeg:'', dl:{}, log:[], summary:'', defaultOut:''};
-let hadFF = false, prevRunning = false, busy = false, uploadChain = Promise.resolve(), pending = 0;
+let hadFF = false, doneSeq = null, busy = false, uploadChain = Promise.resolve(), pending = 0;
 
 async function api(path, body) {
   try {

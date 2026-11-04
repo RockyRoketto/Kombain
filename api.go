@@ -45,7 +45,8 @@ func (s *Server) routes() *http.ServeMux {
 		s.mu.Unlock()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme).WriteString(w, pages[lang])
+		// __VER__ в адресах картинок: после обновления окно не покажет старые из своего кэша
+		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme, "__VER__", appVersion).WriteString(w, pages[lang])
 	})
 
 	mux.HandleFunc("/hero.jpg", func(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +70,7 @@ func (s *Server) routes() *http.ServeMux {
 	})
 
 	mux.HandleFunc("/thumb", s.thumbHandler)
+	mux.HandleFunc("/media", s.mediaHandler)
 
 	mux.HandleFunc("/api/info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -88,7 +90,11 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/state", s.api(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		incoming := s.incoming
+		s.incoming = nil
 		writeJSON(w, map[string]any{
+			"incoming":   incoming,
+			"batchSeq":   s.batchSeq,
 			"ffmpeg":     s.ffmpeg,
 			"dl":         s.dl,
 			"running":    s.running,
@@ -195,7 +201,11 @@ func (s *Server) routes() *http.ServeMux {
 	}))
 
 	mux.HandleFunc("/api/news-seen", s.api(func(w http.ResponseWriter, r *http.Request) {
-		s.newsSeen()
+		if err := s.newsSeen(); err != nil {
+			s.addLog("news-seen: %v", err)
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
@@ -327,6 +337,14 @@ func (s *Server) routes() *http.ServeMux {
 			return
 		}
 		req.JpgDir, req.WebpDir = strings.TrimSpace(req.JpgDir), strings.TrimSpace(req.WebpDir)
+		if req.AutoDirs {
+			d, ok := s.bannerDirsNow(req.Files)
+			if !ok {
+				writeJSON(w, map[string]any{"error": tr("err.bannerNoSource")})
+				return
+			}
+			req.JpgDir, req.WebpDir = d.JpgDir, d.WebpDir
+		}
 		switch {
 		case len(req.Files) == 0:
 			writeJSON(w, map[string]any{"error": tr("err.noFiles")})
@@ -340,8 +358,22 @@ func (s *Server) routes() *http.ServeMux {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
+		s.rememberBannerDirs(req.Files, req.JpgDir, req.WebpDir)
 		go s.runBanners(req, ffm)
-		writeJSON(w, map[string]any{"ok": true})
+		writeJSON(w, map[string]any{"ok": true, "jpgDir": req.JpgDir, "webpDir": req.WebpDir})
+	}))
+
+	// где папки JPEG и WebP для этих PNG; jpgDir и webpDir в запросе — их только что выбрали, запомнить
+	mux.HandleFunc("/api/banner-dirs", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Files   []string `json:"files"`
+			JpgDir  string   `json:"jpgDir"`
+			WebpDir string   `json:"webpDir"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.rememberBannerDirs(body.Files, strings.TrimSpace(body.JpgDir), strings.TrimSpace(body.WebpDir))
+		d, _ := s.bannerDirsNow(body.Files)
+		writeJSON(w, d)
 	}))
 
 	mux.HandleFunc("/api/cancel", s.api(func(w http.ResponseWriter, r *http.Request) {

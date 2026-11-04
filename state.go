@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -46,7 +48,9 @@ type Server struct {
 	log     []string
 	summary string
 	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры»
-	cancel  context.CancelFunc
+	// номер пачки: страница узнаёт о конце пачки по нему, даже если вся пачка уложилась между двумя опросами
+	batchSeq int
+	cancel   context.CancelFunc
 
 	ownsDrop bool // папка drop наша: занят постоянный порт, другого живого экземпляра нет
 
@@ -57,6 +61,8 @@ type Server struct {
 	appUpd   AppUpd      // новая версия самой программы
 	news     string      // текст плашки «Что нового», пусто — плашки нет
 	newsEn   string      // он же по-английски
+
+	incoming []FileInfo // файлы снаружи («Отправить», второй запуск), страница заберёт их при опросе
 }
 
 type StartReq struct {
@@ -76,6 +82,37 @@ type StartReq struct {
 	Jobs      int      `json:"jobs"`
 	Codec     string   `json:"codec"`    // режим «Сжать»: h265 (по умолчанию) или h264
 	TargetMB  float64  `json:"targetMB"` // уложить видео в столько МБ (0 — не ограничивать)
+
+	Trims map[string]Trim `json:"trims"` // обрезка: путь исходника → какой кусок оставить
+}
+
+// Trim: кусок файла в секундах от начала
+type Trim struct {
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+}
+
+// trim: откуда и сколько секунд брать из этого файла; ok == false — файл целиком
+func (r StartReq) trim(src string) (start, length float64, ok bool) {
+	t, ok := r.Trims[src]
+	if !ok || t.End <= t.Start || t.End <= 0 {
+		return 0, 0, false
+	}
+	start = max(t.Start, 0)
+	return start, t.End - start, true
+}
+
+// addIncoming: файлы и папки, переданные программе снаружи. Не медиафайлы молча пропускаем.
+func (s *Server) addIncoming(paths []string) {
+	var list []FileInfo
+	for _, f := range expandPaths(paths) {
+		if mediaExt[strings.ToLower(filepath.Ext(f.Path))] {
+			list = append(list, f)
+		}
+	}
+	s.mu.Lock()
+	s.incoming = append(s.incoming, list...)
+	s.mu.Unlock()
 }
 
 // logT: строка лога из словаря, на языке, выбранном в момент записи
@@ -107,6 +144,7 @@ func (s *Server) begin(busy string) (string, error) {
 		return "", errT("err.ffmpegMissing")
 	}
 	s.running = true
+	s.batchSeq++
 	s.files = nil // пока новая пачка не готова, интерфейс не должен снова увидеть статусы прошлой
 	s.summary = ""
 	return s.ffmpeg, nil

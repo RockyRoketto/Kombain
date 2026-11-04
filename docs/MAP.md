@@ -17,6 +17,11 @@
 |---|---|
 | Новый формат вывода | `formats.go` (`formats`) + `web/js/core.js` (`FORMATS`, `GROUPS`) |
 | Новый пресет | `web/js/core.js` (`PRESETS`, значения по умолчанию в `PRESET_BASE`) |
+| Свои пресеты | `web/js/settings.js` (`userPresets`, `buildPresets`, `presetOf`), хранятся в `localStorage` |
+| Обрезка | окно: `web/js/trim.js`, `web/index.html` (`#trim`); запрос: `web/js/start.js` (`trims`); ffmpeg: `state.go` (`StartReq.trim`), `ffargs.go` (`buildArgs`), `convert.go` (`convert`); просмотр: `media.go` (`mediaHandler`) |
+| Файлы снаружи, второй запуск | `main.go` (`argPaths`), `ui_windows.go` (`activateRunning`, `receivePaths`), `state.go` (`addIncoming`), `web/js/poll.js` (`incoming`) |
+| «Отправить» в меню Windows | `install_windows.go` (`addSendTo`, `shortcutFolders`) |
+| Конец пачки, звук | `web/js/poll.js` (`doneSeq`, `beep`), `state.go` (`batchSeq`) |
 | Новое входное расширение | `formats.go` (`mediaExt`), `web/js/core.js` (`MEDIA`), `ui_windows.go` (фильтр в `showDialog`) |
 | Аргументы ffmpeg | `ffargs.go` (`buildArgs`) |
 | Режим «Сжать» | `formats.go` (`compressFormat`), `convert.go` (`convert`) |
@@ -49,8 +54,8 @@
 
 | Файл | Что внутри |
 |---|---|
-| `main.go` | `main`, `startServer`, `stopAll`, `idleExit`, `openBrowser` |
-| `state.go` | типы `Server`, `FileState`, `StartReq`, `DL`, `FileInfo`; `begin`, `addLog`, `logT` |
+| `main.go` | `main`, `argPaths`, `startServer`, `stopAll`, `idleExit`, `openBrowser` |
+| `state.go` | типы `Server`, `FileState`, `StartReq`, `Trim`, `DL`, `FileInfo`; `begin`, `addIncoming`, `addLog`, `logT` |
 | `formats.go` | `Format`, `formats`, `compressFormat`, `presets`, `mediaExt` |
 | `files.go` | `dataDir`, `dropDir`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `ffargs.go` | `probe`, `planRate`, `rateArgs`, `buildArgs`, `num`, `mbStr` |
@@ -59,15 +64,15 @@
 | `ffdownload.go` | `download` (общее скачивание, защита от зависания), `downloadFFmpeg`, `tryDownload` |
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
-| `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `ffQuiet` |
-| `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler` |
+| `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
+| `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler` |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
 | `i18n.go`, `i18n_strings.go` | язык интерфейса: `normLang`, `setLang`, `tr`, `errT`; словарь `goDict` |
 | `selfupdate.go` | `updateRepo`, `splitNotes`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
 | `whatsnew.go` | плашка «Что нового»: `changelogSince` (разбор вшитых `CHANGELOG.md` и `CHANGELOG.en.md`), `whatsNewSince`, `initNews`, `newsSeen` |
-| `install_windows.go` | `doInstall`, `createShortcut`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
-| `ui_windows.go` | `runUI`, `wndProc`, `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
+| `install_windows.go` | `doInstall`, `createShortcut`, `addSendTo`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
+| `ui_windows.go` | `runUI`, `wndProc`, `activateRunning` и `receivePaths` (второй запуск), `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
 | `install_other.go`, `ui_other.go`, `hide_*.go` | заглушки не для Windows и запуск процессов без окна |
 
 Тесты лежат рядом (`*_test.go`). `compress_test.go`, `banner_test.go` и `media_test.go` используют настоящий ffmpeg.
@@ -84,16 +89,17 @@
 | `i18n.json` | тексты страницы на обоих языках; значения могут содержать HTML, подстановки `{имя}`, формы числа через `|` |
 | `js/i18n.js` | словарь в странице, `lang`, `t`, `tn`, `applyLang` (смена языка без перезапуска) |
 | `js/core.js` | `TOKEN`, `FORMATS`, `fmtName`, `GROUPS`, `PRESET_BASE`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
-| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, `renderTheme`, `renderLang`, обработчики настроек |
+| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, свои пресеты (`userPresets`, `buildPresets`), разделы-аккордеон, `setPanel`, `renderTheme`, `renderLang`, обработчики настроек |
 | `js/filelist.js` | `render`, `addInfos`, `dropItems`, выделение |
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
 | `js/preview.js` | `openPreview`, `outLine`, `thumbUrl` |
+| `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, `beep`, кнопки «Закрыть программу» (только в браузере) и «лог» |
-| `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bDone` |
+| `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
 ## HTTP API
@@ -102,12 +108,12 @@
 
 | Группа | Ручки |
 |---|---|
-| Пачка | `start`, `banners`, `cancel`, `state` |
+| Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 
-Вне `/api`: `/` (страница), `/hero.jpg`, `/favicon.png`, `/thumb` (токен в параметре `t`).
+Вне `/api`: `/` (страница), `/hero.jpg`, `/favicon.png`, `/thumb` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
 
 ## Сборка, выпуск, прочее
 
@@ -124,6 +130,6 @@
 
 ```
 gofmt -l .        # должно быть пусто
-go vet .          # в Windows: 2 предупреждения unsafe.Pointer в ui_windows.go — норма
+go vet .          # в Windows: 3 предупреждения unsafe.Pointer в ui_windows.go — норма
 go test ./...
 ```

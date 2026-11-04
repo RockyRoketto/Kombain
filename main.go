@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -117,6 +119,27 @@ func main() {
 		runUninstall()
 		return
 	}
+	paths := argPaths()
+	// программа уже открыта: файлы туда, окно наверх. После обновления прошлая версия ещё закрывается, её не трогаем
+	if !hasArg("--updated") && activateRunning(paths) {
+		return
+	}
 	s := startServer()
+	go s.addIncoming(paths)
 	runUI(s) // окно программы (Windows) или вкладка браузера
+}
+
+// argPaths: файлы и папки из командной строки («Отправить», перетаскивание на значок).
+// Пути полные: у второго запуска своя рабочая папка.
+func argPaths() []string {
+	var out []string
+	for _, a := range os.Args[1:] {
+		if strings.HasPrefix(a, "--") {
+			continue
+		}
+		if abs, err := filepath.Abs(a); err == nil {
+			out = append(out, abs)
+		}
+	}
+	return out
 }

@@ -8,7 +8,8 @@ function currentReq() {
     outDir: outMode === 'folder' ? $('outDir').value.trim() : '', dropOut,
     sameDir: outMode === 'same', overwrite: $('overwrite').checked, copy: $('copyDup').checked,
     jobs: +$('jobs').value || 1,
-    codec: $('codec').value, targetMB: +$('target').value > 0 ? +$('target').value : 0
+    codec: $('codec').value, targetMB: +$('target').value > 0 ? +$('target').value : 0,
+    trims: Object.fromEntries(files.filter(f => f.trim && f.path).map(f => [f.path, f.trim]))
   };
 }
 // startBatch: запуск пачки; base — настройки (по умолчанию текущие), over — разовые поправки (копия/перезапись)

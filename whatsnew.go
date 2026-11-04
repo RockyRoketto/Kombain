@@ -86,12 +86,12 @@ func (s *Server) initNews(installed string, updated bool) {
 	}
 }
 
-// newsSeen: пользователь закрыл плашку
-func (s *Server) newsSeen() {
+// newsSeen: пользователь нажал «Понятно». Следующий раз плашка появится только в более новой версии.
+func (s *Server) newsSeen() error {
 	s.mu.Lock()
 	s.news, s.newsEn = "", ""
 	s.settings.SeenVersion = appVersion
 	st := s.settings
 	s.mu.Unlock()
-	saveSettings(st)
+	return saveSettings(st)
 }

@@ -57,6 +57,9 @@ var (
 	pSetWindowPos             = user32.NewProc("SetWindowPos")
 	pSetClassLongPtrW         = user32.NewProc("SetClassLongPtrW")
 	pSetWindowTextW           = user32.NewProc("SetWindowTextW")
+	pFindWindowW              = user32.NewProc("FindWindowW")
+	pIsIconic                 = user32.NewProc("IsIconic")
+	pSendMessageTimeoutW      = user32.NewProc("SendMessageTimeoutW")
 	pCreateSolidBrush         = gdi32.NewProc("CreateSolidBrush")
 	pCoInitializeEx           = ole32.NewProc("CoInitializeEx")
 	pCoCreateInstance         = ole32.NewProc("CoCreateInstance")
@@ -73,6 +76,10 @@ const (
 	wsExTopmost        = 0x00000008
 	swHide             = 0
 	swShow             = 5
+	swRestore          = 9
+	wmCopyData         = 0x004A
+	smtoAbortIfHung    = 0x0002
+	windowClass        = "Konvertor9000"
 	wmDestroy          = 0x0002
 	wmMove             = 0x0003
 	wmSize             = 0x0005
@@ -184,6 +191,9 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 		if webReady.Load() {
 			chromium.Focus()
 		}
+	case wmCopyData:
+		receivePaths((*copyData)(unsafe.Pointer(lp)))
+		return 1
 	case wmSettingChange:
 		applyWindowTheme() // могли сменить тему Windows
 	case wmGetMinMaxInfo:
@@ -216,6 +226,56 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 	return r
 }
 
+// ---------- второй запуск: файлы и подъём окна в уже открытой программе ----------
+
+// copyData — структура COPYDATASTRUCT; в Data лежит JSON со списком путей
+type copyData struct {
+	Kind uintptr
+	Size uint32
+	Data *byte
+}
+
+// activateRunning передаёт пути уже открытой программе и поднимает её окно.
+// false: окна нет, или это старая версия, которая таких сообщений не понимает.
+func activateRunning(paths []string) bool {
+	h, _, _ := pFindWindowW.Call(uintptr(unsafe.Pointer(u16(windowClass))), 0)
+	if h == 0 {
+		return false
+	}
+	if paths == nil {
+		paths = []string{}
+	}
+	b, err := json.Marshal(paths)
+	if err != nil {
+		return false
+	}
+	cd := copyData{Size: uint32(len(b)), Data: &b[0]}
+	var res uintptr
+	r, _, _ := pSendMessageTimeoutW.Call(h, wmCopyData, 0, uintptr(unsafe.Pointer(&cd)), smtoAbortIfHung, 5000, uintptr(unsafe.Pointer(&res)))
+	if r == 0 || res == 0 {
+		return false
+	}
+	if iconic, _, _ := pIsIconic.Call(h); iconic != 0 {
+		pShowWindow.Call(h, swRestore)
+	}
+	pSetForegroundWindow.Call(h) // поднять может только тот, кого запустил пользователь, то есть этот процесс
+	return true
+}
+
+// receivePaths: сообщение второго запуска в оконном потоке. Данные живут только до выхода из обработчика.
+func receivePaths(cd *copyData) {
+	var paths []string
+	if cd.Size > 0 && cd.Data != nil {
+		json.Unmarshal(unsafe.Slice(cd.Data, cd.Size), &paths)
+	}
+	if srv != nil {
+		go srv.addIncoming(paths)
+		if browserMode.Load() { // окна нет, программа живёт во вкладке браузера
+			openBrowser(srv.url())
+		}
+	}
+}
+
 func createMainWindow() {
 	hInstance, _, _ = pGetModuleHandleW.Call(0)
 	cursor, _, _ := pLoadCursorW.Call(0, 32512) // IDC_ARROW
@@ -226,7 +286,7 @@ func createMainWindow() {
 	icon, _, _ := pLoadImageW.Call(hInstance, uintptr(unsafe.Pointer(u16("APP"))), imageIcon, cx, cy, 0)
 	iconSm, _, _ := pLoadImageW.Call(hInstance, uintptr(unsafe.Pointer(u16("APP"))), imageIcon, sx, sy, 0)
 
-	className := u16("Konvertor9000")
+	className := u16(windowClass)
 	wc := wndClassEx{
 		WndProc:    windows.NewCallback(wndProc),
 		Instance:   hInstance,

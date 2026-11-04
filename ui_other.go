@@ -18,6 +18,8 @@ func pickFolder() (string, error) {
 func windowThemeChanged() {} // своего окна здесь нет, страницу в браузере красит CSS
 func windowLangChanged()  {}
 
+func activateRunning([]string) bool { return false } // своего окна здесь нет
+
 func runUI(s *Server) {
 	if os.Getenv("FFB_NO_BROWSER") == "" {
 		openBrowser(s.url())

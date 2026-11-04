@@ -21,7 +21,7 @@ function renderSummary(s) {
   const fl = s.files || [];
   const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
   $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
-    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t('dock.idleBanner') : t('dock.idle'));
+    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : t('dock.idle'));
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }
@@ -41,6 +41,10 @@ async function poll() {
   const s = await api('state');
   if (!s.error) {
     snap = s;
+    if ((s.incoming || []).length) {   // файлы снаружи: «Отправить» или второй запуск
+      if (tab === 'banner' && s.incoming.every(f => /\.png$/i.test(f.path))) bAdd(s.incoming);
+      else { setTab('conv'); addInfos(s.incoming); }
+    }
     const conv = s.batch !== 'banner';
     (s.files || []).forEach(f => { (conv ? res : bres)[f.path] = f; });
     const dl = s.dl || {}, inst = (s.app || {}).install || {};
@@ -56,9 +60,9 @@ async function poll() {
     $('total').style.width = fl.length ? ((done + part) / fl.length * 100) + '%' : '0';
     renderSummary(s);
     if (conv) batchEvents(s);
-    if (prevRunning && !s.running) { beep(); conv ? batchDone(s) : bDone(s); }
+    if (doneSeq === null) doneSeq = s.batchSeq;   // пачки до открытия страницы не наши
+    if (!s.running && s.batchSeq !== doneSeq) { doneSeq = s.batchSeq; beep(); conv ? batchDone(s) : bDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';
-    prevRunning = s.running;
     const log = $('logWrap'), bottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
     const logText = (s.log || []).join('\n');
     if (log.textContent !== logText) log.textContent = logText;   // иначе сбрасывается выделение текста в логе

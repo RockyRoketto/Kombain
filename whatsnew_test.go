@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -110,9 +112,23 @@ func TestNewsLifecycle(t *testing.T) {
 	if got := loadSettings().SeenVersion; got == appVersion {
 		t.Fatal("версия отмечена просмотренной до «Понятно»")
 	}
-	s.newsSeen()
+	stale := s.settings // копия программы, открытая до «Понятно»
+	if err := s.newsSeen(); err != nil {
+		t.Fatal(err)
+	}
 	if s.news != "" || s.newsEn != "" || loadSettings().SeenVersion != appVersion {
 		t.Fatalf("после «Понятно»: %q, %q, %+v", s.news, s.newsEn, loadSettings())
+	}
+	// она сохраняет свои настройки: отметка не откатывается, а её собственное изменение записывается
+	stale.Theme = themeLight
+	if err := saveSettings(stale); err != nil {
+		t.Fatal(err)
+	}
+	if st := loadSettings(); st.SeenVersion != appVersion || st.Theme != themeLight {
+		t.Fatalf("старая копия затёрла отметку: %+v", st)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dataDir(), "*.part")); len(left) > 0 {
+		t.Errorf("остались временные файлы: %v", left)
 	}
 
 	s = &Server{settings: loadSettings()}
@@ -122,7 +138,7 @@ func TestNewsLifecycle(t *testing.T) {
 	}
 
 	// новая установка: ничего не показываем, но версию запоминаем, чтобы следующее обновление было с чем сравнить
-	saveSettings(Settings{})
+	os.Remove(settingsPath())
 	s = &Server{settings: loadSettings()}
 	s.initNews("", false)
 	if s.news != "" || loadSettings().SeenVersion != appVersion {

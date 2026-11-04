@@ -145,6 +145,7 @@ func doInstall(desktop bool) error {
 			return errT("inst.startShortcut", err)
 		}
 	}
+	addSendTo(dst)
 	desk := ""
 	if dir, err := windows.KnownFolderPath(windows.FOLDERID_Desktop, 0); err == nil {
 		desk = filepath.Join(dir, shortcutFile())
@@ -161,10 +162,20 @@ func doInstall(desktop bool) error {
 	return writeUninstallEntry(dst)
 }
 
-// renameOldShortcuts: ярлыки со старым названием или на другом языке в «Пуске» и на рабочем столе переименовать в новое
+// shortcutFolders: где лежат ярлыки программы
+var shortcutFolders = []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop, windows.FOLDERID_SendTo}
+
+// addSendTo: пункт в меню Windows «Отправить». Без него программа всё равно работает, поэтому ошибка не мешает установке.
+func addSendTo(exe string) {
+	if dir, err := windows.KnownFolderPath(windows.FOLDERID_SendTo, 0); err == nil {
+		createShortcut(filepath.Join(dir, shortcutFile()), exe)
+	}
+}
+
+// renameOldShortcuts: ярлыки со старым названием или на другом языке переименовать в новое
 func renameOldShortcuts() {
 	cur := shortcutFile()
-	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
+	for _, id := range shortcutFolders {
 		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
 			for _, name := range shortcutNames() {
 				if old := filepath.Join(dir, name); name != cur && fileExists(old) {
@@ -281,6 +292,7 @@ func afterUpdate(inst InstallInfo) InstallInfo {
 		renameOldShortcuts()
 	}
 	if inst.Installed && inst.Version != appVersion {
+		addSendTo(selfExe()) // установка старой версии такого пункта не делала
 		if writeUninstallEntry(selfExe()) == nil {
 			return installInfo()
 		}
@@ -307,7 +319,7 @@ func runUninstall() {
 		return
 	}
 
-	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Programs, windows.FOLDERID_Desktop} {
+	for _, id := range shortcutFolders {
 		if dir, err := windows.KnownFolderPath(id, 0); err == nil {
 			for _, name := range shortcutNames() {
 				os.Remove(filepath.Join(dir, name))

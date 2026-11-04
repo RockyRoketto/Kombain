@@ -27,6 +27,9 @@ function render() {
         else if (s.msg && s.status !== 'ok') sub = esc(s.msg);
       }
     }
+    sub = trimTag(it) + sub;   // первой: длинный путь обрезается многоточием и спрятал бы метку
+    const cut = it.path && snap.ffmpeg && !snap.running && TRIMMABLE.test(it.name)
+      ? `<button class="x cut${it.trim ? ' on' : ''}" title="${t('trim.open')}" aria-label="${t('trim.open')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></button>` : '';
     const dis = snap.running || it.uploading;
     return `<div class="f ${cls}${it.sel ? ' sel' : ''}" data-i="${i}" title="${esc(it.path || it.name)}">` +
       `<label class="ck"><input type="checkbox" ${it.sel ? 'checked' : ''} ${dis ? 'disabled' : ''}></label>` +
@@ -34,7 +37,7 @@ function render() {
         ? `<div class="badge th" data-prev="${i}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
         : `<div class="badge">${esc(ext(it.name))}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
-      `<div class="pill">${status}</div>` +
+      `<div class="pill">${status}</div>` + cut +
       (snap.running ? '' : `<button class="x" title="${t('list.remove')}">✕</button>`) + pb + `</div>`;
   }).join('');
   // опрос идёт каждые 700 мс: без изменений не перерисовываем, иначе теряются клики и мигают превью
@@ -70,6 +73,7 @@ $('list').addEventListener('click', e => {
   if (snap.running) return;
   const row = e.target.closest('.f'); if (!row) return;
   const i = +row.dataset.i, it = files[i]; if (!it) return;
+  if (e.target.closest('.cut')) { openTrim(it); return; }
   if (e.target.closest('.x')) { dropItems(f => f === it); return; }
   if (it.uploading) return;
   const onInput = e.target.tagName === 'INPUT';

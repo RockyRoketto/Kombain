@@ -74,12 +74,21 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	si := probe(ctx, ffm, src)
 	srcSize := fileSize(src)
 	small := req.Format == "small"
+	expect := srcSize // сколько весит то, что кодируем
+	start, length, trimmed := req.trim(src)
+	if trimmed {
+		if si.dur > 0 {
+			length = min(length, max(si.dur-start, 0))
+			expect = int64(float64(srcSize) * length / si.dur)
+		}
+		si.dur = length // прогресс и расчёт битрейта идут по куску, а не по всему файлу
+	}
 
 	var target int64
 	if f.Kind == "video" && req.TargetMB > 0 {
 		target = int64(req.TargetMB * (1 << 20))
 	}
-	if small && target > 0 && srcSize <= target {
+	if small && !trimmed && target > 0 && srcSize <= target {
 		s.kept(i, tr("conv.alreadySmaller", mbStr(req.TargetMB)))
 		return
 	}
@@ -92,7 +101,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 			s.logT("log.error", name, err)
 			return
 		}
-		twoPass = srcSize > target // уже влезает — пробуем обычным способом, он быстрее
+		twoPass = expect > target // уже влезает — пробуем обычным способом, он быстрее
 	}
 	encode := func(req StartReq, safe bool) (string, error) {
 		if twoPass {
@@ -134,7 +143,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		return
 	}
 	size := fileSize(dst)
-	if small && size >= srcSize {
+	if small && !trimmed && size >= srcSize { // обрезанный кусок нужен, даже если не стал легче
 		os.Remove(dst)
 		s.kept(i, tr("conv.noGain"))
 		return

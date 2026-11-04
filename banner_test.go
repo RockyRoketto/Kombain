@@ -34,6 +34,66 @@ func TestBannerNames(t *testing.T) {
 	}
 }
 
+func TestBannerDirs(t *testing.T) {
+	root := t.TempDir()
+	png := filepath.Join(root, "project", "PNG")
+	os.MkdirAll(png, 0o755)
+	files := []string{
+		filepath.Join(root, "logo.png"),                // не из списка: его папка не считается
+		filepath.Join(dropDir(), "x", "800x260_R.png"), // копия из браузера: настоящей папки нет
+		filepath.Join(png, "315x250.png"),
+	}
+	if _, ok := bannerDirs(files[:2], Settings{}); ok {
+		t.Error("среди файлов нет настоящей папки, ждали отказ")
+	}
+
+	// папок нет: их место рядом с папкой PNG, а не внутри неё
+	side := filepath.Join(root, "project")
+	d, ok := bannerDirs(files, Settings{})
+	if !ok || d.Base != png || d.JpgDir != filepath.Join(side, "JPEG") || d.WebpDir != filepath.Join(side, "WebP") || d.JpgFound || d.WebpFound {
+		t.Errorf("папок нет: %+v %v", d, ok)
+	}
+
+	// соседняя папка JPG уже есть, берём её вместо новой JPEG
+	os.MkdirAll(filepath.Join(side, "JPG"), 0o755)
+	os.MkdirAll(filepath.Join(side, "WebP"), 0o755)
+	d, _ = bannerDirs(files, Settings{})
+	if d.JpgDir != filepath.Join(side, "JPG") || !d.JpgFound || d.WebpDir != filepath.Join(side, "WebP") || !d.WebpFound {
+		t.Errorf("соседние папки: %+v", d)
+	}
+
+	// запомненное положение важнее обычных имён, но только если там есть папка
+	os.MkdirAll(filepath.Join(side, "out", "j"), 0o755)
+	st := Settings{BannerJpgRel: filepath.Join("..", "out", "j"), BannerWebpRel: filepath.Join("..", "out", "w")}
+	d, _ = bannerDirs(files, st)
+	if d.JpgDir != filepath.Join(side, "out", "j") || !d.JpgFound {
+		t.Errorf("запомненная JPEG: %+v", d)
+	}
+	if d.WebpDir != filepath.Join(side, "WebP") || !d.WebpFound {
+		t.Errorf("запомненной WebP нет на диске, ждали соседнюю: %+v", d)
+	}
+}
+
+// положение папок, выбранное в одном проекте, находит папки в другом
+func TestRememberBannerDirs(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("LOCALAPPDATA", t.TempDir()) // настоящие настройки не трогаем
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	s := &Server{}
+	a, b := filepath.Join(root, "a", "PNG"), filepath.Join(root, "b", "PNG")
+	for _, p := range []string{a, b, filepath.Join(root, "a", "ready", "jpeg"), filepath.Join(root, "b", "ready", "jpeg")} {
+		os.MkdirAll(p, 0o755)
+	}
+	s.rememberBannerDirs([]string{filepath.Join(a, "315x250.png")}, filepath.Join(root, "a", "ready", "jpeg"), "")
+	if want := filepath.Join("..", "ready", "jpeg"); s.settings.BannerJpgRel != want || loadSettings().BannerJpgRel != want {
+		t.Fatalf("запомнено %q, в файле %q", s.settings.BannerJpgRel, loadSettings().BannerJpgRel)
+	}
+	d, ok := s.bannerDirsNow([]string{filepath.Join(b, "315x250.png")})
+	if !ok || d.JpgDir != filepath.Join(root, "b", "ready", "jpeg") || !d.JpgFound || d.WebpFound {
+		t.Errorf("второй проект: %+v %v", d, ok)
+	}
+}
+
 // с настоящим ffmpeg: большой PNG пережимается на месте, файлы из списка → JPG и WebP
 func TestRunBanners(t *testing.T) {
 	ffm, err := exec.LookPath("ffmpeg")

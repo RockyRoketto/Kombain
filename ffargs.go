@@ -179,6 +179,9 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 	} else {
 		args = append(args, "-n")
 	}
+	if start, length, ok := req.trim(src); ok { // до -i: быстро и точно, при копировании потоков — по ключевым кадрам
+		args = append(args, "-ss", strconv.FormatFloat(start, 'f', 3, 64), "-t", strconv.FormatFloat(length, 'f', 3, 64))
+	}
 	args = append(args, "-i", src)
 
 	switch f.Kind {

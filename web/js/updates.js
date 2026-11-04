@@ -45,7 +45,13 @@ function ffBanner(s) {
 }
 // ---------- плашка «Что нового» после обновления ----------
 let newsClosed = false;
+// страница тоже помнит «Понятно»: если отметка программы не сохранилась, окно не вернётся, а отметка уйдёт ещё раз
+function newsMark(ver) {
+  try { if (ver === undefined) return localStorage.getItem('konv9000.newsSeen'); localStorage.setItem('konv9000.newsSeen', ver); } catch (e) {}
+}
 function newsBanner(s) {
+  const ver = (s.app || {}).version;
+  if (s.news && !newsClosed && ver && newsMark() === ver) { newsClosed = true; api('news-seen'); }
   const on = !!s.news && !newsClosed && $('setup').classList.contains('hide');
   $('newsBanner').classList.toggle('hide', !on);
   if (!on) return;
@@ -53,7 +59,7 @@ function newsBanner(s) {
   const news = lang === 'en' && s.newsEn ? s.newsEn : s.news;
   if ($('newsNotes').textContent !== news) $('newsNotes').textContent = news; // не сбрасывать прокрутку при каждом опросе
 }
-$('newsOk').onclick = () => { newsClosed = true; newsBanner(snap); api('news-seen'); };
+$('newsOk').onclick = () => { newsClosed = true; newsMark((snap.app || {}).version || ''); newsBanner(snap); api('news-seen'); };
 // ---------- плашка новой версии Конвертера ----------
 let appDismissed = null;
 function appBanner(s) {

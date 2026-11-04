@@ -35,8 +35,11 @@ func pageBody(t *testing.T, s *Server) string {
 func pageTheme(t *testing.T, s *Server) string {
 	t.Helper()
 	body := pageBody(t, s)
-	if strings.Contains(body, "__THEME__") || strings.Contains(body, "__TOKEN__") {
+	if strings.Contains(body, "__THEME__") || strings.Contains(body, "__TOKEN__") || strings.Contains(body, "__VER__") {
 		t.Error("в странице остались метки")
+	}
+	if !strings.Contains(body, `src="/hero.jpg?v=`+appVersion+`"`) {
+		t.Error("адрес фото без версии: после обновления окно покажет старое фото из кэша")
 	}
 	_, rest, ok := strings.Cut(body, "let themePref = '")
 	if !ok {

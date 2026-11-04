@@ -25,9 +25,92 @@ var bannerNames = []string{
 const bannerLimit = 500 << 10 // PNG больше этого пережимаем
 
 type BannerReq struct {
-	Files   []string `json:"files"`
-	JpgDir  string   `json:"jpgDir"`
-	WebpDir string   `json:"webpDir"`
+	Files    []string `json:"files"`
+	JpgDir   string   `json:"jpgDir"`
+	WebpDir  string   `json:"webpDir"`
+	AutoDirs bool     `json:"autoDirs"` // папки JPEG и WebP рядом с папкой PNG вместо JpgDir и WebpDir
+}
+
+// bannerBase: папка первого PNG из списка. У копий из браузера настоящей папки нет, для них "".
+func bannerBase(files []string) string {
+	for _, p := range files {
+		if bannerWanted(p) != "" && !isTemp(p) {
+			return filepath.Dir(p)
+		}
+	}
+	return ""
+}
+
+// BannerDirs: куда сохранять баннеры для этих PNG. *Found: папка уже есть на диске.
+type BannerDirs struct {
+	Base      string `json:"base"`
+	JpgDir    string `json:"jpgDir"`
+	WebpDir   string `json:"webpDir"`
+	JpgFound  bool   `json:"jpgFound"`
+	WebpFound bool   `json:"webpFound"`
+}
+
+// bannerFind: сначала там, где папку выбирали в прошлый раз (rel — путь от папки PNG),
+// потом соседняя с папкой PNG с обычным именем. Если нигде нет — куда её создать: соседняя, names[0].
+func bannerFind(base, rel string, names ...string) (string, bool) {
+	var cands []string
+	if rel != "" {
+		cands = append(cands, filepath.Join(base, rel))
+	}
+	parent := filepath.Dir(base)
+	for _, n := range names {
+		cands = append(cands, filepath.Join(parent, n))
+	}
+	for _, c := range cands {
+		if st, err := os.Stat(c); err == nil && st.IsDir() {
+			return c, true
+		}
+	}
+	return filepath.Join(parent, names[0]), false
+}
+
+// bannerDirs ищет папки JPEG и WebP для этих PNG. ok == false: настоящей папки у файлов нет.
+func bannerDirs(files []string, st Settings) (d BannerDirs, ok bool) {
+	d.Base = bannerBase(files)
+	if d.Base == "" {
+		return d, false
+	}
+	d.JpgDir, d.JpgFound = bannerFind(d.Base, st.BannerJpgRel, "JPEG", "JPG")
+	d.WebpDir, d.WebpFound = bannerFind(d.Base, st.BannerWebpRel, "WebP")
+	return d, true
+}
+
+// bannerDirsNow — bannerDirs с запомненным положением папок
+func (s *Server) bannerDirsNow(files []string) (BannerDirs, bool) {
+	s.mu.Lock()
+	st := s.settings
+	s.mu.Unlock()
+	return bannerDirs(files, st)
+}
+
+// rememberBannerDirs запоминает, где папки лежат относительно папки PNG, чтобы найти их в следующем проекте.
+// Пустой путь — без изменений. На другом диске относительного пути нет: в следующем проекте такой папки всё равно не найти.
+func (s *Server) rememberBannerDirs(files []string, jpg, webp string) {
+	base := bannerBase(files)
+	if base == "" || (jpg == "" && webp == "") {
+		return
+	}
+	rel := func(p string) string {
+		r, err := filepath.Rel(base, p)
+		if err != nil {
+			return ""
+		}
+		return r
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if jpg != "" {
+		s.settings.BannerJpgRel = rel(jpg)
+	}
+	if webp != "" {
+		s.settings.BannerWebpRel = rel(webp)
+	}
+	saveSettings(s.settings) // под замком: порядок записи не перепутается
 }
 
 // x в имени бывает латинская, «×» или русская «х»
