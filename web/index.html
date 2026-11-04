@@ -229,6 +229,8 @@ __CSS__
         <div class="acc-b">
           <div class="note" data-k="small" data-i18n="param.smallNote"></div>
           <div class="note" data-k="copy" data-i18n="param.copyNote"></div>
+          <div class="note" data-k="fixed" data-i18n="param.fixedNote"></div>
+          <div class="note" data-k="vfix pro" data-i18n="param.qualityNote"></div>
           <div class="field" data-k="small">
             <div><span class="lb" data-i18n="codec.lb"></span><span class="hint" data-i18n="codec.hint"></span></div>
             <select id="codec">
@@ -244,7 +246,7 @@ __CSS__
             <div><span class="lb" data-i18n="crf.lb"></span><span class="hint" id="crfHint" data-i18n="crf.hint"></span></div>
             <div class="rng"><input type="range" id="crf" min="0" max="51" value="23"><output id="crfVal">23</output></div>
           </div>
-          <div class="field" data-k="video small" data-f="x26">
+          <div class="field" data-k="video small">
             <div><span class="lb" data-i18n="speed.lb"></span><span class="hint" data-i18n="speed.hint"></span></div>
             <select id="speed">
               <option value="ultrafast" data-i18n="speed.ultrafast"></option>
@@ -254,15 +256,15 @@ __CSS__
               <option value="slow" data-i18n="speed.slow"></option>
             </select>
           </div>
-          <div class="field" data-k="video audio small">
+          <div class="field" data-k="video vfix audio small">
             <span class="lb" data-i18n="abr.lb"></span>
             <input type="number" id="abr" min="32" max="512" step="32" value="192">
           </div>
-          <div class="field" data-k="video gif image small">
+          <div class="field" data-k="video vfix pro gif anim image small">
             <div><span class="lb" data-i18n="height.lb"></span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="height" min="16" placeholder="—">
           </div>
-          <div class="field" data-k="video gif small">
+          <div class="field" data-k="video vfix pro gif anim small">
             <div><span class="lb">FPS</span><span class="hint" data-i18n="param.emptyOriginal"></span></div>
             <input type="number" id="fps" min="1" placeholder="—">
           </div>

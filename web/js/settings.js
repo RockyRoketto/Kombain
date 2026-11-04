@@ -57,7 +57,7 @@ function renderParamSum() {
   const gif = FORMATS[fmt].k === 'gif';   // пустые поля GIF на деле значат 480p и 15 кадров (buildArgs)
   if (gif && !val('height')) sum.unshift('480p');
   if (gif && !val('fps')) sum.push('15 FPS');
-  $('paramsSum').textContent = sum.join(' · ') || (FORMATS[fmt].k === 'copy' ? t('param.nothing') : t('param.asOriginal'));
+  $('paramsSum').textContent = sum.join(' · ') || (['copy', 'fixed'].includes(FORMATS[fmt].k) ? t('param.nothing') : t('param.asOriginal'));
 }
 const presetValues = p => Object.assign({}, PRESET_BASE, p.s);
 // свои пресеты: {n: название, s: рецепт как у готовых}
@@ -71,8 +71,8 @@ function saveUserPresets() { try { localStorage.setItem('konv9000.presets', JSON
 function userPresetDesc(s) {
   const k = FORMATS[s.format].k, bits = [fmtName(s.format)];
   if (['video', 'small'].includes(k)) bits.push(+s.target > 0 ? t('param.upTo', {v: s.target}) : 'CRF ' + s.crf);
-  if (['video', 'gif', 'image', 'small'].includes(k) && s.height) bits.push(s.height + 'p');
-  if (['video', 'audio', 'small'].includes(k)) bits.push(s.abr + ' kbps');
+  if (['video', 'vfix', 'pro', 'gif', 'anim', 'image', 'small'].includes(k) && s.height) bits.push(s.height + 'p');
+  if (['video', 'vfix', 'audio', 'small'].includes(k)) bits.push(s.abr + ' kbps');
   return bits.join(' · ');
 }
 // кнопка пресета → его рецепт: готовые по номеру в PRESETS, свои по номеру в userPresets
@@ -97,11 +97,14 @@ function buildPresets() {
 function applyKind() {
   const k = FORMATS[fmt].k;
   document.querySelectorAll('[data-k]').forEach(el => {
-    let show = el.dataset.k.split(' ').includes(k);
-    if (show && el.dataset.f === 'x26') show = ['mp4','mp4h265','mov','webm','small'].includes(fmt);
-    el.classList.toggle('hide', !show);
+    el.classList.toggle('hide', !el.dataset.k.split(' ').includes(k));
   });
   document.querySelectorAll('#fmtGroups .chip').forEach(c => c.classList.toggle('on', c.dataset.f === fmt));
+  // редкие форматы свёрнуты, но выбранный прятать нельзя
+  const rareOn = GROUPS.some(g => g[2] && g[1].includes(fmt));
+  $('fmtRare').classList.toggle('hide', !fmtMore && !rareOn);
+  $('fmtMore').classList.toggle('hide', rareOn);
+  $('fmtMore').textContent = t(fmtMore ? 'fmt.less' : 'fmt.more');
   $('crfVal').textContent = $('crf').value;
   $('crfHint').textContent = +$('target').value > 0 ? t('crf.hintTarget')
     : k === 'small' ? t('crf.hintSmall', {range: $('codec').value === 'h264' ? '20–23' : '24–28'}) : t('crf.hint');
@@ -110,13 +113,17 @@ function applyKind() {
   // свои аргументы теперь спрятаны в панели: точка на шестерёнке напоминает, что они заданы
   $('gearBtn').classList.toggle('dot', !!$('extra').value.trim());
 }
+let fmtMore = false;   // открыты ли редкие форматы
 function buildFormats() {
-  $('fmtGroups').innerHTML = GROUPS.map(([g, ids]) =>
-    `<div class="fgroup"><small>${t(g)}</small><div class="chips">` +
-    ids.map(id => `<button class="chip" data-f="${id}">${fmtName(id)}</button>`).join('') + `</div></div>`).join('');
+  const row = ([g, ids, rare]) =>
+    `<div class="fgroup"${rare ? ' id="fmtRare"' : ''}><small>${t(g)}</small><div class="chips">` +
+    ids.map(id => `<button class="chip" data-f="${id}">${fmtName(id)}</button>`).join('') + `</div></div>`;
+  $('fmtGroups').innerHTML = GROUPS.filter(g => !g[2]).map(row).join('') +
+    `<button class="fmore" id="fmtMore"></button>` + GROUPS.filter(g => g[2]).map(row).join('');
   buildPresets();
 }
 $('fmtGroups').addEventListener('click', e => {
+  if (e.target.closest('#fmtMore')) { fmtMore = !fmtMore; applyKind(); return; }
   const c = e.target.closest('.chip'); if (!c) return;
   fmt = c.dataset.f; applyKind(); save();
 });

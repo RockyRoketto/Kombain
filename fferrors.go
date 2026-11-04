@@ -19,6 +19,8 @@ func friendlyErr(stderr string, err error) string {
 		return false
 	}
 	switch {
+	case has("dimensions too small"):
+		return tr("ff.tooSmall")
 	case has("no space left"):
 		return tr("ff.noSpace")
 	case has("permission denied", "access is denied"):

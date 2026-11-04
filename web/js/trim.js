@@ -1,6 +1,6 @@
 // ---------- обрезка видео и звука ----------
 // Кусок хранится в самом файле списка (it.trim = {start, end}) и уходит в запрос через currentReq.
-const TRIMMABLE = /\.(mp4|mov|mkv|avi|webm|flv|wmv|m4v|mpg|mpeg|ts|mts|3gp|mp3|wav|flac|m4a|aac|ogg|opus|wma)$/i;
+const TRIMMABLE = /\.(mp4|mov|mkv|avi|webm|flv|wmv|m4v|mpg|mpeg|ts|mts|m2ts|mxf|vob|ogv|dv|nut|3gp|3g2|asf|f4v|rm|rmvb|divx|swf|mp3|wav|flac|m4a|m4b|aac|ogg|oga|opus|wma|aiff?|ac3|eac3|dts|mp2|wv|tta|mka|caf|au|w64|amr|awb|spx|gsm|voc|mmf|ra|ape)$/i;
 const TRIM_MIN = .1;      // короче куска не бывает, секунды
 // mark — место просмотра; selLoop — идёт показ куска по кругу; frames — проигрывателя нет, вместо него кадры от ffmpeg
 const trs = {it: null, dur: 0, start: 0, end: 0, video: false, frames: false, frameTimer: 0, fps: 25, mark: 0, selLoop: false, scrub: false, stop: null};

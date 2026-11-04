@@ -666,8 +666,7 @@ func dialogOnUI(folders, multi bool, title, typeName, typePattern string) ([]str
 }
 
 func pickFiles() ([]string, error) {
-	return dialogOnUI(false, true, tr("dlg.pickFiles"), tr("dlg.mediaFiles"),
-		"*.mp4;*.mov;*.mkv;*.avi;*.webm;*.flv;*.wmv;*.m4v;*.mpg;*.mpeg;*.ts;*.mts;*.3gp;*.gif;*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.tif;*.tiff")
+	return dialogOnUI(false, true, tr("dlg.pickFiles"), tr("dlg.mediaFiles"), mediaFilter())
 }
 
 func pickFolder() (string, error) {

@@ -32,6 +32,7 @@ var goDict = map[string]map[string]string{
 		"ff.noStream":      "В файле нет нужной дорожки: например, у аудиофайла нет картинки для видео или GIF.",
 		"ff.noEncoder":     "В этой сборке ffmpeg нет нужного кодека. Обнови ffmpeg.",
 		"ff.oddSize":       "Неудобное разрешение для кодека (нечётная ширина или высота). Попробуй указать высоту, например 720.",
+		"ff.tooSmall":      "Кадр слишком маленький для этого формата. DNxHR принимает кадр от 256×120.",
 		"ff.timestamps":    "Внутри файла сбиты метки времени. Попробуй другой формат или «MKV без перекодирования».",
 		"ff.badArgs":       "Ошибка в своих аргументах ffmpeg — проверь поле «Свои аргументы».",
 		"ff.badParams":     "Кодек не принял параметры (разрешение, частота кадров или звук). Попробуй другую высоту/FPS или другой формат.",
@@ -42,6 +43,7 @@ var goDict = map[string]map[string]string{
 		"media.cantRead":   "ffmpeg не смог прочитать файл",
 		"media.noPlayback": "Не получилось подготовить файл к просмотру",
 		"compress.gifNo":   "GIF не сжимаю — сделай из него MP4, будет в разы меньше",
+		"compress.animNo":  "анимацию не сжимаю — сделай из неё MP4, будет в разы меньше",
 		"rate.noDuration":  "не удалось узнать длительность видео, поэтому не могу рассчитать размер",
 		"rate.tooSmall":    "в %s МБ это видео не влезет даже в плохом качестве — нужно хотя бы %.0f МБ",
 
@@ -145,6 +147,7 @@ var goDict = map[string]map[string]string{
 		"ff.noStream":      "The file has no suitable track: for example, an audio file has no picture for a video or GIF.",
 		"ff.noEncoder":     "This ffmpeg build does not have the required codec. Update ffmpeg.",
 		"ff.oddSize":       "The resolution does not suit the codec (odd width or height). Try setting a height, for example 720.",
+		"ff.tooSmall":      "The frame is too small for this format. DNxHR needs at least 256×120.",
 		"ff.timestamps":    "The timestamps inside the file are broken. Try another format or \"MKV without re-encoding\".",
 		"ff.badArgs":       "Error in the custom ffmpeg arguments. Check the \"Custom ffmpeg arguments\" field.",
 		"ff.badParams":     "The codec rejected the settings (resolution, frame rate or audio). Try another height/FPS or another format.",
@@ -155,6 +158,7 @@ var goDict = map[string]map[string]string{
 		"media.cantRead":   "ffmpeg could not read the file",
 		"media.noPlayback": "Couldn't prepare the file for playback",
 		"compress.gifNo":   "GIF is not compressed. Convert it to MP4 instead, it will be many times smaller",
+		"compress.animNo":  "Animation is not compressed. Convert it to MP4 instead, it will be many times smaller",
 		"rate.noDuration":  "could not get the video duration, so the size cannot be calculated",
 		"rate.tooSmall":    "this video will not fit in %s MB even at low quality, it needs at least %.0f MB",
 

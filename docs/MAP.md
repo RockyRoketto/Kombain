@@ -15,7 +15,8 @@
 
 | Задача | Файлы |
 |---|---|
-| Новый формат вывода | `formats.go` (`formats`) + `web/js/core.js` (`FORMATS`, `GROUPS`) |
+| Новый формат вывода | `formats.go` (`formats`, `Kind` задаёт видимые настройки) + `web/js/core.js` (`FORMATS`, `GROUPS`). Только то, что есть в сборке essentials. `formats_test.go` сверяет списки и конвертирует в каждый формат |
+| Ограничения кодеков | `ffargs.go` (`fitCodecLimits`, `isStandardFPS`), `formats.go` (поле `Filter`) |
 | Новый пресет | `web/js/core.js` (`PRESETS`, значения по умолчанию в `PRESET_BASE`) |
 | Свои пресеты | `web/js/settings.js` (`userPresets`, `buildPresets`, `presetOf`), хранятся в `localStorage` |
 | Обрезка | окно: `web/js/trim.js`, `web/index.html` (`#trim`); запрос: `web/js/start.js` (`trims`); ffmpeg: `state.go` (`StartReq.trim`), `ffargs.go` (`buildArgs`), `convert.go` (`convert`); просмотр: `media.go` (`mediaHandler`) |
@@ -25,7 +26,7 @@
 | «Отправить» в меню Windows | `install_windows.go` (`addSendTo`, `shortcutFolders`) |
 | Конец пачки | `web/js/poll.js` (`doneSeq`), `state.go` (`batchSeq`) |
 | Звуки окончания и ошибки | `web/js/sounds.js` (`batchSound`, `playSound`, `beep`, `renderSounds`), список Windows: `sounds.go`, диалог: `ui_windows.go` (`pickSound`), играет через `/media` |
-| Новое входное расширение | `formats.go` (`mediaExt`), `web/js/core.js` (`MEDIA`), `ui_windows.go` (фильтр в `showDialog`) |
+| Новое входное расширение | `formats.go` (`videoExt`, `audioExt`, `imageExt`; маску диалога даёт `mediaFilter`), `web/js/core.js` (`MEDIA`), `web/js/trim.js` (`TRIMMABLE`) |
 | Аргументы ffmpeg | `ffargs.go` (`buildArgs`) |
 | Режим «Сжать» | `formats.go` (`compressFormat`), `convert.go` (`convert`) |
 | «Уложить в N МБ» | `ffargs.go` (`planRate`, `rateArgs`), `convert.go` (`encodeTarget`) |
@@ -59,9 +60,9 @@
 |---|---|
 | `main.go` | `main`, `argPaths`, `startServer`, `stopAll`, `idleExit`, `openBrowser` |
 | `state.go` | типы `Server`, `FileState`, `StartReq`, `Trim`, `DL`, `FileInfo`; `begin`, `addIncoming`, `addLog`, `logT` |
-| `formats.go` | `Format`, `formats`, `compressFormat`, `presets`, `mediaExt` |
+| `formats.go` | `Format`, `fm`, `formats`, `compressFormat`, `presets`, `videoExt`, `audioExt`, `imageExt`, `mediaExt`, `mediaFilter` |
 | `files.go` | `dataDir`, `dropDir`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
-| `ffargs.go` | `probe`, `planRate`, `rateArgs`, `buildArgs`, `num`, `mbStr` |
+| `ffargs.go` | `probe`, `planRate`, `rateArgs`, `fitCodecLimits`, `isStandardFPS`, `buildArgs`, `num`, `mbStr` |
 | `convert.go` | `run`, `convert`, `encodeTarget`, `runFF`, `set`, `kept` |
 | `fferrors.go` | `friendlyErr` (для человека), `errSummary` (для лога) |
 | `ffdownload.go` | `download` (общее скачивание, защита от зависания), `downloadFFmpeg`, `tryDownload` |

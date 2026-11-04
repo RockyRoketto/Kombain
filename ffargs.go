@@ -5,9 +5,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -42,6 +44,56 @@ func probe(ctx context.Context, ffm, src string) srcInfo {
 
 // скорость VP9: чем больше cpu-used, тем быстрее (по умолчанию libvpx жутко медленный)
 var vp9Speed = map[string]string{"ultrafast": "5", "veryfast": "4", "fast": "3", "medium": "2", "slow": "1"}
+
+// скорость AV1: libaom ещё медленнее, на малых значениях минуты превращаются в часы
+var aomSpeed = map[string]string{"ultrafast": "8", "veryfast": "8", "fast": "7", "medium": "6", "slow": "5"}
+
+// MPEG-1, MPEG-2 и MXF знают только телевизионные частоты кадров
+func isStandardFPS(v float64) bool {
+	for _, s := range []float64{24000.0 / 1001, 24, 25, 30000.0 / 1001, 30, 50, 60000.0 / 1001, 60} {
+		if math.Abs(v-s) < 0.01 {
+			return true
+		}
+	}
+	return false
+}
+
+// Какой битрейт звука принимает кодек, кбит/с. Меньше минимума AC3 и Vorbis падают на многоканальном звуке.
+var audioRateLimits = map[string][2]int{"ac3": {192, 640}, "eac3": {192, 640}, "libvorbis": {128, 480}}
+
+// MP2 принимает только значения из стандарта
+var mp2Rates = []int{64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384}
+
+// fitCodecLimits подгоняет настройки из интерфейса к тому, что кодек вообще принимает
+func fitCodecLimits(a []string) {
+	value := func(key string) int {
+		if i := slices.Index(a, key); i >= 0 && i+1 < len(a) {
+			return i + 1
+		}
+		return -1
+	}
+	if c, b := value("-c:a"), value("-b:a"); c > 0 && b > 0 {
+		if k, err := strconv.Atoi(strings.TrimSuffix(a[b], "k")); err == nil {
+			if lim, ok := audioRateLimits[a[c]]; ok {
+				k = min(max(k, lim[0]), lim[1])
+			} else if a[c] == "mp2" {
+				pick := mp2Rates[0]
+				for _, r := range mp2Rates {
+					if r <= k {
+						pick = r
+					}
+				}
+				k = pick
+			}
+			a[b] = strconv.Itoa(k) + "k"
+		}
+	}
+	if c, q := value("-c:v"), value("-crf"); c > 0 && q > 0 && a[c] == "libvpx" { // у VP8 CRF от 4
+		if v, err := strconv.Atoi(a[q]); err == nil && v < 4 {
+			a[q] = "4"
+		}
+	}
+}
 
 func num(s string) string {
 	s = strings.TrimSpace(s)
@@ -170,6 +222,16 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		fargs = rateArgs(fargs, rc)
 		h = rc.height
 	}
+	fitCodecLimits(fargs)
+	if f.standardFPS() {
+		want := si.fps
+		if v, err := strconv.ParseFloat(fps, 64); err == nil {
+			want = v
+		}
+		if want > 0 && !isStandardFPS(want) {
+			fps = "25"
+		}
+	}
 
 	args := []string{"-hide_banner", "-nostdin", "-loglevel", "error", "-progress", "pipe:1", "-nostats"}
 	if req.Overwrite || (rc != nil && rc.pass == 1) {
@@ -196,34 +258,64 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		args = append(args, "-filter_complex", fc, "-loop", "0")
 	case "image":
 		args = append(args, "-frames:v", "1")
+		var vf []string
 		if h != "" {
-			args = append(args, "-vf", "scale=-1:"+h)
+			vf = append(vf, "scale=-1:"+h)
+		}
+		if f.Filter != "" {
+			vf = append(vf, f.Filter)
+		}
+		if len(vf) > 0 {
+			args = append(args, "-vf", strings.Join(vf, ","))
 		}
 		args = append(args, fargs...)
-	case "video":
-		args = append(args, fargs...)
-		if f.Ext == "webm" {
-			// 8 бит (profile 0): работает в любой сборке ffmpeg и в любом браузере.
-			// 10-битные исходники (HDR с iPhone) иначе падают с "Invalid argument"
-			pf := "yuv420p"
-			if si.alpha {
-				pf = "yuva420p"
-			}
-			args = append(args, "-pix_fmt", pf, "-row-mt", "1", "-deadline", "good", "-cpu-used", vp9Speed[preset])
-		}
-		if safe {
-			// повтор: ровная частота кадров и стандартный формат пикселей
-			args = append(args, "-fps_mode", "cfr", "-max_muxing_queue_size", "4096")
-			if f.Ext != "webm" {
-				args = append(args, "-pix_fmt", "yuv420p")
-			}
-		}
+	case "anim":
 		var vf []string
 		if h != "" {
 			vf = append(vf, "scale=-2:"+h)
 		}
 		if fps != "" {
 			vf = append(vf, "fps="+fps)
+		}
+		if len(vf) > 0 {
+			args = append(args, "-vf", strings.Join(vf, ","))
+		}
+		args = append(args, fargs...)
+	case "video", "vfix", "pro":
+		args = append(args, fargs...)
+		switch f.codec() {
+		case "libvpx-vp9", "libvpx":
+			// 8 бит (profile 0): работает в любой сборке ffmpeg и в любом браузере.
+			// 10-битные исходники (HDR с iPhone) иначе падают с "Invalid argument"
+			pf := "yuv420p"
+			if si.alpha {
+				pf = "yuva420p"
+			}
+			args = append(args, "-pix_fmt", pf, "-deadline", "good", "-cpu-used", vp9Speed[preset])
+			if f.codec() == "libvpx-vp9" {
+				args = append(args, "-row-mt", "1")
+			}
+		case "libaom-av1":
+			args = append(args, "-row-mt", "1", "-cpu-used", aomSpeed[preset])
+		}
+		if safe {
+			// повтор: ровная частота кадров и стандартный формат пикселей
+			args = append(args, "-fps_mode", "cfr", "-max_muxing_queue_size", "4096")
+			if f.Ext != "webm" && f.Kind != "pro" {
+				args = append(args, "-pix_fmt", "yuv420p")
+			}
+		}
+		var vf []string
+		if h != "" {
+			vf = append(vf, "scale=-2:"+h)
+		} else if f.Filter == "" && (si.w%2 != 0 || si.h%2 != 0) {
+			vf = append(vf, "scale=trunc(iw/2)*2:trunc(ih/2)*2") // нечётный размер кадра многие кодеки не принимают
+		}
+		if fps != "" {
+			vf = append(vf, "fps="+fps)
+		}
+		if f.Filter != "" {
+			vf = append(vf, f.Filter)
 		}
 		if len(vf) > 0 {
 			args = append(args, "-vf", strings.Join(vf, ","))

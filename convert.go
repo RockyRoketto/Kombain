@@ -111,7 +111,7 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	}
 
 	stderr, err := encode(req, false)
-	if err != nil && ctx.Err() == nil && (f.Kind == "video" || f.Kind == "gif") && !strings.Contains(stderr, "Error opening input") {
+	if err != nil && ctx.Err() == nil && (f.moving() || f.Kind == "gif") && !strings.Contains(stderr, "Error opening input") {
 		os.Remove(dst)
 		s.logT("log.retry", name, errSummary(stderr, err, 6))
 		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = tr("conv.retry") })
