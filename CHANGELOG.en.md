@@ -3,6 +3,19 @@
 English version of CHANGELOG.md, with the same "## X.Y.Z" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 1.9.0
+
+- Trim video and audio: click the scissors in a file row, drag the limits on the timeline and preview the part. The original stays untouched
+- Your own presets: pick settings in the converter and save them under any name
+- Banners: the app remembers where the JPEG and WebP folders are relative to the PNG folder and fills in the path
+- Banners: if the folders do not exist, the switch creates them next to the PNG folder, not inside it
+- Banners: the real image size is checked against the size in the file name
+- Launch from File Explorer: select files and choose Send to → Konverter 9000
+- If the app is already open, a new launch adds the files to it and brings its window to the front
+- Custom finish and error sounds: behind the gear icon, pick and preview a Windows sound or your own file
+- New header: round photo, with the version and author under the name
+- The What's new window now appears once per version
+
 ## 1.8.0
 
 - New compact interface: everything fits in the window without scrolling, rarely used settings are collapsed or moved behind the gear icon
