@@ -10,7 +10,7 @@ $('pickOut').onclick = () => dialog(async () => {
 
 // ---------- перетаскивание ----------
 let dragDepth = 0;
-const dropEl = () => $(tab === 'banner' ? 'bDrop' : 'drop');
+const dropEl = () => $(tab === 'banner' ? 'bDrop' : tab === 'play' ? 'plDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
@@ -18,9 +18,13 @@ window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth 
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over');
-  if (snap.running) return;
+  if (snap.running && tab !== 'play') return;   // смотреть можно и во время конвертации
   if (NATIVE_DROP) {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
+  }
+  if (tab === 'play') {   // браузер даёт только копии, а плееру нужен сам файл
+    say('warn', t('drop.notSuitableTitle'), t('pl.noDrop'));
+    return;
   }
   if (tab === 'banner') {   // браузер даёт только копии, а пережатые PNG надо записать на место
     say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
@@ -34,7 +38,7 @@ window.addEventListener('drop', e => {
   }
   collect(entries).then(list => enqueueUpload(list));
 });
-window.__konvDrop = list => tab === 'banner' ? bAdd(list) : addInfos(list);
+window.__konvDrop = list => tab === 'banner' ? bAdd(list) : tab === 'play' ? plAdd(list) : addInfos(list);
 function readAll(reader) {
   return new Promise(res => {
     const out = [];

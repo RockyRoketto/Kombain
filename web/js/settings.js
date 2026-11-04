@@ -1,7 +1,7 @@
 // ---------- настройки ----------
 const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir','gifPalette','joinFps'];
 const CHECKS = ['overwrite', 'copyDup', 'bAutoDirs'];
-let tab = 'conv';        // вкладка: 'conv' — конвертер, 'banner' — баннеры
+let tab = 'conv';        // вкладка: 'conv' — конвертер, 'play' — плеер, 'banner' — баннеры
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
 function save() {
@@ -16,7 +16,7 @@ function load() {
     const o = JSON.parse(localStorage.getItem('konv9000') || '{}');
     if (o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
-    if (o.tab === 'banner' || o.tab === 'conv') tab = o.tab;
+    if (['conv', 'play', 'banner'].includes(o.tab)) tab = o.tab;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
     FIELDS.forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
     CHECKS.forEach(k => { if (o[k] !== undefined) $(k).checked = o[k]; });

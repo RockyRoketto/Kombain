@@ -155,9 +155,17 @@
   .stage{position:relative;height:clamp(170px,calc(100vh - 290px),720px);border-radius:12px;overflow:hidden;background:#000}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
   .stage img{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;display:block}
-  #pvStage.canplay{cursor:pointer}
+  #pvStage.canplay,#plStage.canplay{cursor:pointer}
   #pvStage.audio{height:clamp(140px,30vh,260px)}
-  #pvStage.audio img{width:100%;height:100%;object-fit:contain}
+  #pvStage.audio img,#plStage.audio img{width:100%;height:100%;object-fit:contain}
+  /* вкладка «Плеер»: экран занимает всё место, что осталось от кнопок и сведений */
+  #playView{grid-template-columns:minmax(0,1fr) minmax(280px,340px)}
+  .pl-body{flex:1;min-height:0;display:flex;flex-direction:column}
+  .pl-body .phead{flex:none;flex-wrap:wrap}
+  .pl-body .phead h3{flex:1 1 200px}
+  #plStage{flex:1;height:auto;min-height:120px}
+  .pl-side{min-height:0;display:flex;flex-direction:column}
+  .f.cur{background:var(--accbg)}
   #trStage{height:clamp(130px,calc(100vh - 372px),640px)}
   #trStage img{width:100%;height:100%;object-fit:contain}
   .stage-note{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:6px 14px;border-radius:99px;

@@ -23,6 +23,8 @@ function setTab(t) {
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
   $('convView').classList.toggle('hide', tab !== 'conv');
   $('bannerView').classList.toggle('hide', tab !== 'banner');
+  $('playView').classList.toggle('hide', tab !== 'play');
+  plTabChanged();
   updateButtons(); bRender();
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t); });

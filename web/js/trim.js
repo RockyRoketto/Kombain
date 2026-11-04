@@ -76,6 +76,7 @@ function trimBound() {
 }
 function trimDrawLoop() { $('trLoop').classList.toggle('on', trs.selLoop); }
 async function openTrim(it) {
+  plHold();
   trs.it = it; trs.frames = false; trs.selLoop = false; trs.scrub = false;
   trimDrawLoop();
   const v = trimVideo;

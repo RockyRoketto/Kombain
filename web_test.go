@@ -6,6 +6,17 @@ import (
 	"testing"
 )
 
+func TestTabsOrder(t *testing.T) {
+	page, at := pages[langRU], 0
+	for _, want := range []string{`data-t="conv"`, `data-t="play"`, `data-t="banner"`} {
+		i := strings.Index(page, want)
+		if i < at {
+			t.Fatalf("вкладка %s не на своём месте", want)
+		}
+		at = i
+	}
+}
+
 func TestPageAssembled(t *testing.T) {
 	for _, p := range []string{"__CSS__", "__JS__"} {
 		if strings.Contains(pages[langRU], p) {
