@@ -87,6 +87,31 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, getMediaInfo(ffm, body.Path))
 	}))
 
+	// копия для просмотра того, что проигрыватель не умеет: первый запрос запускает, следующие узнают процент
+	mux.HandleFunc("/api/proxy", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.mu.Lock()
+		ffm := s.ffmpeg
+		s.mu.Unlock()
+		if ffm == "" || !mediaExt[strings.ToLower(filepath.Ext(body.Path))] {
+			writeJSON(w, ProxyState{Error: tr("media.noPlayback")})
+			return
+		}
+		writeJSON(w, proxyStatus(ffm, body.Path))
+	}))
+
+	mux.HandleFunc("/api/proxy-stop", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		proxyStop(body.Path)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
 	mux.HandleFunc("/api/state", s.api(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()

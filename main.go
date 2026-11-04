@@ -48,6 +48,7 @@ func (s *Server) stopAll() {
 	}
 	if s.ownsDrop {
 		os.RemoveAll(dropDir())
+		proxyCleanup()
 	}
 }
 

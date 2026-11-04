@@ -2,11 +2,12 @@
 // Кусок хранится в самом файле списка (it.trim = {start, end}) и уходит в запрос через currentReq.
 const TRIMMABLE = /\.(mp4|mov|mkv|avi|webm|flv|wmv|m4v|mpg|mpeg|ts|mts|3gp|mp3|wav|flac|m4a|aac|ogg|opus|wma)$/i;
 const TRIM_MIN = .1;      // короче куска не бывает, секунды
-const trs = {it: null, dur: 0, start: 0, end: 0, video: false, frames: false, frameTimer: 0};
-// 75.5 → 1:15.5
+// mark — место просмотра; selLoop — идёт показ куска по кругу; frames — проигрывателя нет, вместо него кадры от ffmpeg
+const trs = {it: null, dur: 0, start: 0, end: 0, video: false, frames: false, frameTimer: 0, fps: 25, mark: 0, selLoop: false, scrub: false, stop: null};
+// 75.52 → 1:15.52: сотые нужны, чтобы видеть границу с точностью до кадра
 function trimFmt(s) {
-  const ds = Math.round(s * 10), h = Math.floor(ds / 36000), m = Math.floor(ds % 36000 / 600), x = (ds % 600 / 10).toFixed(1);
-  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + x.padStart(4, '0');
+  const cs = Math.round(s * 100), h = Math.floor(cs / 360000), m = Math.floor(cs % 360000 / 6000), x = (cs % 6000 / 100).toFixed(2);
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + x.padStart(5, '0');
 }
 // «1:15.5», «75,5» или «1:02:03» → секунды; непонятное → NaN
 function trimParse(v) {
@@ -27,36 +28,57 @@ function trimDraw() {
   if (document.activeElement !== $('trEnd')) $('trEnd').value = trimFmt(end);
   [$('trHs'), $('trHe')].forEach((h, i) => { h.setAttribute('aria-valuemax', dur); h.setAttribute('aria-valuenow', i ? end : start); });
 }
-function trimPlayhead(t) { $('trPh').style.left = (Math.min(t, trs.dur) / trs.dur * 100) + '%'; }
-// показать кадр: в проигрывателе, а если формат ему не по силам — картинкой от ffmpeg
+function trimPlayhead(t) {
+  t = Math.min(t, trs.dur);
+  $('trPh').style.left = (t / trs.dur * 100) + '%';
+  $('trNow').textContent = trimFmt(t);
+}
+// показать кадр: в проигрывателе, а пока его нет — картинкой от ffmpeg
 function trimSeek(t) {
+  trs.mark = t;
   trimPlayhead(t);
-  const v = $('trVideo');
-  if (!trs.frames) { try { v.currentTime = t; } catch (e) {} }
+  if (!trs.frames) videoSeek(trimVideo, t);
   else if (trs.video) {
     clearTimeout(trs.frameTimer);
-    trs.frameTimer = setTimeout(() => { $('trFrame').src = thumbUrl(trs.it.path, (t / trs.dur).toFixed(3), 640); }, 120);
+    trs.frameTimer = setTimeout(() => { if (trs.it) $('trFrame').src = thumbUrl(trs.it.path, (t / trs.dur).toFixed(3), 960); }, 120);
   }
 }
 function trimSet(which, t) {
   t = Math.max(0, Math.min(t, trs.dur));
   if (which === 'start') trs.start = Math.min(t, Math.max(trs.end - TRIM_MIN, 0));
   else trs.end = Math.max(t, Math.min(trs.start + TRIM_MIN, trs.dur));
-  $('trVideo').pause();
+  trimVideo.pause();
   trimDraw();
   trimSeek(trs[which]);
 }
-// проигрыватель не смог: перемотка картинками, кнопки прослушивания нет
-function trimNoPlayer() {
-  trs.frames = true;
-  $('trPlay').classList.add('hide');
-  $('trVideo').classList.add('hide');
-  $('trFrame').classList.toggle('hide', !trs.video);
-  if (trs.video) trimSeek(trs.start);
+// переключение между проигрывателем и кадрами от ffmpeg
+function trimUseFrames(on) {
+  trs.frames = on;
+  trimVideo.classList.toggle('hide', on);
+  $('trFrame').classList.toggle('hide', !on || !trs.video);
+  $('trCtl').classList.toggle('off', on);
+  if (on && trs.video) trimSeek(trs.mark);
 }
+function trimReady() {
+  $('trWait').textContent = '';
+  trimUseFrames(false);
+  trimSeek(trs.mark);
+}
+function trimTick() {
+  if (!trs.it || trimVideo.paused) return;
+  trimBound();
+  if (!trs.scrub) trimPlayhead(trimVideo.currentTime);
+  requestAnimationFrame(trimTick);
+}
+// показ куска: дошли до конца — снова к началу
+function trimBound() {
+  if (trs.selLoop && trimVideo.currentTime >= trs.end) { try { trimVideo.currentTime = trs.start; } catch (e) {} }
+}
+function trimDrawLoop() { $('trLoop').classList.toggle('on', trs.selLoop); }
 async function openTrim(it) {
-  trs.it = it; trs.frames = false;
-  const v = $('trVideo');
+  trs.it = it; trs.frames = false; trs.selLoop = false; trs.scrub = false;
+  trimDrawLoop();
+  const v = trimVideo;
   $('trName').textContent = it.name;
   $('trBody').classList.add('hide');
   $('trMsg').classList.remove('hide');
@@ -72,6 +94,9 @@ async function openTrim(it) {
   trs.video = !!mi.vcodec && !mi.cover;
   trs.start = it.trim ? it.trim.start : 0;
   trs.end = it.trim ? Math.min(it.trim.end, mi.dur) : mi.dur;
+  trs.mark = trs.start;
+  trs.fps = mi.fps > 0 ? mi.fps : 25;
+  $('trAll').textContent = trimFmt(mi.dur);
   $('trBg').className = 'tl-bg' + (trs.video ? '' : ' wave');
   $('trBg').innerHTML = trs.video
     ? [...Array(8)].map((_, i) => `<img src="${thumbUrl(it.path, ((i + .5) / 8).toFixed(3), 160)}" alt="" onerror="this.style.visibility='hidden'">`).join('')
@@ -81,41 +106,60 @@ async function openTrim(it) {
   $('trApply').classList.remove('hide');
   $('trReset').classList.remove('hide');
   $('trStage').classList.toggle('hide', !trs.video);
-  $('trPlay').classList.remove('hide');
-  $('trPlay').textContent = t(trs.video ? 'trim.play' : 'trim.listen');
+  $('trWait').textContent = '';
+  $('trCtl').classList.add('off');
   v.classList.remove('hide');
   $('trFrame').classList.add('hide');
-  v.src = `/media?t=${TOKEN}&p=${encodeURIComponent(it.path)}`;
+  trimVolumeSync();
   trimDraw();
   trimPlayhead(trs.start);
+  trs.stop = attachMedia(v, it.path, trs.video, {
+    ready: trimReady,
+    wait(pct) { if (!trs.frames) trimUseFrames(true); $('trWait').textContent = t('pv.preparing', {pct: Math.round(pct)}); },
+    fail(text) { if (!trs.frames) trimUseFrames(true); $('trWait').textContent = text; },
+  });
 }
 function closeTrim() {
-  const v = $('trVideo');
-  v.pause(); v.removeAttribute('src'); v.load();
+  if (trs.stop) trs.stop();
+  trs.stop = null;
   clearTimeout(trs.frameTimer);
   trs.it = null;
   $('trim').classList.add('hide');
 }
 const trimVideo = $('trVideo');
-trimVideo.addEventListener('error', () => { if (trs.it && trimVideo.getAttribute('src')) trimNoPlayer(); });
-trimVideo.addEventListener('loadedmetadata', () => {
-  if (!trs.it) return;
-  if (trs.video && !trimVideo.videoWidth) { trimNoPlayer(); return; }   // звук играет, а картинку не показать
-  trimSeek(trs.start);
+const trimVolumeSync = bindVolume(trimVideo, $('trMute'), $('trVol'));
+keepSeeking(trimVideo);
+trimVideo.addEventListener('timeupdate', () => { if (trs.it && !trimVideo.paused) trimBound(); });
+trimVideo.addEventListener('play', () => { $('trPlay').classList.add('playing'); trimTick(); });
+trimVideo.addEventListener('pause', () => {
+  $('trPlay').classList.remove('playing');
+  trs.selLoop = false;
+  trimDrawLoop();
+  if (trs.it && !trs.frames) { trs.mark = trimVideo.currentTime; trimPlayhead(trs.mark); }
 });
-trimVideo.addEventListener('timeupdate', () => {
-  if (!trs.it) return;
-  trimPlayhead(trimVideo.currentTime);
-  if (!trimVideo.paused && trimVideo.currentTime >= trs.end) { trimVideo.pause(); trimVideo.currentTime = trs.end; }
-});
-trimVideo.addEventListener('play', () => { $('trPlay').textContent = t('trim.pause'); });
-trimVideo.addEventListener('pause', () => { if (trs.it) $('trPlay').textContent = t(trs.video ? 'trim.play' : 'trim.listen'); });
+// весь файл, с текущего места
 $('trPlay').onclick = () => {
+  if (trs.frames) return;
   const v = trimVideo;
   if (!v.paused) { v.pause(); return; }
-  if (v.currentTime < trs.start || v.currentTime >= trs.end - .05) v.currentTime = trs.start;
-  v.play().catch(trimNoPlayer);
+  v.play().catch(() => {});
 };
+// только выбранный кусок, снова и снова
+$('trLoop').onclick = () => {
+  if (trs.frames) return;
+  const v = trimVideo;
+  if (trs.selLoop) { v.pause(); return; }
+  trs.selLoop = true;
+  trimDrawLoop();
+  try { v.currentTime = trs.start; } catch (e) {}
+  v.play().catch(() => {});
+};
+function trimStep(d) {
+  trimVideo.pause();
+  trimSeek(Math.max(0, Math.min(trs.mark + d / trs.fps, trs.dur)));
+}
+$('trPrev').onclick = () => trimStep(-1);
+$('trNext').onclick = () => trimStep(1);
 const trimAt = e => { const r = $('trLine').getBoundingClientRect(); return (e.clientX - r.left) / r.width * trs.dur; };
 // ползунки: тянуть мышью, стрелки на клавиатуре — на 0,1 секунды (с Shift — на секунду)
 [['trHs', 'start'], ['trHe', 'end']].forEach(([id, which]) => {
@@ -130,14 +174,18 @@ const trimAt = e => { const r = $('trLine').getBoundingClientRect(); return (e.c
     trimSet(which, trs[which] + d * (e.shiftKey ? 1 : TRIM_MIN));
   });
 });
-// щелчок по шкале двигает просмотр, но не границы
+// щелчок и протягивание по шкале двигают просмотр, но не границы
+const trimScrub = e => trimSeek(Math.max(0, Math.min(trimAt(e), trs.dur)));
 $('trLine').addEventListener('pointerdown', e => {
   if (!trs.it || e.target.closest('.tl-h')) return;
   trimVideo.pause();
-  trimSeek(Math.max(0, Math.min(trimAt(e), trs.dur)));
-  trs.mark = Math.max(0, Math.min(trimAt(e), trs.dur));
+  $('trLine').setPointerCapture(e.pointerId);
+  trs.scrub = true;
+  trimScrub(e);
 });
-const trimNow = () => trs.frames ? (trs.mark ?? trs.start) : trimVideo.currentTime;
+$('trLine').addEventListener('pointermove', e => { if (trs.scrub) trimScrub(e); });
+['pointerup', 'pointercancel'].forEach(n => $('trLine').addEventListener(n, () => { trs.scrub = false; }));
+const trimNow = () => trs.frames || trimVideo.paused ? trs.mark : trimVideo.currentTime;
 $('trSetS').onclick = () => trimSet('start', trimNow());
 $('trSetE').onclick = () => trimSet('end', trimNow());
 [['trStart', 'start'], ['trEnd', 'end']].forEach(([id, which]) => {
@@ -159,4 +207,16 @@ $('trApply').onclick = () => {
 };
 $('trClose').onclick = closeTrim;
 $('trim').addEventListener('click', e => { if (e.target === $('trim')) closeTrim(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && trs.it) closeTrim(); });
+// Esc закрывает, пробел — пауза, стрелки — кадр, [ и ] — границы (по коду клавиши: работают и в русской раскладке)
+document.addEventListener('keydown', e => {
+  if (!trs.it) return;
+  if (e.key === 'Escape') { closeTrim(); return; }
+  if (e.target.tagName === 'INPUT' || !$('trBody').offsetParent) return;
+  if (e.code === 'Space') { e.preventDefault(); $('trPlay').click(); }
+  else if (e.code === 'BracketLeft') { e.preventDefault(); $('trSetS').click(); }
+  else if (e.code === 'BracketRight') { e.preventDefault(); $('trSetE').click(); }
+  else if (!e.target.closest('.tl-h') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    e.preventDefault();
+    trimStep(e.key === 'ArrowLeft' ? -1 : 1);
+  }
+});

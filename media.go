@@ -195,7 +195,8 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 	return b
 }
 
-// mediaHandler отдаёт файл целиком для просмотра в окне обрезки; ServeContent сам умеет перемотку (Range)
+// mediaHandler отдаёт файл целиком для просмотра, а с proxy=1 его копию для просмотра (proxy.go);
+// ServeContent сам умеет перемотку (Range)
 func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if r.Host != s.host || q.Get("t") != s.token {
@@ -206,6 +207,14 @@ func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {
 	if !mediaExt[strings.ToLower(filepath.Ext(p))] {
 		http.NotFound(w, r)
 		return
+	}
+	if q.Get("proxy") == "1" {
+		out, ok := proxyPath(p)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		p = out
 	}
 	f, err := os.Open(p)
 	if err != nil {

@@ -34,7 +34,7 @@ function render() {
     return `<div class="f ${cls}${it.sel ? ' sel' : ''}" data-i="${i}" title="${esc(it.path || it.name)}">` +
       `<label class="ck"><input type="checkbox" ${it.sel ? 'checked' : ''} ${dis ? 'disabled' : ''}></label>` +
       (it.path && snap.ffmpeg
-        ? `<div class="badge th" data-prev="${i}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
+        ? `<div class="badge th${TRIMMABLE.test(it.name) ? ' vid' : ''}" data-prev="${i}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
         : `<div class="badge">${esc(ext(it.name))}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
       `<div class="pill">${status}</div>` + cut +
