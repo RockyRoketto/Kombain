@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 )
 
 func TestBannerNames(t *testing.T) {
@@ -88,5 +91,58 @@ func TestRunBanners(t *testing.T) {
 	}
 	if left, _ := filepath.Glob(filepath.Join(src, "sub", "_tmp*")); len(left) > 0 {
 		t.Errorf("остались временные файлы: %v", left)
+	}
+}
+
+// файл заняли, как ffmpeg миниатюры: простая замена получает отказ, replaceFile дожидается
+func TestReplaceFileBusy(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("занятый файл мешает замене только в Windows")
+	}
+	wait := replaceWait
+	defer func() { replaceWait = wait }()
+	dir := t.TempDir()
+	from, to := filepath.Join(dir, "new.png"), filepath.Join(dir, "old.png")
+	os.WriteFile(from, []byte("new"), 0o644)
+	os.WriteFile(to, []byte("old"), 0o644)
+	content := func(p string) string { b, _ := os.ReadFile(p); return string(b) }
+
+	h, err := os.Open(to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	if os.Rename(from, to) == nil {
+		t.Fatal("занятый файл заменился, тест ничего не проверяет")
+	}
+
+	// файл не освободился: ошибка, оригинал и новый файл целы
+	replaceWait = 150 * time.Millisecond
+	if replaceFile(context.Background(), from, to) == nil {
+		t.Error("ждали ошибку: файл занят всё время")
+	}
+	if content(to) != "old" || content(from) != "new" {
+		t.Errorf("после отказа: to=%q from=%q", content(to), content(from))
+	}
+
+	// «Стоп» не ждёт весь срок
+	replaceWait = time.Minute
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	st := time.Now()
+	if replaceFile(ctx, from, to) == nil {
+		t.Error("ждали ошибку после отмены")
+	}
+	if d := time.Since(st); d > 5*time.Second {
+		t.Errorf("отмена заняла %v", d)
+	}
+
+	// файл освободился: замена проходит
+	time.AfterFunc(200*time.Millisecond, func() { h.Close() })
+	if err := replaceFile(context.Background(), from, to); err != nil {
+		t.Fatal(err)
+	}
+	if content(to) != "new" || fileExists(from) {
+		t.Errorf("после замены: to=%q, from есть: %v", content(to), fileExists(from))
 	}
 }

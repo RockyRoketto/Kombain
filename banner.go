@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var bannerNames = []string{
@@ -71,6 +72,26 @@ func ffQuiet(ctx context.Context, ffm string, args ...string) error {
 	return nil
 }
 
+// replaceWait: сколько replaceFile ждёт, пока файл освободится
+var replaceWait = 5 * time.Second
+
+// replaceFile заменяет to файлом from. Пока to читает другой процесс (ffmpeg миниатюры, антивирус),
+// Windows отвечает Access is denied, обычно это доли секунды, поэтому пробуем ещё. При отказе to не меняется.
+func replaceFile(ctx context.Context, from, to string) error {
+	end := time.Now().Add(replaceWait)
+	for {
+		err := os.Rename(from, to)
+		if err == nil || !time.Now().Before(end) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
 // shrinkPNG уменьшает PNG до размера из имени и перезаписывает его. Возвращает, что сделано.
 func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 	w, h, ok := bannerDims(src)
@@ -93,7 +114,7 @@ func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 		}
 		done, out = done+tr("banner.colors"), tmp2
 	}
-	if err := os.Rename(out, src); err != nil {
+	if err := replaceFile(ctx, out, src); err != nil {
 		return "", err
 	}
 	return done, nil
