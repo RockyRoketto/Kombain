@@ -3,6 +3,17 @@
 English version of CHANGELOG.md, with the same "## X.Y.Z" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 1.8.0
+
+- New compact interface: everything fits in the window without scrolling, rarely used settings are collapsed or moved behind the gear icon
+- Quick presets rebuilt around common tasks
+- Light theme: choose dark, light, or match Windows behind the gear icon
+- English language: switch it in the same place, instantly and without a restart
+- The Exit button is gone: close the program with the X
+- The program notices new versions even if it stays open: it checks every 6 hours
+- After an update, it shows what's new, including any versions you skipped
+- Banners: if a PNG is briefly in use by another program, the converter waits instead of showing an "Access is denied" error
+
 ## 1.7.0
 
 - New Banners tab: drop in PNGs, select folders for JPEG and WebP, and get a ready set of 10 banners with one button
