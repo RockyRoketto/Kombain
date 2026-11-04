@@ -21,6 +21,7 @@
 | Свои пресеты | `web/js/settings.js` (`userPresets`, `buildPresets`, `presetOf`), хранятся в `localStorage` |
 | Обрезка | окно: `web/js/trim.js`, `web/index.html` (`#trim`); запрос: `web/js/start.js` (`trims`); ffmpeg: `state.go` (`StartReq.trim`), `ffargs.go` (`buildArgs`), `convert.go` (`convert`); просмотр: `media.go` (`mediaHandler`) |
 | Плеер по клику на превью | `web/js/preview.js` (`openPreview`, `pvPlayer`), `web/index.html` (`#prev`), стили `.stage`, `.ctl` |
+| Сохранение кадра в PNG | `snapshot.go` (`saveFrame`, `snapPlan`, `snapArgs`), `web/js/player.js` (`saveShot`, `frameTime`), кнопки `pvShot`, `trShot` в `web/index.html` |
 | Форматы, которые окно не играет | копия для просмотра: `proxy.go` (`proxyStatus`, `proxyArgs`), `web/js/player.js` (`attachMedia`), `media.go` (`proxy=1`) |
 | Файлы снаружи, второй запуск | `main.go` (`argPaths`), `ui_windows.go` (`activateRunning`, `receivePaths`), `state.go` (`addIncoming`), `web/js/poll.js` (`incoming`) |
 | «Отправить» в меню Windows | `install_windows.go` (`addSendTo`, `shortcutFolders`) |
@@ -71,6 +72,7 @@
 | `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler` |
 | `proxy.go` | копия для просмотра: `proxyDir`, `proxyPath`, `proxyArgs`, `proxyStatus`, `proxyStop`, `proxyPrune`, `proxyCleanup` |
+| `snapshot.go` | кадр в PNG: `saveFrame`, `snapPlan` (декодер и формат с прозрачностью), `snapArgs`, `snapName`, `snapPublish` |
 | `sounds.go` | `systemSounds`: какие звуки Windows есть на компьютере |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
@@ -100,7 +102,7 @@
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
-| `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `bindVolume` |
+| `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume` |
 | `js/preview.js` | окно плеера: `openPreview`, `pvPlayer`, `pvRelease`, `pvToggle`, `outLine`, `thumbUrl` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
@@ -118,7 +120,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `open-output`, `open-dir` |
+| Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `snapshot`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 

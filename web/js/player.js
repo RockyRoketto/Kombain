@@ -56,6 +56,23 @@ function keepSeeking(v) {
   });
 }
 
+// Кадр на экране. При воспроизведении currentTime убегает вперёд, точное время показанного кадра даёт только это событие.
+const shownFrame = new WeakMap();
+function trackFrame(v) {
+  const on = (_, m) => { shownFrame.set(v, m.mediaTime); v.requestVideoFrameCallback(on); };
+  v.requestVideoFrameCallback(on);
+}
+const frameTime = v => !v.paused && !v.seeking && shownFrame.has(v) ? shownFrame.get(v) : v.currentTime;
+// Сохранить кадр из исходного файла рядом с ним (snapshot.go)
+async function saveShot(btn, v, path) {
+  btn.disabled = true;
+  const r = await api('snapshot', {path, at: frameTime(v), proxy: v.src.includes('proxy=1')});
+  btn.disabled = false;
+  if (r.error) { say('err', t('snap.failed'), r.error); return; }
+  toast({id: 'snap', type: 'ok', title: t('snap.saved'), text: esc(r.name), ttl: 12000,
+    actions: [{t: t('btn.openFolder'), primary: true, fn: async () => { const o = await api('open-dir', {path: r.dir}); if (o.error) say('warn', t('folder.title'), o.error); }}]});
+}
+
 // Громкость общая для обоих окон и запоминается между запусками.
 const VOL_KEY = 'konv9000.volume', MUTE_KEY = 'konv9000.muted';
 const storeGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };

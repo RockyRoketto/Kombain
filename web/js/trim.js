@@ -106,6 +106,7 @@ async function openTrim(it) {
   $('trApply').classList.remove('hide');
   $('trReset').classList.remove('hide');
   $('trStage').classList.toggle('hide', !trs.video);
+  $('trShot').classList.toggle('hide', !trs.video);
   $('trWait').textContent = '';
   $('trCtl').classList.add('off');
   v.classList.remove('hide');
@@ -129,6 +130,7 @@ function closeTrim() {
 const trimVideo = $('trVideo');
 const trimVolumeSync = bindVolume(trimVideo, $('trMute'), $('trVol'));
 keepSeeking(trimVideo);
+trackFrame(trimVideo);
 trimVideo.addEventListener('timeupdate', () => { if (trs.it && !trimVideo.paused) trimBound(); });
 trimVideo.addEventListener('play', () => { $('trPlay').classList.add('playing'); trimTick(); });
 trimVideo.addEventListener('pause', () => {
@@ -158,6 +160,7 @@ function trimStep(d) {
   trimVideo.pause();
   trimSeek(Math.max(0, Math.min(trs.mark + d / trs.fps, trs.dur)));
 }
+$('trShot').onclick = () => { if (trs.it) saveShot($('trShot'), trimVideo, trs.it.path); };
 $('trPrev').onclick = () => trimStep(-1);
 $('trNext').onclick = () => trimStep(1);
 const trimAt = e => { const r = $('trLine').getBoundingClientRect(); return (e.clientX - r.left) / r.width * trs.dur; };

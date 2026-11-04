@@ -112,6 +112,28 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/snapshot", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path  string  `json:"path"`
+			At    float64 `json:"at"`
+			Proxy bool    `json:"proxy"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.mu.Lock()
+		ffm := s.ffmpeg
+		s.mu.Unlock()
+		if ffm == "" || !mediaExt[strings.ToLower(filepath.Ext(body.Path))] {
+			writeJSON(w, map[string]any{"error": tr("snap.noFrame")})
+			return
+		}
+		p, err := saveFrame(ffm, body.Path, body.At, body.Proxy)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"name": filepath.Base(p), "dir": filepath.Dir(p)})
+	}))
+
 	mux.HandleFunc("/api/state", s.api(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()

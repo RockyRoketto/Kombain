@@ -7,6 +7,7 @@ const pvs = {it: null, dur: 0, stop: null, scrub: false};
 const pvVideo = $('pvVideo'), pvImg = $('pvImg');
 const pvVolumeSync = bindVolume(pvVideo, $('pvMute'), $('pvVol'));
 keepSeeking(pvVideo);
+trackFrame(pvVideo);
 
 function pvNote(text) {
   $('pvNote').textContent = text || '';
@@ -84,6 +85,7 @@ function pvPlayer(it, mi) {
   pvs.dur = mi.dur;
   $('pvStage').classList.toggle('audio', !isVideo);
   $('pvCtl').classList.remove('hide');
+  $('pvShot').classList.toggle('hide', !isVideo);
   $('pvDur').textContent = fmtDur(mi.dur);
   $('pvSeek').setAttribute('aria-valuemax', Math.round(mi.dur));
   pvDrawTime(0);
@@ -113,7 +115,8 @@ $('pvLoop').onclick = () => {
   pvVideo.loop = !pvVideo.loop;
   $('pvLoop').classList.toggle('on', pvVideo.loop);
 };
-$('pvTrim').onclick = () => { const it = pvs.it; $('pvClose').click(); if (it) openTrim(it); };
+$('pvShot').onclick = () => { if (pvs.it) saveShot($('pvShot'), pvVideo, pvs.it.path); };
+$('pvTrim').onclick =() => { const it = pvs.it; $('pvClose').click(); if (it) openTrim(it); };
 pvVideo.addEventListener('play', () => { $('pvStage').classList.add('playing'); $('pvPlay').classList.add('playing'); pvTick(); });
 pvVideo.addEventListener('pause', () => { $('pvStage').classList.remove('playing'); $('pvPlay').classList.remove('playing'); });
 pvVideo.addEventListener('timeupdate', () => { if (pvs.it && !pvs.scrub) pvDrawTime(pvVideo.currentTime); });
