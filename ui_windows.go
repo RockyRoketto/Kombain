@@ -9,6 +9,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/wailsapp/go-webview2/pkg/edge"
 	"github.com/wailsapp/go-webview2/webviewloader"
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 func init() { runtime.LockOSThread() } // окно и COM живут в главном потоке
@@ -51,6 +54,8 @@ var (
 	pGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
 	pAttachThreadInput        = user32.NewProc("AttachThreadInput")
 	pMessageBoxW              = user32.NewProc("MessageBoxW")
+	pSetWindowPos             = user32.NewProc("SetWindowPos")
+	pSetClassLongPtrW         = user32.NewProc("SetClassLongPtrW")
 	pCreateSolidBrush         = gdi32.NewProc("CreateSolidBrush")
 	pCoInitializeEx           = ole32.NewProc("CoInitializeEx")
 	pCoCreateInstance         = ole32.NewProc("CoCreateInstance")
@@ -72,8 +77,15 @@ const (
 	wmSize             = 0x0005
 	wmSetFocus         = 0x0007
 	wmClose            = 0x0010
+	wmSettingChange    = 0x001A
 	wmGetMinMaxInfo    = 0x0024
 	wmMoving           = 0x0216
+	swpNoSize          = 0x0001
+	swpNoMove          = 0x0002
+	swpNoZOrder        = 0x0004
+	swpNoActivate      = 0x0010
+	swpFrameChanged    = 0x0020
+	gclpHbrBackground  = ^uintptr(9) // GCLP_HBRBACKGROUND (-10)
 	wmAppCall          = 0x8001
 	imageIcon          = 1
 	smCxScreen         = 0
@@ -120,6 +132,10 @@ var (
 	webReady    atomic.Bool
 	browserMode atomic.Bool
 	uiQueue     = make(chan func(), 64)
+
+	themeBrushes [2]uintptr
+	windowThemed bool // тема окна уже применялась
+	windowLight  bool // окно сейчас светлое
 )
 
 func u16(s string) *uint16 { p, _ := windows.UTF16PtrFromString(s); return p }
@@ -167,6 +183,8 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 		if webReady.Load() {
 			chromium.Focus()
 		}
+	case wmSettingChange:
+		applyWindowTheme() // могли сменить тему Windows
 	case wmGetMinMaxInfo:
 		// MINMAXINFO.ptMinTrackSize лежит по смещению 24
 		mm := (*[10]int32)(unsafe.Pointer(lp))
@@ -206,7 +224,6 @@ func createMainWindow() {
 	sy, _, _ := pGetSystemMetrics.Call(smCySmIcon)
 	icon, _, _ := pLoadImageW.Call(hInstance, uintptr(unsafe.Pointer(u16("APP"))), imageIcon, cx, cy, 0)
 	iconSm, _, _ := pLoadImageW.Call(hInstance, uintptr(unsafe.Pointer(u16("APP"))), imageIcon, sx, sy, 0)
-	brush, _, _ := pCreateSolidBrush.Call(0x0E0C0C) // фон #0c0c0e, чтобы не мигало белым
 
 	className := u16("Konvertor9000")
 	wc := wndClassEx{
@@ -214,7 +231,7 @@ func createMainWindow() {
 		Instance:   hInstance,
 		Icon:       icon,
 		Cursor:     cursor,
-		Background: brush,
+		Background: themeBrush(windowIsLight()), // фон страницы, чтобы не мигало белым
 		ClassName:  className,
 		IconSm:     iconSm,
 	}
@@ -237,12 +254,71 @@ func createMainWindow() {
 		uintptr(unsafe.Pointer(u16("Конвертер 9000"))),
 		wsOverlappedWindow, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0, 0, hInstance, 0)
 
-	// тёмный заголовок окна (Windows 10 20H1+ / 11)
+	applyWindowTheme()
+}
+
+// systemIsLight: светлая ли тема приложений в Windows. Страница узнаёт то же самое через prefers-color-scheme.
+func systemIsLight() bool {
+	k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, registry.QUERY_VALUE)
+	if err != nil {
+		return true // значения нет только там, где тёмной темы нет вообще
+	}
+	defer k.Close()
+	v, _, err := k.GetIntegerValue("AppsUseLightTheme")
+	return err != nil || v != 0
+}
+
+func windowIsLight() bool {
+	srv.mu.Lock()
+	t := normTheme(srv.settings.Theme)
+	srv.mu.Unlock()
+	return t == themeLight || (t == themeSystem && systemIsLight())
+}
+
+func themeBrush(light bool) uintptr {
+	i, c := 0, themeBg(light)
+	if light {
+		i = 1
+	}
+	if themeBrushes[i] == 0 {
+		themeBrushes[i], _, _ = pCreateSolidBrush.Call(uintptr(c[0]) | uintptr(c[1])<<8 | uintptr(c[2])<<16)
+	}
+	return themeBrushes[i]
+}
+
+// applyWindowTheme красит заголовок и фон окна под текущую тему. Только в оконном потоке.
+func applyWindowTheme() {
+	if mainHwnd == 0 {
+		return
+	}
+	light := windowIsLight()
+	if windowThemed && light == windowLight {
+		return
+	}
+	windowThemed, windowLight = true, light
+
+	// заголовок окна (Windows 10 20H1+ / 11; 19 — номер атрибута на более старых сборках)
 	if pDwmSetWindowAttribute.Find() == nil {
-		on := int32(1)
-		if r, _, _ := pDwmSetWindowAttribute.Call(mainHwnd, 20, uintptr(unsafe.Pointer(&on)), 4); r != 0 {
-			pDwmSetWindowAttribute.Call(mainHwnd, 19, uintptr(unsafe.Pointer(&on)), 4)
+		dark := int32(1)
+		if light {
+			dark = 0
 		}
+		if r, _, _ := pDwmSetWindowAttribute.Call(mainHwnd, 20, uintptr(unsafe.Pointer(&dark)), 4); r != 0 {
+			pDwmSetWindowAttribute.Call(mainHwnd, 19, uintptr(unsafe.Pointer(&dark)), 4)
+		}
+		pSetWindowPos.Call(mainHwnd, 0, 0, 0, 0, 0, swpNoSize|swpNoMove|swpNoZOrder|swpNoActivate|swpFrameChanged)
+	}
+	pSetClassLongPtrW.Call(mainHwnd, gclpHbrBackground, themeBrush(light))
+	if webReady.Load() {
+		c := themeBg(light)
+		chromium.SetBackgroundColour(c[0], c[1], c[2], 255)
+	}
+}
+
+// windowThemeChanged вызывается из обработчика API: окно живёт в другом потоке
+func windowThemeChanged() {
+	if mainHwnd != 0 {
+		runOnUI(applyWindowTheme)
 	}
 }
 
@@ -300,6 +376,9 @@ func runUI(s *Server) {
 	})
 	chromium.MessageCallback = func(string, *edge.ICoreWebView2, *edge.ICoreWebView2WebMessageReceivedEventArgs) {}
 	chromium.MessageWithAdditionalObjectsCallback = onWebMessage
+	// цвет WebView2 до первой отрисовки: задаётся только так, настройки ниже применятся уже после Embed
+	bg := themeBg(windowLight)
+	os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", fmt.Sprintf("FF%02X%02X%02X", bg[0], bg[1], bg[2]))
 	chromium.Embed(mainHwnd)
 
 	webReady.Store(true)
@@ -309,7 +388,7 @@ func runUI(s *Server) {
 		st.PutIsStatusBarEnabled(false)
 		st.PutAreDefaultScriptDialogsEnabled(true)
 	}
-	chromium.SetBackgroundColour(12, 12, 14, 255)
+	chromium.SetBackgroundColour(bg[0], bg[1], bg[2], 255)
 	chromium.Navigate(s.url())
 	chromium.Focus()
 

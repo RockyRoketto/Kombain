@@ -128,6 +128,22 @@ document.addEventListener('pointerdown', e => {
   if (!e.target.closest('#setPanel, #gearBtn')) setPanel(false);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setPanel(false); });
+// тема: сама применяется в applyTheme (index.html), выбор хранит программа в settings.json
+function renderTheme() {
+  document.querySelectorAll('#themeSeg .segb').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === themePref);
+    b.setAttribute('aria-pressed', b.dataset.v === themePref);
+  });
+}
+renderTheme();
+$('themeSeg').addEventListener('click', async e => {
+  const b = e.target.closest('.segb');
+  if (!b || b.dataset.v === themePref) return;
+  themePref = b.dataset.v;
+  applyTheme(); renderTheme();
+  const r = await api('settings', {theme: themePref});
+  if (r.error) say('warn', 'Тема не сохранилась', r.error);
+});
 $('outMode').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b) return;
   outMode = b.dataset.m; save(); renderOut();

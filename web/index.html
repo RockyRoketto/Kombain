@@ -6,6 +6,18 @@
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="/favicon.png">
 <title>Конвертер 9000</title>
+<script>
+// тема ставится раньше первой отрисовки, поэтому страница не мигает другой темой; выбор подставляет сервер
+let themePref = '__THEME__';   // dark, light или system
+const sysLight = matchMedia('(prefers-color-scheme: light)');
+function applyTheme() {
+  const t = themePref === 'system' ? (sysLight.matches ? 'light' : 'dark') : themePref;
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name=color-scheme]').content = t;
+}
+applyTheme();
+sysLight.addEventListener('change', applyTheme);
+</script>
 <style>
 __CSS__
 </style>
@@ -34,6 +46,14 @@ __CSS__
 
     <!-- панель настроек: новая группа — ещё один .setp-group -->
     <div class="setp hide" id="setPanel" role="dialog" aria-label="Настройки">
+      <section class="setp-group">
+        <h2>Оформление</h2>
+        <div class="seg seg3" id="themeSeg">
+          <button class="segb" data-v="dark"><b>Тёмная</b></button>
+          <button class="segb" data-v="light"><b>Светлая</b></button>
+          <button class="segb" data-v="system" title="Следовать настройке Windows"><b>Как в Windows</b></button>
+        </div>
+      </section>
       <section class="setp-group">
         <h2>Конвертация</h2>
         <div class="field">

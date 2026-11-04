@@ -91,7 +91,7 @@ function bDone(s) {
   toast({id: 'done', type: er.length ? 'err' : miss.length || fl.some(f => f.status === 'canceled') ? 'warn' : 'ok',
     title: fl.some(f => f.status === 'canceled') ? 'Остановлено' : `Готово: ${made} JPEG + ${made} WebP`,
     text: esc(s.summary || ''),
-    list: er.map(f => `<b style="display:inline;font-size:12.5px;color:#d4d4d8">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`)
+    list: er.map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`)
       .concat(miss.length ? ['Не было в списке файлов: ' + miss.map(esc).join(', ')] : []),
     actions: made ? [{t: 'Открыть JPEG', primary: true, keep: true, fn: open($('jpgDir').value.trim())},
                      {t: 'Открыть WebP', keep: true, fn: open($('webpDir').value.trim())}] : [],

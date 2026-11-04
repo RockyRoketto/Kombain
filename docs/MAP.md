@@ -26,6 +26,8 @@
 | Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
 | Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`) |
+| Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
+| Настройка, которую должен знать Go | `update.go` (`Settings`), `api.go` (`/api/settings`) |
 | Сводки в заголовках разделов | `web/js/settings.js` (`applyKind`, `renderParamSum`, `renderPresets`, `renderOut`) |
 | Список файлов | `web/js/filelist.js` |
 | Всплывашки, итог пачки | `web/js/toasts.js` |
@@ -59,9 +61,10 @@
 | `banner.go` | `runBanners`, `shrinkPNG`, `bannerNames`, `bannerWanted`, `bannerDims`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler` |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `httpGet`, `InstallInfo` |
+| `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
 | `selfupdate.go` | `updateRepo`, `latestApp`, `checkApp`, `updateApp`, `fetchApp` |
 | `install_windows.go` | `doInstall`, `createShortcut`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
-| `ui_windows.go` | `runUI`, `wndProc`, `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
+| `ui_windows.go` | `runUI`, `wndProc`, `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `comCall` |
 | `install_other.go`, `ui_other.go`, `hide_*.go` | заглушки не для Windows и запуск процессов без окна |
 
 Тесты лежат рядом (`*_test.go`). `compress_test.go`, `banner_test.go` и `media_test.go` используют настоящий ffmpeg.
@@ -73,10 +76,10 @@
 
 | Файл | Что внутри |
 |---|---|
-| `index.html` | разметка всех экранов и окон; метки `__CSS__`, `__JS__` |
-| `style.css` | все стили |
+| `index.html` | разметка всех экранов и окон; метки `__CSS__`, `__JS__`; в `<head>` — `applyTheme` (тема до первой отрисовки, значение `__THEME__` подставляет `routes`) |
+| `style.css` | все стили; цвета только в переменных тем в начале файла |
 | `js/core.js` | `TOKEN`, `FORMATS`, `GROUPS`, `PRESET_BASE`, `PRESETS`, общие переменные `files`, `fmt`, `snap`; `api`, `esc`, `fmtSize` |
-| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, обработчики настроек |
+| `js/settings.js` | `save`, `load`, `renderOut`, `renderParamSum`, `renderPresets`, `applyKind`, `buildFormats`, разделы-аккордеон, `setPanel`, `renderTheme`, обработчики настроек |
 | `js/filelist.js` | `render`, `addInfos`, `dropItems`, выделение |
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
@@ -97,7 +100,7 @@
 | Пачка | `start`, `banners`, `cancel`, `state` |
 | Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
-| Программа | `app-update`, `app-skip`, `install`, `setup-later`, `exit` |
+| Программа | `settings`, `app-update`, `app-skip`, `install`, `setup-later`, `exit` |
 
 Вне `/api`: `/` (страница), `/hero.jpg`, `/favicon.png`, `/thumb` (токен в параметре `t`).
 

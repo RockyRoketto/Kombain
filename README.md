@@ -13,7 +13,7 @@
 
 Полная карта кода: [docs/MAP.md](docs/MAP.md). Коротко:
 
-- Go: `main.go` (запуск), `api.go` (HTTP), `convert.go` и `ffargs.go` (конвертация), `banner.go` (вкладка «Баннеры»), `update.go` и `selfupdate.go` (обновления), `install_windows.go` и `ui_windows.go` (установка и окно).
+- Go: `main.go` (запуск), `api.go` (HTTP), `convert.go` и `ffargs.go` (конвертация), `banner.go` (вкладка «Баннеры»), `update.go` и `selfupdate.go` (обновления и настройки), `theme.go` (тема оформления), `install_windows.go` и `ui_windows.go` (установка и окно).
 - Интерфейс: `web/` (`index.html`, `style.css`, `js/*.js`), вшит через go:embed и собирается в одну страницу при запуске.
 - Выпуск: `release.cmd` / `release.sh`, `.github/workflows/release.yml`, `CHANGELOG.md`.
 

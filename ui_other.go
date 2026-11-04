@@ -15,6 +15,8 @@ func pickFolder() (string, error) {
 	return "", fmt.Errorf("диалоги выбора доступны только в Windows")
 }
 
+func windowThemeChanged() {} // своего окна здесь нет, страницу в браузере красит CSS
+
 func runUI(s *Server) {
 	if os.Getenv("FFB_NO_BROWSER") == "" {
 		openBrowser(s.url())

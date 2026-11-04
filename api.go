@@ -41,10 +41,11 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		s.mu.Lock()
 		s.last = time.Now()
+		theme := normTheme(s.settings.Theme)
 		s.mu.Unlock()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		io.WriteString(w, strings.ReplaceAll(indexHTML, "__TOKEN__", s.token))
+		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme).WriteString(w, indexHTML)
 	})
 
 	mux.HandleFunc("/hero.jpg", func(w http.ResponseWriter, r *http.Request) {
@@ -105,6 +106,38 @@ func (s *Server) routes() *http.ServeMux {
 				"setupSeen": s.settings.SetupDeclined == appVersion,
 			},
 		})
+	}))
+
+	// настройки интерфейса: что пришло, то сохраняется; пустой запрос только читает.
+	// Новая настройка — ещё одно поле с указателем (нет поля = не менять).
+	mux.HandleFunc("/api/settings", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Theme *string `json:"theme"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			writeJSON(w, map[string]any{"error": "неверный запрос"})
+			return
+		}
+		if body.Theme != nil && !validTheme(*body.Theme) {
+			writeJSON(w, map[string]any{"error": "неизвестная тема"})
+			return
+		}
+		s.mu.Lock()
+		var saveErr error
+		if body.Theme != nil {
+			s.settings.Theme = *body.Theme
+			saveErr = saveSettings(s.settings) // под замком: быстрые переключения не перепутают порядок записи
+		}
+		theme := normTheme(s.settings.Theme)
+		s.mu.Unlock()
+		if body.Theme != nil {
+			windowThemeChanged()
+		}
+		if saveErr != nil {
+			writeJSON(w, map[string]any{"error": saveErr.Error(), "theme": theme})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "theme": theme})
 	}))
 
 	mux.HandleFunc("/api/download-ffmpeg", s.api(func(w http.ResponseWriter, r *http.Request) {

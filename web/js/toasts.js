@@ -68,7 +68,7 @@ function batchEvents(s) {
     toast({id: 'err', type: 'err',
       title: n === 1 ? `Не получилось: «${er[0].name}»` : `Не получилось: ${plural(n, 'файл', 'файла', 'файлов')}`,
       text: n === 1 ? esc(er[0].hint || er[0].msg) : '',
-      list: n === 1 ? [] : nameList(er, f => `<b style="display:inline;font-size:12.5px;color:#d4d4d8">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
+      list: n === 1 ? [] : nameList(er, f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
       actions: [
         {t: 'Повторить', fn: () => startBatch(paths, req)},
         {t: 'Подробности', keep: true, fn: () => { $('logWrap').classList.remove('hide'); $('logWrap').scrollIntoView({behavior: 'smooth', block: 'center'}); }}

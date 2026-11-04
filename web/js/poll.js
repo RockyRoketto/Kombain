@@ -1,6 +1,6 @@
 $('exitBtn').onclick = async () => {
   await api('exit');
-  document.body.innerHTML = '<p style="padding:40px;color:#888;font:15px system-ui">Программа закрыта. Можно закрыть вкладку.</p>';
+  document.body.innerHTML = '<p style="padding:40px;color:var(--dim);font:15px system-ui">Программа закрыта. Можно закрыть вкладку.</p>';
 };
 $('logBtn').onclick = () => $('logWrap').classList.toggle('hide');
 
