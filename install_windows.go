@@ -273,6 +273,7 @@ func restartSelf(s *Server) {
 	if err := cmd.Start(); err != nil {
 		msgBox(tr("inst.restartFailed"), mbOK|mbIconInfo)
 	}
+	saveWindowPlace()
 	s.stopAll()
 	os.Exit(0)
 }

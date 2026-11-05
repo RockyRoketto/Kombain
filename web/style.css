@@ -48,7 +48,7 @@
     background:radial-gradient(1000px 500px at 85% -10%,rgba(var(--acc-rgb),.06),transparent 60%),var(--bg);
     height:100%;min-width:720px;min-height:540px;overflow:hidden;display:flex;flex-direction:column;
     -webkit-font-smoothing:antialiased}
-  .wrap{flex:1;min-height:0;width:100%;max-width:1400px;margin:0 auto;padding:0 12px;display:flex;flex-direction:column}
+  .wrap{flex:1;min-height:0;width:100%;padding:0 12px;display:flex;flex-direction:column}
   button{font:inherit;color:inherit;cursor:pointer}
   .hide{display:none!important}
   *::-webkit-scrollbar{width:8px}
@@ -56,7 +56,7 @@
 
   /* ----- шапка ----- */
   .hero{flex:none;position:relative;z-index:30;background:var(--s1);border-bottom:1px solid var(--line)}
-  .hero-in{position:relative;height:56px;max-width:1400px;margin:0 auto;padding:0 12px;display:flex;align-items:center;gap:12px}
+  .hero-in{position:relative;height:56px;padding:0 12px;display:flex;align-items:center;gap:12px}
   .hero-img{flex:none;width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid var(--line2)}
   .hero-title{flex:none;display:flex;flex-direction:column;gap:2px}
   h1{margin:0;font-size:18px;line-height:20px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
@@ -80,7 +80,8 @@
   .native .setp-group.exit{display:none}
 
   /* ----- раскладка: страница не прокручивается, только список и раскрытый раздел ----- */
-  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(388px,.85fr);grid-template-rows:minmax(0,1fr);gap:10px;margin-top:10px}
+  /* вся лишняя ширина уходит левой колонке: у настроек потолок, иначе их поля выглядят растянутыми */
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(388px,42vw,520px);grid-template-rows:minmax(0,1fr);gap:10px;margin-top:10px}
   .col{min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden auto}
   .card{flex:none;background:var(--s1);border:1px solid var(--line);border-radius:var(--r2);padding:12px 14px}
   .card h2{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600;
@@ -146,20 +147,20 @@
   .f.running .badge.th::after{box-shadow:inset 0 0 0 2px var(--accs)}
 
   /* ----- окно просмотра ----- */
-  .pcard{max-width:1100px;padding:14px 18px}
+  .pcard{max-width:max(1100px,80vw);padding:14px 18px}
   .phead{display:flex;align-items:center;gap:12px;margin-bottom:10px}
   .phead h3{flex:1;min-width:0;margin:0;font-size:16px;word-break:break-all;line-height:1.3}
   .phead .x{font-size:16px}
   /* Сцена: высота задана от окна, а картинка вписывается в неё целиком. Поэтому всё внутри на абсолютных позициях:
      обычный элемент растянул бы сцену под свой размер и обрезался по краям. */
-  .stage{position:relative;height:clamp(170px,calc(100vh - 290px),720px);border-radius:12px;overflow:hidden;background:#000}
+  .stage{position:relative;height:max(170px,calc(100vh - 290px));border-radius:12px;overflow:hidden;background:#000}
   .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
   .stage img{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;display:block}
   #pvStage.canplay,#plStage.canplay{cursor:pointer}
   #pvStage.audio{height:clamp(140px,30vh,260px)}
   #pvStage.audio img,#plStage.audio img{width:100%;height:100%;object-fit:contain}
   /* вкладка «Плеер»: экран занимает всё место, что осталось от кнопок и сведений */
-  #playView{grid-template-columns:minmax(0,1fr) minmax(280px,340px)}
+  #playView{grid-template-columns:minmax(0,1fr) clamp(280px,29vw,420px)}
   .pl-body{flex:1;min-height:0;display:flex;flex-direction:column}
   .pl-body .phead{flex:none;flex-wrap:wrap}
   .pl-body .phead h3{flex:1 1 200px}
@@ -167,17 +168,18 @@
   .pl-side{min-height:0;display:flex;flex-direction:column}
   .f.cur{background:var(--accbg)}
   /* вкладка «Монтаж»: экран над настройками, справа список с кнопками порядка */
-  #montView{grid-template-columns:minmax(0,1fr) minmax(340px,420px)}
-  #mtDrop{flex:1 1 auto;min-height:280px;display:flex;flex-direction:column}
+  #montView{grid-template-columns:minmax(0,1fr) clamp(340px,36vw,520px)}
+  /* не сжимается меньше содержимого: в низком окне прокручивается колонка, а сведения не наезжают на настройки */
+  #mtDrop{flex:1 0 auto;display:flex;flex-direction:column}
   #mtStage{flex:1;height:auto;min-height:120px}
   #mtList img{pointer-events:none}   /* иначе тянется картинка, а не строка */
   #mtList .x:disabled{opacity:.25;cursor:default}
   .sw.mt-first{border-top:0;padding-top:0}
-  .mt-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:end;padding-top:8px;border-top:1px solid var(--line)}
+  .mt-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;align-items:end;padding-top:8px;border-top:1px solid var(--line)}
   .mt-cell{display:flex;flex-direction:column;gap:4px;min-width:0}
   .mt-cell select,.mt-cell input{width:100%}
   .sw.mt-rev{border-top:0;padding:0 0 6px}
-  #trStage{height:clamp(130px,calc(100vh - 372px),640px)}
+  #trStage{height:max(130px,calc(100vh - 372px))}
   #trStage img{width:100%;height:100%;object-fit:contain}
   .stage-note{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:6px 14px;border-radius:99px;
     background:var(--ex-bg);color:#f3f3f4;font-size:13px;text-align:center;font-variant-numeric:tabular-nums}
@@ -210,7 +212,7 @@
   .seek:hover .seek-rail{height:8px}
   .seek-fill{position:relative;height:100%;width:0;border-radius:99px;background:var(--bar)}
   .seek-fill::after{content:"";position:absolute;right:-7px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--s1)}
-  input[type=range].vol{flex:none;width:76px;height:4px}
+  input[type=range].vol{flex:0 1 76px;width:76px;min-width:36px;height:4px}
   input[type=range].vol::-webkit-slider-thumb{width:13px;height:13px;border-width:2px}
   .ctl-wait{flex:1;min-width:0;font-size:12px;color:var(--acct);text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .grow{flex:1}
@@ -390,7 +392,7 @@
   .sw input:checked+i::after{left:19px;background:var(--sw-on-knob)}
 
   /* ----- нижняя панель ----- */
-  .dock{flex:none;position:relative;z-index:20;width:100%;max-width:1400px;margin:0 auto;padding:8px 12px 10px}
+  .dock{flex:none;position:relative;z-index:20;width:100%;padding:8px 12px 10px}
   .dock-in{background:var(--s2);border:1px solid var(--line2);
     border-radius:var(--r2);padding:7px 8px 7px 16px;display:flex;align-items:center;gap:14px}
   .dock .btn.primary{padding:8px 22px;border-radius:10px;box-shadow:none}

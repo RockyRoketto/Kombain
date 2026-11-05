@@ -55,6 +55,10 @@ var (
 	pAttachThreadInput        = user32.NewProc("AttachThreadInput")
 	pMessageBoxW              = user32.NewProc("MessageBoxW")
 	pSetWindowPos             = user32.NewProc("SetWindowPos")
+	pGetWindowPlacement       = user32.NewProc("GetWindowPlacement")
+	pSetWindowPlacement       = user32.NewProc("SetWindowPlacement")
+	pMonitorFromRect          = user32.NewProc("MonitorFromRect")
+	pGetMonitorInfoW          = user32.NewProc("GetMonitorInfoW")
 	pSetClassLongPtrW         = user32.NewProc("SetClassLongPtrW")
 	pSetWindowTextW           = user32.NewProc("SetWindowTextW")
 	pFindWindowW              = user32.NewProc("FindWindowW")
@@ -75,7 +79,11 @@ const (
 	wsExToolWindow     = 0x00000080
 	wsExTopmost        = 0x00000008
 	swHide             = 0
+	swShowNormal       = 1
+	swShowMinimized    = 2
+	swShowMaximized    = 3
 	swShow             = 5
+	wpfRestoreMax      = 2
 	swRestore          = 9
 	wmCopyData         = 0x004A
 	smtoAbortIfHung    = 0x0002
@@ -216,6 +224,7 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 				}
 			}
 		}
+		saveWindowPlace()
 		pDestroyWindow.Call(hwnd)
 		return 0
 	case wmDestroy:
@@ -316,6 +325,64 @@ func createMainWindow() {
 		wsOverlappedWindow, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0, 0, hInstance, 0)
 
 	applyWindowTheme()
+}
+
+// ---------- размер и положение окна между запусками, см. winplace.go ----------
+
+// winRect — RECT, windowPlacement — WINDOWPLACEMENT
+type winRect struct{ Left, Top, Right, Bottom int32 }
+
+type windowPlacement struct {
+	Length, Flags, ShowCmd uint32
+	MinX, MinY, MaxX, MaxY int32
+	Normal                 winRect
+}
+
+// saveWindowPlace запоминает окно. Свёрнутое запоминается таким, каким откроется из панели задач.
+func saveWindowPlace() {
+	if mainHwnd == 0 || browserMode.Load() {
+		return // в браузере окно скрыто, его размер ничего не значит
+	}
+	wp := windowPlacement{Length: uint32(unsafe.Sizeof(windowPlacement{}))}
+	if r, _, _ := pGetWindowPlacement.Call(mainHwnd, uintptr(unsafe.Pointer(&wp))); r == 0 {
+		return
+	}
+	saveWinPlace(winPlace{
+		X: wp.Normal.Left, Y: wp.Normal.Top,
+		W: wp.Normal.Right - wp.Normal.Left, H: wp.Normal.Bottom - wp.Normal.Top,
+		Max: wp.ShowCmd == swShowMaximized || (wp.ShowCmd == swShowMinimized && wp.Flags&wpfRestoreMax != 0),
+	})
+}
+
+// showMainWindow показывает окно там, где его закрыли. Монитора с этим местом больше нет — там, где создано.
+func showMainWindow() {
+	p, ok := loadWinPlace()
+	if ok {
+		r := winRect{p.X, p.Y, p.X + p.W, p.Y + p.H}
+		const monitorDefaultToNull = 0
+		mon, _, _ := pMonitorFromRect.Call(uintptr(unsafe.Pointer(&r)), monitorDefaultToNull)
+		var mi struct {
+			Size          uint32
+			Monitor, Work winRect
+			Flags         uint32
+		}
+		mi.Size = uint32(unsafe.Sizeof(mi))
+		if got, _, _ := pGetMonitorInfoW.Call(mon, uintptr(unsafe.Pointer(&mi))); mon != 0 && got != 0 {
+			p = p.fit(mi.Monitor.Left, mi.Monitor.Top, mi.Monitor.Right, mi.Monitor.Bottom, int32(dpiScale(760)), int32(dpiScale(600)))
+			wp := windowPlacement{
+				Length: uint32(unsafe.Sizeof(windowPlacement{})), ShowCmd: swShowNormal,
+				MinX: -1, MinY: -1, MaxX: -1, MaxY: -1,
+				Normal: winRect{p.X, p.Y, p.X + p.W, p.Y + p.H},
+			}
+			if p.Max {
+				wp.ShowCmd = swShowMaximized
+			}
+			if r, _, _ := pSetWindowPlacement.Call(mainHwnd, uintptr(unsafe.Pointer(&wp))); r != 0 {
+				return
+			}
+		}
+	}
+	pShowWindow.Call(mainHwnd, swShow)
 }
 
 // systemIsLight: светлая ли тема приложений в Windows. Страница узнаёт то же самое через prefers-color-scheme.
@@ -423,7 +490,7 @@ func runUI(s *Server) {
 		return
 	}
 
-	pShowWindow.Call(mainHwnd, swShow)
+	showMainWindow()
 	pUpdateWindow.Call(mainHwnd)
 
 	chromium = edge.NewChromium()
