@@ -269,6 +269,8 @@ __CSS__
       </details>
     </section>
 
+    <div class="mt-split" id="mtSplit" data-i18n-title="mt.splitTip"></div>
+
     <section class="card tk" id="tkBox">
       <div class="tk-bar">
         <button class="ctl-b on" id="tkToolV" data-i18n-title="tk.toolV" data-i18n-aria="tk.toolV"><svg viewBox="0 0 24 24"><path d="M6 3l13 10-6 .8 3.4 6.7-2.6 1.3-3.4-6.8L6 19.4z"/></svg></button>
@@ -278,9 +280,11 @@ __CSS__
         <button class="ctl-b" id="tkRedo" data-i18n-title="tk.redo" data-i18n-aria="tk.redo"><svg viewBox="0 0 24 24" class="line"><path d="m15 7 5 5-5 5M20 12H9a5 5 0 0 0-5 5v1"/></svg></button>
         <i class="tk-sep"></i>
         <button class="ctl-b on" id="tkSnapBtn" data-i18n-title="tk.snap" data-i18n-aria="tk.snap"><svg viewBox="0 0 24 24" class="line"><path d="M5 4v8a7 7 0 0 0 14 0V4h-4v8a3 3 0 0 1-6 0V4zM5 8h4M15 8h4"/></svg></button>
+        <button class="ctl-b" id="tkLink" data-i18n-title="tk.link" data-i18n-aria="tk.link"><svg viewBox="0 0 24 24" class="line"><path d="M10 13a4 4 0 0 0 6 .4l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5M14 11a4 4 0 0 0-6-.4l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5"/></svg></button>
         <i class="tk-sep"></i>
         <button class="ctl-b" id="tkMarkIn" data-i18n-title="tk.markInBtn" data-i18n-aria="tk.markInBtn"><svg viewBox="0 0 24 24" class="line"><path d="M11 4H7v16h4M15 8v8"/></svg></button>
         <button class="ctl-b" id="tkMarkOut" data-i18n-title="tk.markOutBtn" data-i18n-aria="tk.markOutBtn"><svg viewBox="0 0 24 24" class="line"><path d="M13 4h4v16h-4M9 8v8"/></svg></button>
+        <button class="ctl-b" id="tkMarker" data-i18n-title="tk.markerBtn" data-i18n-aria="tk.markerBtn"><svg viewBox="0 0 24 24" class="line"><path d="M7 4h10v9l-5 6-5-6z"/></svg></button>
         <i class="tk-sep"></i>
         <button class="ctl-b" id="tkAddV" data-i18n-title="tk.addV" data-i18n-aria="tk.addV"><svg viewBox="0 0 24 24" class="line"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M6.5 6v12M12.5 6v12M3 12h13M20 9v6M17 12h6"/></svg></button>
         <button class="ctl-b" id="tkAddA" data-i18n-title="tk.addA" data-i18n-aria="tk.addA"><svg viewBox="0 0 24 24" class="line"><path d="M12 17V6l-6 1.5V19"/><circle cx="4.5" cy="19" r="1.5"/><circle cx="10.5" cy="17" r="1.5"/><path d="M19 8v6M16 11h6"/></svg></button>
@@ -293,7 +297,6 @@ __CSS__
         <button class="ctl-b" id="mtSaveProject" data-i18n-title="mt.saveProject" data-i18n-aria="mt.saveProject"><svg viewBox="0 0 24 24" class="line"><path d="M5 3h11l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 1-2zM8 3v5h7V3M7 21v-7h10v7"/></svg></button>
         <button class="btn primary sm mt-send" id="mtSend" data-i18n="mt.send"></button>
       </div>
-      <div class="tk-keys hide" id="tkKeys" data-i18n="tk.keys"></div>
       <div class="tk-scroll" id="tkScroll">
         <div class="tk-inner" id="tkInner">
           <div class="tk-rulerrow"><div class="tk-corner"></div><div class="tk-ruler" id="tkRuler"></div><div class="tk-grip" id="tkGrip" data-i18n-title="tk.gripTip"></div></div>
@@ -503,6 +506,13 @@ __CSS__
 </div>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div id="keysHelp" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="khTitle">
+  <div class="mcard kh-card">
+    <div class="phead"><h3 id="khTitle" data-i18n="tk.keysTitle"></h3><button class="x" id="khClose" data-i18n-title="btn.close">✕</button></div>
+    <div class="kh-body" id="khBody"></div>
+  </div>
+</div>
 
 <div id="prev" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="pvName">
   <div class="mcard pcard">

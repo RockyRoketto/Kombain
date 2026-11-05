@@ -18,7 +18,9 @@ const mv = {
 bindVolume(mtV, $('mtMute'), $('mtVol'));   // громкость общая: mtV здесь хранит значение для всех слоёв
 keepSeeking(mtV);
 trackFrame(mtV);
-function mvVolume() { mv.pool.forEach(e => { e.el.volume = mtV.volume; e.el.muted = mtV.muted; }); }
+// картинка из связанной пары молчит: её звук играет свой клип на звуковой дорожке
+const mvMuted = c => mtV.muted || !!(c && c.part === 'v');
+function mvVolume() { mv.pool.forEach(e => { e.el.volume = mtV.volume; e.el.muted = mvMuted(e.clip !== null && tkById(e.clip)); }); }
 $('mtVol').addEventListener('input', mvVolume);
 $('mtMute').addEventListener('click', mvVolume);
 function mvNote(text) {
@@ -225,6 +227,7 @@ function mvShow() {
     if (wanted.has(c.id)) e = mv.pool.find(p => p.clip === c.id) || mvBind(c);
     const on = !!(e && e.ready);
     if (e) {
+      e.el.muted = mvMuted(c);
       e.el.classList.toggle('hide', !visual);
       e.el.classList.toggle('mv-off', !on);
       if (visual) { e.el.style.zIndex = z + 1; mvPlace(e.el, c); }
@@ -261,8 +264,8 @@ function mvShow() {
     }
   }
   for (const [id, el] of mv.pics) if (!keepPics.has(id)) { el.remove(); mv.pics.delete(id); }
-  // только звук: обложка или волна, как раньше
-  const sound = !picture && active[0];
+  // только звук: обложка или волна, как раньше. Звук от видеофайла картинку не показывает: её на этом месте нет и в результате
+  const sound = !picture && active[0] && !active[0].c.part ? active[0] : null;
   mvPicture(sound ? thumbUrl(sound.c.path, 0, 1280) : '');
   for (const {c, e} of mv.live) mvSync(e, c, now);
   mvNotes();
@@ -387,8 +390,8 @@ $('mtShot').onclick = async () => {
 // ---------- рамка выбранного слоя ----------
 // какой слой можно тянуть прямо сейчас: один выбранный, видимый, на паузе
 function mvFrameClip() {
-  if (mv.file || mv.playing || tkSel.size !== 1 || trs.it) return null;
-  const c = tkSelected()[0];
+  if (mv.file || mv.playing || trs.it) return null;
+  const c = tkOne();
   return c && mvUnder(c, tkAt) && tkTrackOf(c).kind === 'v' ? c : null;
 }
 function mvFrameDraw() {
@@ -485,7 +488,7 @@ function mvFrameDrag(e, c, corner, pick) {
     mvStage.removeEventListener('pointercancel', end);
     mvGuides(-1, -1);
     if (on) tkCommit(before);
-    else if (pick && pick !== c) { tkSel = new Set([pick.id]); tkSelChanged(); }
+    else if (pick && pick !== c) { tkSel = new Set(tkIds(pick)); tkSelChanged(); }
   };
   mvStage.setPointerCapture(e.pointerId);
   mvStage.addEventListener('pointermove', move);
@@ -502,7 +505,7 @@ mvStage.addEventListener('pointerdown', e => {
   if (cur && mvInside(cur, e)) { e.preventDefault(); mvFrameDrag(e, cur, '', top); return; }
   if (!top) { if (tkSel.size) { tkSel.clear(); tkSelChanged(); } return; }
   e.preventDefault();
-  tkSel = new Set([top.id]);
+  tkSel = new Set(tkIds(top));
   tkSelChanged();
   mvFrameDrag(e, top, '');
 });

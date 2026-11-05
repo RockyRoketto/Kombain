@@ -763,3 +763,37 @@ func TestMontFrame(t *testing.T) {
 		t.Errorf("нижний слой: яркость %d", got)
 	}
 }
+
+// Видео со звуком парой: картинка и звук отдельными клипами дают то же, что один клип; у каждой части можно взять только своё.
+func TestTimelineParts(t *testing.T) {
+	m := newMontFixture(t)
+	src := m.make("av.mp4", "-f", "lavfi", "-i", "color=white:s=160x120:r=30:d=2", "-f", "lavfi", "-i", "sine=f=440:d=2", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest")
+
+	pair := tracks([]Clip{{Path: src, Part: "v"}}, []Clip{{Path: src, Part: "a"}})
+	out := m.render(pair, "mp4")
+	if m.lumaAt(out, 1, .5, .5) < 200 {
+		t.Error("у пары нет картинки")
+	}
+	if s := m.pcm(out); rms(s, .5, 1.5) < .05 {
+		t.Error("у пары нет звука")
+	}
+
+	// звук сдвинут и укорочен, картинка на месте: файлы и время у них свои
+	apart := tracks([]Clip{{Path: src, Part: "v"}}, []Clip{{Path: src, Part: "a", At: 1, Len: .5}})
+	s := m.pcm(m.render(apart, "mp4"))
+	if rms(s, .2, .8) > .001 || rms(s, 1.1, 1.4) < .05 || rms(s, 1.7, 1.9) > .001 {
+		t.Errorf("звук не на своём месте: %.3f, %.3f, %.3f", rms(s, .2, .8), rms(s, 1.1, 1.4), rms(s, 1.7, 1.9))
+	}
+
+	// только картинка: звука нет совсем, только звук: в видео формат не собрать
+	si, err := timelineInfo(context.Background(), m.ffm, tracks([]Clip{{Path: src, Part: "v"}}), formats["mp4"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if si.audio {
+		t.Error("у клипа с одной картинкой появился звук")
+	}
+	if _, err := timelineInfo(context.Background(), m.ffm, tracks([]Clip{{Path: src, Part: "a"}}), formats["mp4"]); err == nil {
+		t.Error("из одного звука собралось видео")
+	}
+}

@@ -20,6 +20,7 @@ async function mtRead(it) {
   const mi = await api('info', {path: it.path});
   it.dur = mi.dur; it.w = mi.rotated ? mi.h : mi.w; it.h = mi.rotated ? mi.w : mi.h; it.fps = mi.fps;
   it.size = it.size || mi.size || 0;
+  it.audio = !!mi.acodec;
   it.kind = IMAGES.test(it.name) ? 'p' : mi.vcodec && !mi.cover ? 'v' : mi.acodec ? 'a' : '';
   it.bad = !!mi.error || !it.kind || (it.kind !== 'p' && !(it.dur > 0));
   tkRender(); mtRender(); mtPanel(); mvShow();
@@ -63,7 +64,7 @@ function mtRemove(it) {
 }
 function mtClear() {
   mvFileOff();
-  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; });
+  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; });
 }
 function mtRender() {
   $('mtEmpty').classList.toggle('hide', mtFiles.length > 0);
@@ -87,10 +88,44 @@ function mtButtons() {
 function mtTabChanged() {
   if (tab !== 'mont') { mvPause(); mvUnload(); return; }
   plHold();
+  mtSplitLoad();
   tkRender();
   mvShow();
   mtCopies();
 }
+
+// ---------- разделитель между верхом и дорожками: высота дорожек тянется мышью и запоминается ----------
+const MT_SPLIT_KEY = 'konv9000.mtSplit';
+function mtSplitSet(h) {
+  const view = $('montView').clientHeight;
+  // сверху остаётся место на вьюпорт с кнопками, снизу на панель и шкалу с одной дорожкой
+  const max = Math.max(view - 240, 170), v = Math.min(Math.max(h, 170), max);
+  $('tkBox').style.maxHeight = 'none';
+  $('tkBox').style.height = v + 'px';
+  mvSizeCanvas();
+  return v;
+}
+$('mtSplit').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const bar = $('mtSplit'), y0 = e.clientY, h0 = $('tkBox').offsetHeight;
+  let cur = h0;
+  bar.setPointerCapture(e.pointerId);
+  bar.classList.add('on');
+  const move = ev => { cur = mtSplitSet(h0 - (ev.clientY - y0)); };
+  const up = () => {
+    bar.removeEventListener('pointermove', move);
+    bar.removeEventListener('pointerup', up);
+    bar.removeEventListener('pointercancel', up);
+    bar.classList.remove('on');
+    storeSet(MT_SPLIT_KEY, cur);
+  };
+  bar.addEventListener('pointermove', move);
+  bar.addEventListener('pointerup', up);
+  bar.addEventListener('pointercancel', up);
+});
+function mtSplitLoad() { const h = +storeGet(MT_SPLIT_KEY); if (h > 0) mtSplitSet(h); }
+window.addEventListener('resize', () => { if (tab === 'mont') mtSplitLoad(); });
 
 // ---------- перенос файла на дорожку ----------
 function mtDragFile(e, it) {
@@ -142,7 +177,7 @@ function mtDragFile(e, it) {
       const tr = tkShown()[row];
       follow.stop();
       ghost.remove();
-      tkDo(() => { const c = tkPlace(it, tr, at); tkSel = new Set([c.id]); });
+      tkDo(() => { tkSel = new Set(tkIds(tkPlace(it, tr, at))); });
     } else follow.land(0, 0, () => ghost.remove());
   };
   window.addEventListener('pointermove', move);
@@ -168,7 +203,7 @@ $('mtList').addEventListener('dblclick', e => {
   if (!it || e.target.closest('button')) return;
   if (it.bad || !it.kind) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
   mvFileOff();
-  tkDo(() => { const c = tkAppend(it); tkSel = new Set([c.id]); });
+  tkDo(() => { tkSel = new Set(tkIds(tkAppend(it))); });
 });
 // старая склейка: все файлы по порядку, встык
 $('mtAllIn').onclick = () => {
@@ -183,19 +218,19 @@ $('mtClear').onclick = mtClear;
 // ---------- панель клипа: до панели эффектов здесь скорость, реверс, повтор и точная обрезка ----------
 let mtTrimIt = null;   // что открыто в окне обрезки
 function mtPanel() {
-  const list = tkSelected(), one = list[0];
+  const list = tkSelected(), one = tkOne();
   $('mtNoClip').classList.toggle('hide', list.length > 0);
   $('mtClipBox').classList.toggle('hide', !list.length);
   if (!list.length) return;
   const clips = list.filter(c => !tkPhoto(c));
-  $('mtClipName').textContent = list.length === 1 ? base(one.path) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
-  $('mtClipName').title = list.length === 1 ? one.path : '';
+  $('mtClipName').textContent = one ? base(one.path) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
+  $('mtClipName').title = one ? one.path : '';
   const same = clips.length && clips.every(c => c.speed === clips[0].speed);
   $('mtSpeed').value = same ? String(clips[0].speed) : '';
   $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
   $('mtReverse').checked = clips.length > 0 && clips.every(c => c.reverse);
-  $('mtTrim').classList.toggle('hide', list.length !== 1 || !clips.length);
-  $('mtClipInfo').innerHTML = list.length === 1
+  $('mtTrim').classList.toggle('hide', !one || !clips.length);
+  $('mtClipInfo').innerHTML = one
     ? [[t('mt.clipAt'), fmtTc(one.at)], [t('mt.clipLen'), fmtTc(tkLen(one))], ...(tkPhoto(one) ? [] : [[t('mt.clipFrom'), `${fmtTc(one.from)} – ${fmtTc(one.from + one.len)}`]])]
         .map(([k, x]) => `<div>${esc(k)}<b>${esc(x)}</b></div>`).join('')
     : '';
@@ -241,17 +276,19 @@ const mtRepeat = () => Math.min(Math.max(Math.round(+$('mtRepeat').value) || 2, 
 $('mtRepeat').addEventListener('change', () => { $('mtRepeat').value = mtRepeat(); });
 // повтор: копии клипа встают сразу за ним, следующие клипы отъезжают
 $('mtRepeatGo').onclick = () => {
-  const n = mtRepeat() - 1;
+  const n = mtRepeat() - 1, fresh = new Map();
+  // у каждого повтора связанной пары своя связь
+  const linkOf = (c, i) => { const k = `${c.link}|${i}`; if (!fresh.has(k)) fresh.set(k, tkNext++); return fresh.get(k); };
   tkDo(() => tkSelected().forEach(c => {
     const tr = tkTrackOf(c);
     tr.clips.sort((a, b) => a.at - b.at);
     let at = tr.clips.indexOf(c);
-    for (let i = 1; i <= n; i++) tr.clips.splice(++at, 0, Object.assign({}, c, {id: tkNext++, at: c.at + i * tkLen(c)}));
+    for (let i = 1; i <= n; i++) tr.clips.splice(++at, 0, Object.assign({}, c, {id: tkNext++, at: c.at + i * tkLen(c)}, c.link ? {link: linkOf(c, i)} : {}));
     tkCascade(tr);
   }));
 };
 $('mtTrim').onclick = () => {
-  const c = tkSelected()[0];
+  const c = tkOne();
   if (!c) return;
   mvPause(); mvUnload();
   const it = mtFile(c.path) || {};
@@ -265,7 +302,12 @@ function mtTrimClosed() {
   const c = it && tkById(it.id);
   if (c) {
     const a = it.trim ? it.trim.start : 0, b = it.trim ? it.trim.end : c.src;
-    if (Math.abs(a - c.from) > 1e-3 || Math.abs(b - (c.from + c.len)) > 1e-3) tkDo(() => { c.from = a; c.len = b - a; tkPush(tkTrackOf(c)); });
+    const da = a - c.from, db = b - (c.from + c.len);   // связанный клип обрезается на те же сдвиги
+    if (Math.abs(da) > 1e-3 || Math.abs(db) > 1e-3) tkDo(() => tkGroup(c).forEach(m => {
+      m.from = Math.max(m.from + da, 0);
+      m.len = Math.min(Math.max(m.len - da + db, m.speed / tkFps()), m.src - m.from);
+      tkPush(tkTrackOf(m));
+    }));
   }
   mvShow();
 }
@@ -294,7 +336,7 @@ $('mtOpenProject').onclick = () => dialog(() => mtProjectOpen());
 $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
-const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {})});
+const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {})});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkTotal(), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
@@ -314,11 +356,14 @@ $('mtSend').onclick = () => {
   if (!inside.length) { say('warn', t('start.emptyTitle'), t('mt.rangeEmpty')); return; }
   mvPause();
   if ($('mtEach').checked) {
-    const [a, b] = mtRange();
+    const [a, b] = mtRange(), seen = new Set();
     [...inside].sort((x, y) => x.at - y.at).forEach(c => {
-      // клип отдельным файлом, от него остаётся только то, что попало между метками
-      const lo = Math.max(c.at, a), hi = Math.min(tkEnd(c), b);
-      addMontage({tracks: [{clips: [mtClipOut(c, c.at)]}], in: lo, out: hi}, mtListOf([c.path]), hi - lo);
+      if (c.link && seen.has(c.link)) return;
+      seen.add(c.link);
+      // клип отдельным файлом, связанная пара одним файлом; остаётся только то, что попало между метками
+      const group = c.link ? inside.filter(o => o.link === c.link) : [c];
+      const lo = Math.max(a, Math.min(...group.map(o => o.at))), hi = Math.min(b, Math.max(...group.map(tkEnd)));
+      addMontage({tracks: group.map(o => ({clips: [mtClipOut(o, o.at)]})), in: lo, out: hi}, mtListOf(group.map(o => o.path)), hi - lo);
     });
   } else {
     const p = mtProject();

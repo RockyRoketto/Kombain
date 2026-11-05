@@ -170,7 +170,7 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 		out, _ := runQuiet(ffm, 25*time.Second, args...)
 		return out
 	}
-	if mi.VCodec != "" {
+	if mi.VCodec != "" && at >= 0 { // at < 0: нужна волна, даже если в файле есть картинка
 		ss := 0.0
 		if !mi.Cover && mi.Dur > 1 {
 			ss = mi.Dur * at
@@ -253,7 +253,7 @@ func (s *Server) thumbHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	at, _ := strconv.ParseFloat(q.Get("at"), 64)
-	if at < 0 || at > 1 {
+	if (at < 0 && at != -1) || at > 1 { // -1: волна вместо кадра
 		at = 0.1
 	}
 	width, _ := strconv.Atoi(q.Get("w"))

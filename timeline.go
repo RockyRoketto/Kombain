@@ -34,11 +34,12 @@ type Track struct {
 // Clip: кусок файла на дорожке. Повтор — это копии клипа.
 type Clip struct {
 	Path    string  `json:"path"`
-	At      float64 `json:"at"`      // секунда на дорожке, с которой клип начинается
-	From    float64 `json:"from"`    // откуда брать в файле
-	Len     float64 `json:"len"`     // сколько секунд файла взять; 0 — до конца; у фото — сколько показывать
-	Speed   float64 `json:"speed"`   // 0 и 1 — как есть
-	Reverse bool    `json:"reverse"` // задом наперёд
+	At      float64 `json:"at"`             // секунда на дорожке, с которой клип начинается
+	From    float64 `json:"from"`           // откуда брать в файле
+	Len     float64 `json:"len"`            // сколько секунд файла взять; 0 — до конца; у фото — сколько показывать
+	Speed   float64 `json:"speed"`          // 0 и 1 — как есть
+	Reverse bool    `json:"reverse"`        // задом наперёд
+	Part    string  `json:"part,omitempty"` // что брать из файла: "v" картинку, "a" звук, пусто всё сразу
 	// Рамка слоя в долях кадра: левый верхний угол и размер. Без W слой вписан в кадр по центру.
 	// Предпросмотр ставит картинку по тем же долям (mvBox в web/js/viewport.js).
 	X float64 `json:"x,omitempty"`
@@ -160,6 +161,12 @@ func tlRead(ctx context.Context, ffm string, p Project) ([][]tlClip, error) {
 
 // tlPrepare определяет, какой кусок файла берёт клип. У фото нет ни скорости, ни реверса, есть только время показа.
 func tlPrepare(c Clip, si srcInfo) (tlClip, error) {
+	switch c.Part {
+	case "v":
+		si.audio = false
+	case "a":
+		si.video = false
+	}
 	item := tlClip{Clip: c, montClip: montClip{path: c.Path, si: si}}
 	if imageExt[strings.ToLower(filepath.Ext(c.Path))] {
 		item.photo, item.Speed, item.Reverse = true, 1, false

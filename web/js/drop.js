@@ -74,3 +74,5 @@ function enqueueUpload(list) {
   render(); updateButtons();
 }
 
+// Изнутри программы системное перетаскивание не нужно: файлы и клипы переносятся своим кодом, а оно оборвало бы их на полпути.
+document.addEventListener('dragstart', e => e.preventDefault());
