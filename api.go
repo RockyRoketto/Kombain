@@ -91,6 +91,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/proxy", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Path string `json:"path"`
+			proxyPiece
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 		s.mu.Lock()
@@ -100,16 +101,48 @@ func (s *Server) routes() *http.ServeMux {
 			writeJSON(w, ProxyState{Error: tr("media.noPlayback")})
 			return
 		}
-		writeJSON(w, proxyStatus(ffm, body.Path))
+		writeJSON(w, proxyStatus(ffm, body.Path, body.proxyPiece))
 	}))
 
 	mux.HandleFunc("/api/proxy-stop", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Path string `json:"path"`
+			proxyPiece
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		proxyStop(body.Path)
+		proxyStop(body.Path, body.proxyPiece)
 		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	// сколько места занимают копии и кнопка, которая их удаляет
+	mux.HandleFunc("/api/proxy-usage", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"bytes": proxyUsage()})
+	}))
+
+	mux.HandleFunc("/api/proxy-clear", s.api(func(w http.ResponseWriter, r *http.Request) {
+		proxyClear()
+		writeJSON(w, map[string]any{"bytes": proxyUsage()})
+	}))
+
+	mux.HandleFunc("/api/snapshot-montage", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Project Project `json:"project"`
+			At      float64 `json:"at"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.mu.Lock()
+		ffm := s.ffmpeg
+		s.mu.Unlock()
+		if ffm == "" {
+			writeJSON(w, map[string]any{"error": tr("snap.noFrame")})
+			return
+		}
+		p, err := saveMontFrame(ffm, body.Project, body.At)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"name": filepath.Base(p), "dir": filepath.Dir(p)})
 	}))
 
 	mux.HandleFunc("/api/snapshot", s.api(func(w http.ResponseWriter, r *http.Request) {

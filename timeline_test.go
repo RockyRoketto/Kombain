@@ -662,3 +662,104 @@ func TestProjectFile(t *testing.T) {
 		t.Errorf("остались лишние файлы: %d", len(rest))
 	}
 }
+
+// Рамка слоя: белый квадрат в правом нижнем углу, частью за краем кадра. Вокруг него видно то, что ниже.
+func TestTimelineBox(t *testing.T) {
+	m := newMontFixture(t)
+	under := m.color("under.mp4", "black", 640, 360, 30, 1, 0)
+	top := m.color("top.mp4", "white", 100, 100, 30, 1, 0)
+	out := m.render(tracks([]Clip{{Path: under}}, []Clip{{Path: top, X: 0.75, Y: 0.5, W: 0.5, H: 0.75}}), "mp4")
+	if w, h := m.info(out).w, m.info(out).h; w != 640 || h != 360 {
+		t.Errorf("размер %dx%d", w, h)
+	}
+	for _, c := range []struct {
+		x, y float64
+		lit  bool
+	}{{0.9, 0.8, true}, {0.76, 0.52, true}, {0.72, 0.8, false}, {0.9, 0.46, false}, {0.1, 0.1, false}} {
+		if got := m.lumaAt(out, 0.5, c.x, c.y); (got > 128) != c.lit {
+			t.Errorf("точка %.2f, %.2f: яркость %d", c.x, c.y, got)
+		}
+	}
+	// без нижней дорожки вокруг рамки чёрное поле, слой можно растянуть без сохранения пропорций
+	out = m.render(tracks([]Clip{{Path: top, X: 0.25, Y: 0.25, W: 0.5, H: 0.5}}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got < 128 {
+		t.Errorf("середина рамки: яркость %d", got)
+	}
+	if got := m.lumaAt(out, 0.5, 0.1, 0.5); got > 128 {
+		t.Errorf("за рамкой: яркость %d", got)
+	}
+}
+
+// Метки начала и конца: в результат идёт только кусок между ними, клипы до и после не считаются
+func TestTimelineRange(t *testing.T) {
+	m := newMontFixture(t)
+	serial := m.serial("serial.mp4") // 1 с чёрного, 1 с белого
+	tone := m.color("tone.mp4", "gray", 160, 120, 30, 4, 880)
+	p := tracks([]Clip{{Path: serial}, {Path: serial, At: 2}, {Path: serial, At: 4, Reverse: true}}, []Clip{{Path: tone}})
+	p.In, p.Out = 1.5, 2.5
+	si, err := timelineInfo(context.Background(), m.ffm, p, Format{Kind: "video"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(strings.Join(si.inputs, " "), "-i "); n != 3 {
+		t.Errorf("входов %d, а задействовано три клипа", n)
+	}
+	out := m.render(p, "mp4")
+	nearly(t, "длина области", m.info(out).dur, 1, 0.1)
+	if len(m.pcm(out)) == 0 {
+		t.Error("в области должен быть звук")
+	}
+
+	// видно нижнюю дорожку: 0,5 с белого, затем 0,5 с чёрного следующей копии
+	p = tracks([]Clip{{Path: serial}, {Path: serial, At: 2}})
+	p.In, p.Out = 1.5, 2.5
+	out = m.render(p, "mp4")
+	if got := m.lumaAt(out, 0.25, 0.5, 0.5); got < 128 {
+		t.Errorf("конец первого клипа: яркость %d", got)
+	}
+	if got := m.lumaAt(out, 0.75, 0.5, 0.5); got > 128 {
+		t.Errorf("начало второго клипа: яркость %d", got)
+	}
+
+	// реверс: файл идёт белым, потом чёрным. Метка на 0,5 с оставляет чёрную половину, метка конца срезает край
+	p = tracks([]Clip{{Path: serial, Reverse: true}})
+	p.In, p.Out = 1.2, 1.8
+	out = m.render(p, "mp4")
+	nearly(t, "длина реверса", m.info(out).dur, 0.6, 0.1)
+	if got := m.lumaAt(out, 0.3, 0.5, 0.5); got > 128 {
+		t.Errorf("реверс в области: яркость %d", got)
+	}
+
+	// только метка начала: до конца монтажа
+	p = tracks([]Clip{{Path: serial}})
+	p.In = 1.5
+	nearly(t, "только начало", m.info(m.render(p, "mp4")).dur, 0.5, 0.1)
+
+	// область в пустоте между клипами
+	p = tracks([]Clip{{Path: serial}, {Path: serial, At: 5}})
+	p.In, p.Out = 3, 4
+	if _, err := timelineInfo(context.Background(), m.ffm, p, Format{Kind: "video"}); err == nil {
+		t.Error("пустая область должна давать ошибку")
+	}
+}
+
+// Кадр монтажа: слои вместе, как на экране, рядом с первым файлом
+func TestMontFrame(t *testing.T) {
+	m := newMontFixture(t)
+	under := m.color("under.mp4", "black", 320, 180, 30, 2, 0)
+	top := m.color("top.mp4", "white", 100, 100, 30, 2, 0)
+	p := tracks([]Clip{{Path: under}}, []Clip{{Path: top, X: 0.5, Y: 0, W: 0.5, H: 1}})
+	out, err := saveMontFrame(m.ffm, p, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(out) != filepath.Dir(under) || !strings.HasSuffix(out, ".png") {
+		t.Errorf("куда сохранён: %s", out)
+	}
+	if got := m.lumaAt(out, 0, 0.75, 0.5); got < 128 {
+		t.Errorf("верхний слой: яркость %d", got)
+	}
+	if got := m.lumaAt(out, 0, 0.25, 0.5); got > 128 {
+		t.Errorf("нижний слой: яркость %d", got)
+	}
+}

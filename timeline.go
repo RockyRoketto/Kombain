@@ -8,6 +8,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,7 +21,9 @@ import (
 type Project struct {
 	W      int     `json:"w"` // размер кадра; 0 — как у первого видео
 	H      int     `json:"h"`
-	FPS    float64 `json:"fps"` // кадров в секунду; 0 — как у первого видео
+	FPS    float64 `json:"fps"`           // кадров в секунду; 0 — как у первого видео
+	In     float64 `json:"in,omitempty"`  // метка начала вывода, секунда на дорожках
+	Out    float64 `json:"out,omitempty"` // метка конца; 0 — до конца монтажа
 	Tracks []Track `json:"tracks"`
 }
 
@@ -36,6 +39,12 @@ type Clip struct {
 	Len     float64 `json:"len"`     // сколько секунд файла взять; 0 — до конца; у фото — сколько показывать
 	Speed   float64 `json:"speed"`   // 0 и 1 — как есть
 	Reverse bool    `json:"reverse"` // задом наперёд
+	// Рамка слоя в долях кадра: левый верхний угол и размер. Без W слой вписан в кадр по центру.
+	// Предпросмотр ставит картинку по тем же долям (mvBox в web/js/viewport.js).
+	X float64 `json:"x,omitempty"`
+	Y float64 `json:"y,omitempty"`
+	W float64 `json:"w,omitempty"`
+	H float64 `json:"h,omitempty"`
 }
 
 const (
@@ -44,6 +53,9 @@ const (
 	tlSoundGrid = 1000 // в монтаже только со звуком сетка в миллисекунду
 	tlMaxFPS    = 240
 	tlAudioHz   = 48000
+
+	tlMaxBox  = 4.0  // рамка слоя не больше стольких кадров: дальше ffmpeg не хватит памяти на кадр
+	tlMinSeen = 0.01 // какая часть кадра всегда остаётся за слоем, иначе его не поймать мышью
 
 	tlGraphInline = 2000  // граф длиннее этого передаётся файлом (spillGraph)
 	tlMaxInputs   = 28000 // входы файлом не передать: это их предел в командной строке, остальное место занимают настройки кодека
@@ -55,6 +67,10 @@ func (p *Project) fit() {
 		p.W, p.H = 0, 0
 	}
 	p.FPS = min(max(p.FPS, 0), tlMaxFPS)
+	p.In, p.Out = max(p.In, 0), max(p.Out, 0)
+	if p.Out > 0 && p.Out <= p.In {
+		p.In, p.Out = 0, 0
+	}
 	for t := range p.Tracks {
 		for i := range p.Tracks[t].Clips {
 			c := &p.Tracks[t].Clips[i]
@@ -63,6 +79,13 @@ func (p *Project) fit() {
 				c.Speed = 1
 			}
 			c.Speed = min(max(c.Speed, montMinSpeed), montMaxSpeed)
+			if c.W > 0 && c.H > 0 {
+				c.W, c.H = min(c.W, tlMaxBox), min(c.H, tlMaxBox)
+				c.X = min(max(c.X, tlMinSeen-c.W), 1-tlMinSeen)
+				c.Y = min(max(c.Y, tlMinSeen-c.H), 1-tlMinSeen)
+			} else {
+				c.X, c.Y, c.W, c.H = 0, 0, 0, 0
+			}
 		}
 	}
 }
@@ -222,6 +245,51 @@ func tlPlace(tracks [][]tlClip, fps float64) ([][]tlClip, int) {
 	return out, total
 }
 
+// tlRange оставляет от монтажа кусок между метками: лишние клипы не попадают во входы, крайние начинаются и кончаются на метке.
+// Кадры до метки начала никто не считает, поэтому короткая область из длинного монтажа собирается быстро.
+func tlRange(tracks [][]tlClip, p Project, fps float64, total int) ([][]tlClip, int, error) {
+	if p.In <= 0 && p.Out <= 0 {
+		return tracks, total, nil
+	}
+	a, b := int(p.In*fps+0.5), total
+	if p.Out > 0 {
+		b = min(b, max(int(p.Out*fps+0.5), a+1))
+	}
+	var out [][]tlClip
+	found := false
+	for _, list := range tracks {
+		var kept []tlClip
+		for _, c := range list {
+			lo, hi := max(c.start, a), min(c.end, b)
+			if hi <= lo {
+				continue
+			}
+			length := c.srcLen()
+			skip := float64(lo-c.start) / fps * c.Speed // сколько секунд файла осталось до метки начала
+			rest := float64(int((c.At+length/c.Speed)*fps+0.5)-hi) / fps * c.Speed
+			switch {
+			case c.photo:
+				c.cut = float64(hi-lo) / fps
+				c.si.dur = c.cut
+			case c.Reverse: // кадры идут от конца куска: до метки начала лежит его конец, после метки конца его начало
+				c.from += rest
+				c.cut = max(length-skip-rest, c.Speed/fps)
+			default:
+				c.from += skip
+				c.cut = max(length-skip, c.Speed/fps)
+			}
+			c.start, c.end = lo-a, hi-a
+			kept = append(kept, c)
+			found = true
+		}
+		out = append(out, kept)
+	}
+	if !found {
+		return nil, 0, errT("mont.rangeEmpty")
+	}
+	return out, b - a, nil
+}
+
 // timelineInfo: всё, что нужно buildArgs, чтобы собрать проект в формат f
 func timelineInfo(ctx context.Context, ffm string, p Project, f Format) (srcInfo, error) {
 	p.fit()
@@ -238,6 +306,10 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 	tracks, total := tlPlace(tracks, fps)
 	if total == 0 {
 		return srcInfo{}, errT("mont.noClips")
+	}
+	tracks, total, err := tlRange(tracks, p, fps, total)
+	if err != nil {
+		return srcInfo{}, err
 	}
 	var anyAudio, anyVideo, alpha, deep bool
 	var first string
@@ -439,7 +511,9 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
 		chain = append(chain, "format="+pix)
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
-	if cw, ch := c.size(); cw != w || ch != h {
+	if c.W > 0 {
+		chain = append(chain, tlBoxChain(c.Clip, w, h, bg)...)
+	} else if cw, ch := c.size(); cw != w || ch != h {
 		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, bg))
 	}
 	rate := rateStr(fps)
@@ -455,6 +529,21 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
 		fmt.Sprintf("trim=end_frame=%d", c.frames()),
 		"setpts=PTS-STARTPTS")
 	return strings.Join(chain, ",")
+}
+
+// tlBoxChain: слой в своей рамке на кадре w×h. Что вышло за край кадра, отрезается, вокруг остаётся фон.
+// Числа чётные: у yuv420p цветность на два пикселя, нечётное значение фильтры всё равно округлили бы.
+func tlBoxChain(c Clip, w, h int, bg string) []string {
+	even := func(v float64) int { return int(math.Round(v/2)) * 2 }
+	bw, bh := max(even(c.W*float64(w)), 2), max(even(c.H*float64(h)), 2)
+	x, y := even(c.X*float64(w)), even(c.Y*float64(h))
+	vx, vy := min(max(x, 0), max(w-2, 0)), min(max(y, 0), max(h-2, 0))
+	vw, vh := max(min(x+bw, w)-vx, 2), max(min(y+bh, h)-vy, 2)
+	chain := []string{fmt.Sprintf("scale=%d:%d", bw, bh)}
+	if vw != bw || vh != bh {
+		chain = append(chain, fmt.Sprintf("crop=%d:%d:%d:%d", min(vw, bw), min(vh, bh), min(vx-x, bw-vw), min(vy-y, bh-vh)))
+	}
+	return append(chain, fmt.Sprintf("pad=%d:%d:%d:%d:color=%s", w, h, vx, vy, bg))
 }
 
 // tlAudioGraph: каждый клип встаёт на своё место задержкой, потом всё смешивается. Сумма не приглушается:

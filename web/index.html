@@ -204,11 +204,17 @@ __CSS__
 
     <section class="card mt-view">
       <div class="stage" id="mtStage">
+        <div class="mv-canvas" id="mvCanvas"></div>
         <img id="mtImg" class="hide" alt="">
         <video id="mtVideo" class="hide" preload="auto" playsinline></video>
+        <div class="mv-frame hide" id="mvFrame" data-i18n-title="mv.frameTip"><i data-c="nw"></i><i data-c="ne"></i><i data-c="sw"></i><i data-c="se"></i></div>
+        <div class="mv-guide x hide" id="mvGuideX"></div>
+        <div class="mv-guide y hide" id="mvGuideY"></div>
+        <div class="mv-tag hide" id="mvTag"><span id="mvTagName"></span><button class="tk-mini" id="mvTagOff" data-i18n-title="mv.backToEdit" data-i18n-aria="mv.backToEdit">✕</button></div>
         <div class="stage-note hide" id="mtNote"></div>
         <span class="bigplay" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
       </div>
+      <input type="range" class="vol mv-seek hide" id="mvSeek" min="0" max="1000" step="1" value="0" data-i18n-aria="mv.seek">
       <div class="ctl off" id="mtCtl">
         <span class="ctl-t"><b id="mtNow">0:00:00</b></span>
         <span class="mt-gap"></span>
@@ -258,6 +264,8 @@ __CSS__
         <summary data-i18n="mt.secResult"></summary>
         <label class="sw mt-each"><span data-i18n="mt.each"></span><input type="checkbox" id="mtEach"><i></i></label>
         <div class="note" id="mtInfo"></div>
+        <div class="mt-line hide" id="mtRange"><span id="mtRangeText"></span><button class="btn sm" id="mtMarksOff" data-i18n="mt.marksOff" data-i18n-title="mt.marksOffTip"></button></div>
+        <div class="mt-line hide" id="mtCopies"><span id="mtCopiesText"></span><button class="btn sm" id="mtCopiesClear" data-i18n="mt.copiesClear" data-i18n-title="mt.copiesTip"></button></div>
       </details>
     </section>
 
@@ -270,6 +278,9 @@ __CSS__
         <button class="ctl-b" id="tkRedo" data-i18n-title="tk.redo" data-i18n-aria="tk.redo"><svg viewBox="0 0 24 24" class="line"><path d="m15 7 5 5-5 5M20 12H9a5 5 0 0 0-5 5v1"/></svg></button>
         <i class="tk-sep"></i>
         <button class="ctl-b on" id="tkSnapBtn" data-i18n-title="tk.snap" data-i18n-aria="tk.snap"><svg viewBox="0 0 24 24" class="line"><path d="M5 4v8a7 7 0 0 0 14 0V4h-4v8a3 3 0 0 1-6 0V4zM5 8h4M15 8h4"/></svg></button>
+        <i class="tk-sep"></i>
+        <button class="ctl-b" id="tkMarkIn" data-i18n-title="tk.markInBtn" data-i18n-aria="tk.markInBtn"><svg viewBox="0 0 24 24" class="line"><path d="M11 4H7v16h4M15 8v8"/></svg></button>
+        <button class="ctl-b" id="tkMarkOut" data-i18n-title="tk.markOutBtn" data-i18n-aria="tk.markOutBtn"><svg viewBox="0 0 24 24" class="line"><path d="M13 4h4v16h-4M9 8v8"/></svg></button>
         <i class="tk-sep"></i>
         <button class="ctl-b" id="tkAddV" data-i18n-title="tk.addV" data-i18n-aria="tk.addV"><svg viewBox="0 0 24 24" class="line"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M6.5 6v12M12.5 6v12M3 12h13M20 9v6M17 12h6"/></svg></button>
         <button class="ctl-b" id="tkAddA" data-i18n-title="tk.addA" data-i18n-aria="tk.addA"><svg viewBox="0 0 24 24" class="line"><path d="M12 17V6l-6 1.5V19"/><circle cx="4.5" cy="19" r="1.5"/><circle cx="10.5" cy="17" r="1.5"/><path d="M19 8v6M16 11h6"/></svg></button>
@@ -285,8 +296,9 @@ __CSS__
       <div class="tk-keys hide" id="tkKeys" data-i18n="tk.keys"></div>
       <div class="tk-scroll" id="tkScroll">
         <div class="tk-inner" id="tkInner">
-          <div class="tk-rulerrow"><div class="tk-corner"></div><div class="tk-ruler" id="tkRuler"></div></div>
+          <div class="tk-rulerrow"><div class="tk-corner"></div><div class="tk-ruler" id="tkRuler"></div><div class="tk-grip" id="tkGrip" data-i18n-title="tk.gripTip"></div></div>
           <div id="tkLanes"></div>
+          <div class="tk-range hide" id="tkRange"></div>
           <div class="tk-line tk-head" id="tkHead"></div>
           <div class="tk-line tk-snapline hide" id="tkSnapLine"></div>
           <div class="tk-line tk-cutline hide" id="tkCutLine"></div>

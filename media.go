@@ -18,6 +18,8 @@ import (
 )
 
 type MediaInfo struct {
+	Rotated bool `json:"rotated"` // метка поворота на 90°: w и h надо поменять местами
+
 	Dur    float64 `json:"dur"`
 	W      int     `json:"w"`
 	H      int     `json:"h"`
@@ -40,6 +42,7 @@ var (
 
 func parseMediaInfo(out string) MediaInfo {
 	var mi MediaInfo
+	mi.Rotated = rotatedRe.MatchString(out)
 	if m := durRe.FindStringSubmatch(out); m != nil {
 		h, _ := strconv.ParseFloat(m[1], 64)
 		mn, _ := strconv.ParseFloat(m[2], 64)
@@ -209,7 +212,13 @@ func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if q.Get("proxy") == "1" {
-		out, ok := proxyPath(p)
+		var piece proxyPiece
+		if q.Get("rev") == "1" {
+			piece.Rev = true
+			piece.From, _ = strconv.ParseFloat(q.Get("from"), 64)
+			piece.Len, _ = strconv.ParseFloat(q.Get("len"), 64)
+		}
+		out, ok := proxyPiecePath(p, piece)
 		if !ok {
 			http.NotFound(w, r)
 			return

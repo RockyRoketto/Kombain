@@ -22,8 +22,10 @@
 | Обрезка | окно: `web/js/trim.js`, `web/index.html` (`#trim`); запрос: `web/js/start.js` (`trims`); ffmpeg: `state.go` (`StartReq.trim`), `ffargs.go` (`buildArgs`), `convert.go` (`convert`); просмотр: `media.go` (`mediaHandler`) |
 | Плеер по клику на превью | `web/js/preview.js` (`openPreview`), сам плеер `web/js/player.js` (`makePlayer`), `web/index.html` (`#prev`), стили `.stage`, `.ctl` |
 | Вкладка «Плеер» | `web/js/playertab.js` (`plAdd`, `plPlay`, `plRender`, `plHold`), плеер `makePlayer`, приём файлов `web/js/drop.js` (`__konvDrop`), `web/index.html` (`#playView`) |
-| Вкладка «Монтаж» | `web/js/montage.js`: окно файлов (`mtAdd`, `mtRender`, `mtDragFile`), вьюпорт (`mvShow`, `mvTick`, `mvPlay`), панель клипа (`mtPanel`, `mtTrimClosed`), `mtSend`; `web/js/tracks.js`: дорожки; `web/index.html` (`#montView`), стили: раздел «вкладка «Монтаж»» в `web/style.css` |
+| Вкладка «Монтаж» | `web/js/montage.js`: окно файлов (`mtAdd`, `mtRender`, `mtDragFile`), панель клипа (`mtPanel`, `mtTrimClosed`), `mtSend`; `web/js/viewport.js`: вьюпорт; `web/js/tracks.js`: дорожки; `web/index.html` (`#montView`), стили: раздел «вкладка «Монтаж»» в `web/style.css` |
 | Дорожки в интерфейсе, хоткеи | `web/js/tracks.js` (`tkRender`, `tkMoveDrag`, `tkTrimDrag`, `tkSplit`, `tkSpot`, `tkDo`, `tkLoad`, `TK_KEYS`, `TK_CTRL_KEYS`) |
+| Вьюпорт: слои, звук, рамка слоя, просмотр файла | `web/js/viewport.js` (`mvShow`, `mvSync`, `mvTick`, `mvPrep`, `mvBind`, `mvBox`, `mvFrameDrag`, `mvFileShow`); рамка в рендере: `timeline.go` (`tlBoxChain`, поля `Clip.X`, `Y`, `W`, `H`). Кадр монтажа в PNG: `snapshot.go` (`saveMontFrame`) |
+| Метки начала и конца вывода | `web/js/tracks.js` (`tkIn`, `tkOut`, `tkMark`, `tkMarksOff`), `web/js/montage.js` (`mtRange`, `mtProject`), `timeline.go` (`Project.In`, `Out`, `tlRange`) |
 | Проект файлом и автосохранение | `project.go` (`writeProject`, `readProject`), `api.go` (`project-save`, `project-open`), `ui_windows.go` (`pickProjectSave`, `showSaveDialog`), `web/js/montage.js` (`mtProjectSave`, `mtProjectOpen`), `web/js/tracks.js` (`tkFile`, `tkAutosave`) |
 | Движок дорожек и строка монтажа в очереди | `timeline.go` (`Project`, `Track`, `Clip`, `timelineInfo`, `tlPlan`, `tlVideoGraph`, `tlAudioGraph`, `spillGraph`: длинный граф файлом, `montRow`), `convert.go` (`run`, `convert`, `runFF`), `state.go` (`StartReq.Montages`), `web/js/filelist.js` (`addMontage`), `web/js/montage.js` (`mtProject`, `mtSend`), `web/js/start.js` (`currentReq`). Проверка: `timeline_test.go` |
 | Перетаскивание строк | `web/js/kinetic.js` (`kinSort`, настройки силы в `KIN`), подключение: `plSort` в `web/js/playertab.js`; `kinFollow` в `tkMoveDrag` и `mtDragFile`, стили: раздел `kin-` в `web/style.css` |
@@ -32,7 +34,7 @@
 | Картинки в одно видео | `sequence.go` (`joinGroups`, `joinStem`, `writeFrameList`, `checkFrameSizes`), `convert.go` (`run`, `convert`), галочка: `web/js/settings.js` (`renderJoin`, `joinOn`), состояние строк: `web/js/filelist.js` (`joined`, `resOf`) |
 | Прозрачность | `ffargs.go` (`probe`: `si.alpha`, `si.decoder`, `si.pngFmt`; `buildArgs`), определение: `snapshot.go` (`snapPlan`), проверка пикселей: `sequence_test.go` (`alphaOf`) |
 | Палитра GIF | `ffargs.go` (`gifFilter`), поле `gifPalette` в `web/index.html` |
-| Форматы, которые окно не играет | копия для просмотра: `proxy.go` (`proxyStatus`, `proxyArgs`), `web/js/player.js` (`attachMedia`), `media.go` (`proxy=1`) |
+| Форматы, которые окно не играет, реверс | копии для просмотра: `proxy.go` (`proxyStatus`, `proxyArgs`, `encodeReverse`, `proxyPrune`), `web/js/player.js` (`attachMedia`), `media.go` (`proxy=1`, `rev=1`), место и очистка: `mtCopies` в `web/js/montage.js` |
 | Файлы снаружи, второй запуск | `main.go` (`argPaths`), `ui_windows.go` (`activateRunning`, `receivePaths`), `state.go` (`addIncoming`), `web/js/poll.js` (`incoming`) |
 | «Отправить» в меню Windows | `install_windows.go` (`addSendTo`, `shortcutFolders`) |
 | Конец пачки | `web/js/poll.js` (`doneSeq`), `state.go` (`batchSeq`) |
@@ -81,12 +83,12 @@
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler` |
-| `proxy.go` | копия для просмотра: `proxyDir`, `proxyPath`, `proxyArgs`, `proxyStatus`, `proxyStop`, `proxyPrune`, `proxyCleanup` |
-| `snapshot.go` | кадр в PNG: `saveFrame`, `snapPlan` (декодер и формат с прозрачностью), `snapArgs`, `snapName`, `snapPublish` |
+| `proxy.go` | копии для просмотра: `proxyDir`, `proxyStem`, `proxyPath`, `proxyPiecePath`, `proxyArgs`, `proxyStatus`, `encodeReverse`, `proxyStop`, `proxyPrune`, `proxyUsage`, `proxyClear`, `proxyCleanup` |
+| `snapshot.go` | кадр в PNG: `saveFrame`, `saveMontFrame` (кадр монтажа), `snapPlan` (декодер и формат с прозрачностью), `snapArgs`, `snapName`, `snapPublish` |
 | `sequence.go` | кадры: видео в папку PNG (`seqPattern`, `seqFrames`, `seqRemove`, `removeResult`, `hasResult`) и картинки в видео (`canJoin`, `joinRate`, `naturalLess`, `joinGroups`, `joinLeads`, `joinStem`, `writeFrameList`, `checkFrameSizes`) |
 | `montage.go` | общее для монтажа: `forMontage`, `audioOnly`, `montClip`, `reverseRAM`, `checkReverseRAM`, `atempoChain`, `montGraphArgs` |
 | `project.go` | файл проекта монтажа: `writeProject`, `readProject`; иконка и открытие двойным щелчком: `addProjectType`, `writeProjectType` в `install_windows.go`, приём: `addIncoming` в `state.go`, `mtProjectIncoming` в `web/js/montage.js` |
-| `timeline.go` | дорожки: `Project`, `Track`, `Clip`, `tlRead`, `tlPrepare`, `tlCanvas`, `tlPlace`, `timelineInfo`, `tlPlan`, `cmdLen`, `spillGraph`, `tlVideoGraph`, `tlClipChain`, `tlAudioGraph`, строка в очереди `montRow` |
+| `timeline.go` | дорожки: `Project`, `Track`, `Clip`, `tlRead`, `tlPrepare`, `tlCanvas`, `tlPlace`, `tlRange`, `timelineInfo`, `tlPlan`, `cmdLen`, `spillGraph`, `tlVideoGraph`, `tlClipChain`, `tlBoxChain`, `tlAudioGraph`, строка в очереди `montRow` |
 | `mem_windows.go`, `mem_other.go` | `availableRAM`: сколько памяти свободно |
 | `sounds.go` | `systemSounds`: какие звуки Windows есть на компьютере |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
@@ -122,8 +124,9 @@
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
 | `js/playertab.js` | вкладка «Плеер»: очередь `plFiles`, `plAdd`, `plPlay`, `plRemove`, `plRender`, `plMove`, `plButtons`, `plHold` (отпустить файл ради другого окна), `plTabChanged`, `plSend` (в конвертацию) |
-| `js/tracks.js` | дорожки монтажа: модель `tkTracks`, отрисовка `tkRender`, `tkPaint`, `tkRuler`; прилипание `tkSnapBy`; места `tkSpot`, `tkPush`; действия `tkSplit`, `tkRemove`, `tkInsert`; мышь `tkDrag`, `tkMoveDrag`, `tkTrimDrag`, `tkBandDrag`; отмена `tkDo`, `tkCommit`, `tkBack`; сохранение `tkFile`, `tkLoad`, `tkAutosave`; хоткеи `TK_KEYS`, `TK_CTRL_KEYS` |
-| `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; вьюпорт `mv`, `mvShow`, `mvTick`, `mvPlay`, `mvPause`; панель клипа `mtPanel`, `mtInfo`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
+| `js/tracks.js` | дорожки монтажа: модель `tkTracks`, отрисовка `tkRender`, `tkPaint`, `tkRuler`; прилипание `tkSnapBy`; места `tkSpot`, `tkPush`; действия `tkSplit`, `tkRemove`, `tkInsert`; мышь `tkDrag`, `tkMoveDrag`, `tkTrimDrag`, `tkBandDrag`; отмена `tkDo`, `tkCommit`, `tkBack`; метки вывода `tkMark`, `tkMarksOff`; сохранение `tkFile`, `tkLoad`, `tkAutosave`; хоткеи `TK_KEYS`, `TK_CTRL_KEYS` |
+| `js/viewport.js` | вьюпорт монтажа: `mv`, холст `mvCanvasDims`, `mvSizeCanvas`; проверка файлов и копии `mvPrep`; набор `<video>` `mvBind`, `mvRelease`; кадр `mvShow`, синхронизация `mvSync`, `mvTick`, `mvPlay`, `mvPause`; рамка `mvBox`, `mvFrameDraw`, `mvFrameDrag`, `mvSnap`; файл из окна файлов `mvFileShow`, `mvFileOff` |
+| `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; панель клипа `mtPanel`, `mtInfo`, `mtCopies`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
@@ -140,7 +143,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `snapshot`, `open-output`, `open-dir` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 

@@ -1,15 +1,17 @@
 // ---------- общее для окна просмотра и окна обрезки ----------
-const mediaUrl = (p, proxy) => `/media?t=${TOKEN}&p=${encodeURIComponent(p)}${proxy ? '&proxy=1' : ''}`;
+const mediaUrl = (p, proxy, rev) => `/media?t=${TOKEN}&p=${encodeURIComponent(p)}${proxy ? '&proxy=1' : ''}${rev ? `&rev=1&from=${rev.from}&len=${rev.len}` : ''}`;
 
 // Показать файл в <video>: сначала как есть, а если проигрыватель не умеет, то копию от ffmpeg (proxy.go).
-// cb.ready() — можно играть, cb.wait(процент) — копия готовится, cb.fail(текст) — не вышло.
+// cb.ready(копия ли) — можно играть, cb.wait(процент) — копия готовится, cb.fail(текст) — не вышло.
+// cb.proxy — уже известно, что нужна копия; cb.rev {from, len} — нужен кусок задом наперёд.
 // Возвращает функцию, которая всё останавливает.
 function attachMedia(v, path, needPicture, cb) {
   let usingProxy = false, alive = true, timer = 0;
+  const piece = cb.rev ? {rev: true, from: cb.rev.from, len: cb.rev.len} : {};
   const poll = async () => {
-    const r = await api('proxy', {path});
+    const r = await api('proxy', {path, ...piece});
     if (!alive) return;
-    if (r.ready) { v.src = mediaUrl(path, true); return; }
+    if (r.ready) { v.src = mediaUrl(path, true, cb.rev); return; }
     if (r.error) { cb.fail(r.error); return; }
     cb.wait(r.pct || 0);
     timer = setTimeout(poll, 500);
@@ -26,18 +28,19 @@ function attachMedia(v, path, needPicture, cb) {
   };
   const onMeta = () => {
     if (needPicture && !v.videoWidth && !usingProxy) toProxy();   // звук играет, а картинку не показать
-    else cb.ready();
+    else cb.ready(usingProxy);
   };
   v.addEventListener('error', onError);
   v.addEventListener('loadedmetadata', onMeta);
-  v.src = mediaUrl(path);
+  if (cb.proxy || cb.rev) { usingProxy = true; poll(); }
+  else v.src = mediaUrl(path);
   return () => {
     alive = false;
     clearTimeout(timer);
     v.removeEventListener('error', onError);
     v.removeEventListener('loadedmetadata', onMeta);
     v.pause(); v.removeAttribute('src'); v.load();
-    if (usingProxy) api('proxy-stop', {path});
+    if (usingProxy) api('proxy-stop', {path, ...piece});
   };
 }
 
@@ -68,6 +71,9 @@ async function saveShot(btn, v, path) {
   btn.disabled = true;
   const r = await api('snapshot', {path, at: frameTime(v), proxy: v.src.includes('proxy=1')});
   btn.disabled = false;
+  shotDone(r);
+}
+function shotDone(r) {
   if (r.error) { say('err', t('snap.failed'), r.error); return; }
   toast({id: 'snap', type: 'ok', title: t('snap.saved'), text: esc(r.name), ttl: 12000,
     actions: [{t: t('btn.openFolder'), primary: true, fn: async () => { const o = await api('open-dir', {path: r.dir}); if (o.error) say('warn', t('folder.title'), o.error); }}]});

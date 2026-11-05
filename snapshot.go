@@ -4,6 +4,7 @@ package main
 // поэтому и при показе через копию для просмотра (proxy.go) получается оригинал.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -97,6 +98,41 @@ func snapPublish(tmp, dst string) (string, error) {
 		return p, nil
 	}
 	return "", os.ErrExist
+}
+
+// saveMontFrame сохраняет кадр монтажа в момент at: все слои в полном разрешении, собранные тем же движком, что и результат.
+func saveMontFrame(ffm string, p Project, at float64) (string, error) {
+	p.In, p.Out = max(at, 0), max(at, 0)+1e-6 // tlRange сам расширит до одного кадра
+	si, err := timelineInfo(context.Background(), ffm, p, Format{Kind: "anim"})
+	if err != nil {
+		return "", err
+	}
+	lead := p.lead()
+	dir := filepath.Dir(lead)
+	if isTemp(lead) {
+		dir = defaultOut()
+		os.MkdirAll(dir, 0o755)
+	}
+	tmp := filepath.Join(dir, fmt.Sprintf(".frame-%d.tmp", time.Now().UnixNano()))
+	defer os.Remove(tmp)
+	args := append([]string{"-hide_banner", "-loglevel", "error", "-nostdin", "-y"}, si.inputs...)
+	args = append(args, montGraphArgs(si, "")...)
+	if si.alpha {
+		args = append(args, "-pix_fmt", "rgba")
+	}
+	args, clean, err := spillGraph(append(args, "-frames:v", "1", "-update", "1", "-c:v", "png", "-f", "image2", tmp))
+	if err != nil {
+		return "", err
+	}
+	defer clean()
+	_, e := runQuiet(ffm, 2*time.Minute, args...)
+	if fileSize(tmp) == 0 {
+		if msg := strings.TrimSpace(string(e)); msg != "" {
+			return "", errors.New(msg)
+		}
+		return "", errors.New(tr("snap.noFrame"))
+	}
+	return snapPublish(tmp, filepath.Join(dir, snapName(lead, at)))
 }
 
 // saveFrame сохраняет рядом с оригиналом кадр, который плеер показывает в момент at. Время в имени файла то же, что в плеере.

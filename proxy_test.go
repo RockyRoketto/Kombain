@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,7 +15,7 @@ import (
 func waitProxy(t *testing.T, ffm, src string) ProxyState {
 	t.Helper()
 	for i := 0; i < 300; i++ {
-		st := proxyStatus(ffm, src)
+		st := proxyStatus(ffm, src, proxyPiece{})
 		if st.Ready || st.Error != "" {
 			return st
 		}
@@ -89,5 +90,72 @@ func TestProxy(t *testing.T) {
 	}
 	if st := waitProxy(t, ffm, bad); st.Ready || st.Error == "" {
 		t.Fatalf("битый файл: %+v", st)
+	}
+}
+
+func waitPiece(t *testing.T, ffm, src string, piece proxyPiece) ProxyState {
+	t.Helper()
+	for i := 0; i < 600; i++ {
+		st := proxyStatus(ffm, src, piece)
+		if st.Ready || st.Error != "" {
+			return st
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatal("копия не готова")
+	return ProxyState{}
+}
+
+// Несколько копий готовятся вместе, реверс длиннее одной части склеивается, слой с прозрачностью её не теряет
+func TestProxyManyAndReverse(t *testing.T) {
+	m := newMontFixture(t)
+	t.Setenv("LOCALAPPDATA", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	defer proxyCleanup()
+
+	serial := m.serial("serial.mkv") // 1 с чёрного, 1 с белого
+	other := m.color("other.mkv", "gray", 160, 120, 30, 1, 440)
+	alpha := m.make("alpha.mov", "-f", "lavfi", "-i", "color=white@0.0:s=160x120:r=30:d=1,format=argb", "-c:v", "qtrle")
+	proxyStatus(m.ffm, serial, proxyPiece{})
+	proxyStatus(m.ffm, other, proxyPiece{})
+	if st := waitPiece(t, m.ffm, serial, proxyPiece{}); !st.Ready {
+		t.Fatalf("первая копия: %+v", st)
+	}
+	if st := waitPiece(t, m.ffm, other, proxyPiece{}); !st.Ready {
+		t.Fatalf("вторая копия: %+v", st)
+	}
+
+	proxySegment = 0.75 // чтобы реверс шёл несколькими частями
+	defer func() { proxySegment = 8 }()
+	piece := proxyPiece{Rev: true, From: 0, Len: 2}
+	if st := waitPiece(t, m.ffm, serial, piece); !st.Ready {
+		t.Fatalf("реверс: %+v", st)
+	}
+	out, _ := proxyPiecePath(serial, piece)
+	nearly(t, "длина реверса", m.info(out).dur, 2, 0.15)
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got < 128 {
+		t.Errorf("начало реверса должно быть белым: яркость %d", got)
+	}
+	if got := m.lumaAt(out, 1.5, 0.5, 0.5); got > 128 {
+		t.Errorf("конец реверса должен быть чёрным: яркость %d", got)
+	}
+
+	if st := waitPiece(t, m.ffm, alpha, proxyPiece{}); !st.Ready {
+		t.Fatalf("прозрачность: %+v", st)
+	}
+	out, _ = proxyPath(alpha)
+	if !strings.HasSuffix(out, ".webm") {
+		t.Fatalf("копия слоя с прозрачностью: %s", out)
+	}
+	if !m.info(out).alpha {
+		t.Error("копия потеряла прозрачность")
+	}
+
+	if proxyUsage() == 0 {
+		t.Error("место под копии не посчитано")
+	}
+	proxyClear()
+	if proxyUsage() != 0 {
+		t.Error("копии не удалены")
 	}
 }

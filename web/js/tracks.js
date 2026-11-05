@@ -1,11 +1,13 @@
 // ---------- дорожки монтажа: клипы, инструменты, масштаб, прилипание, отмена, хоткеи. Рендер: timeline.go ----------
-// Клип: {id, path, at, from, len, speed, reverse, src}. at — секунда на дорожке, from и len — кусок файла, src — длина файла (у фото 0).
+// Клип: {id, path, at, from, len, speed, reverse, src, x, y, w, h}. at — секунда на дорожке, from и len — кусок файла, src — длина файла (у фото 0),
+// x, y, w, h — рамка слоя в долях кадра, без w слой вписан в кадр по центру.
 // tkTracks идёт снизу вверх, как ждёт движок: сначала видео, потом звук. На экране видео показано верхней дорожкой вверх.
 const TK_HEAD = 76, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512;
 const TK_SAVE_KEY = 'konv9000.mtProject';
 const tkFresh = () => ['v', 'v', 'a', 'a'].map(kind => ({kind, thin: false, clips: []}));
 let tkTracks = tkFresh(), tkSel = new Set(), tkAt = 0, tkPps = 40, tkTool = 'select', tkSnapOn = true, tkNext = 1;
 let tkUndoList = [], tkRedoList = [], tkBoard = [], tkPath = '', tkSaveTimer = 0;
+let tkIn = null, tkOut = null;   // метки начала и конца вывода, секунды; null — метки нет
 const tkEls = new Map();   // id клипа → его элемент: при перерисовке картинки в клипах не мигают
 
 const tkClips = () => tkTracks.flatMap(x => x.clips);
@@ -36,7 +38,7 @@ function fmtTc(x) {
 }
 
 // ---------- отмена и сохранение ----------
-const tkState = () => JSON.stringify({tracks: tkTracks, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
+const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
 function tkCommit(before) {
   if (before !== tkState()) {
     tkUndoList.push(before);
@@ -62,10 +64,11 @@ function tkBack(from, to) {
 }
 function tkApply(o) {
   tkTracks = o.tracks;
-  tkNext = tkClips().reduce((a, c) => Math.max(a, c.id + 1), tkNext);
+  tkIn = o.in; tkOut = o.out;
+  tkNext =tkClips().reduce((a, c) => Math.max(a, c.id + 1), tkNext);
   mtSetFiles(o.files || []);
 }
-const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
+const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
 function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath}))); }
 // Проект из файла или автосохранения. Файл могли править руками, поэтому каждое значение проверяется.
 function tkLoad(o, path) {
@@ -76,6 +79,7 @@ function tkLoad(o, path) {
     clips: (Array.isArray(x.clips) ? x.clips : []).filter(c => c && typeof c.path === 'string' && c.len > 0).map(c => ({
       id: tkNext++, path: c.path, at: num(c.at, 0), from: num(c.from, 0), len: c.len, speed: c.speed > 0 ? Math.min(Math.max(c.speed, .25), 8) : 1,
       reverse: !!c.reverse, src: num(c.src, 0),
+      ...(c.w > 0 && c.h > 0 && Number.isFinite(c.x) && Number.isFinite(c.y) ? {x: c.x, y: c.y, w: Math.min(c.w, 4), h: Math.min(c.h, 4)} : {}),
     }))}));
   if (!tracks.some(x => x.kind === 'v')) tracks.unshift({kind: 'v', thin: false, clips: []});
   if (!tracks.some(x => x.kind === 'a')) tracks.push({kind: 'a', thin: false, clips: []});
@@ -85,6 +89,9 @@ function tkLoad(o, path) {
   tkTracks = tracks;
   mtSetFiles(files);
   tkAt = num(o.at, 0);
+  tkIn = num(o.in, null);
+  tkOut = num(o.out, null);
+  if (tkOut !== null && tkOut <= (tkIn || 0)) tkOut = null;
   if (o.pps > 0) tkPps = Math.min(Math.max(o.pps, TK_MIN_PPS), TK_MAX_PPS);
   if (typeof o.snap === 'boolean') tkSnapOn = o.snap;
   tkPath = path || '';
@@ -146,6 +153,54 @@ function tkRender() {
 function tkSize() {
   const sc = $('tkScroll');
   $('tkInner').style.width = Math.max(sc.clientWidth, TK_HEAD + (tkTotal() + 10) * tkPps) + 'px';
+  const band = $('tkRange'), on = tkIn !== null || tkOut !== null;
+  band.classList.toggle('hide', !on);
+  if (on) {
+    const a = tkIn !== null ? tkIn : 0, b = tkOut !== null ? tkOut : Math.max(tkTotal(), a);
+    band.style.left = TK_HEAD + a * tkPps + 'px';
+    band.style.width = (b - a) * tkPps + 'px';
+    band.classList.toggle('l', tkIn !== null);
+    band.classList.toggle('r', tkOut !== null);
+  }
+}
+// Метки вывода: I ставит начало, O конец. Метка не даёт области вывернуться: начало за концом снимает конец, и наоборот.
+function tkMark(side) {
+  const x = tkRound(tkAt);
+  tkDo(() => {
+    if (side === 'in') {
+      tkIn = x;
+      if (tkOut !== null && tkOut <= x) tkOut = null;
+    } else if (x > 0) {
+      tkOut = x;
+      if (tkIn !== null && tkIn >= x) tkIn = null;
+    }
+  });
+}
+function tkMarksOff() { if (tkIn !== null || tkOut !== null) tkDo(() => { tkIn = tkOut = null; }); }
+// Метки мышью на шкале: 'in' и 'out' двигают свою метку, 'mid' всю область, размер при этом не меняется.
+function tkMarkDrag(e, which) {
+  const before = tkState(), f = 1 / tkFps(), pts = tkSnapPts(new Set()), t0 = tkTimeAt(e);
+  const a0 = tkIn !== null ? tkIn : 0, b0 = tkOut !== null ? tkOut : Math.max(tkTotal(), a0);
+  tkDrag(e, ev => {
+    let x = tkTimeAt(ev);
+    if (which === 'in') {
+      x += tkSnapBy([x], pts);
+      tkIn = tkRound(Math.max(tkOut !== null ? Math.min(x, tkOut - f) : x, 0));
+    } else if (which === 'out') {
+      x += tkSnapBy([x], pts);
+      tkOut = tkRound(Math.max(x, (tkIn || 0) + f));
+    } else {
+      let d = x - t0;
+      d += tkSnapBy([a0 + d, b0 + d], pts);
+      d = Math.min(Math.max(d, -a0), Math.max(tkTotal(), b0) - b0);
+      tkIn = tkRound(a0 + d);
+      tkOut = tkRound(b0 + d);
+    }
+    tkSize(); tkRuler(); mtInfo();
+  }, () => {
+    $('tkSnapLine').classList.add('hide');
+    tkCommit(before);
+  });
 }
 function tkBar() {
   $('tkToolV').classList.toggle('on', tkTool === 'select');
@@ -159,7 +214,9 @@ function tkBar() {
 function tkDrawHead(follow) {
   const sc = $('tkScroll'), x = tkAt * tkPps;
   $('tkHead').style.transform = `translateX(${TK_HEAD + x}px)`;
+  $('tkGrip').style.transform = `translateX(${TK_HEAD + x}px)`;
   if (follow && (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth - TK_HEAD - 20)) sc.scrollLeft = Math.max(x - 40, 0);
+  if (mv.file) return;   // сейчас показан файл, а не монтаж: время у него своё
   $('mtNow').textContent = fmtTc(tkAt);
   $('mtDur').textContent = fmtTc(tkTotal());
 }
@@ -172,6 +229,13 @@ function tkRuler() {
     const x = i * tick * tkPps;
     if (i % 5) html += `<u style="left:${x}px"></u>`;
     else html += `<i style="left:${x}px">${step < 1 ? fmtTc(i * tick) : fmtDur(i * tick)}</i>`;
+  }
+  if (tkIn !== null || tkOut !== null) {
+    const a = tkIn !== null ? tkIn : 0, b = tkOut !== null ? tkOut : Math.max(tkTotal(), a), w = (b - a) * tkPps;
+    html += `<b class="${tkIn !== null ? 'l ' : ''}${tkOut !== null ? 'r' : ''}" style="left:${a * tkPps}px;width:${w}px">` +
+      (w >= 30 ? `<s class="mid" data-m="mid" title="${t('tk.markMove')}"></s>` : '') +
+      (tkIn !== null ? `<s class="in" data-m="in" title="${t('tk.markIn')}"></s>` : '') +
+      (tkOut !== null ? `<s class="out" data-m="out" title="${t('tk.markOut')}"></s>` : '') + '</b>';
   }
   if ($('tkRuler').innerHTML !== html) $('tkRuler').innerHTML = html;
 }
@@ -230,7 +294,7 @@ function tkCascade(tr) {
 
 // ---------- действия ----------
 function tkSeek(x) { tkAt = tkRound(Math.max(x, 0)); tkDrawHead(true); mvShow(); }
-function tkSelChanged() { tkRender(); mtPanel(); }
+function tkSelChanged() { tkRender(); mtPanel(); mvFrameDraw(); }
 function tkNewClip(it, at) {
   const photo = it.kind === 'p';
   return {id: tkNext++, path: it.path, at, from: 0, len: photo ? TK_PHOTO : it.dur, speed: 1, reverse: false, src: photo ? 0 : it.dur};
@@ -484,8 +548,12 @@ function tkBandDrag(e) {
 }
 $('tkScroll').addEventListener('pointerdown', e => {
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  mvFileOff();
   if (e.button !== 0 || e.target.closest('.tk-th')) return;
-  if (e.target.closest('#tkRuler')) {
+  const mark = e.target.closest('[data-m]');
+  if (mark) { tkMarkDrag(e, mark.dataset.m); return; }
+  if (e.target.closest('#tkRuler, #tkGrip')) {
+    if (mv.playing) mvPause();
     tkSeek(tkTimeAt(e));
     tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
     return;
@@ -555,6 +623,8 @@ $('tkToolC').onclick = () => tkSetTool('razor');
 $('tkUndo').onclick = () => tkBack(tkUndoList, tkRedoList);
 $('tkRedo').onclick = () => tkBack(tkRedoList, tkUndoList);
 $('tkSnapBtn').onclick = () => { tkSnapOn = !tkSnapOn; tkBar(); tkAutosave(); };
+$('tkMarkIn').onclick = () => tkMark('in');
+$('tkMarkOut').onclick = () => tkMark('out');
 $('tkAddV').onclick = () => tkAddTrack('v');
 $('tkAddA').onclick = () => tkAddTrack('a');
 $('tkFitBtn').onclick = tkFit;
@@ -569,6 +639,8 @@ const TK_KEYS = {
   KeyV: () => tkSetTool('select'),
   KeyC: () => tkSetTool('razor'),
   KeyS: () => $('tkSnapBtn').click(),
+  KeyI: () => tkMark('in'),
+  KeyO: () => tkMark('out'),
   Delete: () => tkRemove(false),
   Backspace: () => tkRemove(false),
   Equal: () => tkZoomTo(tkPps * 1.5),
@@ -580,9 +652,9 @@ const TK_KEYS = {
   ArrowRight: () => mvStep(1 / tkFps()),
   ArrowUp: () => { mvPause(); tkEdge(-1); },
   ArrowDown: () => { mvPause(); tkEdge(1); },
-  Home: () => { mvPause(); tkSeek(0); },
-  End: () => { mvPause(); tkSeek(tkTotal()); },
-  Escape: () => { tkSel.clear(); tkSetTool('select'); tkSelChanged(); $('tkKeys').classList.add('hide'); },
+  Home: () => $('mtStart').click(),
+  End: () => $('mtEnd').click(),
+  Escape: () => { mvFileOff(); tkSel.clear(); tkSetTool('select'); tkSelChanged(); $('tkKeys').classList.add('hide'); },
 };
 const TK_CTRL_KEYS = {
   KeyK: tkCutHere,
@@ -601,6 +673,7 @@ document.addEventListener('keydown', e => {
   let fn;
   if (ctrl && e.shiftKey && e.code === 'KeyZ') fn = () => tkBack(tkRedoList, tkUndoList);
   else if (ctrl && e.shiftKey && e.code === 'KeyS') fn = () => mtProjectSave(true);
+  else if (ctrl && e.shiftKey && e.code === 'KeyX') fn = tkMarksOff;
   else if (!ctrl && e.shiftKey && e.code === 'Delete') fn = () => tkRemove(true);
   else if (!ctrl && e.shiftKey && e.code === 'ArrowLeft') fn = () => mvStep(-1);
   else if (!ctrl && e.shiftKey && e.code === 'ArrowRight') fn = () => mvStep(1);
