@@ -64,7 +64,7 @@ function mtRemove(it) {
 }
 function mtClear() {
   mvFileOff();
-  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; });
+  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; tkCanvas = null; });
 }
 function mtRender() {
   $('mtEmpty').classList.toggle('hide', mtFiles.length > 0);
@@ -230,11 +230,163 @@ function mtPanel() {
   $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
   $('mtReverse').checked = clips.length > 0 && clips.every(c => c.reverse);
   $('mtTrim').classList.toggle('hide', !one || !clips.length);
+  mtFramePanel();
+  mtSoundPanel();
   $('mtClipInfo').innerHTML = one
     ? [[t('mt.clipAt'), fmtTc(one.at)], [t('mt.clipLen'), fmtTc(tkLen(one))], ...(tkPhoto(one) ? [] : [[t('mt.clipFrom'), `${fmtTc(one.from)} – ${fmtTc(one.from + one.len)}`]])]
         .map(([k, x]) => `<div>${esc(k)}<b>${esc(x)}</b></div>`).join('')
     : '';
 }
+// ---------- разделы «Кадр» и «Звук» ----------
+const mtFrameClips = () => tkSelected().filter(c => tkTrackOf(c).kind === 'v');
+const mtSoundClips = () => tkSelected().filter(c => tkTrackOf(c).kind === 'a' || (!c.part && !!(mtFile(c.path) || {}).audio));
+const mtFrameOne = () => { const c = tkOne(); return c && tkTrackOf(c).kind === 'v' ? c : null; };
+// общее значение поля для нескольких клипов; разные значения: поле пустое
+const mtSame = (list, get) => { const v = get(list[0]); return list.every(c => get(c) === v) ? v : ''; };
+const mtRnd = (v, n) => +v.toFixed(n);
+const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
+function mtFramePanel() {
+  const clips = mtFrameClips(), one = mtFrameOne();
+  $('mtSecFrame').classList.toggle('hide', !clips.length);
+  if (!clips.length) return;
+  $('mtFrameOne').classList.toggle('hide', !one);
+  mtVal('mtFadeIn', mtSame(clips, c => c.fadeIn || 0));
+  mtVal('mtFadeOut', mtSame(clips, c => c.fadeOut || 0));
+  mtFadeMax(clips, 'mtFadeIn', 'mtFadeOut');
+  if (!one) return;
+  const b = mvBox(one), f = mvFitBox(one), d = mvCanvasDims(), o = mvCropOf(one);
+  mtBounds('mtPosX', -d.w, d.w);
+  mtBounds('mtPosY', -d.h, d.h);
+  mtVal('mtPosX', Math.round((b.x + b.w / 2 - .5) * d.w));
+  mtVal('mtPosY', Math.round((b.y + b.h / 2 - .5) * d.h));
+  mtVal('mtScale', mtRnd(b.w / f.w * 100, 1));
+  mtVal('mtRot', one.rot || 0);
+  mtVal('mtCropL', mtRnd(o.l * 100, 1));
+  mtVal('mtCropT', mtRnd(o.t * 100, 1));
+  mtVal('mtCropR', mtRnd(o.r * 100, 1));
+  mtVal('mtCropB', mtRnd(o.b * 100, 1));
+  $('mtCropMouse').classList.toggle('on', mv.crop === one.id);
+}
+function mtSoundPanel() {
+  const clips = mtSoundClips();
+  $('mtSecSound').classList.toggle('hide', !clips.length);
+  if (!clips.length) return;
+  const v = mtSame(clips, c => c.vol === undefined ? 1 : c.vol);
+  mtVal('mtVolume', v === '' ? '' : Math.round(v * 100));
+  mtVal('mtAFadeIn', mtSame(clips, c => c.fadeIn || 0));
+  mtVal('mtAFadeOut', mtSame(clips, c => c.fadeOut || 0));
+  mtFadeMax(clips, 'mtAFadeIn', 'mtAFadeOut');
+}
+// число и ползунок одного ряда; разные значения у нескольких клипов: поле пустое, ползунок в начале
+function mtVal(id, v) { $(id).value = v; $(id + 'R').value = v === '' ? +$(id + 'R').min || 0 : v; }
+function mtBounds(id, a, b) { $(id).min = $(id + 'R').min = a; $(id).max = $(id + 'R').max = b; }
+function mtFadeMax(clips, ...ids) { const m = mtRnd(Math.max(...clips.map(tkLen)), 2); ids.forEach(id => { $(id).max = $(id + 'R').max = m; }); }
+const mtLive = () => { mvShow(); mtFramePanel(); mtSoundPanel(); };
+// Ряд панели: ползунок и число двигают одно значение, Alt с мышью влево-вправо тоже (k: сколько единиц на пиксель).
+// set меняет клипы без отмены; всё движение отменяется одним шагом.
+const mtRows = new Map();
+function mtRow(id, k, set) {
+  const num = $(id), rng = $(id + 'R');
+  let before = null;
+  mtRows.set(id, {k, set});
+  num.addEventListener('change', () => { if (num.value !== '' && Number.isFinite(+num.value)) tkDo(() => set(+num.value)); else mtPanel(); });
+  num.addEventListener('keydown', e => { if (e.key === 'Enter') num.blur(); });
+  rng.addEventListener('input', () => {
+    if (before === null) before = tkState();
+    set(+rng.value);
+    mtLive();
+  });
+  rng.addEventListener('change', () => {
+    rng.blur();
+    if (before !== null) tkCommit(before);
+    before = null;
+  });
+}
+$('mtPanel').addEventListener('pointermove', e => $('mtPanel').classList.toggle('alt', e.altKey));
+$('mtPanel').addEventListener('mousedown', e => { if (e.altKey && e.target.closest('.mt-row[data-n]')) e.preventDefault(); }, true);
+$('mtPanel').addEventListener('pointerdown', e => {
+  const row = e.altKey && e.button === 0 && e.target.closest('.mt-row[data-n]');
+  const num = row && row.querySelector('input[type=number]'), r = num && mtRows.get(num.id);
+  if (!r) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  const panel = $('mtPanel'), state = tkState(), x0 = e.clientX, v0 = +num.value || 0, lo = num.min === '' ? -Infinity : +num.min, hi = num.max === '' ? Infinity : +num.max;
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    r.set(Math.min(Math.max(mtRnd(v0 + (ev.clientX - x0) * r.k, 2), lo), hi));
+    mtLive();
+  };
+  const up = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    panel.removeEventListener('pointermove', move);
+    panel.removeEventListener('pointerup', up);
+    panel.removeEventListener('pointercancel', up);
+    tkCommit(state);
+  };
+  panel.setPointerCapture(e.pointerId);
+  panel.addEventListener('pointermove', move);
+  panel.addEventListener('pointerup', up);
+  panel.addEventListener('pointercancel', up);
+}, true);
+const mtBoxRow = (id, k, fn) => mtRow(id, k, v => { const c = mtFrameOne(); if (c) fn(c, v, mvBox(c)); });
+mtBoxRow('mtPosX', 2, (c, v, b) => mvSetBox(c, v / mvCanvasDims().w + .5 - b.w / 2, b.y, b.w, b.h));
+mtBoxRow('mtPosY', 2, (c, v, b) => mvSetBox(c, b.x, v / mvCanvasDims().h + .5 - b.h / 2, b.w, b.h));
+mtBoxRow('mtScale', .5, (c, v, b) => {
+  const w = mvFitBox(c).w * Math.max(v, 1) / 100, h = b.h * w / b.w;
+  mvSetBox(c, b.x + b.w / 2 - w / 2, b.y + b.h / 2 - h / 2, w, h);
+});
+mtBoxRow('mtRot', .5, (c, v) => mtPut(c, 'rot', mvRotNorm(v), 0));
+const mtCropRow = (id, key, other) => mtBoxRow(id, .25, (c, v) => mtPut(c, key, mtRnd(Math.min(Math.max(v / 100, 0), MV_MAX_CROP - (c[other] || 0)), 4), 0));
+mtCropRow('mtCropL', 'cl', 'cr');
+mtCropRow('mtCropR', 'cr', 'cl');
+mtCropRow('mtCropT', 'ct', 'cb');
+mtCropRow('mtCropB', 'cb', 'ct');
+const mtTurn = d => { const c = mtFrameOne(); if (c) tkDo(() => mtPut(c, 'rot', mvRotNorm((c.rot || 0) + d), 0)); };
+$('mtRotL').onclick = () => mtTurn(-90);
+$('mtRotR').onclick = () => mtTurn(90);
+$('mtCropMouse').onclick = () => {
+  const c = mtFrameOne();
+  mv.crop = c && mv.crop !== c.id ? c.id : 0;
+  mtFramePanel();
+  mvFrameDraw();
+};
+$('mtFrameReset').onclick = () => {
+  const c = mtFrameOne();
+  if (c) tkDo(() => ['x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb'].forEach(key => delete c[key]));
+};
+const mtFadeRow = (id, key, list) => mtRow(id, .02, v => list().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, 0), tkLen(c)), 2), 0)));
+mtFadeRow('mtFadeIn', 'fadeIn', mtFrameClips);
+mtFadeRow('mtFadeOut', 'fadeOut', mtFrameClips);
+mtFadeRow('mtAFadeIn', 'fadeIn', mtSoundClips);
+mtFadeRow('mtAFadeOut', 'fadeOut', mtSoundClips);
+mtRow('mtVolume', .5, v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
+
+// ---------- логотип: картинка на новой верхней дорожке, на весь монтаж, в правом верхнем углу ----------
+const MT_LOGO_W = .15, MT_LOGO_GAP = .03;
+$('mtLogo').onclick = () => dialog(async () => {
+  const r = await api('pick-files');
+  if (r.error) { alert(r.error); return; }
+  if (!r.files || !r.files.length) return;
+  const f = r.files.find(x => IMAGES.test(base(x.path)));
+  if (!f) { say('warn', t('mt.logoTitle'), t('mt.logoNotPic')); return; }
+  mtAdd([f]);
+  const it = mtFile(f.path);
+  await it.reading;
+  if (it.bad || !(it.w > 0)) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
+  const v = tkTracks.filter(x => x.kind === 'v'), top = v[v.length - 1], total = tkTotal(), d = mvCanvasDims();
+  tkDo(() => {
+    let row = top;
+    if (top.clips.length) { row = {kind: 'v', thin: false, clips: []}; tkTracks.splice(v.length, 0, row); }
+    const c = tkNewClip(it, 0);
+    if (total > 0) c.len = total;
+    const h = MT_LOGO_W * d.w / d.h * it.h / it.w;
+    Object.assign(c, {x: 1 - MT_LOGO_W - MT_LOGO_GAP, y: MT_LOGO_GAP * d.w / d.h, w: MT_LOGO_W, h});
+    row.clips.push(c);
+    tkSel = new Set([c.id]);
+  });
+});
+
 // строка в панели: сколько получится и что программа сделает сама
 function mtInfo() {
   const parts = [], total = tkLive().length, [a, b] = mtRange();
@@ -243,7 +395,7 @@ function mtInfo() {
   $('mtRange').classList.toggle('hide', !marks);
   if (marks) $('mtRangeText').textContent = t('mt.range', {a: fmtTc(a), b: fmtTc(b), dur: fmtTc(Math.max(b - a, 0))});
   const seen = tkTracks.filter(x => x.kind === 'v' && !x.off).flatMap(x => x.clips).map(c => mtFile(c.path)).filter(it => it && it.w);
-  if (seen.some(it => it.w !== seen[0].w || it.h !== seen[0].h)) parts.push(t('mt.sizes', {size: `${seen[0].w}×${seen[0].h}`}));
+  if (!tkCanvas && seen.some(it => it.w !== seen[0].w || it.h !== seen[0].h)) parts.push(t('mt.sizes', {size: `${seen[0].w}×${seen[0].h}`}));
   if (tkClips().some(c => c.reverse)) parts.push(t('mt.revNote'));
   const html = parts.map(esc).join('<br>');
   if ($('mtInfo').innerHTML !== html) $('mtInfo').innerHTML = html;
@@ -336,14 +488,15 @@ $('mtOpenProject').onclick = () => dialog(() => mtProjectOpen());
 $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
-const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {})});
+const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
+  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut'].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
 function mtProject() {
   const tracks = tkTracks.filter(x => x.clips.length && !x.off).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
   const [a, b] = mtRange();
-  const project = {tracks, in: tkIn || 0, out: tkOut || 0};
+  const project = {...(tkCanvas || {}), tracks, in: tkIn || 0, out: tkOut || 0};
   return {project, dur: Math.max(b - a, 0), paths: tkLive().filter(mtInRange).sort((x, y) => x.at - y.at).map(c => c.path)};
 }
 const mtListOf = paths => [...new Map(paths.map(p => [mtKey(p), mtFile(p) || {path: p}])).values()];
@@ -363,7 +516,7 @@ $('mtSend').onclick = () => {
       // клип отдельным файлом, связанная пара одним файлом; остаётся только то, что попало между метками
       const group = c.link ? inside.filter(o => o.link === c.link) : [c];
       const lo = Math.max(a, Math.min(...group.map(o => o.at))), hi = Math.min(b, Math.max(...group.map(tkEnd)));
-      addMontage({tracks: group.map(o => ({clips: [mtClipOut(o, o.at)]})), in: lo, out: hi}, mtListOf(group.map(o => o.path)), hi - lo);
+      addMontage({...(tkCanvas || {}), tracks: group.map(o => ({clips: [mtClipOut(o, o.at)]})), in: lo, out: hi}, mtListOf(group.map(o => o.path)), hi - lo);
     });
   } else {
     const p = mtProject();

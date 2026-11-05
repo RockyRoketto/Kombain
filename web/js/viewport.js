@@ -20,7 +20,36 @@ keepSeeking(mtV);
 trackFrame(mtV);
 // картинка из связанной пары молчит: её звук играет свой клип на звуковой дорожке
 const mvMuted = c => mtV.muted || !!(c && c.part === 'v');
-function mvVolume() { mv.pool.forEach(e => { e.el.volume = mtV.volume; e.el.muted = mvMuted(e.clip !== null && tkById(e.clip)); }); }
+// доля плавности клипа в момент x: 0 совсем нет, 1 полностью. Как в движке (tlFades)
+function mvFadeAt(c, x) {
+  const len = tkLen(c), d = x - c.at, a = Math.min(c.fadeIn || 0, len), b = Math.min(c.fadeOut || 0, len);
+  let k = 1;
+  if (a > 0) k *= Math.min(Math.max(d / a, 0), 1);
+  if (b > 0) k *= Math.min(Math.max((len - d) / b, 0), 1);
+  return k;
+}
+// громче 100% элемент <video> не умеет: такой клип идёт через усилитель Web Audio
+function mvGain(e) {
+  if (!e.gain) {
+    mv.audio = mv.audio || new AudioContext();
+    e.gain = mv.audio.createGain();
+    mv.audio.createMediaElementSource(e.el).connect(e.gain);
+    e.gain.connect(mv.audio.destination);
+  }
+  if (mv.audio.state === 'suspended') mv.audio.resume();
+  return e.gain;
+}
+function mvLevel(e, c) {
+  const k = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
+  e.el.volume = mtV.volume * Math.min(k, 1);
+  if (k > 1 || e.gain) mvGain(e).gain.value = Math.max(k, 1);
+}
+function mvVolume() { mv.pool.forEach(e => { const c = e.clip !== null && tkById(e.clip); e.el.muted = mvMuted(c); mvLevel(e, c); }); }
+// плавность и громкость идут за курсором времени в каждом кадре просмотра
+function mvLook() {
+  for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); }
+  for (const [id, el] of mv.pics) { const c = tkById(id); if (c) el.style.opacity = mvFadeAt(c, tkAt); }
+}
 $('mtVol').addEventListener('input', mvVolume);
 $('mtMute').addEventListener('click', mvVolume);
 function mvNote(text) {
@@ -46,6 +75,7 @@ const mvFps = c => { const it = mtFile(c.path); return it && it.fps > 0 ? it.fps
 
 // ---------- холст: тот же размер, что выберет движок (tlCanvas) ----------
 function mvCanvasDims() {
+  if (tkCanvas) return tkCanvas;
   for (const photos of [false, true]) {
     for (const tr of tkTracks) {
       if (tr.kind !== 'v' || tr.off) continue;
@@ -63,19 +93,38 @@ function mvSizeCanvas() {
   const d = mvCanvasDims(), W = mvStage.clientWidth, H = mvStage.clientHeight;
   const s = Math.min(W / d.w, H / d.h) || 0, w = Math.round(d.w * s), h = Math.round(d.h * s);
   Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: Math.floor((W - w) / 2) + 'px', top: Math.floor((H - h) / 2) + 'px'});
+  mvCanvasBtn();
 }
 new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); } }).observe(mvStage);
 // Рамка слоя в долях холста. Без своей рамки слой вписан по центру, как делает движок.
-function mvBox(c) {
-  if (c.w > 0) return {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h};
+function mvBox(c) { return c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : mvFitBox(c); }
+// слой, вписанный в кадр по центру (tlFitBox)
+function mvFitBox(c) {
   const d = mvCanvasDims(), it = mtFile(c.path) || {};
   if (!(it.w > 0)) return {x: 0, y: 0, w: 1, h: 1};
   const s = Math.min(d.w / it.w, d.h / it.h), w = it.w * s / d.w, h = it.h * s / d.h;
   return {x: (1 - w) / 2, y: (1 - h) / 2, w, h};
 }
+const mvCropOf = c => ({l: c.cl || 0, t: c.ct || 0, r: c.cr || 0, b: c.cb || 0});
+// Порядок как в движке (tlBoxChain): кадрирование срезает края на месте, поворот идёт вокруг середины рамки
 function mvPlace(el, c) {
-  const b = mvBox(c);
-  Object.assign(el.style, {left: b.x * 100 + '%', top: b.y * 100 + '%', width: b.w * 100 + '%', height: b.h * 100 + '%', objectFit: c.w > 0 ? 'fill' : 'contain'});
+  const b = mvBox(c), o = mvCropOf(c);
+  Object.assign(el.style, {left: b.x * 100 + '%', top: b.y * 100 + '%', width: b.w * 100 + '%', height: b.h * 100 + '%', objectFit: c.w > 0 ? 'fill' : 'contain',
+    clipPath: o.l || o.t || o.r || o.b ? `inset(${o.t * 100}% ${o.r * 100}% ${o.b * 100}% ${o.l * 100}%)` : '',
+    transform: c.rot ? `rotate(${c.rot}deg)` : ''});
+}
+// Новый размер холста: рамки не растягиваются, а уменьшаются или растут вместе с кадром
+function mvSetCanvas(next) {
+  const a = mvCanvasDims();
+  tkDo(() => {
+    tkCanvas = next;
+    const b = mvCanvasDims(), f = Math.min(b.w / a.w, b.h / a.h);
+    for (const c of tkClips()) {
+      if (!(c.w > 0)) continue;
+      const cx = (c.x || 0) + c.w / 2, cy = (c.y || 0) + c.h / 2, w = c.w * a.w * f / b.w, h = c.h * a.h * f / b.h;
+      mvSetBox(c, cx - w / 2, cy - h / 2, w, h);
+    }
+  });
 }
 
 // ---------- проверка файлов: что окно играет само, а для чего нужна копия. Идёт заранее, чтобы копия была готова к своему месту ----------
@@ -268,6 +317,7 @@ function mvShow() {
   const sound = !picture && active[0] && !active[0].c.part ? active[0] : null;
   mvPicture(sound ? thumbUrl(sound.c.path, 0, 1280) : '');
   for (const {c, e} of mv.live) mvSync(e, c, now);
+  mvLook();
   mvNotes();
   mvFrameDraw();
 }
@@ -334,6 +384,7 @@ function mvTick(now) {
     else { tkAt = end; mvPause(); return; }
   } else if (now - mv.shownAt > 250 || mvActiveSig(tkAt) !== mv.sig) mvShow();
   else for (const {c, e} of mv.live) mvSync(e, c, now);
+  mvLook();
   tkDrawHead(true);
 }
 function mvPlay() {
@@ -399,8 +450,13 @@ function mvFrameDraw() {
   mvFrame.classList.toggle('hide', !c);
   mvStage.classList.toggle('framed', !!c);
   if (!c) return;
-  const b = mvBox(c), W = mvCv.offsetWidth, H = mvCv.offsetHeight;
-  Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + 'px', top: mvCv.offsetTop + b.y * H + 'px', width: b.w * W + 'px', height: b.h * H + 'px'});
+  // рамка обводит то, что осталось после кадрирования, и поворачивается вокруг середины всего слоя
+  const b = mvBox(c), o = mvCropOf(c), W = mvCv.offsetWidth, H = mvCv.offsetHeight, bw = b.w * W, bh = b.h * H;
+  const top = mvCv.offsetTop + b.y * H + o.t * bh;
+  mvFrame.classList.toggle('crop', mv.crop === c.id);
+  mvFrame.classList.toggle('rotin', top < 26);   // ручке поворота нет места над кадром
+  Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + o.l * bw + 'px', top: top + 'px', width: (1 - o.l - o.r) * bw + 'px', height: (1 - o.t - o.b) * bh + 'px',
+    transformOrigin: `${(.5 - o.l) * bw}px ${(.5 - o.t) * bh}px`, transform: c.rot ? `rotate(${c.rot}deg)` : ''});
 }
 // на сколько сдвинуть, чтобы одно из значений list встало на край или середину кадра
 function mvSnap(list, px) {
@@ -423,11 +479,19 @@ function mvPlaceClip(c) {
   if (e) mvPlace(e.el, c);
   if (pic) mvPlace(pic, c);
 }
-const MV_MIN_BOX = .02, MV_MAX_BOX = 4, MV_SEEN = .01;
-// попала ли мышь в рамку клипа
+const MV_MIN_BOX = .02, MV_MAX_BOX = 4, MV_SEEN = .01, MV_MAX_CROP = .98;
+function mvSetBox(c, x, y, w, h) {
+  w = Math.min(Math.max(w, MV_MIN_BOX), MV_MAX_BOX); h = Math.min(Math.max(h, MV_MIN_BOX), MV_MAX_BOX);
+  c.w = w; c.h = h;
+  c.x = Math.min(Math.max(x, MV_SEEN - w), 1 - MV_SEEN);
+  c.y = Math.min(Math.max(y, MV_SEEN - h), 1 - MV_SEEN);
+}
+// попала ли мышь в то, что видно от клипа
 function mvInside(c, ev) {
-  const r = mvCv.getBoundingClientRect(), b = mvBox(c), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
-  return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+  const r = mvCv.getBoundingClientRect(), b = mvBox(c), o = mvCropOf(c), a = -(c.rot || 0) * Math.PI / 180;
+  const dx = ev.clientX - r.left - (b.x + b.w / 2) * r.width, dy = ev.clientY - r.top - (b.y + b.h / 2) * r.height;
+  const u = (dx * Math.cos(a) - dy * Math.sin(a)) / (b.w * r.width) + .5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / (b.h * r.height) + .5;
+  return u >= o.l && u <= 1 - o.r && v >= o.t && v <= 1 - o.b;
 }
 // верхний слой под мышью в текущий момент
 function mvHit(ev) {
@@ -441,45 +505,53 @@ function mvHit(ev) {
 // pick: кого выбрать, если мышь так и не сдвинулась (щелчок по выбранному слою, над которым лежит другой)
 function mvFrameDrag(e, c, corner, pick) {
   const before = tkState(), W = mvCv.offsetWidth, H = mvCv.offsetHeight, o = mvBox(c), x0 = e.clientX, y0 = e.clientY;
-  const left = corner && corner.includes('w'), up = corner && corner.includes('n');
-  const ax = left ? o.x + o.w : o.x, ay = up ? o.y + o.h : o.y;   // угол, который стоит на месте
+  const left = corner && corner.includes('w'), up = corner && corner.includes('n'), cut = mvCropOf(c);
+  const rad = (c.rot || 0) * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const ow = o.w * W, oh = o.h * H, ocx = (o.x + o.w / 2) * W, ocy = (o.y + o.h / 2) * H;
+  // доли слоя: угол, который стоит на месте, и угол под мышью
+  const fu = left ? 1 - cut.r : cut.l, fv = up ? 1 - cut.b : cut.t, mu = left ? cut.l : 1 - cut.r, mw = up ? cut.t : 1 - cut.b;
+  const world = (u, v, w, h) => [(u - .5) * w * cos - (v - .5) * h * sin, (u - .5) * w * sin + (v - .5) * h * cos];
+  const [fdx, fdy] = world(fu, fv, ow, oh), [mdx, mdy] = world(mu, mw, ow, oh);
+  const fixX = ocx + fdx, fixY = ocy + fdy, startX = ocx + mdx, startY = ocy + mdy;
+  const seenW = (1 - cut.l - cut.r) * ow, seenH = (1 - cut.t - cut.b) * oh;
   let on = false;
-  const set = (x, y, w, h) => {
-    w = Math.min(Math.max(w, MV_MIN_BOX), MV_MAX_BOX); h = Math.min(Math.max(h, MV_MIN_BOX), MV_MAX_BOX);
-    c.w = w; c.h = h;
-    c.x = Math.min(Math.max(x, MV_SEEN - w), 1 - MV_SEEN);
-    c.y = Math.min(Math.max(y, MV_SEEN - h), 1 - MV_SEEN);
-  };
+  const set = (x, y, w, h) => mvSetBox(c, x, y, w, h);
   const move = ev => {
     if (ev.pointerId !== e.pointerId) return;
     const dx = (ev.clientX - x0) / W, dy = (ev.clientY - y0) / H;
     if (!on && Math.hypot(ev.clientX - x0, ev.clientY - y0) < KIN.drag) return;
     on = true;
     if (!corner) {
-      const sx = mvSnap([o.x + dx, o.x + dx + o.w / 2, o.x + dx + o.w], W), sy = mvSnap([o.y + dy, o.y + dy + o.h / 2, o.y + dy + o.h], H);
+      // повёрнутый слой прилипает серединой, остальной по тому, что видно
+      const seen = (a, s, l, r) => c.rot ? [a + s / 2] : [a + s * l, a + s * (l + 1 - r) / 2, a + s * (1 - r)];
+      const sx = mvSnap(seen(o.x + dx, o.w, cut.l, cut.r), W), sy = mvSnap(seen(o.y + dy, o.h, cut.t, cut.b), H);
       set(o.x + dx + sx.d, o.y + dy + sy.d, o.w, o.h);
       mvGuides(sx.at, sy.at);
     } else {
-      let mx = (left ? o.x : o.x + o.w) + dx, my = (up ? o.y : o.y + o.h) + dy;
-      const sx = mvSnap([mx], W), sy = mvSnap([my], H);
-      let nw = left ? ax - mx : mx - ax, nh = up ? ay - my : my - ay, gx = -1, gy = -1;
+      // угол под мышью; в повёрнутом слое размеры считаются вдоль его сторон, прилипания нет
+      const mx = startX + ev.clientX - x0, my = startY + ev.clientY - y0, none = {d: 0, at: -1};
+      const sx = c.rot ? none : mvSnap([mx / W], W), sy = c.rot ? none : mvSnap([my / H], H);
+      const local = (ax, ay) => [(ax - fixX) * cos + (ay - fixY) * sin, -(ax - fixX) * sin + (ay - fixY) * cos];
+      const [lx, ly] = local(mx, my), [lxs, lys] = local(mx + sx.d * W, my + sy.d * H);
+      const kx = v => (left ? -v : v) / seenW, ky = v => (up ? -v : v) / seenH;
+      let sw, sh, gx = -1, gy = -1;
       if (ev.shiftKey) {   // свободно: каждая сторона сама по себе
-        nw = left ? ax - mx - sx.d : mx + sx.d - ax;
-        nh = up ? ay - my - sy.d : my + sy.d - ay;
+        sw = kx(lxs); sh = ky(lys);
         gx = sx.at; gy = sy.at;
       } else {   // пропорции те же, ведёт та сторона, что изменилась сильнее
-        let s = Math.max(nw / o.w, nh / o.h);
-        if (sx.at >= 0) { s = (left ? ax - mx - sx.d : mx + sx.d - ax) / o.w; gx = sx.at; }
-        else if (sy.at >= 0) { s = (up ? ay - my - sy.d : my + sy.d - ay) / o.h; gy = sy.at; }
-        s = Math.min(Math.max(s, Math.max(MV_MIN_BOX / o.w, MV_MIN_BOX / o.h)), Math.min(MV_MAX_BOX / o.w, MV_MAX_BOX / o.h));
-        nw = o.w * s; nh = o.h * s;
+        let s = Math.max(kx(lx), ky(ly));
+        if (sx.at >= 0) { s = kx(lxs); gx = sx.at; }
+        else if (sy.at >= 0) { s = ky(lys); gy = sy.at; }
+        sw = sh = Math.min(Math.max(s, Math.max(MV_MIN_BOX / o.w, MV_MIN_BOX / o.h)), Math.min(MV_MAX_BOX / o.w, MV_MAX_BOX / o.h));
       }
-      nw = Math.max(nw, MV_MIN_BOX); nh = Math.max(nh, MV_MIN_BOX);
-      set(left ? ax - nw : ax, up ? ay - nh : ay, nw, nh);
+      const nw = Math.min(Math.max(o.w * sw, MV_MIN_BOX), MV_MAX_BOX), nh = Math.min(Math.max(o.h * sh, MV_MIN_BOX), MV_MAX_BOX);
+      const [ndx, ndy] = world(fu, fv, nw * W, nh * H), cx = (fixX - ndx) / W, cy = (fixY - ndy) / H;
+      set(cx - nw / 2, cy - nh / 2, nw, nh);
       mvGuides(gx, gy);
     }
     mvPlaceClip(c);
     mvFrameDraw();
+    mtFramePanel();
   };
   const end = ev => {
     if (ev.pointerId !== e.pointerId) return;
@@ -495,13 +567,70 @@ function mvFrameDrag(e, c, corner, pick) {
   mvStage.addEventListener('pointerup', end);
   mvStage.addEventListener('pointercancel', end);
 }
+// Общая часть ручек поворота и кадрирования: отмена одним шагом и своя реакция на движение
+function mvHandleDrag(e, c, step) {
+  const before = tkState();
+  let on = false;
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    on = true;
+    step(ev);
+    mvPlaceClip(c);
+    mvFrameDraw();
+    mtFramePanel();
+  };
+  const end = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    mvStage.removeEventListener('pointermove', move);
+    mvStage.removeEventListener('pointerup', end);
+    mvStage.removeEventListener('pointercancel', end);
+    if (on) tkCommit(before);
+  };
+  mvStage.setPointerCapture(e.pointerId);
+  mvStage.addEventListener('pointermove', move);
+  mvStage.addEventListener('pointerup', end);
+  mvStage.addEventListener('pointercancel', end);
+}
+const mvRotNorm = a => { a = ((a % 360) + 360) % 360; return +(a > 180 ? a - 360 : a).toFixed(1); };
+// Поворот мышью: Shift даёт шаги по 15°, с прилипанием прямые углы ловятся сами
+function mvRotDrag(e, c) {
+  const r = mvCv.getBoundingClientRect(), b = mvBox(c), cx = r.left + (b.x + b.w / 2) * r.width, cy = r.top + (b.y + b.h / 2) * r.height;
+  const at = ev => Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI;
+  const a0 = at(e), r0 = c.rot || 0;
+  mvHandleDrag(e, c, ev => {
+    let a = r0 + at(ev) - a0;
+    if (ev.shiftKey) a = Math.round(a / 15) * 15;
+    else if (tkSnapOn && Math.abs(a - Math.round(a / 90) * 90) < 3) a = Math.round(a / 90) * 90;
+    a = mvRotNorm(a);
+    if (a) c.rot = a; else delete c.rot;
+  });
+}
+// Кадрирование мышью: края уходят внутрь слоя, сам слой стоит на месте
+function mvCropDrag(e, c, side) {
+  const r = mvCv.getBoundingClientRect(), b = mvBox(c), o = mvCropOf(c), a = (c.rot || 0) * Math.PI / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const w = b.w * r.width, h = b.h * r.height, x0 = e.clientX, y0 = e.clientY;
+  const put = (key, v) => { if (v > 1e-4) c[key] = v; else delete c[key]; };
+  mvHandleDrag(e, c, ev => {
+    const dx = ev.clientX - x0, dy = ev.clientY - y0, du = (dx * cos + dy * sin) / w, dv = (-dx * sin + dy * cos) / h;
+    if (side.includes('w')) put('cl', Math.min(Math.max(o.l + du, 0), MV_MAX_CROP - o.r));
+    if (side.includes('e')) put('cr', Math.min(Math.max(o.r - du, 0), MV_MAX_CROP - o.l));
+    if (side.includes('n')) put('ct', Math.min(Math.max(o.t + dv, 0), MV_MAX_CROP - o.b));
+    if (side.includes('s')) put('cb', Math.min(Math.max(o.b - dv, 0), MV_MAX_CROP - o.t));
+  });
+}
 // Нажатие сразу выбирает слой под мышью, и его можно тянуть, не отпуская кнопку. Мимо слоёв — выбор снимается.
 mvStage.addEventListener('pointerdown', e => {
   if (e.button !== 0 || mv.file || !tkClips().length) return;
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   if (mv.playing) mvPause();
   const cur = mvFrameClip(), h = e.target.closest('[data-c]'), top = mvHit(e);
-  if (cur && h) { e.preventDefault(); mvFrameDrag(e, cur, h.dataset.c); return; }
+  if (cur && h) {
+    e.preventDefault();
+    if (h.dataset.c === 'rot') mvRotDrag(e, cur);
+    else if (mv.crop === cur.id) mvCropDrag(e, cur, h.dataset.c);
+    else mvFrameDrag(e, cur, h.dataset.c);
+    return;
+  }
   if (cur && mvInside(cur, e)) { e.preventDefault(); mvFrameDrag(e, cur, '', top); return; }
   if (!top) { if (tkSel.size) { tkSel.clear(); tkSelChanged(); } return; }
   e.preventDefault();
@@ -578,6 +707,47 @@ function mvFileOff(quiet) {
   tkDrawHead();
   mvShow();
 }
+// ---------- размер холста: кнопка под вьюпортом ----------
+const MV_SIZES = () => [[1920, 1080, t('mv.canvasHd')], [3840, 2160, t('mv.canvas4k')], [1080, 1920, t('mv.canvasV')], [1080, 1080, t('mv.canvasSq')], [1080, 1350, t('mv.canvasPost')]];
+const mvSideFit = v => Math.min(Math.max(Math.round((+v || 0) / 2) * 2, 16), 7680);
+function mvRatio(d) {
+  const r = [[16, 9], [9, 16], [1, 1], [4, 5], [4, 3], [3, 4], [21, 9]].find(([a, b]) => Math.abs(d.w / d.h - a / b) < .01);
+  return r ? r[0] + ':' + r[1] : '';
+}
+function mvCanvasBtn() {
+  const d = mvCanvasDims(), ratio = mvRatio(d);
+  $('mvCanvasRatio').textContent = ratio;
+  $('mvCanvasRatio').classList.toggle('hide', !ratio);
+  $('mvCanvasSize').textContent = d.w + '×' + d.h;
+  $('mvCanvasBtn').classList.toggle('on', !!tkCanvas);
+}
+function mvCanvasMenu() {
+  const cur = tkCanvas;
+  const row = (w, h, name, on) => `<button class="mv-cm-row${on ? ' on' : ''}" data-w="${w}" data-h="${h}"><span>${esc(name)}</span><em>${w ? w + '×' + h : ''}</em></button>`;
+  $('mvCanvasList').innerHTML = row(0, 0, t('mv.canvasAuto'), !cur) +
+    MV_SIZES().map(([w, h, name]) => row(w, h, name, cur && cur.w === w && cur.h === h)).join('');
+  const d = mvCanvasDims();
+  $('mvCanvasW').value = d.w;
+  $('mvCanvasH').value = d.h;
+}
+function mvCanvasClose() { $('mvCanvasPop').classList.add('hide'); }
+$('mvCanvasBtn').onclick = e => {
+  e.stopPropagation();
+  const open = $('mvCanvasPop').classList.contains('hide');
+  if (open) mvCanvasMenu();
+  $('mvCanvasPop').classList.toggle('hide', !open);
+};
+$('mvCanvasList').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  mvSetCanvas(+b.dataset.w ? {w: +b.dataset.w, h: +b.dataset.h} : null);
+  mvCanvasClose();
+});
+const mvCanvasOwn = () => { mvSetCanvas({w: mvSideFit($('mvCanvasW').value), h: mvSideFit($('mvCanvasH').value)}); mvCanvasClose(); };
+$('mvCanvasOk').onclick = mvCanvasOwn;
+['mvCanvasW', 'mvCanvasH'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') mvCanvasOwn(); }));
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#mvCanvasPop,#mvCanvasBtn')) mvCanvasClose(); });
+
 $('mvSeek').addEventListener('input', () => { if (mtV.duration) videoSeek(mtV, $('mvSeek').value / 1000 * mtV.duration); });
 $('mvSeek').addEventListener('change', () => $('mvSeek').blur());
 $('mvTagOff').onclick = () => mvFileOff();

@@ -46,7 +46,27 @@ type Clip struct {
 	Y float64 `json:"y,omitempty"`
 	W float64 `json:"w,omitempty"`
 	H float64 `json:"h,omitempty"`
+	// Поворот вокруг середины рамки, градусы по часовой. Кадрирование: сколько срезано с каждой стороны, доли слоя. Рамка при этом не меняется.
+	Rot   float64 `json:"rot,omitempty"`
+	CropL float64 `json:"cl,omitempty"`
+	CropT float64 `json:"ct,omitempty"`
+	CropR float64 `json:"cr,omitempty"`
+	CropB float64 `json:"cb,omitempty"`
+	// Громкость, 1 — как в файле; без значения тоже 1. Указатель, потому что 0 это тишина.
+	Vol *float64 `json:"vol,omitempty"`
+	// Плавное появление и исчезание, секунды на дорожке: у картинки прозрачность, у звука громкость
+	FadeIn  float64 `json:"fadeIn,omitempty"`
+	FadeOut float64 `json:"fadeOut,omitempty"`
 }
+
+func (c Clip) volume() float64 {
+	if c.Vol == nil {
+		return 1
+	}
+	return *c.Vol
+}
+
+func (c Clip) cropped() bool { return c.CropL > 0 || c.CropT > 0 || c.CropR > 0 || c.CropB > 0 }
 
 const (
 	tlPhotoLen  = 5.0  // секунд, если у фото не задана длина
@@ -57,6 +77,10 @@ const (
 
 	tlMaxBox  = 4.0  // рамка слоя не больше стольких кадров: дальше ffmpeg не хватит памяти на кадр
 	tlMinSeen = 0.01 // какая часть кадра всегда остаётся за слоем, иначе его не поймать мышью
+	tlMaxCrop = 0.98 // сколько слоя можно срезать: что-то должно остаться
+	tlMaxVol  = 2.0  // громкость не больше 200%
+	tlMaxSide = 7680 // сторона холста
+	tlMinSide = 16
 
 	tlGraphInline = 2000  // граф длиннее этого передаётся файлом (spillGraph)
 	tlMaxInputs   = 28000 // входы файлом не передать: это их предел в командной строке, остальное место занимают настройки кодека
@@ -66,6 +90,9 @@ const (
 func (p *Project) fit() {
 	if p.W <= 0 || p.H <= 0 {
 		p.W, p.H = 0, 0
+	} else { // чётный размер: иначе yuv420p не собрать
+		p.W = min(max(p.W, tlMinSide), tlMaxSide) &^ 1
+		p.H = min(max(p.H, tlMinSide), tlMaxSide) &^ 1
 	}
 	p.FPS = min(max(p.FPS, 0), tlMaxFPS)
 	p.In, p.Out = max(p.In, 0), max(p.Out, 0)
@@ -87,8 +114,25 @@ func (p *Project) fit() {
 			} else {
 				c.X, c.Y, c.W, c.H = 0, 0, 0, 0
 			}
+			c.Rot = math.Mod(c.Rot, 360)
+			c.CropL, c.CropR = tlCropPair(c.CropL, c.CropR)
+			c.CropT, c.CropB = tlCropPair(c.CropT, c.CropB)
+			if c.Vol != nil {
+				v := min(max(*c.Vol, 0), tlMaxVol)
+				c.Vol = &v
+			}
+			c.FadeIn, c.FadeOut = max(c.FadeIn, 0), max(c.FadeOut, 0)
 		}
 	}
+}
+
+// tlCropPair: две противоположные стороны кадрирования, вместе они не съедают весь слой
+func tlCropPair(a, b float64) (float64, float64) {
+	a, b = min(max(a, 0), tlMaxCrop), min(max(b, 0), tlMaxCrop)
+	if over := a + b - tlMaxCrop; over > 0 {
+		a, b = a-over*a/(a+b), b-over*b/(a+b)
+	}
+	return a, b
 }
 
 // paths: файлы проекта без повторов, в порядке появления
@@ -120,6 +164,8 @@ type tlClip struct {
 	montClip
 	photo      bool
 	start, end int // границы на дорожке, в кадрах
+	whole      int // длина клипа в кадрах до меток вывода: плавность считается от неё
+	head       int // сколько кадров клипа срезала метка начала
 	input      int // номер входа ffmpeg
 }
 
@@ -243,6 +289,7 @@ func tlPlace(tracks [][]tlClip, fps float64) ([][]tlClip, int) {
 				c.end = min(c.end, frame(list[i+1].At))
 			}
 			if c.end > c.start {
+				c.whole = c.end - c.start
 				kept = append(kept, c)
 				total = max(total, c.end)
 			}
@@ -285,6 +332,7 @@ func tlRange(tracks [][]tlClip, p Project, fps float64, total int) ([][]tlClip, 
 				c.from += skip
 				c.cut = max(length-skip, c.Speed/fps)
 			}
+			c.head = lo - c.start
 			c.start, c.end = lo-a, hi-a
 			kept = append(kept, c)
 			found = true
@@ -518,8 +566,12 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
 		chain = append(chain, "format="+pix)
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
-	if c.W > 0 {
-		chain = append(chain, tlBoxChain(c.Clip, w, h, bg)...)
+	box := c.Clip
+	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped()) && cw > 0 && ch > 0 {
+		box.X, box.Y, box.W, box.H = tlFitBox(cw, ch, w, h)
+	}
+	if box.W > 0 {
+		chain = append(chain, tlBoxChain(box, w, h, bg)...)
 	} else if cw, ch := c.size(); cw != w || ch != h {
 		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, bg))
 	}
@@ -535,20 +587,92 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
 		"tpad=stop_mode=clone:stop_duration="+secs(float64(c.frames()+1)/fps),
 		fmt.Sprintf("trim=end_frame=%d", c.frames()),
 		"setpts=PTS-STARTPTS")
+	// у нижней дорожки под клипом чёрный фон, у верхней слой уходит в прозрачность
+	chain = append(chain, tlFades(c, fps, "fade", "setpts", bg != "black")...)
 	return strings.Join(chain, ",")
 }
 
-// tlBoxChain: слой в своей рамке на кадре w×h. Что вышло за край кадра, отрезается, вокруг остаётся фон.
+// tlFades: плавное появление и исчезание клипа. Время считается от начала целого клипа: если метка вывода срезала
+// его голову, метки времени на это время сдвигаются вперёд, и плавность идёт с того же места, что на дорожке.
+func tlFades(c tlClip, fps float64, fade, setpts string, alpha bool) []string {
+	whole := float64(c.whole) / fps
+	head := float64(c.head) / fps
+	shownTo := head + float64(c.frames())/fps
+	in, out := min(c.FadeIn, whole), min(c.FadeOut, whole)
+	wantIn, wantOut := in > head, out > 0 && whole-out < shownTo
+	if !wantIn && !wantOut {
+		return nil
+	}
+	tail := ""
+	if alpha {
+		tail = ":alpha=1"
+	}
+	var chain []string
+	if head > 0 {
+		chain = append(chain, fmt.Sprintf("%s=PTS+%s/TB", setpts, secs(head)))
+	}
+	if wantIn {
+		chain = append(chain, fmt.Sprintf("%s=t=in:st=0:d=%s%s", fade, secs(in), tail))
+	}
+	if wantOut {
+		chain = append(chain, fmt.Sprintf("%s=t=out:st=%s:d=%s%s", fade, secs(whole-out), secs(out), tail))
+	}
+	if head > 0 {
+		chain = append(chain, setpts+"=PTS-STARTPTS")
+	}
+	return chain
+}
+
+// tlFitBox: рамка слоя, вписанного в кадр по центру, в долях кадра
+func tlFitBox(cw, ch, w, h int) (x, y, bw, bh float64) {
+	s := min(float64(w)/float64(cw), float64(h)/float64(ch))
+	bw, bh = float64(cw)*s/float64(w), float64(ch)*s/float64(h)
+	return (1 - bw) / 2, (1 - bh) / 2, bw, bh
+}
+
+// tlBoxChain: слой в своей рамке на кадре w×h. Порядок как в предпросмотре (mvPlace в web/js/viewport.js): кадрирование, поворот вокруг
+// середины рамки, место на кадре. Что вышло за край кадра, отрезается, вокруг остаётся фон.
 // Числа чётные: у yuv420p цветность на два пикселя, нечётное значение фильтры всё равно округлили бы.
 func tlBoxChain(c Clip, w, h int, bg string) []string {
 	even := func(v float64) int { return int(math.Round(v/2)) * 2 }
 	bw, bh := max(even(c.W*float64(w)), 2), max(even(c.H*float64(h)), 2)
-	x, y := even(c.X*float64(w)), even(c.Y*float64(h))
-	vx, vy := min(max(x, 0), max(w-2, 0)), min(max(y, 0), max(h-2, 0))
-	vw, vh := max(min(x+bw, w)-vx, 2), max(min(y+bh, h)-vy, 2)
+	// что осталось от слоя после кадрирования, в пикселях слоя
+	cl, ct := even(c.CropL*float64(bw)), even(c.CropT*float64(bh))
+	sw, sh := max(even((1-c.CropL-c.CropR)*float64(bw)), 2), max(even((1-c.CropT-c.CropB)*float64(bh)), 2)
+	sw, sh = min(sw, bw-cl), min(sh, bh-ct)
 	chain := []string{fmt.Sprintf("scale=%d:%d", bw, bh)}
-	if vw != bw || vh != bh {
-		chain = append(chain, fmt.Sprintf("crop=%d:%d:%d:%d", min(vw, bw), min(vh, bh), min(vx-x, bw-vw), min(vy-y, bh-vh)))
+	// место куска на кадре: rx, ry, rw, rh; ox, oy — откуда его брать после предыдущих шагов
+	rx, ry, rw, rh, ox, oy := even(c.X*float64(w))+cl, even(c.Y*float64(h))+ct, sw, sh, cl, ct
+	if c.Rot != 0 {
+		if sw != bw || sh != bh {
+			chain = append(chain, fmt.Sprintf("crop=%d:%d:%d:%d", sw, sh, cl, ct))
+		}
+		a := c.Rot * math.Pi / 180
+		sin, cos := math.Sin(a), math.Cos(a)
+		rw = max(even(math.Abs(float64(sw)*cos)+math.Abs(float64(sh)*sin)+1), 2)
+		rh = max(even(math.Abs(float64(sw)*sin)+math.Abs(float64(sh)*cos)+1), 2)
+		chain = append(chain, fmt.Sprintf("rotate=a=%s:ow=%d:oh=%d:c=%s", strconv.FormatFloat(a, 'f', 6, 64), rw, rh, bg))
+		// середина рамки стоит на месте, середина куска поворачивается вокруг неё
+		dx, dy := float64(cl)+float64(sw)/2-float64(bw)/2, float64(ct)+float64(sh)/2-float64(bh)/2
+		px := (c.X+c.W/2)*float64(w) + dx*cos - dy*sin
+		py := (c.Y+c.H/2)*float64(h) + dx*sin + dy*cos
+		rx, ry, ox, oy = even(px-float64(rw)/2), even(py-float64(rh)/2), 0, 0
+	}
+	vx, vy := min(max(rx, 0), max(w-2, 0)), min(max(ry, 0), max(h-2, 0))
+	vw, vh := min(rx+rw, w)-vx, min(ry+rh, h)-vy
+	gone := vw <= 0 || vh <= 0 // кусок целиком за кадром: кадр собрать всё равно надо, но без него
+	vw, vh = max(vw, 2), max(vh, 2)
+	vw, vh = min(vw, rw), min(vh, rh)
+	// до этого шага у кадра размер целого слоя, а после поворота размер rw×rh
+	inW, inH := bw, bh
+	if c.Rot != 0 {
+		inW, inH = rw, rh
+	}
+	if vw != inW || vh != inH {
+		chain = append(chain, fmt.Sprintf("crop=%d:%d:%d:%d", vw, vh, ox+min(max(vx-rx, 0), rw-vw), oy+min(max(vy-ry, 0), rh-vh)))
+	}
+	if gone {
+		chain = append(chain, "drawbox=t=fill:c="+bg+":replace=1")
 	}
 	return append(chain, fmt.Sprintf("pad=%d:%d:%d:%d:color=%s", w, h, vx, vy, bg))
 }
@@ -572,8 +696,12 @@ func tlAudioGraph(tracks [][]tlClip, fps float64, total int) []string {
 			chain = append(chain, atempoChain(c.Speed)...)
 			chain = append(chain,
 				fmt.Sprintf("atrim=end_sample=%d", samples(c.frames())),
-				"asetpts=PTS-STARTPTS",
-				fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.start)))
+				"asetpts=PTS-STARTPTS")
+			if v := c.volume(); v != 1 {
+				chain = append(chain, "volume="+strconv.FormatFloat(v, 'f', 4, 64))
+			}
+			chain = append(chain, tlFades(c, fps, "afade", "asetpts", false)...)
+			chain = append(chain, fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.start)))
 			label := fmt.Sprintf("[s%d]", len(mix))
 			graph = append(graph, fmt.Sprintf("[%d:a:0]%s%s", c.input, strings.Join(chain, ","), label))
 			mix = append(mix, label)

@@ -1,16 +1,18 @@
 // ---------- дорожки монтажа: клипы, инструменты, масштаб, прилипание, отмена, хоткеи. Рендер: timeline.go ----------
 // Клип: {id, path, at, from, len, speed, reverse, src, x, y, w, h, part, link, marks}. at — секунда на дорожке, from и len — кусок файла, src — длина файла (у фото 0),
-// x, y, w, h — рамка слоя в долях кадра, без w слой вписан в кадр по центру.
+// x, y, w, h — рамка слоя в долях кадра, без w слой вписан в кадр по центру. rot — поворот, градусы. cl, ct, cr, cb — кадрирование, доли слоя.
+// vol — громкость, 1 как в файле; fadeIn, fadeOut — плавность, секунды на дорожке. Без значения: как в файле и без плавности.
 // part: что клип берёт из файла, 'v' картинку, 'a' звук, без него всё сразу (фото, файлы без звука, старые проекты).
 // link: общий номер у связанных клипов, они двигаются и режутся вместе. marks: метки на клипе, секунды файла, поэтому держатся за кадр.
 // tkTracks идёт снизу вверх, как ждёт движок: сначала видео, потом звук. На экране видео показано верхней дорожкой вверх.
-const TK_HEAD = 104, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512, TK_GRAB = 10, TK_ROW_MIN = 20, TK_ROW_MAX = 160;
+const TK_HEAD = 124, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512, TK_GRAB = 10, TK_ROW_MIN = 20, TK_ROW_MAX = 160;
 const TK_SAVE_KEY = 'konv9000.mtProject';
 const tkFresh = () => ['v', 'v', 'a', 'a'].map(kind => ({kind, thin: false, clips: []}));
 let tkTracks = tkFresh(), tkSel = new Set(), tkAt = 0, tkPps = 40, tkTool = 'select', tkSnapOn = true, tkNext = 1;
 let tkUndoList = [], tkRedoList = [], tkBoard = [], tkPath = '', tkSaveTimer = 0;
 let tkIn = null, tkOut = null;   // метки начала и конца вывода, секунды; null — метки нет
 let tkMarkers = [];              // метки на таймлайне, секунды, по возрастанию
+let tkCanvas = null;             // размер холста {w, h}; null — как у первого видео
 const tkEls = new Map();   // id клипа → его элемент: при перерисовке картинки в клипах не мигают
 
 const tkClips = () => tkTracks.flatMap(x => x.clips);
@@ -52,7 +54,7 @@ function fmtTc(x) {
 }
 
 // ---------- отмена и сохранение ----------
-const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
+const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
 // связь из одного клипа ничего не значит: второй удалён или разрезан отдельно
 function tkTidyLinks() {
   const n = new Map();
@@ -85,11 +87,11 @@ function tkBack(from, to) {
 }
 function tkApply(o) {
   tkTracks = o.tracks;
-  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || [];
+  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null;
   tkNext = tkClips().reduce((a, c) => Math.max(a, c.id + 1, (c.link || 0) + 1), tkNext);
   mtSetFiles(o.files || []);
 }
-const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
+const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
 function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath}))); }
 // Проект из файла или автосохранения. Файл могли править руками, поэтому каждое значение проверяется.
 function tkLoad(o, path) {
@@ -99,6 +101,8 @@ function tkLoad(o, path) {
   // номера связей из файла заменяются своими: они не должны совпасть с теми, что позже выдаст tkNext
   const links = new Map(), linkOf = x => { if (!links.has(x)) links.set(x, tkNext++); return links.get(x); };
   const times = list => (Array.isArray(list) ? list : []).filter(x => Number.isFinite(x) && x >= 0).sort((a, b) => a - b);
+  const share = (c, key) => c[key] > 0 && c[key] <= .98 ? {[key]: c[key]} : {};
+  const more = (c, key) => c[key] > 0 && Number.isFinite(c[key]) ? {[key]: c[key]} : {};
   const tracks = o.tracks.filter(x => x && (x.kind === 'v' || x.kind === 'a')).map(x => ({kind: x.kind, thin: !!x.thin,
     ...(x.h >= TK_ROW_MIN && x.h <= TK_ROW_MAX ? {h: x.h} : {}),
     ...(x.off ? {off: true} : {}),
@@ -106,6 +110,10 @@ function tkLoad(o, path) {
       id: tkNext++, path: c.path, at: num(c.at, 0), from: num(c.from, 0), len: c.len, speed: c.speed > 0 ? Math.min(Math.max(c.speed, .25), 8) : 1,
       reverse: !!c.reverse, src: num(c.src, 0),
       ...(c.w > 0 && c.h > 0 && Number.isFinite(c.x) && Number.isFinite(c.y) ? {x: c.x, y: c.y, w: Math.min(c.w, 4), h: Math.min(c.h, 4)} : {}),
+      ...(Number.isFinite(c.rot) && c.rot ? {rot: c.rot % 360} : {}),
+      ...share(c, 'cl'), ...share(c, 'ct'), ...share(c, 'cr'), ...share(c, 'cb'),
+      ...(c.vol >= 0 && c.vol <= 2 && c.vol !== 1 ? {vol: c.vol} : {}),
+      ...more(c, 'fadeIn'), ...more(c, 'fadeOut'),
       ...(c.part === 'v' || c.part === 'a' ? {part: c.part} : {}),
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),
@@ -122,6 +130,7 @@ function tkLoad(o, path) {
   tkOut = num(o.out, null);
   if (tkOut !== null && tkOut <= (tkIn || 0)) tkOut = null;
   tkMarkers = times(o.markers);
+  tkCanvas = o.canvas && o.canvas.w >= 16 && o.canvas.h >= 16 && o.canvas.w <= 7680 && o.canvas.h <= 7680 ? {w: o.canvas.w & ~1, h: o.canvas.h & ~1} : null;
   tkTidyLinks();
   if (o.pps > 0) tkPps = Math.min(Math.max(o.pps, TK_MIN_PPS), TK_MAX_PPS);
   if (typeof o.snap === 'boolean') tkSnapOn = o.snap;
@@ -185,7 +194,7 @@ function tkRender() {
     box.innerHTML = shown.map(x => {
       const label = x.kind === 'v' ? 'V' + nv-- : 'A' + ++na;
       const offTip = t(x.kind === 'v' ? (x.off ? 'tk.show' : 'tk.hide') : (x.off ? 'tk.unmute' : 'tk.mute'));
-      return `<div class="tk-row ${x.kind}"><div class="tk-th"><i class="tk-rowh" title="${esc(t('tk.rowH'))}"></i><b>${label}</b>` +
+      return `<div class="tk-row ${x.kind}"><div class="tk-th"><i class="tk-rowh" title="${esc(t('tk.rowH'))}"></i><b>${label}</b><span class="tk-thline"></span>` +
         `<button class="tk-mini${x.off ? ' on' : ''}" data-a="off" title="${offTip}" aria-label="${offTip}">${TK_ICON[x.kind + (x.off ? 'Off' : 'On')]}</button>` +
         `<button class="tk-mini" data-a="thin" title="${t(x.thin ? 'tk.wide' : 'tk.thin')}" aria-label="${t(x.thin ? 'tk.wide' : 'tk.thin')}">${x.thin ? TK_ICON.down : TK_ICON.up}</button>` +
         (!x.clips.length && one[x.kind] > 1 ? `<button class="tk-mini" data-a="del" title="${t('tk.delTrack')}" aria-label="${t('tk.delTrack')}">${TK_ICON.close}</button>` : '<span class="tk-gap"></span>') +
@@ -454,7 +463,7 @@ function tkPlace(it, tr, at) {
 // Отделить звук клипа в свой клип на звуковой дорожке. link: номер связи, 0 — без связи.
 function tkAddSound(c, link) {
   const a = Object.assign({}, c, {id: tkNext++, part: 'a'});
-  delete a.marks; delete a.x; delete a.y; delete a.w; delete a.h;
+  ['marks', 'x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb'].forEach(key => delete a[key]);
   c.part = 'v';
   if (link) c.link = a.link = link;
   let row = tkTracks.find(x => x.kind === 'a' && tkSpot([{c: a, tr: x}], 0) === 0);
@@ -489,6 +498,7 @@ function tkSplit(c, x, tr) {
   const setMarks = (o, list) => { if (list.length) o.marks = list; else delete o.marks; };
   setMarks(c, c.reverse ? late : early);
   setMarks(right, tkPhoto(c) ? late.map(m => +(m - cut).toFixed(3)) : c.reverse ? early : late);
+  delete c.fadeOut; delete right.fadeIn;   // на месте разреза плавности нет: появление остаётся у начала, исчезание у конца
   tr.clips.splice(tr.clips.indexOf(c) + 1, 0, right);
   return right;
 }
