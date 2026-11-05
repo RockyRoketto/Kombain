@@ -237,12 +237,12 @@ function mtPanel() {
 }
 // строка в панели: сколько получится и что программа сделает сама
 function mtInfo() {
-  const parts = [], total = tkTotal(), [a, b] = mtRange();
+  const parts = [], total = tkLive().length, [a, b] = mtRange();
   if (total > 0) parts.push(t('mt.total', {dur: fmtTc(Math.max(b - a, 0))}));
   const marks = tkIn !== null || tkOut !== null;
   $('mtRange').classList.toggle('hide', !marks);
   if (marks) $('mtRangeText').textContent = t('mt.range', {a: fmtTc(a), b: fmtTc(b), dur: fmtTc(Math.max(b - a, 0))});
-  const seen = tkTracks.filter(x => x.kind === 'v').flatMap(x => x.clips).map(c => mtFile(c.path)).filter(it => it && it.w);
+  const seen = tkTracks.filter(x => x.kind === 'v' && !x.off).flatMap(x => x.clips).map(c => mtFile(c.path)).filter(it => it && it.w);
   if (seen.some(it => it.w !== seen[0].w || it.h !== seen[0].h)) parts.push(t('mt.sizes', {size: `${seen[0].w}×${seen[0].h}`}));
   if (tkClips().some(c => c.reverse)) parts.push(t('mt.revNote'));
   const html = parts.map(esc).join('<br>');
@@ -338,17 +338,17 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {})});
 // область вывода: от метки до метки, без меток весь монтаж
-const mtRange = () => { const end = tkTotal(), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
+const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
 function mtProject() {
-  const tracks = tkTracks.filter(x => x.clips.length).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
+  const tracks = tkTracks.filter(x => x.clips.length && !x.off).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
   const [a, b] = mtRange();
   const project = {tracks, in: tkIn || 0, out: tkOut || 0};
-  return {project, dur: Math.max(b - a, 0), paths: tkClips().filter(mtInRange).sort((x, y) => x.at - y.at).map(c => c.path)};
+  return {project, dur: Math.max(b - a, 0), paths: tkLive().filter(mtInRange).sort((x, y) => x.at - y.at).map(c => c.path)};
 }
 const mtListOf = paths => [...new Map(paths.map(p => [mtKey(p), mtFile(p) || {path: p}])).values()];
 $('mtSend').onclick = () => {
-  const all = tkClips();
+  const all = tkLive();
   if (!all.length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
   const bad = all.map(c => mtFile(c.path)).filter(it => it && it.bad);
   if (bad.length) { say('warn', t('mt.badTitle'), [...new Set(bad.map(it => it.name))].join(', ')); return; }

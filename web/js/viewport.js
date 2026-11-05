@@ -48,7 +48,7 @@ const mvFps = c => { const it = mtFile(c.path); return it && it.fps > 0 ? it.fps
 function mvCanvasDims() {
   for (const photos of [false, true]) {
     for (const tr of tkTracks) {
-      if (tr.kind !== 'v') continue;
+      if (tr.kind !== 'v' || tr.off) continue;
       let best = null;
       for (const c of tr.clips) {
         const it = mtFile(c.path);
@@ -152,7 +152,7 @@ function mvBind(c) {
 // id клипов, которые должны играть в момент x, снизу вверх
 function mvActiveSig(x) {
   let s = '';
-  for (const tr of tkTracks) for (const c of tr.clips) if (mvUnder(c, x)) s += c.id + ',';
+  for (const c of tkLive()) if (mvUnder(c, x)) s += c.id + ',';
   return s;
 }
 function mvPicFor(c, z) {
@@ -201,7 +201,7 @@ function mvShow() {
   const active = [], soon = [];
   let vids = 0;
   mv.extra = false;
-  tkTracks.forEach((tr, z) => tr.clips.forEach(c => {
+  tkTracks.forEach((tr, z) => tr.off || tr.clips.forEach(c => {
     if (mvUnder(c, x)) {
       let frozen = false;
       if (tr.kind === 'v' && !tkPhoto(c) && ++vids > MV_LIVE) { frozen = true; mv.extra = true; }
@@ -392,7 +392,7 @@ $('mtShot').onclick = async () => {
 function mvFrameClip() {
   if (mv.file || mv.playing || trs.it) return null;
   const c = tkOne();
-  return c && mvUnder(c, tkAt) && tkTrackOf(c).kind === 'v' ? c : null;
+  return c && mvUnder(c, tkAt) && tkTrackOf(c).kind === 'v' && !tkTrackOf(c).off ? c : null;
 }
 function mvFrameDraw() {
   const c = mvFrameClip();
@@ -432,7 +432,7 @@ function mvInside(c, ev) {
 // верхний слой под мышью в текущий момент
 function mvHit(ev) {
   for (const tr of tkShown()) {
-    if (tr.kind !== 'v') continue;
+    if (tr.kind !== 'v' || tr.off) continue;
     const c = tr.clips.find(q => mvUnder(q, tkAt));
     if (c && mvInside(c, ev)) return c;
   }

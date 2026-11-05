@@ -4,7 +4,7 @@
 // part: что клип берёт из файла, 'v' картинку, 'a' звук, без него всё сразу (фото, файлы без звука, старые проекты).
 // link: общий номер у связанных клипов, они двигаются и режутся вместе. marks: метки на клипе, секунды файла, поэтому держатся за кадр.
 // tkTracks идёт снизу вверх, как ждёт движок: сначала видео, потом звук. На экране видео показано верхней дорожкой вверх.
-const TK_HEAD = 76, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512, TK_GRAB = 10, TK_ROW_MIN = 20, TK_ROW_MAX = 160;
+const TK_HEAD = 104, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512, TK_GRAB = 10, TK_ROW_MIN = 20, TK_ROW_MAX = 160;
 const TK_SAVE_KEY = 'konv9000.mtProject';
 const tkFresh = () => ['v', 'v', 'a', 'a'].map(kind => ({kind, thin: false, clips: []}));
 let tkTracks = tkFresh(), tkSel = new Set(), tkAt = 0, tkPps = 40, tkTool = 'select', tkSnapOn = true, tkNext = 1;
@@ -17,6 +17,8 @@ const tkClips = () => tkTracks.flatMap(x => x.clips);
 const tkLen = c => c.len / c.speed;
 const tkEnd = c => c.at + tkLen(c);
 const tkTotal = () => tkClips().reduce((a, c) => Math.max(a, tkEnd(c)), 0);
+// что идёт в результат: выключенная дорожка не видна и не звучит ни во вьюпорте, ни в готовом файле
+const tkLive = () => tkTracks.filter(x => !x.off).flatMap(x => x.clips);
 const tkById = id => tkClips().find(c => c.id === id);
 const tkTrackOf = c => tkTracks.find(x => x.clips.includes(c));
 const tkPhoto = c => !c.src;
@@ -35,7 +37,7 @@ function tkOne() {
 // частота как у движка: самый ранний видеоклип самой нижней дорожки, где такой есть (tlCanvas)
 function tkFps() {
   for (const tr of tkTracks) {
-    if (tr.kind !== 'v') continue;
+    if (tr.kind !== 'v' || tr.off) continue;
     let best = null;
     for (const c of tr.clips) if (!tkPhoto(c) && (!best || c.at < best.at)) best = c;
     const it = best && mtFile(best.path);
@@ -99,6 +101,7 @@ function tkLoad(o, path) {
   const times = list => (Array.isArray(list) ? list : []).filter(x => Number.isFinite(x) && x >= 0).sort((a, b) => a - b);
   const tracks = o.tracks.filter(x => x && (x.kind === 'v' || x.kind === 'a')).map(x => ({kind: x.kind, thin: !!x.thin,
     ...(x.h >= TK_ROW_MIN && x.h <= TK_ROW_MAX ? {h: x.h} : {}),
+    ...(x.off ? {off: true} : {}),
     clips: (Array.isArray(x.clips) ? x.clips : []).filter(c => c && typeof c.path === 'string' && c.len > 0).map(c => ({
       id: tkNext++, path: c.path, at: num(c.at, 0), from: num(c.from, 0), len: c.len, speed: c.speed > 0 ? Math.min(Math.max(c.speed, .25), 8) : 1,
       reverse: !!c.reverse, src: num(c.src, 0),
@@ -165,18 +168,27 @@ function tkPaintMarks(el, c) {
   const html = tkClipMarks(c).map(m => `<em class="tk-mk" data-s="${m.s}" title="${esc(tip)}" style="left:${m.x * tkPps}px"></em>`).join('');
   if (box && box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
+const tkSvg = d => `<svg viewBox="0 0 24 24">${d}</svg>`;
+const TK_EYE = '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>', TK_SPK = '<path d="M3 9.5v5h4l5 4v-13l-5 4z"/>';
+const TK_ICON = {
+  vOn: tkSvg(TK_EYE), vOff: tkSvg(TK_EYE + '<path d="M4 4l16 16"/>'),
+  aOn: tkSvg(TK_SPK + '<path d="M16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/>'), aOff: tkSvg(TK_SPK + '<path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
+  up: tkSvg('<path d="m6 15 6-6 6 6"/>'), down: tkSvg('<path d="m6 9 6 6 6-6"/>'), close: tkSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
+};
 function tkRender() {
   const box = $('tkLanes'), shown = tkShown(), one = {v: tkTracks.filter(x => x.kind === 'v').length, a: tkTracks.filter(x => x.kind === 'a').length};
-  const sig = shown.map(x => x.kind + (x.thin ? 't' : '') + (x.clips.length ? 'u' : '')).join() + lang;
+  const sig = shown.map(x => x.kind + (x.thin ? 't' : '') + (x.off ? 'o' : '') + (x.clips.length ? 'u' : '')).join() + lang;
   if (box.dataset.sig !== sig) {
     box.dataset.sig = sig;
     $('tkInner').appendChild($('tkDrop'));   // метка места могла остаться в строке, которая сейчас пересоберётся
     let nv = one.v, na = 0;
     box.innerHTML = shown.map(x => {
       const label = x.kind === 'v' ? 'V' + nv-- : 'A' + ++na;
+      const offTip = t(x.kind === 'v' ? (x.off ? 'tk.show' : 'tk.hide') : (x.off ? 'tk.unmute' : 'tk.mute'));
       return `<div class="tk-row ${x.kind}"><div class="tk-th"><i class="tk-rowh" title="${esc(t('tk.rowH'))}"></i><b>${label}</b>` +
-        `<button class="tk-mini" data-a="thin" title="${t(x.thin ? 'tk.wide' : 'tk.thin')}" aria-label="${t(x.thin ? 'tk.wide' : 'tk.thin')}">${x.thin ? '▾' : '▴'}</button>` +
-        (!x.clips.length && one[x.kind] > 1 ? `<button class="tk-mini" data-a="del" title="${t('tk.delTrack')}" aria-label="${t('tk.delTrack')}">✕</button>` : '') +
+        `<button class="tk-mini${x.off ? ' on' : ''}" data-a="off" title="${offTip}" aria-label="${offTip}">${TK_ICON[x.kind + (x.off ? 'Off' : 'On')]}</button>` +
+        `<button class="tk-mini" data-a="thin" title="${t(x.thin ? 'tk.wide' : 'tk.thin')}" aria-label="${t(x.thin ? 'tk.wide' : 'tk.thin')}">${x.thin ? TK_ICON.down : TK_ICON.up}</button>` +
+        (!x.clips.length && one[x.kind] > 1 ? `<button class="tk-mini" data-a="del" title="${t('tk.delTrack')}" aria-label="${t('tk.delTrack')}">${TK_ICON.close}</button>` : '<span class="tk-gap"></span>') +
         '</div><div class="tk-lane"></div></div>';
     }).join('');
   }
@@ -195,6 +207,7 @@ function tkRender() {
 function tkRowPaint(row, tr) {
   row.style.height = tkRowH(tr) + 'px';
   row.classList.toggle('thin', tkSmall(tr));
+  row.classList.toggle('off', !!tr.off);
 }
 // Высота дорожки: тянется за нижний край её заголовка
 function tkRowDrag(e, tr) {
@@ -813,6 +826,7 @@ $('tkLanes').addEventListener('click', e => {
   if (!b) return;
   const rows = [...$('tkLanes').children], tr = tkShown()[rows.indexOf(b.closest('.tk-row'))];
   if (!tr) return;
+  if (b.dataset.a === 'off') { tkDo(() => { tr.off = !tr.off; }); return; }
   if (b.dataset.a === 'thin') { tr.thin = !tkSmall(tr); if (!tr.thin && tkSmall(tr)) delete tr.h; tkChanged(); }
   else if (b.dataset.a === 'del' && !tr.clips.length) tkDo(() => { tkTracks = tkTracks.filter(x => x !== tr); });
 });
