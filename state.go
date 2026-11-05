@@ -48,7 +48,7 @@ type Server struct {
 	files   []*FileState
 	log     []string
 	summary string
-	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры»
+	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры», "mont" — вкладка «Монтаж»
 	// номер пачки: страница узнаёт о конце пачки по нему, даже если вся пачка уложилась между двумя опросами
 	batchSeq int
 	cancel   context.CancelFunc

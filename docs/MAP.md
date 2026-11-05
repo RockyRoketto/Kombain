@@ -22,6 +22,7 @@
 | Обрезка | окно: `web/js/trim.js`, `web/index.html` (`#trim`); запрос: `web/js/start.js` (`trims`); ffmpeg: `state.go` (`StartReq.trim`), `ffargs.go` (`buildArgs`), `convert.go` (`convert`); просмотр: `media.go` (`mediaHandler`) |
 | Плеер по клику на превью | `web/js/preview.js` (`openPreview`), сам плеер `web/js/player.js` (`makePlayer`), `web/index.html` (`#prev`), стили `.stage`, `.ctl` |
 | Вкладка «Плеер» | `web/js/playertab.js` (`plAdd`, `plPlay`, `plRender`, `plHold`), плеер `makePlayer`, приём файлов `web/js/drop.js` (`__konvDrop`), `web/index.html` (`#playView`) |
+| Вкладка «Монтаж» | `montage.go` (`montPlan`: входы и граф фильтров; `runMontage`, `montageOne`, `reverseRAM`), `buildArgs` дописывает граф через `montGraphArgs`, `web/js/montage.js` (`mtAdd`, `mtRender`, `mtDone`), плеер `makePlayer` с приставкой `mt`, `web/index.html` (`#montView`) |
 | Сохранение кадра в PNG | `snapshot.go` (`saveFrame`, `snapPlan`, `snapArgs`), `web/js/player.js` (`saveShot`, `frameTime`), кнопки `pvShot`, `trShot` в `web/index.html` |
 | Видео в папку PNG | `sequence.go` (`seqPattern`, `seqFrames`, `seqRemove`, `hasResult`), `ffargs.go` (`buildArgs`, вид `seq`), `files.go` (`seqOutPath`) |
 | Картинки в одно видео | `sequence.go` (`joinGroups`, `joinStem`, `writeFrameList`, `checkFrameSizes`), `convert.go` (`run`, `convert`), галочка: `web/js/settings.js` (`renderJoin`, `joinOn`), состояние строк: `web/js/filelist.js` (`joined`, `resOf`) |
@@ -69,7 +70,7 @@
 | `formats.go` | `Format`, `fm`, `formats`, `compressFormat`, `presets`, `videoExt`, `audioExt`, `imageExt`, `mediaExt`, `mediaFilter` |
 | `files.go` | `dataDir`, `dropDir`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `ffargs.go` | `probe`, `gifFilter`, `planRate`, `rateArgs`, `fitCodecLimits`, `isStandardFPS`, `buildArgs`, `num`, `mbStr` |
-| `convert.go` | `run`, `convert`, `encodeTarget`, `runFF`, `set`, `kept` |
+| `convert.go` | `run`, `finishBatch`, `convert`, `encodeTarget`, `runFF`, `set`, `kept` |
 | `fferrors.go` | `friendlyErr` (для человека), `errSummary` (для лога) |
 | `ffdownload.go` | `download` (общее скачивание, защита от зависания), `downloadFFmpeg`, `tryDownload` |
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
@@ -79,6 +80,8 @@
 | `proxy.go` | копия для просмотра: `proxyDir`, `proxyPath`, `proxyArgs`, `proxyStatus`, `proxyStop`, `proxyPrune`, `proxyCleanup` |
 | `snapshot.go` | кадр в PNG: `saveFrame`, `snapPlan` (декодер и формат с прозрачностью), `snapArgs`, `snapName`, `snapPublish` |
 | `sequence.go` | кадры: видео в папку PNG (`seqPattern`, `seqFrames`, `seqRemove`, `removeResult`, `hasResult`) и картинки в видео (`canJoin`, `joinRate`, `naturalLess`, `joinGroups`, `joinLeads`, `joinStem`, `writeFrameList`, `checkFrameSizes`) |
+| `montage.go` | монтаж: `MontageReq`, `montFormat`, `montPlan`, `montOrder`, `atempoChain`, `montGraphArgs`, `montClips`, `reverseRAM`, `runMontage`, `montageOne` |
+| `mem_windows.go`, `mem_other.go` | `availableRAM`: сколько памяти свободно |
 | `sounds.go` | `systemSounds`: какие звуки Windows есть на компьютере |
 | `update.go` | `appVersion`, `Settings`, `cmpVer`, `latestFFmpeg`, `checkFFmpeg`, `checkLatestFF`, `httpGet`, `InstallInfo` |
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
@@ -111,6 +114,7 @@
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
 | `js/playertab.js` | вкладка «Плеер»: очередь `plFiles`, `plAdd`, `plPlay`, `plRemove`, `plRender`, `plButtons`, `plHold` (отпустить файл ради другого окна), `plTabChanged`, `plSend` (в конвертацию) |
+| `js/montage.js` | вкладка «Монтаж»: список `mtFiles` (его порядок — порядок склейки), `mtAdd`, `mtShow` (файл из плеера), `mtOpen`, `mtMove`, `mtRender`, `mtInfo`, `mtTabChanged`, `mtTrimClosed`, `mtDone`, `mtFormats` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
@@ -125,7 +129,7 @@
 
 | Группа | Ручки |
 |---|---|
-| Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
+| Пачка | `start`, `montage`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
 | Файлы | `pick-files`, `pick-folder`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `snapshot`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |

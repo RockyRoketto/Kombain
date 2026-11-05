@@ -54,8 +54,9 @@ function plRender() {
 }
 // кнопки зависят от файла и от того, идёт ли конвертация; зовёт и опрос (updateButtons)
 function plButtons() {
-  $('plToConv').disabled = $('plTrim').disabled = snap.running;
+  $('plToConv').disabled = $('plTrim').disabled = $('plToMont').disabled = snap.running;
   $('plTrim').classList.toggle('hide', !plCur || !TRIMMABLE.test(plCur.name));
+  $('plToMont').classList.toggle('hide', !plCur || !mtFits(plCur.name));
 }
 // окно просмотра или обрезки заняло копию для просмотра (она готовится одна): плеер отпускает файл и помнит место
 function plHold() {
@@ -89,6 +90,7 @@ $('plAddFiles').onclick = () => dialog(async () => { const r = await api('pick-f
 $('plAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); plAdd(r.files); });
 $('plClear').onclick = () => { plFiles = []; plStop(); };
 $('plToConv').onclick = () => { if (plCur && !snap.running) plSend(plCur); };
+$('plToMont').onclick = () => { if (plCur && !snap.running) { const it = plCur; setTab('mont'); mtShow(it); } };
 $('plTrim').onclick = () => {
   if (!plCur || snap.running) return;
   const f = plSend(plCur);

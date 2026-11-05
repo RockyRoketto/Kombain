@@ -10,7 +10,7 @@ $('pickOut').onclick = () => dialog(async () => {
 
 // ---------- перетаскивание ----------
 let dragDepth = 0;
-const dropEl = () => $(tab === 'banner' ? 'bDrop' : tab === 'play' ? 'plDrop' : 'drop');
+const dropEl = () => $(tab === 'banner' ? 'bDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
@@ -22,7 +22,7 @@ window.addEventListener('drop', e => {
   if (NATIVE_DROP) {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
   }
-  if (tab === 'play') {   // браузер даёт только копии, а плееру нужен сам файл
+  if (tab === 'play' || tab === 'mont') {   // браузер даёт только копии, а плееру и монтажу нужен сам файл
     say('warn', t('drop.notSuitableTitle'), t('pl.noDrop'));
     return;
   }
@@ -38,7 +38,7 @@ window.addEventListener('drop', e => {
   }
   collect(entries).then(list => enqueueUpload(list));
 });
-window.__konvDrop = list => tab === 'banner' ? bAdd(list) : tab === 'play' ? plAdd(list) : addInfos(list);
+window.__konvDrop = list => tab === 'banner' ? bAdd(list) : tab === 'play' ? plAdd(list) : tab === 'mont' ? mtAdd(list) : addInfos(list);
 function readAll(reader) {
   return new Promise(res => {
     const out = [];

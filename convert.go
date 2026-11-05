@@ -318,7 +318,12 @@ func (s *Server) run(req StartReq, ffm string) {
 	}
 	close(idx)
 	wg.Wait()
+	s.finishBatch()
+	cancel()
+}
 
+// finishBatch: итог пачки и конец работы
+func (s *Server) finishBatch() {
 	s.mu.Lock()
 	var ok, bad, skip, kept, canc int
 	for _, fs := range s.files {
@@ -347,6 +352,5 @@ func (s *Server) run(req StartReq, ffm string) {
 	s.running = false
 	s.cancel = nil
 	s.mu.Unlock()
-	cancel()
 	s.addLog("%s", s.summary)
 }

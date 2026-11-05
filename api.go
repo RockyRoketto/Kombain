@@ -390,6 +390,26 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true, "joined": joinLeads(req)})
 	}))
 
+	mux.HandleFunc("/api/montage", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var req MontageReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		if !montFormat(req.Format) || len(req.Files) == 0 {
+			writeJSON(w, map[string]any{"error": tr("err.noFilesOrFormat")})
+			return
+		}
+		req.fit()
+		ffm, err := s.begin(tr("err.busyConvert"))
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		go s.runMontage(req, ffm)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
 	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var req BannerReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

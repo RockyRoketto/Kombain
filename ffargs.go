@@ -19,6 +19,9 @@ var numRe = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
 var alphaRe = regexp.MustCompile(`\b(yuva\w*|rgba\w*|argb|bgra|abgr|gbrap\w*|ya8|ya16\w*|pal8)\b`)
 
+var rotatedRe = regexp.MustCompile(`rotation of -?(90|270)\.`)
+var deepRe = regexp.MustCompile(`\b\w*(p|gbr|gray|rgb|bgr|rgba|bgra)(9|1[0-6]|48|64)(le|be)\b`)
+
 type srcInfo struct {
 	dur   float64
 	alpha bool
@@ -29,6 +32,15 @@ type srcInfo struct {
 	decoder string // чем открыть файл, чтобы не потерять прозрачность (VP8, VP9)
 	pngFmt  string // в каком формате писать кадры PNG; пусто — ffmpeg подберёт сам
 	joinFPS string // не пусто: вход — список кадров (writeFrameList), значение — кадров в секунду
+
+	video   bool // есть настоящая картинка, а не обложка
+	ahz     int  // частота звука
+	ach     string
+	rotated bool // в файле метка поворота на 90°: кадр ляжет боком к тому, что написано в w и h
+	deep    bool // больше 8 бит на канал: кадр занимает больше памяти
+
+	inputs []string // монтаж: все входы вместе с их параметрами вместо одного src (montPlan)
+	graph  string   // монтаж: граф фильтров с выходами [v] и [a]
 }
 
 func probe(ctx context.Context, ffm, src string) srcInfo {
@@ -36,10 +48,12 @@ func probe(ctx context.Context, ffm, src string) srcInfo {
 	hide(cmd)
 	out, _ := cmd.CombinedOutput()
 	mi := parseMediaInfo(string(out))
-	si := srcInfo{dur: mi.Dur, w: mi.W, h: mi.H, fps: mi.FPS, audio: mi.ACodec != ""}
+	si := srcInfo{dur: mi.Dur, w: mi.W, h: mi.H, fps: mi.FPS, audio: mi.ACodec != "", video: mi.VCodec != "" && !mi.Cover, ahz: mi.AHz, ach: mi.ACh}
+	si.rotated = rotatedRe.Match(out)
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.Contains(line, "Stream #") && strings.Contains(line, "Video:") {
 			si.alpha = alphaRe.MatchString(line)
+			si.deep = deepRe.MatchString(line)
 			break
 		}
 	}
@@ -273,7 +287,19 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 			args = append(args, "-t", strconv.FormatFloat(length, 'f', 3, 64)) // до -i: быстро и точно, при копировании потоков — по ключевым кадрам
 		}
 	}
-	args = append(args, "-i", src)
+	if si.inputs != nil {
+		args = append(args, si.inputs...)
+	} else {
+		args = append(args, "-i", src)
+	}
+	// фильтры кадра: у обычной конвертации -vf, у монтажа они дописываются к его графу
+	videoFilters := func(vf []string) {
+		if si.graph != "" {
+			args = append(args, montGraphArgs(si, strings.Join(vf, ","))...)
+		} else if len(vf) > 0 {
+			args = append(args, "-vf", strings.Join(vf, ","))
+		}
+	}
 
 	switch f.Kind {
 	case "gif":
@@ -283,7 +309,12 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		if h == "" {
 			h = "480"
 		}
-		args = append(args, "-filter_complex", gifFilter(fps, h, req.GifPalette == "frame"), "-loop", "0")
+		if si.graph != "" {
+			args = append(args, montGraphArgs(si, strings.TrimPrefix(gifFilter(fps, h, req.GifPalette == "frame"), "[0:v]"))...)
+		} else {
+			args = append(args, "-filter_complex", gifFilter(fps, h, req.GifPalette == "frame"))
+		}
+		args = append(args, "-loop", "0")
 	case "seq":
 		var vf []string
 		if trimmed {
@@ -324,9 +355,7 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		if fps != "" {
 			vf = append(vf, "fps="+fps)
 		}
-		if len(vf) > 0 {
-			args = append(args, "-vf", strings.Join(vf, ","))
-		}
+		videoFilters(vf)
 		args = append(args, fargs...)
 	case "video", "vfix", "pro":
 		args = append(args, fargs...)
@@ -366,10 +395,11 @@ func buildArgs(f Format, req StartReq, src, dst string, si srcInfo, safe bool, r
 		if f.Filter != "" {
 			vf = append(vf, f.Filter)
 		}
-		if len(vf) > 0 {
-			args = append(args, "-vf", strings.Join(vf, ","))
-		}
+		videoFilters(vf)
 	default:
+		if si.graph != "" { // только звук
+			args = append(args, montGraphArgs(si, "")...)
+		}
 		args = append(args, fargs...)
 	}
 	if e := strings.TrimSpace(req.Extra); e != "" {

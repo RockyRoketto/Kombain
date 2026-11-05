@@ -166,6 +166,17 @@
   #plStage{flex:1;height:auto;min-height:120px}
   .pl-side{min-height:0;display:flex;flex-direction:column}
   .f.cur{background:var(--accbg)}
+  /* вкладка «Монтаж»: экран над настройками, справа список с кнопками порядка */
+  #montView{grid-template-columns:minmax(0,1fr) minmax(340px,420px)}
+  #mtDrop{flex:1 1 auto;min-height:280px;display:flex;flex-direction:column}
+  #mtStage{flex:1;height:auto;min-height:120px}
+  #mtList img{pointer-events:none}   /* иначе тянется картинка, а не строка */
+  #mtList .x:disabled{opacity:.25;cursor:default}
+  .sw.mt-first{border-top:0;padding-top:0}
+  .mt-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:end;padding-top:8px;border-top:1px solid var(--line)}
+  .mt-cell{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .mt-cell select,.mt-cell input{width:100%}
+  .sw.mt-rev{border-top:0;padding:0 0 6px}
   #trStage{height:clamp(130px,calc(100vh - 372px),640px)}
   #trStage img{width:100%;height:100%;object-fit:contain}
   .stage-note{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:6px 14px;border-radius:99px;

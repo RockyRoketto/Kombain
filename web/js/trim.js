@@ -127,6 +127,7 @@ function closeTrim() {
   clearTimeout(trs.frameTimer);
   trs.it = null;
   $('trim').classList.add('hide');
+  mtTrimClosed();
 }
 const trimVideo = $('trVideo');
 const trimVolumeSync = bindVolume(trimVideo, $('trMute'), $('trVol'));
@@ -208,6 +209,7 @@ $('trApply').onclick = () => {
   else it.trim = {start: +trs.start.toFixed(3), end: +trs.end.toFixed(3)};
   closeTrim();
   render();
+  mtRender();
 };
 $('trClose').onclick = closeTrim;
 $('trim').addEventListener('click', e => { if (e.target === $('trim')) closeTrim(); });
