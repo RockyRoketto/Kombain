@@ -23,6 +23,7 @@
 | Плеер по клику на превью | `web/js/preview.js` (`openPreview`), сам плеер `web/js/player.js` (`makePlayer`), `web/index.html` (`#prev`), стили `.stage`, `.ctl` |
 | Вкладка «Плеер» | `web/js/playertab.js` (`plAdd`, `plPlay`, `plRender`, `plHold`), плеер `makePlayer`, приём файлов `web/js/drop.js` (`__konvDrop`), `web/index.html` (`#playView`) |
 | Вкладка «Монтаж» | `montage.go` (`montPlan`: входы и граф фильтров; `runMontage`, `montageOne`, `reverseRAM`), `buildArgs` дописывает граф через `montGraphArgs`, `web/js/montage.js` (`mtAdd`, `mtRender`, `mtDone`), плеер `makePlayer` с приставкой `mt`, `web/index.html` (`#montView`) |
+| Перетаскивание строк | `web/js/kinetic.js` (`kinSort`, настройки силы в `KIN`), подключение: `mtSort` в `web/js/montage.js`, `plSort` в `web/js/playertab.js`, стили: раздел `kin-` в `web/style.css` |
 | Сохранение кадра в PNG | `snapshot.go` (`saveFrame`, `snapPlan`, `snapArgs`), `web/js/player.js` (`saveShot`, `frameTime`), кнопки `pvShot`, `trShot` в `web/index.html` |
 | Видео в папку PNG | `sequence.go` (`seqPattern`, `seqFrames`, `seqRemove`, `hasResult`), `ffargs.go` (`buildArgs`, вид `seq`), `files.go` (`seqOutPath`) |
 | Картинки в одно видео | `sequence.go` (`joinGroups`, `joinStem`, `writeFrameList`, `checkFrameSizes`), `convert.go` (`run`, `convert`), галочка: `web/js/settings.js` (`renderJoin`, `joinOn`), состояние строк: `web/js/filelist.js` (`joined`, `resOf`) |
@@ -112,9 +113,10 @@
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
+| `js/kinetic.js` | перетаскивание с инерцией и наклоном, ничего не знает про вкладки: `kinFollow` (элемент на пружине, пригодится для дорожек), `kinSort` (порядок в списке, соседи расступаются; `busy` и `flip`), `kinCalm` (настройка «меньше движения»), настройки `KIN` |
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
-| `js/playertab.js` | вкладка «Плеер»: очередь `plFiles`, `plAdd`, `plPlay`, `plRemove`, `plRender`, `plButtons`, `plHold` (отпустить файл ради другого окна), `plTabChanged`, `plSend` (в конвертацию) |
+| `js/playertab.js` | вкладка «Плеер»: очередь `plFiles`, `plAdd`, `plPlay`, `plRemove`, `plRender`, `plMove`, `plButtons`, `plHold` (отпустить файл ради другого окна), `plTabChanged`, `plSend` (в конвертацию) |
 | `js/montage.js` | вкладка «Монтаж»: список `mtFiles` (его порядок — порядок склейки), `mtAdd`, `mtShow` (файл из плеера), `mtOpen`, `mtMove`, `mtRender`, `mtInfo`, `mtTabChanged`, `mtTrimClosed`, `mtDone`, `mtFormats` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |

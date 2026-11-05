@@ -118,14 +118,16 @@ function mtRender() {
       `<button class="x" data-a="up" title="${t('mt.up')}"${i ? '' : ' disabled'}>↑</button>` +
       `<button class="x" data-a="down" title="${t('mt.down')}"${i < mtFiles.length - 1 ? '' : ' disabled'}>↓</button>` +
       `<button class="x" data-a="rm" title="${t('list.remove')}">✕</button>`;
-    return `<div class="f sel${it === mtCur ? ' cur' : ''}${s ? ' ' + s.status : ''}" data-i="${i}" draggable="${snap.running ? 'false' : 'true'}" title="${esc(it.path)}">` +
+    return `<div class="f sel${it === mtCur ? ' cur' : ''}${s ? ' ' + s.status : ''}" data-i="${i}" title="${esc(it.path)}">` +
       `<div class="badge th${TRIMMABLE.test(it.name) ? ' vid' : ''}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>` +
       `<div class="meta"><div class="n">${i + 1}. ${esc(it.name)}</div><div class="sub">${it.dur > 0 ? fmtDur(mtLen(it)) + ' · ' : ''}${fmtSize(it.size)}${trimTag(it)}</div></div>` +
       `<div class="pill">${pill}</div>${tools}</div>`;
   }).join('');
-  if (html !== mtLast) { $('mtList').innerHTML = html; mtLast = html; }
+  $('mtList').classList.toggle('kin-list', !snap.running);
+  if (html !== mtLast && !mtSort.busy()) { $('mtList').innerHTML = html; mtLast = html; }
   mtInfo();
 }
+const mtSort = kinSort($('mtList'), {item: '.f', key: r => r.title, done: (from, to) => { mtMove(from, to); mtRender(); }});
 function mtButtons() {
   $('mtAddFiles').disabled = $('mtAddFolder').disabled = $('mtClear').disabled = snap.running;
   $('mtStart').disabled = $('start').disabled;
@@ -179,28 +181,11 @@ $('mtList').addEventListener('click', e => {
   const it = mtFiles[+row.dataset.i]; if (!it) return;
   const act = (e.target.closest('[data-a]') || {dataset: {}}).dataset.a;
   if (act === 'rm') mtRemove(it);
-  else if (act === 'up') mtMove(+row.dataset.i, +row.dataset.i - 1);
-  else if (act === 'down') mtMove(+row.dataset.i, +row.dataset.i + 1);
+  else if (act === 'up') mtSort.flip(() => mtMove(+row.dataset.i, +row.dataset.i - 1));
+  else if (act === 'down') mtSort.flip(() => mtMove(+row.dataset.i, +row.dataset.i + 1));
   else if (act === 'trim') { mtRelease(); openTrim(it); }
   else if (it !== mtCur) mtOpen(it);
 });
-// порядок можно менять и перетаскиванием строки; файлы снаружи ловит общий обработчик в drop.js
-let mtDrag = -1;
-$('mtList').addEventListener('dragstart', e => {
-  const row = e.target.closest('.f'); if (!row) return;
-  mtDrag = +row.dataset.i;
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', row.dataset.i);
-});
-$('mtList').addEventListener('dragover', e => { if (mtDrag >= 0) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } });
-$('mtList').addEventListener('drop', e => {
-  if (mtDrag < 0) return;
-  e.preventDefault();
-  const row = e.target.closest('.f'), to = row ? +row.dataset.i : mtFiles.length - 1;
-  mtMove(mtDrag, to);
-  mtDrag = -1;
-});
-$('mtList').addEventListener('dragend', () => { mtDrag = -1; });
 document.addEventListener('keydown', e => {
   if (tab !== 'mont' || !mtCur || document.querySelector('.modal:not(.hide)') || e.target.closest('.btn') || ['SELECT', 'INPUT'].includes(e.target.tagName)) return;
   mtr.key(e);

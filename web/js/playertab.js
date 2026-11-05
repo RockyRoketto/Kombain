@@ -50,8 +50,14 @@ function plRender() {
     `<div class="badge th${TRIMMABLE.test(it.name) ? ' vid' : ''}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>` +
     `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${fmtSize(it.size)}</div></div>` +
     `<button class="x" title="${t('list.remove')}">✕</button></div>`).join('');
-  if (html !== plLast) { $('plList').innerHTML = html; plLast = html; }
+  if (html !== plLast && !plSort.busy()) { $('plList').innerHTML = html; plLast = html; }
 }
+// порядок очереди: следующим играет тот файл, что стоит ниже открытого
+function plMove(from, to) {
+  plFiles.splice(to, 0, plFiles.splice(from, 1)[0]);
+  plRender();
+}
+const plSort = kinSort($('plList'), {item: '.f', key: r => r.title, done: plMove});
 // кнопки зависят от файла и от того, идёт ли конвертация; зовёт и опрос (updateButtons)
 function plButtons() {
   $('plToConv').disabled = $('plTrim').disabled = $('plToMont').disabled = snap.running;

@@ -172,7 +172,6 @@
   /* не сжимается меньше содержимого: в низком окне прокручивается колонка, а сведения не наезжают на настройки */
   #mtDrop{flex:1 0 auto;display:flex;flex-direction:column}
   #mtStage{flex:1;height:auto;min-height:120px}
-  #mtList img{pointer-events:none}   /* иначе тянется картинка, а не строка */
   #mtList .x:disabled{opacity:.25;cursor:default}
   .sw.mt-first{border-top:0;padding-top:0}
   .mt-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;align-items:end;padding-top:8px;border-top:1px solid var(--line)}
@@ -267,6 +266,15 @@
   .list{flex:1;min-height:0;overflow:auto;margin:0 -6px;padding:0 6px}
   .f{position:relative;display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:12px;overflow:hidden}
   .f:hover{background:var(--s2)}
+  /* ----- перетаскивание строк, web/js/kinetic.js. Строка вынута из потока (fixed), иначе прокручиваемый список обрежет наклон и тень ----- */
+  .kin-list{user-select:none}
+  .kin-list img{pointer-events:none}
+  .kin-list>.f{cursor:grab}
+  .kin-sorting>*{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+  .kin-sorting>.kin-held{position:fixed;z-index:60;margin:0;transition:none;cursor:grabbing;will-change:transform;
+    background:var(--s3);box-shadow:0 14px 34px -10px var(--sh),0 0 0 1px var(--line2)}
+  .kin-sorting>.kin-gap{visibility:hidden;transition:none}
+  @media (prefers-reduced-motion:reduce){.kin-sorting>*{transition:none}}
   .badge{flex:none;width:42px;height:42px;border-radius:12px;background:var(--s3);display:grid;place-items:center;font-size:10px;
     font-weight:700;letter-spacing:.04em;color:var(--dim);text-transform:uppercase}
   .f.ok .badge{background:rgba(var(--ok-rgb),.12);color:var(--ok)}
