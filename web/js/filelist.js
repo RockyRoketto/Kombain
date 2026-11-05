@@ -31,12 +31,14 @@ function render() {
       }
     }
     sub = trimTag(it) + sub;   // первой: длинный путь обрезается многоточием и спрятал бы метку
-    const cut = it.path && snap.ffmpeg && !snap.running && TRIMMABLE.test(it.name)
+    const cut = it.path && !it.project && snap.ffmpeg && !snap.running && TRIMMABLE.test(it.name)
       ? `<button class="x cut${it.trim ? ' on' : ''}" title="${t('trim.open')}" aria-label="${t('trim.open')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></button>` : '';
     const dis = snap.running || it.uploading;
-    return `<div class="f ${cls}${it.sel ? ' sel' : ''}" data-i="${i}" title="${esc(it.path || it.name)}">` +
+    return `<div class="f ${cls}${it.sel ? ' sel' : ''}" data-i="${i}" title="${esc(it.project ? it.name : it.path || it.name)}">` +
       `<label class="ck"><input type="checkbox" ${it.sel ? 'checked' : ''} ${dis ? 'disabled' : ''}></label>` +
-      (it.path && snap.ffmpeg
+      (it.project
+        ? `<div class="badge th vid"><img src="${thumbUrl(it.lead, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">✂</span></div>`
+        : it.path && snap.ffmpeg
         ? `<div class="badge th${TRIMMABLE.test(it.name) ? ' vid' : ''}" data-prev="${i}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
         : `<div class="badge">${esc(ext(it.name))}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
@@ -59,6 +61,14 @@ function addInfos(list) {
     files.push({name: base(f.path), dir: dirOf(f.path), path: f.path, size: f.size, uploading: false, temp: false, sel: true});
     have.add(f.path);
   }
+  render();
+}
+// Строка монтажа: в список встаёт как файл, но вместо файла у неё проект (Project в timeline.go)
+let montageNo = 0;
+function addMontage(project, list, dur) {
+  const lead = list[0].path;
+  files.push({name: t('mt.rowName', {name: base(lead).replace(/\.[^.]+$/, '')}), dir: t('mt.rowNote', {dur: fmtDur(dur), files: tn(list.length, 'n.files')}),
+    path: 'montage:' + (++montageNo), size: list.reduce((a, it) => a + (it.size || 0), 0), uploading: false, temp: false, sel: true, project, lead});
   render();
 }
 function dropItems(pred) {

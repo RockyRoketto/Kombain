@@ -57,7 +57,7 @@ func (s *Server) encodeTarget(ctx context.Context, i int, ffm string, f Format, 
 func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	s.mu.Lock()
 	src, dst, f, name, status := s.files[i].Path, s.files[i].Dst, s.files[i].f, s.files[i].Name, s.files[i].Status
-	frames, framesSize := s.files[i].frames, s.files[i].SrcSize
+	frames, framesSize, project := s.files[i].frames, s.files[i].SrcSize, s.files[i].project
 	s.mu.Unlock()
 	if status != "pending" { // «как есть» решено заранее
 		return
@@ -77,8 +77,19 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = err.Error(); fs.Hint = err.Error() })
 		s.logT("log.error", name, err)
 	}
-	si := probe(ctx, ffm, src) // у списка кадров берём сведения с первого: размер и прозрачность
-	srcSize := fileSize(src)
+	var si srcInfo
+	var srcSize int64
+	if project != nil { // строка монтажа: входы и граф вместо одного файла
+		var err error
+		if si, err = timelineInfo(ctx, ffm, *project, f); err != nil {
+			fail(err)
+			return
+		}
+		srcSize = framesSize
+	} else {
+		si = probe(ctx, ffm, src) // у списка кадров берём сведения с первого: размер и прозрачность
+		srcSize = fileSize(src)
+	}
 	if len(frames) > 0 {
 		if err := checkFrameSizes(frames); err != nil {
 			fail(err)
@@ -101,7 +112,8 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 			return
 		}
 	}
-	small := req.Format == "small"
+	// монтаж сравнивать с исходниками незачем: он нужен в любом случае
+	small := req.Format == "small" && project == nil
 	expect := srcSize // сколько весит то, что кодируем
 	start, length, trimmed := req.trim(src)
 	if trimmed {
@@ -260,6 +272,10 @@ func (s *Server) run(req StartReq, ffm string) {
 	var states []*FileState
 	for _, p := range req.Files {
 		if inGroup[p] && groups[p] == nil {
+			continue
+		}
+		if project, ok := req.Montages[p]; ok {
+			states = append(states, montRow(p, project, req, f, used))
 			continue
 		}
 		st := &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p), f: f}

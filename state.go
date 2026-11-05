@@ -29,6 +29,8 @@ type FileState struct {
 
 	f      Format   // во что конвертировать (в режиме «Сжать» — своё для каждого файла)
 	frames []string // картинки, которые собираются в это видео; Path — первая из них
+
+	project *Project // строка монтажа; Path — её номер в очереди, а не файл
 }
 
 type DL struct {
@@ -89,6 +91,8 @@ type StartReq struct {
 	GifPalette string `json:"gifPalette"` // "frame": своя палитра на каждый кадр
 
 	Trims map[string]Trim `json:"trims"` // обрезка: путь исходника → какой кусок оставить
+
+	Montages map[string]Project `json:"montages"` // строки монтажа: значение из Files → проект
 }
 
 // Trim: кусок файла в секундах от начала

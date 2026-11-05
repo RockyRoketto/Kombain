@@ -10,7 +10,8 @@ function currentReq() {
     jobs: +$('jobs').value || 1,
     codec: $('codec').value, targetMB: +$('target').value > 0 ? +$('target').value : 0,
     join: joinOn(), joinFps: $('joinFps').value, gifPalette: $('gifPalette').value,
-    trims: Object.fromEntries(files.filter(f => f.trim && f.path).map(f => [f.path, f.trim]))
+    trims: Object.fromEntries(files.filter(f => f.trim && f.path).map(f => [f.path, f.trim])),
+    montages: Object.fromEntries(files.filter(f => f.project).map(f => [f.path, f.project]))
   };
 }
 // startBatch: запуск пачки; base — настройки (по умолчанию текущие), over — разовые поправки (копия/перезапись)

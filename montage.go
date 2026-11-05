@@ -42,9 +42,10 @@ func (m *MontageReq) fit() {
 // montFormat: годится ли формат для монтажа. Картинки и копирование потоков не годятся: нужен движущийся результат или звук.
 func montFormat(id string) bool {
 	f, ok := formats[id]
-	if !ok {
-		return false
-	}
+	return ok && f.forMontage()
+}
+
+func (f Format) forMontage() bool {
 	return f.moving() || f.Kind == "gif" || f.Kind == "anim" || f.audioOnly()
 }
 
@@ -93,6 +94,16 @@ func reverseRAM(clips []montClip, repeat int) float64 {
 		need += c.dur() * c.si.fps * float64(c.si.w) * float64(c.si.h) * perPixel
 	}
 	return need * float64(repeat)
+}
+
+// checkReverseRAM: ошибка, если реверсу не хватит свободной памяти
+func checkReverseRAM(clips []montClip, repeat int) error {
+	need, have := reverseRAM(clips, repeat), availableRAM()
+	if have > 0 && need > float64(have)*0.8 {
+		const gb = 1 << 30
+		return errT("mont.reverseRAM", mbStr(float64(int(need/gb*10))/10), mbStr(float64(int(float64(have)/gb*10))/10))
+	}
+	return nil
 }
 
 // atempoChain: один фильтр atempo надёжно работает в пределах от 0,5 до 2, дальше их ставят цепочкой
@@ -324,10 +335,8 @@ func (s *Server) montageOne(ctx context.Context, i int, req MontageReq, paths []
 		return
 	}
 	if req.Reverse && !f.audioOnly() {
-		need, have := reverseRAM(clips, req.Repeat), availableRAM()
-		if have > 0 && need > float64(have)*0.8 {
-			const gb = 1 << 30
-			fail(errT("mont.reverseRAM", mbStr(float64(int(need/gb*10))/10), mbStr(float64(int(float64(have)/gb*10))/10)))
+		if err := checkReverseRAM(clips, req.Repeat); err != nil {
+			fail(err)
 			return
 		}
 	}

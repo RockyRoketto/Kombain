@@ -132,7 +132,27 @@ function mtButtons() {
   $('mtAddFiles').disabled = $('mtAddFolder').disabled = $('mtClear').disabled = snap.running;
   $('mtStart').disabled = $('start').disabled;
   $('mtStart').classList.toggle('hide', snap.running || tab !== 'mont');
+  $('mtSend').disabled = $('start').disabled;
+  $('mtSend').classList.toggle('hide', snap.running || tab !== 'mont');
 }
+// Список как проект для конвертера (timeline.go): одна дорожка, клипы встык. Настоящие дорожки сделает следующая часть.
+function mtProject(list) {
+  const speed = mtSpeed(), reverse = $('mtReverse').checked, clips = [];
+  const once = reverse ? [...list].reverse() : list;
+  let at = 0;
+  for (let n = 0; n < mtRepeat(); n++) for (const it of once) {
+    clips.push({path: it.path, at, from: it.trim ? it.trim.start : 0, len: mtLen(it), speed, reverse});
+    at += mtLen(it) / speed;
+  }
+  return {project: {tracks: [{clips}]}, list, dur: at};
+}
+$('mtSend').onclick = () => {
+  if (!mtFiles.length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
+  if (mtFiles.some(it => !(it.dur > 0))) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
+  const rows = $('mtGlue').checked ? [mtProject(mtFiles)] : mtFiles.map(it => mtProject([it]));
+  rows.forEach(r => addMontage(r.project, r.list, r.dur));
+  setTab('conv');
+};
 // Предпросмотр скорости: плеер играет исходник быстрее или медленнее. Реверс и повтор видны только в результате.
 function mtPreviewRate() { mtr.v.defaultPlaybackRate = mtr.v.playbackRate = mtSpeed(); }
 
