@@ -168,16 +168,84 @@
   .pl-side{min-height:0;display:flex;flex-direction:column}
   .f.cur{background:var(--accbg)}
   /* вкладка «Монтаж»: экран над настройками, справа список с кнопками порядка */
-  #montView{grid-template-columns:minmax(0,1fr) clamp(340px,36vw,520px)}
-  /* не сжимается меньше содержимого: в низком окне прокручивается колонка, а сведения не наезжают на настройки */
-  #mtDrop{flex:1 0 auto;display:flex;flex-direction:column}
-  #mtStage{flex:1;height:auto;min-height:120px}
-  #mtList .x:disabled{opacity:.25;cursor:default}
-  .sw.mt-first{border-top:0;padding-top:0}
-  .mt-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;align-items:end;padding-top:8px;border-top:1px solid var(--line)}
+  /* ----- вкладка «Монтаж»: файлы, вьюпорт, панель, снизу дорожки ----- */
+  #montView{grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);grid-template-rows:minmax(0,1fr) auto;margin-bottom:10px}
+  .mt-files{min-width:0}
+  .mt-files .drop-head{gap:2px;flex-wrap:nowrap;margin-bottom:6px}
+  .mt-files .f{gap:8px;padding:5px 6px}
+  .mt-files .badge.th{width:52px;height:34px;cursor:grab}
+  .mt-file{cursor:grab}
+  .mt-file.used .n{color:var(--acct)}
+  #mtDrop .empty b{font-size:14px}
+  .mt-view{min-width:0;min-height:0;display:flex;flex-direction:column;padding:8px 10px}
+  #mtStage{flex:1;height:auto;min-height:100px;cursor:pointer}
+  .mt-view .ctl{flex-wrap:wrap;justify-content:center;margin-top:6px;gap:2px}
+  .mt-gap{flex:1}
+  .mt-panel{min-width:0;min-height:0;overflow:auto}
+  .mt-title{font-size:14px;font-weight:600;color:var(--tx);margin:0 0 8px}
+  .mt-clipname{font-size:13px;color:var(--tx);font-weight:600;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mt-cell{display:flex;flex-direction:column;gap:4px;min-width:0}
   .mt-cell select,.mt-cell input{width:100%}
-  .sw.mt-rev{border-top:0;padding:0 0 6px}
+  .mt-sec{border-top:1px solid var(--line);padding:6px 0}
+  .mt-sec summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--tx2);padding:2px 0;user-select:none}
+  .mt-sec summary:hover{color:var(--tx)}
+  .mt-sec[open] summary{margin-bottom:6px}
+  .mt-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:end;margin-bottom:8px}
+  .sw.mt-rev{border-top:0;padding:0 0 6px;flex-wrap:wrap;gap:4px 8px;font-size:12.5px}
+  .sw.mt-each{border-top:0;padding:2px 0;font-size:12.5px}
+  .mt-trim{width:100%}
+  .mt-panel .note{margin-top:6px}
+  .mt-panel .lb{font-size:12px}
+  .mt-send{margin-left:4px}
+  .mt-clipinfo{grid-template-columns:minmax(0,1fr);margin-top:0}
+  .mt-clipinfo b{font-size:13px;font-variant-numeric:tabular-nums}
+  .tk{grid-column:1/-1;min-width:0;min-height:0;max-height:46vh;display:flex;flex-direction:column;padding:6px 8px}
+  .tk-bar{flex:none;display:flex;align-items:center;flex-wrap:wrap;gap:2px 4px;margin-bottom:6px}
+  .tk-bar .btn.sm{padding:5px 10px;font-size:12px}
+  .tk-sep{flex:none;width:1px;height:20px;margin:0 4px;background:var(--line2)}
+  input[type=range].tk-zoom{flex:0 1 110px;width:110px}
+  .tk-keys{flex:none;font-size:12px;line-height:1.7;color:var(--dim);padding:6px 8px;margin-bottom:6px;border-radius:9px;background:var(--s2);cursor:pointer}
+  .tk-keys b{color:var(--tx);font-weight:600}
+  .tk-scroll{flex:1;min-height:0;overflow:auto;border-radius:9px;background:var(--s2);border:1px solid var(--line);touch-action:none}
+  .tk-inner{position:relative;min-width:100%;user-select:none}
+  .tk-rulerrow{position:sticky;top:0;z-index:7;display:flex;height:24px;background:var(--s3)}
+  .tk-corner{position:sticky;left:0;z-index:8;flex:none;width:76px;background:var(--s3);border-right:1px solid var(--line2)}
+  .tk-ruler{position:relative;flex:1;overflow:hidden;cursor:ew-resize}
+  .tk-ruler i{position:absolute;top:0;bottom:0;padding:5px 0 0 4px;font-style:normal;font-size:10.5px;color:var(--dim);border-left:1px solid var(--line3);white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none}
+  .tk-ruler u{position:absolute;bottom:0;height:6px;border-left:1px solid var(--line2);pointer-events:none}
+  .tk-row{display:flex;height:58px;border-top:1px solid var(--line)}
+  .tk-row.a{height:44px}
+  .tk-row.thin{height:20px}
+  .tk-th{position:sticky;left:0;z-index:6;flex:none;width:76px;display:flex;align-items:center;gap:2px;padding:0 4px 0 8px;background:var(--s3);border-right:1px solid var(--line2)}
+  .tk-th b{flex:1;font-size:11.5px;font-weight:600;color:var(--tx2)}
+  .tk-mini{flex:none;width:18px;height:18px;padding:0;display:grid;place-items:center;background:none;border:0;border-radius:5px;font-size:10px;line-height:1;color:var(--dim)}
+  .tk-mini:hover{background:var(--s4);color:var(--tx)}
+  .tk-lane{position:relative;flex:1;min-width:0}
+  .tk-clip{position:absolute;top:1px;bottom:1px;display:flex;align-items:stretch;overflow:hidden;border-radius:5px;background:var(--accbg);border:1px solid rgba(var(--acl-rgb),.45);cursor:grab;box-sizing:border-box;will-change:transform}
+  .tk-clip.a{background:var(--s4);border-color:var(--line3)}
+  .tk-clip.sel{border-color:var(--accs);box-shadow:0 0 0 1px var(--accs)}
+  .tk-clip.miss{background:rgba(var(--err-rgb),.16);border-color:var(--err)}
+  .tk-clip.tk-lift{z-index:5;cursor:grabbing;box-shadow:0 8px 20px var(--sh),0 0 0 1px var(--accs)}
+  .tk-pic{flex:none;height:100%;max-width:45%;object-fit:cover;pointer-events:none;background:var(--th-bg)}
+  .tk-pic.end{margin-left:auto}
+  .tk-wave{position:absolute;top:0;height:100%;max-width:none;opacity:.75;pointer-events:none}
+  .tk-wave.flip{transform:scaleX(-1)}
+  .tk-name{position:relative;flex:0 1 auto;min-width:0;padding:2px 6px;font-size:11px;line-height:1.3;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-shadow:0 0 3px var(--bg)}
+  .tk-clip.a .tk-name{align-self:flex-start;margin:2px;padding:1px 5px;border-radius:4px;background:var(--ex-bg);color:var(--ex-tx);text-shadow:none}
+  .tk-row.thin .tk-name{padding:1px 5px;font-size:10px}
+  .tk-edge{position:absolute;top:0;bottom:0;width:7px;z-index:1;cursor:ew-resize}
+  .tk-edge.l{left:0}
+  .tk-edge.r{right:0}
+  .tk-clip:hover .tk-edge,.tk-clip.sel .tk-edge{background:rgba(var(--acc-rgb),.5)}
+  .tk-scroll.razor .tk-clip,.tk-scroll.razor .tk-edge{cursor:crosshair}
+  .tk-line{position:absolute;top:0;bottom:0;left:0;width:1px;pointer-events:none}
+  .tk-head{z-index:5;background:var(--acc)}
+  .tk-head::before{content:"";position:absolute;top:0;left:-5px;border-style:solid;border-width:9px 5.5px 0;border-color:var(--acc) transparent transparent}
+  .tk-snapline{z-index:5;background:var(--tx)}
+  .tk-cutline{z-index:5;background:var(--err)}
+  .tk-band{position:absolute;z-index:5;pointer-events:none;background:var(--accbg);border:1px solid var(--accs)}
+  .tk-drop{position:absolute;top:1px;bottom:1px;border-radius:5px;pointer-events:none;background:var(--accbg);border:1px dashed var(--accs);box-sizing:border-box}
+  .tk-ghost{position:fixed;z-index:50;max-width:220px;padding:6px 10px;border-radius:7px;font-size:12px;color:var(--on-acc);background:var(--acc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;box-shadow:0 8px 20px var(--sh)}
   #trStage{height:max(130px,calc(100vh - 372px))}
   #trStage img{width:100%;height:100%;object-fit:contain}
   .stage-note{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:6px 14px;border-radius:99px;

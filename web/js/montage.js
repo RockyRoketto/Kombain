@@ -1,213 +1,441 @@
-// ---------- вкладка «Монтаж»: склейка, скорость, реверс, повтор (montage.go) ----------
-let mtFiles = [];       // порядок здесь — порядок склейки: {name, dir, path, size, trim, dur, w, h, fps}
-let mtCur = null;       // что открыто в плеере
-let mtAt = 0;           // место просмотра, пока плеер отпущен
+// ---------- вкладка «Монтаж»: окно файлов, вьюпорт, панель клипа, отправка в конвертер. Сами дорожки: tracks.js ----------
+let mtFiles = [];             // окно файлов: {name, dir, path, size, dur, w, h, fps, kind, bad}; kind: 'v' видео, 'p' фото, 'a' звук
+const mtKnown = new Map();    // уже прочитанные файлы: отмена возвращает файл без нового чтения
 let mtLast = '';
-const mtr = makePlayer('mt', {canPlay: () => false});
-const MT_GROUPS = ['group.video', 'group.pro', 'group.anim', 'group.audio', 'group.lossless'];
-const MT_FORMAT_KEY = 'konv9000.mtFormat';
-// Качество результата: выше, чем по умолчанию в конвертере, потому что после монтажа файл обычно ещё обрабатывают
-const MT_QUALITY = {crf: 20, abr: 192, preset: 'medium'};
 
-const mtFits = name => MEDIA.test(name) && !IMAGES.test(name);
-function mtFormats() {
-  const box = $('mtFormat'), want = storeGet(MT_FORMAT_KEY) || box.value || 'mp4';
-  box.innerHTML = GROUPS.filter(g => MT_GROUPS.includes(g[0])).map(g =>
-    `<optgroup label="${esc(t(g[0]))}">` + g[1].filter(id => FORMATS[id].k !== 'copy').map(id => `<option value="${id}">${esc(fmtName(id))}</option>`).join('') + '</optgroup>').join('');
-  box.value = want;
-  if (!box.value) box.value = 'mp4';
-}
-// Отпущен ли плеер: копия для просмотра готовится одна, поэтому плеер монтажа держит файл, только пока вкладка открыта
-function mtOpen(it, at) {
-  mtCur = it;
-  mtAt = at || 0;
-  $('mtName').textContent = it.name;
-  if (tab === 'mont' && !trs.it) { plHold(); mtr.open(it, mtAt); }
-  mtRender();
-}
-function mtRelease() {
-  if (mtr.current()) mtAt = mtr.v.currentTime;
-  mtr.release();
-}
-function mtTabChanged() {
-  if (tab !== 'mont') { mtRelease(); return; }
-  plHold();
-  if (mtCur && !mtr.current()) mtr.open(mtCur, mtAt);
-  mtRender();
-}
-// окно обрезки закрылось: файл снова показывает плеер вкладки
-function mtTrimClosed() {
-  if (tab === 'mont' && mtCur && !mtr.current()) mtr.open(mtCur, mtAt);
-}
-// Файлы снаружи: дописываются в конец. Что уже в списке, второй раз не встаёт: обрезка у файла одна.
-function mtAdd(list) {
-  const bad = [];
-  let first = null;
-  for (const f of list || []) {
-    const name = base(f.path);
-    if (!mtFits(name)) { bad.push(name); continue; }
-    if (mtFiles.some(x => x.path.toLowerCase() === f.path.toLowerCase())) continue;
-    const it = {name, dir: dirOf(f.path), path: f.path, size: f.size};
-    mtFiles.push(it);
-    first = first || it;
-    mtRead(it);
+const mtFits = name => MEDIA.test(name);
+const mtKey = p => p.toLowerCase();
+const mtFile = p => mtKnown.get(mtKey(p));
+function mtItem(path, size) {
+  const key = mtKey(path);
+  let it = mtKnown.get(key);
+  if (!it) {
+    it = {name: base(path), dir: dirOf(path), path, size: size || 0};
+    mtKnown.set(key, it);
+    it.reading = mtRead(it);
   }
-  if (bad.length) say('warn', t('mt.notMedia'), bad.join(', '));
-  if (first && !mtCur) mtOpen(first); else mtRender();
-}
-// файл из плеера: встаёт в конец списка, если его там ещё нет, и сразу открывается
-function mtShow(f) {
-  mtAdd([f]);
-  const it = mtFiles.find(x => x.path.toLowerCase() === f.path.toLowerCase());
-  if (it && it !== mtCur) mtOpen(it);
+  return it;
 }
 async function mtRead(it) {
   const mi = await api('info', {path: it.path});
   it.dur = mi.dur; it.w = mi.w; it.h = mi.h; it.fps = mi.fps;
-  mtRender();
+  it.size = it.size || mi.size || 0;
+  it.kind = IMAGES.test(it.name) ? 'p' : mi.vcodec && !mi.cover ? 'v' : mi.acodec ? 'a' : '';
+  it.bad = !!mi.error || !it.kind || (it.kind !== 'p' && !(it.dur > 0));
+  tkRender(); mtRender(); mtPanel(); mvShow();
+}
+function mtSetFiles(list) {
+  const seen = new Set();
+  mtFiles = [];
+  for (const f of list) {
+    const key = mtKey(f.path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    mtFiles.push(mtItem(f.path, f.size));
+  }
+}
+// Файлы снаружи падают в окно файлов, на дорожки их переносят мышью. Что уже есть в окне, второй раз не встаёт.
+function mtAdd(list) {
+  const bad = [], fresh = [];
+  for (const f of list || []) {
+    const name = base(f.path);
+    if (!mtFits(name)) bad.push(name);
+    else if (!mtFiles.some(x => mtKey(x.path) === mtKey(f.path))) fresh.push(f);
+  }
+  if (bad.length) say('warn', t('mt.notMedia'), bad.join(', '));
+  if (fresh.length) tkDo(() => { fresh.forEach(f => mtFiles.push(mtItem(f.path, f.size))); });
+}
+// файл из плеера: встаёт в окно файлов и в конец дорожки
+async function mtShow(f) {
+  mtAdd([f]);
+  const it = mtFile(f.path);
+  if (!it) return;
+  await it.reading;
+  if (it.bad) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
+  if (!tkClips().some(c => mtKey(c.path) === mtKey(f.path))) tkDo(() => { tkAppend(it); });
 }
 function mtRemove(it) {
-  const i = mtFiles.indexOf(it);
-  mtFiles = mtFiles.filter(x => x !== it);
-  if (it !== mtCur) { mtRender(); return; }
-  const next = mtFiles[i] || mtFiles[i - 1];
-  if (next) mtOpen(next);
-  else mtClear();
+  tkDo(() => {
+    mtFiles = mtFiles.filter(x => x !== it);
+    tkTracks.forEach(tr => { tr.clips = tr.clips.filter(c => mtKey(c.path) !== mtKey(it.path)); });
+  });
 }
 function mtClear() {
-  mtr.release();
-  mtFiles = []; mtCur = null; mtAt = 0;
-  mtRender();
+  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; });
 }
-function mtMove(from, to) {
-  if (from === to || to < 0 || to >= mtFiles.length) return;
-  mtFiles.splice(to, 0, mtFiles.splice(from, 1)[0]);
-  mtRender();
+function mtRender() {
+  $('mtEmpty').classList.toggle('hide', mtFiles.length > 0);
+  $('mtList').classList.toggle('hide', !mtFiles.length);
+  $('mtAllIn').classList.toggle('hide', !mtFiles.length);
+  $('mtCnt').textContent = mtFiles.length ? tn(mtFiles.length, 'n.pcs') : '';
+  const html = mtFiles.map((it, i) => {
+    const used = tkClips().some(c => mtKey(c.path) === mtKey(it.path));
+    return `<div class="f sel mt-file${used ? ' used' : ''}${it.bad ? ' error' : ''}" data-i="${i}" title="${esc(it.path)}">` +
+      `<div class="badge th"><img src="${thumbUrl(it.path, .1, 160)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>` +
+      `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${it.bad ? esc(t('mt.badFile')) : (it.dur > 0 && it.kind !== 'p' ? fmtDur(it.dur) + ' · ' : '') + fmtSize(it.size)}</div></div>` +
+      `<button class="x" data-a="rm" title="${t('list.remove')}" aria-label="${t('list.remove')}">✕</button></div>`;
+  }).join('');
+  if (html !== mtLast) { $('mtList').innerHTML = html; mtLast = html; }
+  mtInfo();
 }
-const mtSpeed = () => +$('mtSpeed').value || 1;
-const mtRepeat = () => Math.min(Math.max(Math.round(+$('mtRepeat').value) || 1, 1), 20);
-const mtLen = it => it.trim ? it.trim.end - it.trim.start : it.dur || 0;
-// строка под настройками: сколько получится и что программа сделает сама
-function mtInfo() {
-  const parts = [];
-  const glue = $('mtGlue').checked && mtFiles.length > 1;
-  if (mtFiles.length && mtFiles.every(it => it.dur > 0)) {
-    const one = mtFiles.reduce((a, it) => a + mtLen(it), 0) / mtSpeed() * mtRepeat();
-    parts.push(t(glue || mtFiles.length === 1 ? 'mt.total' : 'mt.totalEach', {dur: fmtDur(one)}));
+function mtButtons() {
+  $('mtSend').disabled = $('start').disabled;
+  $('dock').classList.toggle('hide', tab === 'mont' && !snap.running);
+}
+function mtTabChanged() {
+  if (tab !== 'mont') { mvPause(); mvUnload(); return; }
+  plHold();
+  tkRender();
+  mvShow();
+}
+
+// ---------- перенос файла на дорожку ----------
+function mtDragFile(e, it) {
+  const x0 = e.clientX, y0 = e.clientY;
+  let ghost = null, follow = null, row = -1, at = 0;
+  const drop = $('tkDrop');
+  const len = () => it.kind === 'p' ? TK_PHOTO : it.dur;
+  const lanes = () => $('tkLanes').querySelectorAll('.tk-lane');
+  const place = ev => {
+    const r = tkRowAt(ev.clientY), tr = tkShown()[r], box = $('tkScroll').getBoundingClientRect();
+    const inside = r >= 0 && ev.clientX >= box.left && ev.clientX <= box.right && tkFitsTrack(it, tr);
+    row = inside ? r : -1;
+    drop.classList.toggle('hide', !inside);
+    if (!inside) { $('tkSnapLine').classList.add('hide'); return; }
+    at = tkTimeAt(ev);
+    at = Math.max(at + tkSnapBy([at, at + len()], tkSnapPts(new Set())), 0);
+    lanes()[r].appendChild(drop);
+    drop.style.left = at * tkPps + 'px';
+    drop.style.width = len() * tkPps + 'px';
+  };
+  const move = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    if (!ghost) {
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < KIN.drag) return;
+      if (it.bad || !it.kind) { end(); say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
+      ghost = document.createElement('div');
+      ghost.className = 'tk-ghost';
+      ghost.textContent = it.name;
+      ghost.style.left = x0 + 'px';
+      ghost.style.top = y0 + 'px';
+      document.body.appendChild(ghost);
+      follow = kinFollow(ghost, {side: 0});
+    }
+    follow.aim(ev.clientX - x0, ev.clientY - y0);
+    place(ev);
+  };
+  const end = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+  };
+  const up = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    end();
+    if (!ghost) return;
+    drop.classList.add('hide');
+    $('tkSnapLine').classList.add('hide');
+    if (ev.type === 'pointerup' && row >= 0) {
+      const tr = tkShown()[row];
+      follow.stop();
+      ghost.remove();
+      tkDo(() => { const c = tkPlace(it, tr, at); tkSel = new Set([c.id]); });
+    } else follow.land(0, 0, () => ghost.remove());
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+}
+$('mtList').addEventListener('pointerdown', e => {
+  const row = e.target.closest('.f');
+  if (e.button !== 0 || !row || e.target.closest('button')) return;
+  const it = mtFiles[+row.dataset.i];
+  if (it) { e.preventDefault(); mtDragFile(e, it); }
+});
+$('mtList').addEventListener('click', e => {
+  const row = e.target.closest('.f');
+  const it = row && mtFiles[+row.dataset.i];
+  if (it && e.target.closest('[data-a="rm"]')) mtRemove(it);
+});
+$('mtList').addEventListener('dblclick', e => {
+  const row = e.target.closest('.f');
+  const it = row && mtFiles[+row.dataset.i];
+  if (!it || e.target.closest('button')) return;
+  if (it.bad || !it.kind) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
+  tkDo(() => { const c = tkAppend(it); tkSel = new Set([c.id]); });
+});
+// старая склейка: все файлы по порядку, встык
+$('mtAllIn').onclick = () => {
+  const list = mtFiles.filter(it => it.kind && !it.bad);
+  if (list.length) tkDo(() => list.forEach(tkAppend));
+  tkFit();
+};
+$('mtAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); mtAdd(r.files); });
+$('mtAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); mtAdd(r.files); });
+$('mtClear').onclick = mtClear;
+
+// ---------- вьюпорт: верхний клип под курсором времени. Слои вместе и звуковые дорожки поверх картинки будут в следующей части ----------
+const mtV = $('mtVideo'), mtPic = $('mtImg');
+const mv = {path: '', stop: null, ready: false, video: true, clip: null, playing: false, loop: false, last: 0, raf: 0, pic: ''};
+bindVolume(mtV, $('mtMute'), $('mtVol'));
+keepSeeking(mtV);
+trackFrame(mtV);
+function mvNote(text) {
+  $('mtNote').textContent = text || '';
+  $('mtNote').classList.toggle('hide', !text);
+}
+function mvPicture(url, fallback) {
+  mtPic.classList.toggle('hide', !url);
+  if (url === mv.pic) return;
+  mv.pic = url;
+  if (!url) { mtPic.removeAttribute('src'); return; }
+  mtPic.onerror = () => { if (fallback) { mv.pic = fallback; mtPic.src = fallback; fallback = null; } };
+  mtPic.src = url;
+}
+function mvPick(x) {
+  for (const tr of tkShown()) {
+    const c = tr.clips.find(q => x >= q.at - 1e-4 && x < tkEnd(q) - 1e-4);
+    if (c) return c;
   }
-  const lead = mtFiles[0];
-  if (glue && lead.w && mtFiles.some(it => it.w && (it.w !== lead.w || it.h !== lead.h)))
-    parts.push(t('mt.sizes', {size: `${lead.w}×${lead.h}`}));
-  if ($('mtReverse').checked) parts.push(t('mt.revNote'));
+  return null;
+}
+// место в файле для момента x на дорожке
+const mvSrc = (c, x) => { const s = (x - c.at) * c.speed; return c.reverse ? c.from + c.len - s : c.from + s; };
+function mvUnload() {
+  if (mv.stop) mv.stop();
+  mv.stop = null; mv.path = ''; mv.ready = false; mv.clip = null;
+  mtV.classList.add('hide');
+  mvNote('');
+}
+function mvLoad(c) {
+  if (mv.path === c.path) return;
+  mvUnload();
+  const it = mtFile(c.path);
+  mv.path = c.path;
+  mv.video = !it || it.kind !== 'a';
+  const me = c.path;
+  mv.stop = attachMedia(mtV, c.path, mv.video, {
+    ready() { if (mv.path !== me) return; mv.ready = true; mvNote(''); mvShow(); },
+    wait(pct) { if (mv.path === me) mvNote(t('pv.preparing', {pct: Math.round(pct)})); },
+    fail(text) { if (mv.path === me) mvNote(text); },
+  });
+}
+function mvShow() {
+  if (tab !== 'mont' || trs.it) return;
+  const c = mvPick(tkAt), stage = $('mtStage');
+  mv.clip = c;
+  stage.classList.toggle('canplay', tkClips().length > 0);
+  $('mtCtl').classList.toggle('off', !tkClips().length);
+  $('mtShot').disabled = true;
+  if (!c) {
+    mtV.pause();
+    mtV.classList.add('hide');
+    mvPicture('');
+    mvNote(tkClips().length ? '' : t('mt.viewEmpty'));
+    return;
+  }
+  if (tkPhoto(c)) {
+    mtV.pause();
+    mtV.classList.add('hide');
+    mvNote('');
+    mvPicture(mediaUrl(c.path), thumbUrl(c.path, 0, 1280));
+    return;
+  }
+  mvLoad(c);
+  const it = mtFile(c.path), frac = c.src ? (mvSrc(c, tkAt) / c.src).toFixed(3) : 0;
+  if (!mv.ready) {
+    mtV.classList.add('hide');
+    mvPicture(thumbUrl(c.path, frac, 1280));
+    return;
+  }
+  mtV.classList.toggle('hide', !mv.video);
+  mvPicture(mv.video ? '' : thumbUrl(c.path, 0, 1280));
+  $('mtShot').disabled = !mv.video;
+  mtV.defaultPlaybackRate = mtV.playbackRate = c.speed;
+  const want = mvSrc(c, tkAt), fps = it && it.fps > 0 ? it.fps : 30;
+  if (mv.playing && !c.reverse) {
+    if (Math.abs(mtV.currentTime - want) > .15) videoSeek(mtV, want);
+    if (mtV.paused) mtV.play().catch(() => {});
+  } else {
+    if (!mtV.paused) mtV.pause();
+    if (Math.abs(mtV.currentTime - want) > .5 / fps) videoSeek(mtV, want);
+  }
+}
+function mvTick(now) {
+  if (!mv.playing) return;
+  mv.raf = requestAnimationFrame(mvTick);
+  const dt = Math.max((now - mv.last) / 1000, 0), c = mv.clip;
+  mv.last = now;
+  if (c && !tkPhoto(c) && !mv.ready) return;   // файл ещё грузится: курсор ждёт
+  if (c && !tkPhoto(c) && !c.reverse) {
+    if (mtV.seeking) return;
+    if (mtV.ended) tkAt += dt;
+    else {
+      if (mtV.paused) mtV.play().catch(() => {});
+      tkAt = Math.max(tkAt, Math.min(c.at + (mtV.currentTime - c.from) / c.speed, tkAt + 1));
+    }
+  } else {
+    tkAt += dt;
+    if (c && c.reverse) videoSeek(mtV, mvSrc(c, Math.min(tkAt, tkEnd(c))));   // назад окно играть не умеет: идём перемоткой
+  }
+  const end = tkTotal();
+  if (tkAt >= end) {
+    if (mv.loop) { tkAt = 0; mvShow(); }
+    else { tkAt = end; mvPause(); }
+  } else if (mvPick(tkAt) !== c) mvShow();
+  tkDrawHead(true);
+}
+function mvPlay() {
+  if (!tkClips().length || mv.playing) return;
+  if (tkAt >= tkTotal() - 1e-3) tkAt = 0;
+  mv.playing = true;
+  mv.last = performance.now();
+  $('mtPlay').classList.add('playing');
+  $('mtStage').classList.add('playing');
+  mvShow();
+  mv.raf = requestAnimationFrame(mvTick);
+}
+function mvPause() {
+  if (!mv.playing) return;
+  mv.playing = false;
+  cancelAnimationFrame(mv.raf);
+  $('mtPlay').classList.remove('playing');
+  $('mtStage').classList.remove('playing');
+  mtV.pause();
+  tkAt = tkRound(tkAt);
+  tkDrawHead();
+  mvShow();
+}
+const mvToggle = () => { if (mv.playing) mvPause(); else mvPlay(); };
+function mvStep(d) { mvPause(); tkSeek(tkAt + d); }
+$('mtStage').addEventListener('click', mvToggle);
+$('mtPlay').onclick = mvToggle;
+$('mtStart').onclick = () => { mvPause(); tkSeek(0); };
+$('mtEnd').onclick = () => { mvPause(); tkSeek(tkTotal()); };
+$('mtPrev').onclick = () => mvStep(-1 / tkFps());
+$('mtNext').onclick = () => mvStep(1 / tkFps());
+$('mtLoop').onclick = () => { mv.loop = !mv.loop; $('mtLoop').classList.toggle('on', mv.loop); };
+$('mtShot').onclick = () => { if (mv.path && mv.ready) saveShot($('mtShot'), mtV, mv.path); };
+
+// ---------- панель клипа: до панели эффектов здесь скорость, реверс, повтор и точная обрезка ----------
+let mtTrimIt = null;   // что открыто в окне обрезки
+function mtPanel() {
+  const list = tkSelected(), one = list[0];
+  $('mtNoClip').classList.toggle('hide', list.length > 0);
+  $('mtClipBox').classList.toggle('hide', !list.length);
+  if (!list.length) return;
+  const clips = list.filter(c => !tkPhoto(c));
+  $('mtClipName').textContent = list.length === 1 ? base(one.path) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
+  $('mtClipName').title = list.length === 1 ? one.path : '';
+  const same = clips.length && clips.every(c => c.speed === clips[0].speed);
+  $('mtSpeed').value = same ? String(clips[0].speed) : '';
+  $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
+  $('mtReverse').checked = clips.length > 0 && clips.every(c => c.reverse);
+  $('mtTrim').classList.toggle('hide', list.length !== 1 || !clips.length);
+  $('mtClipInfo').innerHTML = list.length === 1
+    ? [[t('mt.clipAt'), fmtTc(one.at)], [t('mt.clipLen'), fmtTc(tkLen(one))], ...(tkPhoto(one) ? [] : [[t('mt.clipFrom'), `${fmtTc(one.from)} – ${fmtTc(one.from + one.len)}`]])]
+        .map(([k, x]) => `<div>${esc(k)}<b>${esc(x)}</b></div>`).join('')
+    : '';
+}
+// строка в панели: сколько получится и что программа сделает сама
+function mtInfo() {
+  const parts = [], total = tkTotal();
+  if (total > 0) parts.push(t('mt.total', {dur: fmtTc(total)}));
+  const seen = tkTracks.filter(x => x.kind === 'v').flatMap(x => x.clips).map(c => mtFile(c.path)).filter(it => it && it.w);
+  if (seen.some(it => it.w !== seen[0].w || it.h !== seen[0].h)) parts.push(t('mt.sizes', {size: `${seen[0].w}×${seen[0].h}`}));
+  if (tkClips().some(c => c.reverse)) parts.push(t('mt.revNote'));
   const html = parts.map(esc).join('<br>');
   if ($('mtInfo').innerHTML !== html) $('mtInfo').innerHTML = html;
 }
-function mtRender() {
-  $('mtEmpty').classList.toggle('hide', !!mtCur);
-  $('mtBody').classList.toggle('hide', !mtCur);
-  $('mtHint').classList.toggle('hide', mtFiles.length > 0);
-  $('mtCnt').textContent = mtFiles.length ? tn(mtFiles.length, 'n.pcs') : '';
-  const state = snap.batch === 'mont' ? snap.files || [] : [];
-  const glueRun = state.length === 1 && !!state[0].name && state[0].name !== base(state[0].path);
-  const labels = {pending: t('status.pending'), error: t('status.error'), canceled: t('status.canceled'), ok: t('status.ok')};
-  const html = mtFiles.map((it, i) => {
-    const s = glueRun ? null : state.find(f => f.path === it.path);
-    const pill = !s ? '' : s.status === 'running' ? Math.round(s.pct || 0) + '%' : labels[s.status] || '';
-    const tools = snap.running ? '' :
-      (TRIMMABLE.test(it.name) ? `<button class="x" data-a="trim" title="${t('trim.open')}">✂</button>` : '') +
-      `<button class="x" data-a="up" title="${t('mt.up')}"${i ? '' : ' disabled'}>↑</button>` +
-      `<button class="x" data-a="down" title="${t('mt.down')}"${i < mtFiles.length - 1 ? '' : ' disabled'}>↓</button>` +
-      `<button class="x" data-a="rm" title="${t('list.remove')}">✕</button>`;
-    return `<div class="f sel${it === mtCur ? ' cur' : ''}${s ? ' ' + s.status : ''}" data-i="${i}" title="${esc(it.path)}">` +
-      `<div class="badge th${TRIMMABLE.test(it.name) ? ' vid' : ''}"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>` +
-      `<div class="meta"><div class="n">${i + 1}. ${esc(it.name)}</div><div class="sub">${it.dur > 0 ? fmtDur(mtLen(it)) + ' · ' : ''}${fmtSize(it.size)}${trimTag(it)}</div></div>` +
-      `<div class="pill">${pill}</div>${tools}</div>`;
-  }).join('');
-  $('mtList').classList.toggle('kin-list', !snap.running);
-  if (html !== mtLast && !mtSort.busy()) { $('mtList').innerHTML = html; mtLast = html; }
-  mtInfo();
-}
-const mtSort = kinSort($('mtList'), {item: '.f', key: r => r.title, done: (from, to) => { mtMove(from, to); mtRender(); }});
-function mtButtons() {
-  $('mtAddFiles').disabled = $('mtAddFolder').disabled = $('mtClear').disabled = snap.running;
-  $('mtStart').disabled = $('start').disabled;
-  $('mtStart').classList.toggle('hide', snap.running || tab !== 'mont');
-  $('mtSend').disabled = $('start').disabled;
-  $('mtSend').classList.toggle('hide', snap.running || tab !== 'mont');
-}
-// Список как проект для конвертера (timeline.go): одна дорожка, клипы встык. Настоящие дорожки сделает следующая часть.
-function mtProject(list) {
-  const speed = mtSpeed(), reverse = $('mtReverse').checked, clips = [];
-  const once = reverse ? [...list].reverse() : list;
-  let at = 0;
-  for (let n = 0; n < mtRepeat(); n++) for (const it of once) {
-    clips.push({path: it.path, at, from: it.trim ? it.trim.start : 0, len: mtLen(it), speed, reverse});
-    at += mtLen(it) / speed;
+$('mtSpeed').addEventListener('change', () => {
+  const v = +$('mtSpeed').value;
+  $('mtSpeed').blur();
+  if (v) tkDo(() => tkTracks.forEach(tr => { tr.clips.forEach(c => { if (tkSel.has(c.id) && !tkPhoto(c)) c.speed = v; }); tkPush(tr); }));
+});
+$('mtReverse').addEventListener('change', () => {
+  const on = $('mtReverse').checked;
+  $('mtReverse').blur();
+  tkDo(() => tkSelected().forEach(c => { if (!tkPhoto(c)) c.reverse = on; }));
+});
+const mtRepeat = () => Math.min(Math.max(Math.round(+$('mtRepeat').value) || 2, 2), 20);
+$('mtRepeat').addEventListener('change', () => { $('mtRepeat').value = mtRepeat(); });
+// повтор: копии клипа встают сразу за ним, следующие клипы отъезжают
+$('mtRepeatGo').onclick = () => {
+  const n = mtRepeat() - 1;
+  tkDo(() => tkSelected().forEach(c => {
+    const tr = tkTrackOf(c);
+    tr.clips.sort((a, b) => a.at - b.at);
+    let at = tr.clips.indexOf(c);
+    for (let i = 1; i <= n; i++) tr.clips.splice(++at, 0, Object.assign({}, c, {id: tkNext++, at: c.at + i * tkLen(c)}));
+    tkCascade(tr);
+  }));
+};
+$('mtTrim').onclick = () => {
+  const c = tkSelected()[0];
+  if (!c) return;
+  mvPause(); mvUnload();
+  const it = mtFile(c.path) || {};
+  mtTrimIt = {name: base(c.path), path: c.path, dir: dirOf(c.path), size: it.size, id: c.id, trim: {start: c.from, end: c.from + c.len}};
+  openTrim(mtTrimIt);
+};
+// окно обрезки закрылось: что выбрано, то и станет куском файла
+function mtTrimClosed() {
+  const it = mtTrimIt;
+  mtTrimIt = null;
+  const c = it && tkById(it.id);
+  if (c) {
+    const a = it.trim ? it.trim.start : 0, b = it.trim ? it.trim.end : c.src;
+    if (Math.abs(a - c.from) > 1e-3 || Math.abs(b - (c.from + c.len)) > 1e-3) tkDo(() => { c.from = a; c.len = b - a; tkPush(tkTrackOf(c)); });
   }
-  return {project: {tracks: [{clips}]}, list, dur: at};
+  mvShow();
 }
+
+// ---------- проект файлом ----------
+async function mtProjectSave(ask) {
+  const r = await api('project-save', {path: ask ? '' : tkPath, data: tkFile()});
+  if (r.error) { say('err', t('mt.saveFailed'), r.error); return; }
+  if (!r.path) return;
+  tkPath = r.path;
+  tkAutosave();
+  toast({id: 'snap', type: 'ok', title: t('mt.saved'), text: esc(base(r.path)), ttl: 5000});
+}
+// path: файл открыли снаружи, двойным щелчком; без него программа спросит сама
+async function mtProjectOpen(path) {
+  const r = await api('project-open', {path: path || ''});
+  if (r.error) { say('err', t('mt.openFailed'), r.error); return; }
+  if (!r.path) return;
+  if (!tkLoad(r.data, r.path)) { say('err', t('mt.openFailed'), base(r.path)); return; }
+  mvPause(); mvUnload();
+  tkChanged();
+  tkFit();
+}
+function mtProjectIncoming(path) { setTab('mont'); mtProjectOpen(path); }
+$('mtOpenProject').onclick = () => dialog(() => mtProjectOpen());
+$('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
+
+// ---------- в конвертер ----------
+const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse});
+function mtProject() {
+  const tracks = tkTracks.filter(x => x.clips.length).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
+  return {project: {tracks}, dur: tkTotal(), paths: tkClips().sort((a, b) => a.at - b.at).map(c => c.path)};
+}
+const mtListOf = paths => [...new Map(paths.map(p => [mtKey(p), mtFile(p) || {path: p}])).values()];
 $('mtSend').onclick = () => {
-  if (!mtFiles.length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
-  if (mtFiles.some(it => !(it.dur > 0))) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
-  const rows = $('mtGlue').checked ? [mtProject(mtFiles)] : mtFiles.map(it => mtProject([it]));
-  rows.forEach(r => addMontage(r.project, r.list, r.dur));
+  const all = tkClips();
+  if (!all.length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
+  const bad = all.map(c => mtFile(c.path)).filter(it => it && it.bad);
+  if (bad.length) { say('warn', t('mt.badTitle'), [...new Set(bad.map(it => it.name))].join(', ')); return; }
+  mvPause();
+  if ($('mtEach').checked) {
+    [...all].sort((a, b) => a.at - b.at).forEach(c => addMontage({tracks: [{clips: [mtClipOut(c, 0)]}]}, mtListOf([c.path]), tkLen(c)));
+  } else {
+    const p = mtProject();
+    addMontage(p.project, mtListOf(p.paths), p.dur);
+  }
   setTab('conv');
 };
-// Предпросмотр скорости: плеер играет исходник быстрее или медленнее. Реверс и повтор видны только в результате.
-function mtPreviewRate() { mtr.v.defaultPlaybackRate = mtr.v.playbackRate = mtSpeed(); }
 
-function mtDone(s) {
-  const fl = s.files || [], ok = fl.filter(f => f.status === 'ok' && f.dst), er = fl.filter(f => f.status === 'error');
-  if (fl.some(f => f.status === 'canceled')) {
-    toast({id: 'done', type: 'info', title: t('done.stopped'), text: t('done.stoppedText', {ok: ok.length, n: fl.length}), ttl: 8000});
-    return;
-  }
-  if (er.length) toast({id: 'err', type: 'err', title: er.length === 1 ? t('fail.titleOne', {name: er[0].name}) : t('fail.titleN', {files: tn(er.length, 'n.files')}),
-    text: er.length === 1 ? esc(er[0].hint || er[0].msg) : '',
-    list: er.length === 1 ? [] : nameList(er, f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
-    actions: [{t: t('fail.details'), keep: true, fn: () => { $('logWrap').classList.remove('hide'); $('logWrap').scrollIntoView({behavior: 'smooth', block: 'center'}); }}]});
-  if (!ok.length) return;
-  toast({id: 'done', type: 'ok', title: t('mt.doneTitle', {files: tn(ok.length, 'n.files')}), text: ok.length === 1 ? esc(base(ok[0].dst)) : '', ttl: 15000,
-    actions: [
-      {t: t('mt.watch'), primary: true, fn: () => { setTab('play'); plAdd(ok.map(f => ({path: f.dst, size: f.dstSize}))); }},
-      {t: t('btn.openFolder'), fn: async () => { const r = await api('open-output'); if (r.error) say('warn', t('folder.title'), r.error); }}
-    ]});
-}
-
-$('mtStart').onclick = async () => {
-  if (startSent || snap.running) return;
-  if (!mtFiles.length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
-  storeSet(MT_FORMAT_KEY, $('mtFormat').value);
-  snap.files = []; newBatch(); mtLast = '';
-  startSent = true;
-  const r = await api('montage', Object.assign({
-    files: mtFiles.map(f => f.path), format: $('mtFormat').value, dropOut,
-    trims: Object.fromEntries(mtFiles.filter(f => f.trim).map(f => [f.path, f.trim])),
-    glue: $('mtGlue').checked, speed: mtSpeed(), reverse: $('mtReverse').checked, repeat: mtRepeat(),
-  }, MT_QUALITY));
-  startSent = false;
-  if (r.error) say('err', t('start.failed'), r.error);
-  else snap.running = true;
-};
-$('mtSpeed').addEventListener('change', () => { mtPreviewRate(); mtInfo(); });
-['mtRepeat', 'mtGlue', 'mtReverse'].forEach(id => $(id).addEventListener('change', mtInfo));
-$('mtRepeat').addEventListener('change', () => { $('mtRepeat').value = mtRepeat(); mtInfo(); });
-$('mtFormat').addEventListener('change', () => storeSet(MT_FORMAT_KEY, $('mtFormat').value));
-$('mtAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); mtAdd(r.files); });
-$('mtAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); mtAdd(r.files); });
-$('mtClear').onclick = () => { if (!snap.running) mtClear(); };
-$('mtList').addEventListener('click', e => {
-  const row = e.target.closest('.f'); if (!row) return;
-  const it = mtFiles[+row.dataset.i]; if (!it) return;
-  const act = (e.target.closest('[data-a]') || {dataset: {}}).dataset.a;
-  if (act === 'rm') mtRemove(it);
-  else if (act === 'up') mtSort.flip(() => mtMove(+row.dataset.i, +row.dataset.i - 1));
-  else if (act === 'down') mtSort.flip(() => mtMove(+row.dataset.i, +row.dataset.i + 1));
-  else if (act === 'trim') { mtRelease(); openTrim(it); }
-  else if (it !== mtCur) mtOpen(it);
-});
-document.addEventListener('keydown', e => {
-  if (tab !== 'mont' || !mtCur || document.querySelector('.modal:not(.hide)') || e.target.closest('.btn') || ['SELECT', 'INPUT'].includes(e.target.tagName)) return;
-  mtr.key(e);
-});
-mtFormats();
+try {
+  const saved = JSON.parse(storeGet(TK_SAVE_KEY) || 'null');
+  if (saved) tkLoad(saved, saved.path);
+} catch (e) {}

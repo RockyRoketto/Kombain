@@ -138,9 +138,12 @@ func (s *Server) routes() *http.ServeMux {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		incoming := s.incoming
+		project := s.incomingProject
+		s.incomingProject = ""
 		s.incoming = nil
 		writeJSON(w, map[string]any{
 			"incoming":   incoming,
+			"project":    project,
 			"batchSeq":   s.batchSeq,
 			"ffmpeg":     s.ffmpeg,
 			"dl":         s.dl,
@@ -390,24 +393,59 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true, "joined": joinLeads(req)})
 	}))
 
-	mux.HandleFunc("/api/montage", s.api(func(w http.ResponseWriter, r *http.Request) {
-		var req MontageReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// файл проекта монтажа: path пустой — сначала спросить, куда сохранить
+	mux.HandleFunc("/api/project-save", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string          `json:"path"`
+			Data json.RawMessage `json:"data"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
-		if !montFormat(req.Format) || len(req.Files) == 0 {
-			writeJSON(w, map[string]any{"error": tr("err.noFilesOrFormat")})
-			return
+		path := body.Path
+		if path == "" {
+			p, err := pickProjectSave()
+			if err != nil {
+				writeJSON(w, map[string]any{"error": err.Error()})
+				return
+			}
+			if p == "" {
+				writeJSON(w, map[string]any{})
+				return
+			}
+			path = p
 		}
-		req.fit()
-		ffm, err := s.begin(tr("err.busyConvert"))
+		path, err := writeProject(path, body.Data)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		go s.runMontage(req, ffm)
-		writeJSON(w, map[string]any{"ok": true})
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
+	mux.HandleFunc("/api/project-open", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"` // файл открыли снаружи; пусто — спросить
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		path, err := body.Path, error(nil)
+		if path == "" {
+			path, err = pickProjectOpen()
+		}
+		if err == nil && path == "" {
+			writeJSON(w, map[string]any{})
+			return
+		}
+		var data []byte
+		if err == nil {
+			data, err = readProject(path)
+		}
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path, "data": json.RawMessage(data)})
 	}))
 
 	mux.HandleFunc("/api/banners", s.api(func(w http.ResponseWriter, r *http.Request) {

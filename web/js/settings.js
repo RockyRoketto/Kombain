@@ -212,7 +212,7 @@ $('langSeg').addEventListener('click', async e => {
   const b = e.target.closest('.segb');
   if (!b || b.dataset.v === lang) return;
   lang = b.dataset.v;
-  applyLang(); renderLang(); mtFormats();
+  applyLang(); renderLang(); tkRender(); mtRender(); mtPanel();
   const r = await api('settings', {lang});
   if (r.error) say('warn', t('lang.saveFailed'), r.error);
 });

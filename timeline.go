@@ -8,10 +8,12 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Project: монтаж целиком. Дорожка с меньшим номером лежит ниже, верхняя закрывает её картинкой.
@@ -42,6 +44,9 @@ const (
 	tlSoundGrid = 1000 // в монтаже только со звуком сетка в миллисекунду
 	tlMaxFPS    = 240
 	tlAudioHz   = 48000
+
+	tlGraphInline = 2000  // граф длиннее этого передаётся файлом (spillGraph)
+	tlMaxInputs   = 28000 // входы файлом не передать: это их предел в командной строке, остальное место занимают настройки кодека
 )
 
 // fit: значения из интерфейса в допустимые пределы
@@ -283,7 +288,46 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 		graph = append(graph, tlAudioGraph(tracks, fps, total)...)
 	}
 	si.graph = strings.Join(graph, ";")
+	if cmdLen(si.inputs) > tlMaxInputs {
+		return srcInfo{}, errT("mont.tooMany")
+	}
 	return si, nil
+}
+
+// cmdLen: сколько символов займут аргументы в командной строке, с запасом на кавычки и пробелы
+func cmdLen(args []string) int {
+	n := 0
+	for _, a := range args {
+		n += utf8.RuneCountInString(a) + 3
+	}
+	return n
+}
+
+// spillGraph: граф длиннее tlGraphInline уходит в файл: в Windows командная строка не длиннее 32 тысяч символов.
+// clean убирает этот файл. Короткий граф остаётся в команде: так его видно в логе, и старый ffmpeg его поймёт.
+func spillGraph(args []string) (out []string, clean func(), err error) {
+	clean = func() {}
+	at := slices.Index(args, "-filter_complex")
+	if at < 0 || at+1 >= len(args) || len(args[at+1]) <= tlGraphInline {
+		return args, clean, nil
+	}
+	f, err := os.CreateTemp("", "konvertor-graph-*.txt")
+	if err != nil {
+		return nil, clean, err
+	}
+	name := f.Name()
+	clean = func() { os.Remove(name) }
+	_, err = f.WriteString(args[at+1])
+	if e := f.Close(); err == nil {
+		err = e
+	}
+	if err != nil {
+		clean()
+		return nil, func() {}, err
+	}
+	out = slices.Clone(args)
+	out[at], out[at+1] = "-/filter_complex", name
+	return out, clean, nil
 }
 
 func secs(v float64) string { return strconv.FormatFloat(v, 'f', 6, 64) }

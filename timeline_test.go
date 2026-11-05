@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -98,7 +99,11 @@ func (m *montFixture) tryRender(p Project, format string) (string, error) {
 	}
 	dst := filepath.Join(m.dir, fmt.Sprintf("out%d.%s", len(mustRead(m.t, m.dir)), f.Ext))
 	req := StartReq{CRF: 20, ABR: 192, Preset: "ultrafast", Overwrite: true}
-	args := buildArgs(f, req, "", dst, si, false, nil)
+	args, clean, err := spillGraph(buildArgs(f, req, "", dst, si, false, nil))
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	defer clean()
 	if out, err := exec.Command(m.ffm, args...).CombinedOutput(); err != nil {
 		m.t.Fatalf("ffmpeg: %v\n%s\n%s", err, out, strings.Join(args, " "))
 	}
@@ -540,4 +545,120 @@ func TestTimelineQueue(t *testing.T) {
 			t.Errorf("статус %s", s.files[0].Status)
 		}
 	})
+}
+
+// Кадр с меткой поворота: монтаж видит его таким, каким его покажет ffmpeg
+func TestTimelineRotated(t *testing.T) {
+	m := newMontFixture(t)
+	plain := m.color("plain.mp4", "black", 640, 360, 25, 1, 0)
+	rot := filepath.Join(m.dir, "rot.mp4")
+	if out, err := exec.Command(m.ffm, "-hide_banner", "-loglevel", "error", "-y", "-display_rotation", "90", "-i", plain, "-c", "copy", rot).CombinedOutput(); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	out := m.render(tracks([]Clip{{Path: rot, At: 0}, {Path: plain, At: 1}}), "mp4")
+	if si := m.info(out); si.w != 360 || si.h != 640 {
+		t.Errorf("размер %dx%d, ждали вертикальный кадр 360x640", si.w, si.h)
+	}
+}
+
+// Больше сотни клипов: граф не помещается в командную строку Windows и уходит в файл
+func TestTimelineManyClips(t *testing.T) {
+	m := newMontFixture(t)
+	a := m.color("a.mp4", "white", 64, 48, 10, 1, 440)
+	const n = 90
+	var low, high []Clip
+	for i := 0; i < n; i++ {
+		low = append(low, Clip{Path: a, At: float64(i) * 0.1, Len: 0.1})
+		if i%2 == 0 {
+			high = append(high, Clip{Path: a, At: float64(i) * 0.1, Len: 0.1})
+		}
+	}
+	p := tracks(low, high)
+	si, err := timelineInfo(context.Background(), m.ffm, p, formats["mp4"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(si.graph) < 33000 {
+		t.Fatalf("граф всего %d символов, проверка ничего не проверяет", len(si.graph))
+	}
+	args, clean, err := spillGraph(buildArgs(formats["mp4"], StartReq{CRF: 20, ABR: 192, Preset: "ultrafast"}, "", filepath.Join(m.dir, "x.mp4"), si, false, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	clean()
+	if cmdLen(args) > 32000 {
+		t.Errorf("команда %d символов, в Windows не запустится", cmdLen(args))
+	}
+	out := m.render(p, "mp4")
+	nearly(t, "длина", m.info(out).dur, 9, 0.15)
+}
+
+func TestSpillGraph(t *testing.T) {
+	short := []string{"-i", "a", "-filter_complex", "[0:v]null[v]", "b"}
+	out, clean, err := spillGraph(short)
+	if err != nil || !slices.Equal(out, short) {
+		t.Fatalf("короткий граф должен остаться в команде: %v %v", out, err)
+	}
+	clean()
+
+	long := strings.Repeat("g", tlGraphInline+1)
+	out, clean, err = spillGraph([]string{"-i", "a", "-filter_complex", long, "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out[2] != "-/filter_complex" {
+		t.Fatalf("опция %q", out[2])
+	}
+	if b, err := os.ReadFile(out[3]); err != nil || string(b) != long {
+		t.Fatalf("в файле не тот граф: %v", err)
+	}
+	clean()
+	if _, err := os.Stat(out[3]); err == nil {
+		t.Error("файл графа остался")
+	}
+}
+
+// Входы файлом не передать: вместо непонятной ошибки запуска строка монтажа получает понятный текст
+func TestTimelineTooManyInputs(t *testing.T) {
+	m := newMontFixture(t)
+	a := m.color("a.mp4", "white", 64, 48, 10, 1, 0)
+	var list []Clip
+	for i := 0; i < 700; i++ {
+		list = append(list, Clip{Path: a, At: float64(i), Len: 1})
+	}
+	if _, err := timelineInfo(context.Background(), m.ffm, tracks(list), formats["mp4"]); err == nil || !strings.Contains(err.Error(), tr("mont.tooMany")) {
+		t.Fatalf("ошибка %v", err)
+	}
+}
+
+func TestProjectFile(t *testing.T) {
+	dir := t.TempDir()
+	s := &Server{}
+	s.addIncoming([]string{filepath.Join(dir, "снаружи.K9000")})
+	if s.incomingProject == "" || len(s.incoming) != 0 {
+		t.Errorf("файл проекта снаружи: %q, в конвертер ушло %d", s.incomingProject, len(s.incoming))
+	}
+	p, err := writeProject(filepath.Join(dir, "мой проект"), []byte(`{"v":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Ext(p) != projectExt {
+		t.Errorf("расширение: %s", p)
+	}
+	if b, err := readProject(p); err != nil || string(b) != `{"v":1}` {
+		t.Errorf("прочитано %q, %v", b, err)
+	}
+	if _, err := writeProject(p, []byte("не json")); err == nil {
+		t.Error("записался не JSON")
+	}
+	if b, _ := readProject(p); string(b) != `{"v":1}` {
+		t.Errorf("сбой записи испортил проект: %q", b)
+	}
+	os.WriteFile(p, []byte("мусор"), 0o644)
+	if _, err := readProject(p); err == nil {
+		t.Error("прочитался мусор")
+	}
+	if rest := mustRead(t, dir); len(rest) != 1 {
+		t.Errorf("остались лишние файлы: %d", len(rest))
+	}
 }

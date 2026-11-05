@@ -605,9 +605,12 @@ func onWebMessage(message string, _ *edge.ICoreWebView2, args *edge.ICoreWebView
 var (
 	clsidFileOpenDialog = windows.GUID{Data1: 0xDC1C5A9C, Data2: 0xE88A, Data3: 0x4DDE, Data4: [8]byte{0xA5, 0xA1, 0x60, 0xF8, 0x2A, 0x20, 0xAE, 0xF7}}
 	iidFileOpenDialog   = windows.GUID{Data1: 0xd57c7288, Data2: 0xd4ad, Data3: 0x4768, Data4: [8]byte{0xbe, 0x02, 0x9d, 0x96, 0x95, 0x32, 0xd9, 0x60}}
+	clsidFileSaveDialog = windows.GUID{Data1: 0xC0B4E2F3, Data2: 0xBA21, Data3: 0x4773, Data4: [8]byte{0x8D, 0xBA, 0x33, 0x5E, 0xC9, 0x46, 0xEB, 0x8B}}
+	iidFileSaveDialog   = windows.GUID{Data1: 0x84BCCD23, Data2: 0x5FDE, Data3: 0x4CDB, Data4: [8]byte{0xAE, 0xA4, 0xAF, 0x64, 0xB8, 0x3D, 0x78, 0xAB}}
 )
 
 const (
+	fosOverwritePrompt  = 0x2
 	fosPickFolders      = 0x20
 	fosForceFileSystem  = 0x40
 	fosAllowMultiselect = 0x200
@@ -701,6 +704,12 @@ func showDialog(owner uintptr, folders, multi bool, title, typeName, typePattern
 
 // dialogOnUI показывает диалог в оконном потоке; в режиме браузера — поверх всех окон
 func dialogOnUI(folders, multi bool, title, typeName, typePattern string) ([]string, error) {
+	return ownerDialog(func(owner uintptr) ([]string, error) {
+		return showDialog(owner, folders, multi, title, typeName, typePattern)
+	})
+}
+
+func ownerDialog(show func(owner uintptr) ([]string, error)) ([]string, error) {
 	type res struct {
 		p []string
 		e error
@@ -722,7 +731,7 @@ func dialogOnUI(folders, multi bool, title, typeName, typePattern string) ([]str
 			pAttachThreadInput.Call(fgThread, me, 0)
 			owner = tmp
 		}
-		p, e := showDialog(owner, folders, multi, title, typeName, typePattern)
+		p, e := show(owner)
 		if tmp != 0 {
 			pDestroyWindow.Call(tmp)
 		}
@@ -751,4 +760,59 @@ func pickSound() (string, error) {
 		return "", err
 	}
 	return p[0], nil
+}
+
+func pickProjectOpen() (string, error) {
+	p, err := dialogOnUI(false, false, tr("dlg.openProject"), tr("dlg.projectFiles"), "*"+projectExt)
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
+func pickProjectSave() (string, error) {
+	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
+		return showSaveDialog(owner, tr("dlg.saveProject"), tr("dlg.projectFiles"), "*"+projectExt, strings.TrimPrefix(projectExt, "."))
+	})
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
+// showSaveDialog: те же номера методов IFileDialog, что у showDialog. Спросить про замену файла просит сам диалог.
+func showSaveDialog(owner uintptr, title, typeName, typePattern, ext string) ([]string, error) {
+	var dlg unsafe.Pointer
+	hr, _, _ := pCoCreateInstance.Call(uintptr(unsafe.Pointer(&clsidFileSaveDialog)), 0, 1,
+		uintptr(unsafe.Pointer(&iidFileSaveDialog)), uintptr(unsafe.Pointer(&dlg)))
+	if hr != 0 || dlg == nil {
+		return nil, syscall.Errno(hr)
+	}
+	defer comRelease(dlg)
+
+	var opts uint32
+	comCall(dlg, 10, uintptr(unsafe.Pointer(&opts))) // GetOptions
+	comCall(dlg, 9, uintptr(opts|fosForceFileSystem|fosPathMustExist|fosOverwritePrompt))
+	comCall(dlg, 17, uintptr(unsafe.Pointer(u16(title)))) // SetTitle
+	specs := []filterSpec{{u16(typeName), u16(typePattern)}}
+	comCall(dlg, 4, uintptr(len(specs)), uintptr(unsafe.Pointer(&specs[0]))) // SetFileTypes
+	runtime.KeepAlive(specs)
+	comCall(dlg, 22, uintptr(unsafe.Pointer(u16(ext)))) // SetDefaultExtension
+
+	hr = comCall(dlg, 3, owner) // Show
+	if uint32(hr) == hrCancelled {
+		return nil, nil
+	}
+	if hr != 0 {
+		return nil, syscall.Errno(hr)
+	}
+	var item unsafe.Pointer
+	if comCall(dlg, 20, uintptr(unsafe.Pointer(&item))) != 0 || item == nil { // GetResult
+		return nil, nil
+	}
+	defer comRelease(item)
+	if p := shellItemPath(item); p != "" {
+		return []string{p}, nil
+	}
+	return nil, nil
 }

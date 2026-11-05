@@ -50,7 +50,7 @@ type Server struct {
 	files   []*FileState
 	log     []string
 	summary string
-	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры», "mont" — вкладка «Монтаж»
+	batch   string // что сейчас в files: "conv" — конвертер, "banner" — вкладка «Баннеры»
 	// номер пачки: страница узнаёт о конце пачки по нему, даже если вся пачка уложилась между двумя опросами
 	batchSeq int
 	cancel   context.CancelFunc
@@ -65,7 +65,8 @@ type Server struct {
 	news     string      // текст плашки «Что нового», пусто — плашки нет
 	newsEn   string      // он же по-английски
 
-	incoming []FileInfo // файлы снаружи («Отправить», второй запуск), страница заберёт их при опросе
+	incoming        []FileInfo // файлы снаружи («Отправить», второй запуск), страница заберёт их при опросе
+	incomingProject string     // файл проекта монтажа снаружи: двойной щелчок по нему
 }
 
 type StartReq struct {
@@ -113,6 +114,13 @@ func (r StartReq) trim(src string) (start, length float64, ok bool) {
 
 // addIncoming: файлы и папки, переданные программе снаружи. Не медиафайлы молча пропускаем.
 func (s *Server) addIncoming(paths []string) {
+	for _, p := range paths {
+		if strings.EqualFold(filepath.Ext(p), projectExt) {
+			s.mu.Lock()
+			s.incomingProject = p
+			s.mu.Unlock()
+		}
+	}
 	var list []FileInfo
 	for _, f := range expandPaths(paths) {
 		if mediaExt[strings.ToLower(filepath.Ext(f.Path))] {

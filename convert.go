@@ -218,6 +218,11 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 // runFF запускает ffmpeg и обновляет процент выполнения: lo..lo+span от всей работы над файлом
 // (у двух проходов — две части). dir — рабочая папка ffmpeg (пусто — как у программы).
 func (s *Server) runFF(ctx context.Context, i int, ffm string, args []string, dur float64, dir string, lo, span float64) (string, error) {
+	args, clean, err := spillGraph(args)
+	if err != nil {
+		return "", err
+	}
+	defer clean()
 	cmd := exec.CommandContext(ctx, ffm, args...)
 	cmd.Dir = dir
 	hide(cmd)

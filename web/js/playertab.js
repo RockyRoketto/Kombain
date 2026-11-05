@@ -96,7 +96,7 @@ $('plAddFiles').onclick = () => dialog(async () => { const r = await api('pick-f
 $('plAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); plAdd(r.files); });
 $('plClear').onclick = () => { plFiles = []; plStop(); };
 $('plToConv').onclick = () => { if (plCur && !snap.running) plSend(plCur); };
-$('plToMont').onclick = () => { if (plCur && !snap.running) { const it = plCur; setTab('mont'); mtShow(it); } };
+$('plToMont').onclick = () => { if (plCur) { const it = plCur; setTab('mont'); mtShow(it); } };
 $('plTrim').onclick = () => {
   if (!plCur || snap.running) return;
   const f = plSend(plCur);

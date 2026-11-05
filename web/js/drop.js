@@ -18,7 +18,7 @@ window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth 
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over');
-  if (snap.running && tab !== 'play') return;   // смотреть можно и во время конвертации
+  if (snap.running && tab !== 'play' && tab !== 'mont') return;   // смотреть и монтировать можно и во время конвертации
   if (NATIVE_DROP) {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
   }

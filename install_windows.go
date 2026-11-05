@@ -146,6 +146,7 @@ func doInstall(desktop bool) error {
 		}
 	}
 	addSendTo(dst)
+	addProjectType(dst)
 	desk := ""
 	if dir, err := windows.KnownFolderPath(windows.FOLDERID_Desktop, 0); err == nil {
 		desk = filepath.Join(dir, shortcutFile())
@@ -160,6 +161,48 @@ func doInstall(desktop bool) error {
 		}
 	}
 	return writeUninstallEntry(dst)
+}
+
+// Файл проекта монтажа: у него иконка программы, двойной щелчок открывает его в программе. Только для текущего пользователя.
+const (
+	classesKey    = `Software\Classes`
+	projectProgID = "Konvertor9000.Project"
+)
+
+func writeProjectType(root, exe string) error {
+	set := func(path, val string) error {
+		k, _, err := registry.CreateKey(registry.CURRENT_USER, root+`\`+path, registry.SET_VALUE)
+		if err != nil {
+			return err
+		}
+		defer k.Close()
+		return k.SetStringValue("", val)
+	}
+	for _, v := range [][2]string{
+		{projectExt, projectProgID},
+		{projectProgID, tr("dlg.projectFile")},
+		{projectProgID + `\DefaultIcon`, `"` + exe + `",0`},
+		{projectProgID + `\shell\open\command`, `"` + exe + `" "%1"`},
+	} {
+		if err := set(v[0], v[1]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func deleteProjectType(root string) {
+	for _, path := range []string{projectProgID + `\shell\open\command`, projectProgID + `\shell\open`, projectProgID + `\shell`, projectProgID + `\DefaultIcon`, projectProgID, projectExt} {
+		registry.DeleteKey(registry.CURRENT_USER, root+`\`+path)
+	}
+}
+
+// addProjectType: без него программа всё равно работает, поэтому ошибка не мешает установке. Проводнику надо сказать, что иконки поменялись.
+func addProjectType(exe string) {
+	if writeProjectType(classesKey, exe) == nil {
+		const shcneAssocChanged = 0x08000000
+		windows.NewLazySystemDLL("shell32.dll").NewProc("SHChangeNotify").Call(shcneAssocChanged, 0, 0, 0)
+	}
 }
 
 // shortcutFolders: где лежат ярлыки программы
@@ -294,6 +337,7 @@ func afterUpdate(inst InstallInfo) InstallInfo {
 	}
 	if inst.Installed && inst.Version != appVersion {
 		addSendTo(selfExe()) // установка старой версии такого пункта не делала
+		addProjectType(selfExe())
 		if writeUninstallEntry(selfExe()) == nil {
 			return installInfo()
 		}
@@ -328,6 +372,7 @@ func runUninstall() {
 		}
 	}
 	registry.DeleteKey(registry.CURRENT_USER, uninstallKey)
+	deleteProjectType(classesKey)
 	os.RemoveAll(dataDir()) // ffmpeg, настройки, данные окна
 
 	dir := installDir()

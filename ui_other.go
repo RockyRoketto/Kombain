@@ -32,3 +32,11 @@ func runUI(s *Server) {
 	}
 	s.idleExit()
 }
+
+func pickProjectOpen() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
+
+func pickProjectSave() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
