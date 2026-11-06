@@ -6,7 +6,7 @@
 
 *Batch video, audio and image converter with a player and a multitrack editor, for Windows, based on ffmpeg. The interface is available in Russian and English: choose the language behind the gear icon.*
 
-**[⬇ Скачать последнюю версию](https://github.com/RockyRoketto/Konverter-9000/releases/latest/download/Konvertor.exe)** · [Что нового](CHANGELOG.md) · [What's new](CHANGELOG.en.md)
+**[⬇ Скачать последнюю версию](https://github.com/RockyRoketto/Kombain/releases/latest/download/Konvertor.exe)** · [Что нового](CHANGELOG.md) · [What's new](CHANGELOG.en.md)
 
 - [Как начать](#как-начать)
 - [Конвертер](#конвертер)
@@ -159,7 +159,7 @@ release.cmd X.Y.Z
 <details>
 <summary>Как работает обновление</summary>
 
-- При запуске и затем раз в 6 часов, пока программа открыта, она в фоне спрашивает api.github.com/repos/RockyRoketto/Konverter-9000/releases/latest. Если версия новее, появляется плашка с текстом релиза. «Не сейчас» скрывает её до выхода следующей версии или до перезапуска программы. Само обновление ставится только по кнопке.
+- При запуске и затем раз в 6 часов, пока программа открыта, она в фоне спрашивает api.github.com/repos/RockyRoketto/Kombain/releases/latest. Если версия новее, появляется плашка с текстом релиза. «Не сейчас» скрывает её до выхода следующей версии или до перезапуска программы. Само обновление ставится только по кнопке.
 - «Обновить»: exe качается во временную папку программы, проверяются размер, sha256 (digest от GitHub) и заголовок «MZ». Свой exe переименовывается в Konvertor.exe.old, новый встаёт на его место и запускается с `--updated` (ждёт, пока старый отпустит порт 47831), старый закрывается. Новый процесс удаляет .old; если программа установлена, он же обновляет запись в «Установленных приложениях» и сбрасывает кэш значков. Во время конвертации обновлять нельзя.
 - Текст релиза содержит оба языка: сначала русский раздел, после строки `### English` английский. Программа показывает нужный; у старых релизов без этой строки русский.
 - После обновления плашка «Что нового» показывает разделы `CHANGELOG.md` или `CHANGELOG.en.md` (оба вшиты в exe) от версии, которую пользователь уже видел (`seenVersion` в settings.json), до текущей. Новая установка плашку не показывает.

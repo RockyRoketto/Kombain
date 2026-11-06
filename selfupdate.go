@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const updateRepo = "RockyRoketto/Konverter-9000"
+const updateRepo = "RockyRoketto/Kombain"
 
 // FFB_FEED подменяет и этот адрес (/app-release.json) — только для тестов
 var appReleaseURL = "https://api.github.com/repos/" + updateRepo + "/releases/latest"
