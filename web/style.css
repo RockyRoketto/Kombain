@@ -59,11 +59,9 @@
 
   /* ----- шапка ----- */
   .hero{flex:none;position:relative;z-index:30;background:var(--s1);border-bottom:1px solid var(--line)}
-  .hero-in{position:relative;height:56px;padding:0 12px;display:flex;align-items:center;gap:12px}
-  .hero-img{flex:none;width:40px;height:40px;object-fit:contain}
+  .hero-in{position:relative;height:56px;padding:0 14px;display:grid;grid-template-columns:minmax(max-content,1fr) auto minmax(max-content,1fr);align-items:center;gap:12px}
   .hero-title{flex:none;display:flex;flex-direction:column;gap:5px}
-  h1{margin:0;font-size:18px;line-height:20px;font-weight:800;letter-spacing:-.02em;white-space:nowrap}
-  h1 span{color:var(--acct)}
+  h1{align-self:flex-start;margin:0;padding:1px 8px;border-radius:6px;background:var(--s3);border:1px solid rgba(var(--acc-rgb),.6);font-size:14px;line-height:19px;font-weight:700;letter-spacing:.01em;color:var(--acct);white-space:nowrap}
   .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acct);margin-bottom:8px;font-weight:600}
   .hero-right{margin-left:auto;display:flex;align-items:center;gap:10px}
   .instb{background:none;border:1px solid rgba(var(--acl-rgb),.4);border-radius:999px;padding:0 10px;font-size:12px;line-height:22px;color:var(--acct2)}
@@ -314,7 +312,6 @@
   .tk-ruler i{position:absolute;top:0;bottom:0;padding:5px 0 0 4px;font-style:normal;font-size:10.5px;color:var(--dim);border-left:1px solid var(--line3);white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none}
   .tk-ruler u{position:absolute;bottom:0;height:6px;border-left:1px solid var(--line2);pointer-events:none}
   .tk-row{display:flex;height:58px;border-top:1px solid var(--line)}
-  .tk-row.a{height:44px}
   .tk-rowh{position:absolute;left:0;right:0;bottom:0;height:8px;z-index:2;cursor:ns-resize}
   .tk-rowh:hover{background:rgba(var(--acc-rgb),.5)}
   .tk-th{position:sticky;left:0;z-index:6;flex:none;box-sizing:border-box;width:124px;display:flex;align-items:center;gap:2px;padding:0 6px 0 10px;background:var(--s3);border-right:1px solid var(--line2)}
@@ -338,7 +335,7 @@
   .tk-clip.tk-lift{z-index:5;cursor:grabbing;box-shadow:0 8px 20px var(--sh),0 0 0 1px var(--accs)}
   .tk-pic{flex:none;height:100%;max-width:45%;object-fit:cover;pointer-events:none;background:var(--th-bg)}
   .tk-pic.end{margin-left:auto}
-  .tk-wave{position:absolute;top:0;height:100%;max-width:none;opacity:.75;pointer-events:none}
+  .tk-wave{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.8;pointer-events:none}
   .tk-wave.flip{transform:scaleX(-1)}
   .tk-name{position:relative;flex:0 1 auto;min-width:0;padding:2px 6px;font-size:11px;line-height:1.3;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-shadow:0 0 3px var(--bg)}
   .tk-clip.a .tk-name{align-self:flex-start;margin:2px;padding:1px 5px;border-radius:4px;background:var(--ex-bg);color:var(--ex-tx);text-shadow:none}
@@ -591,7 +588,7 @@
     border:1px solid var(--line2);border-radius:var(--r2);padding:10px 12px;box-shadow:0 -12px 40px -12px var(--sh)}
 
   /* ----- вкладки ----- */
-  .tabs{flex:none;display:flex;gap:2px;margin-left:6px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:11px}
+  .tabs{flex:none;display:flex;gap:2px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:11px}
   .tab{background:none;border:0;border-radius:8px;padding:4px 12px;line-height:1.4;font-size:13px;
     color:var(--tx2);font-weight:600;transition:.12s}
   .tab:hover{background:var(--s2)}

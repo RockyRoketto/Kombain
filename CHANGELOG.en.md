@@ -3,6 +3,14 @@
 English version of CHANGELOG.md, with the same "## X.Y.Z" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 2.0.0
+
+- Cleaner header: no icon, the name in an orange frame and the version on the left, tabs in the center
+- The audio waveform on the timeline is sharp at any zoom
+- Video and audio tracks have the same height and equal spacing
+- The program icon changes right after an update, without the old picture from the Windows cache
+- The GitHub description is organized into sections
+
 ## 1.10.0
 
 - New name: the program is now called Kombain and has a new icon. Shortcuts update by themselves

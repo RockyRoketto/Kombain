@@ -25,7 +25,7 @@ const tkById = id => tkClips().find(c => c.id === id);
 const tkTrackOf = c => tkTracks.find(x => x.clips.includes(c));
 const tkPhoto = c => !c.src;
 const tkShown = () => [...tkTracks.filter(x => x.kind === 'v').reverse(), ...tkTracks.filter(x => x.kind === 'a')];
-const tkRowH = tr => tr.thin ? TK_ROW_MIN : tr.h || (tr.kind === 'v' ? 58 : 44);
+const tkRowH = tr => tr.thin ? TK_ROW_MIN : tr.h || 58;
 const tkSmall = tr => tkRowH(tr) < 32;   // в низкой дорожке кадров и волны не разобрать
 const tkFirstOf = kind => tkTracks.find(x => x.kind === kind);
 const tkSelected = () => tkClips().filter(c => tkSel.has(c.id));
@@ -148,7 +148,7 @@ function tkPaint(el, c, tr) {
   el.className = `tk-clip ${tr.kind}${tkSel.has(c.id) ? ' sel' : ''}${c.link ? ' linked' : ''}${it && it.bad ? ' miss' : ''}`;
   el.title = c.path;
   const pics = !tkSmall(tr) && tr.kind === 'v', first = pics && w >= 44, last = pics && !tkPhoto(c) && w >= 120, wave = !tkSmall(tr) && tr.kind === 'a';
-  const sig = [c.path, c.from, c.len, c.speed, c.reverse, first, last, wave, wave ? tkPps : 0].join('|');
+  const sig = [c.path, c.from, c.len, c.speed, c.reverse, first, last, wave, wave ? tkPps + '/' + tkRowH(tr) : 0].join('|');
   if (el.dataset.sig !== sig) tkPaintBody(el, c, sig, first, last, wave);
   tkPaintMarks(el, c);
 }
@@ -156,16 +156,41 @@ function tkPaintBody(el, c, sig, first, last, wave) {
   el.dataset.sig = sig;
   const a = c.reverse ? c.from + c.len : c.from, b = c.reverse ? c.from : c.from + Math.max(c.len - .05, 0);
   const tag = (c.speed !== 1 ? `${String(c.speed).replace('.', lang === 'ru' ? ',' : '.')}× ` : '') + (c.reverse ? '⇄ ' : '');
-  let waveImg = '';
-  if (wave && c.src) {
-    const scale = tkPps / c.speed, off = c.reverse ? c.src - c.from - c.len : c.from;
-    waveImg = `<img class="tk-wave${c.reverse ? ' flip' : ''}" src="${thumbUrl(c.path, -1, 1280)}" alt="" draggable="false" style="left:${-off * scale}px;width:${c.src * scale}px" onerror="this.remove()">`;
-  }
-  el.innerHTML = waveImg +
+  el.innerHTML = (wave && c.src ? `<canvas class="tk-wave${c.reverse ? ' flip' : ''}"></canvas>` : '') +
     (first ? `<img class="tk-pic" src="${tkThumb(c, a)}" alt="" draggable="false" onerror="this.remove()">` : '') +
     `<span class="tk-name">${esc(tag)}${esc(base(c.path))}</span>` +
     (last ? `<img class="tk-pic end" src="${tkThumb(c, b)}" alt="" draggable="false" onerror="this.remove()">` : '') +
     '<i class="tk-edge l"></i><i class="tk-edge r"></i><div class="tk-mks"></div>';
+  tkWaveDraw(el, c);
+}
+// Волна: настоящие пики звука (100 значений на секунду, makeWave в media.go), столбик на каждую точку экрана, поэтому чёткая на любом масштабе
+const TK_WAVE_RATE = 100, TK_WAVE_MAX = 4096;
+const tkWaves = new Map();   // путь файла → пики; null, пока они не готовы или звука нет
+function tkWavePeaks(path) {
+  if (tkWaves.has(path)) return tkWaves.get(path);
+  tkWaves.set(path, null);
+  fetch(`/wave?t=${TOKEN}&p=${encodeURIComponent(path)}`).then(r => r.ok ? r.arrayBuffer() : null).then(buf => {
+    if (!buf) return;
+    tkWaves.set(path, new Uint8Array(buf));
+    for (const [id, el] of tkEls) { const c = tkById(id); if (c && c.path === path) tkWaveDraw(el, c); }
+  }).catch(() => {});
+  return null;
+}
+function tkWaveDraw(el, c) {
+  const cv = el.querySelector('canvas.tk-wave'), peaks = cv && tkWavePeaks(c.path);
+  if (!peaks) return;
+  const dpr = devicePixelRatio || 1, W = Math.min(Math.ceil(Math.max(tkLen(c) * tkPps, 2) * dpr), TK_WAVE_MAX), H = Math.max(Math.round((tkRowH(tkTrackOf(c)) - 4) * dpr), 1);
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d'), a = c.from * TK_WAVE_RATE, step = c.len * TK_WAVE_RATE / W;
+  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--acc');
+  for (let x = 0; x < W; x++) {
+    const i0 = Math.floor(a + x * step), i1 = Math.max(i0 + 1, Math.floor(a + (x + 1) * step));
+    let p = 0;
+    for (let i = i0; i < i1 && i < peaks.length; i++) if (peaks[i] > p) p = peaks[i];
+    const h = Math.max(p / 255 * H, 1);
+    g.fillRect(x, (H - h) / 2, 1, h);
+  }
 }
 // Какие метки клипа видны и где: кадр из обрезанного куска скрыт, но метка помнится и вернётся вместе с ним.
 function tkClipMarks(c) {
@@ -711,6 +736,7 @@ function tkTrimDrag(e, grab, side, alone) {
       el.style.left = c.at * tkPps + 'px';
       el.style.width = tkLen(c) * tkPps + 'px';
       tkPaintMarks(el, c);
+      tkWaveDraw(el, c);
     }
     tkSize();
   }, () => {

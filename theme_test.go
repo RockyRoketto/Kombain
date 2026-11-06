@@ -38,7 +38,7 @@ func pageTheme(t *testing.T, s *Server) string {
 	if strings.Contains(body, "__THEME__") || strings.Contains(body, "__TOKEN__") || strings.Contains(body, "__VER__") {
 		t.Error("в странице остались метки")
 	}
-	if !strings.Contains(body, `src="/favicon.png?v=`+appVersion+`"`) {
+	if !strings.Contains(body, `href="/favicon.png?v=`+appVersion+`"`) {
 		t.Error("адрес иконки без версии: после обновления окно покажет старую из кэша")
 	}
 	_, rest, ok := strings.Cut(body, "let themePref = '")

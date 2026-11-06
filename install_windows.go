@@ -9,6 +9,7 @@ package main
 // Удаление: Konvertor.exe --uninstall (его и вызывает Windows из «Приложений»).
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -338,11 +339,27 @@ func afterUpdate(inst InstallInfo) InstallInfo {
 	if inst.Installed && inst.Version != appVersion {
 		addSendTo(selfExe()) // установка старой версии такого пункта не делала
 		addProjectType(selfExe())
+		go refreshIcons()
 		if writeUninstallEntry(selfExe()) == nil {
 			return installInfo()
 		}
 	}
 	return inst
+}
+
+// refreshIcons: путь к exe после обновления тот же, поэтому Проводник показывает старую иконку из своего кэша, пока его не сбросить.
+func refreshIcons() {
+	dir, err := windows.GetSystemDirectory()
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, filepath.Join(dir, "ie4uinit.exe"), "-show")
+	hide(cmd)
+	cmd.Run()
+	const shcneAssocChanged = 0x08000000
+	windows.NewLazySystemDLL("shell32.dll").NewProc("SHChangeNotify").Call(shcneAssocChanged, 0, 0, 0)
 }
 
 func msgBox(text string, flags uintptr) uintptr {

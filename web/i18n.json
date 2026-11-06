@@ -1,7 +1,7 @@
 {
   "ru": {
     "app.name": "Kombain",
-    "app.h1": "<span>K</span>om<span>b</span>ain",
+    "app.h1": "Kombain",
     "tab.conv": "Конвертер",
     "tab.play": "Плеер",
     "tab.mont": "Монтаж",
@@ -508,7 +508,7 @@
   },
   "en": {
     "app.name": "Kombain",
-    "app.h1": "<span>K</span>om<span>b</span>ain",
+    "app.h1": "Kombain",
     "tab.conv": "Converter",
     "tab.play": "Player",
     "tab.mont": "Editor",

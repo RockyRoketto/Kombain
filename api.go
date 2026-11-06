@@ -60,6 +60,7 @@ func (s *Server) routes() *http.ServeMux {
 	})
 
 	mux.HandleFunc("/thumb", s.thumbHandler)
+	mux.HandleFunc("/wave", s.waveHandler)
 	mux.HandleFunc("/media", s.mediaHandler)
 
 	mux.HandleFunc("/api/info", s.api(func(w http.ResponseWriter, r *http.Request) {

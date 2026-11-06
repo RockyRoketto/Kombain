@@ -198,6 +198,84 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 	return b
 }
 
+// wavePeaks: из звука s16le, 8000 Гц, моно делает по байту на каждые 10 мс: самая громкая точка отрезка, 255 — самая громкая в файле.
+func wavePeaks(pcm []byte) []byte {
+	const bin = 80 // отсчётов на значение: 8000 / 100
+	n := len(pcm) / 2
+	if n == 0 {
+		return nil
+	}
+	peaks := make([]int, (n+bin-1)/bin)
+	top := 1
+	for i := 0; i < n; i++ {
+		v := int(int16(uint16(pcm[2*i]) | uint16(pcm[2*i+1])<<8))
+		if v < 0 {
+			v = -v
+		}
+		if v > peaks[i/bin] {
+			peaks[i/bin] = v
+			if v > top {
+				top = v
+			}
+		}
+	}
+	out := make([]byte, len(peaks))
+	for i, v := range peaks {
+		out[i] = byte(v * 255 / top)
+	}
+	return out
+}
+
+// makeWave: пики первой звуковой дорожки файла для волны на таймлайне
+func makeWave(ffm, p string) []byte {
+	key, ok := fileKey(p)
+	if !ok {
+		return nil
+	}
+	key += "|wave"
+	mcache.mu.Lock()
+	b, hit := mcache.thumb[key]
+	mcache.mu.Unlock()
+	if hit {
+		return b
+	}
+	thumbSem <- struct{}{}
+	defer func() { <-thumbSem }()
+	pcm, _ := runQuiet(ffm, 3*time.Minute, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", p,
+		"-map", "0:a:0", "-ac", "1", "-ar", "8000", "-c:a", "pcm_s16le", "-f", "s16le", "-")
+	b = wavePeaks(pcm)
+	mcache.mu.Lock()
+	if len(mcache.thumb) > 600 {
+		mcache.thumb = map[string][]byte{}
+	}
+	mcache.thumb[key] = b
+	mcache.mu.Unlock()
+	return b
+}
+
+func (s *Server) waveHandler(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if r.Host != s.host || q.Get("t") != s.token {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	s.mu.Lock()
+	ffm := s.ffmpeg
+	s.mu.Unlock()
+	p := q.Get("p")
+	if ffm == "" || !mediaExt[strings.ToLower(filepath.Ext(p))] {
+		http.NotFound(w, r)
+		return
+	}
+	b := makeWave(ffm, p)
+	if len(b) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(b)
+}
+
 // mediaHandler отдаёт файл целиком для просмотра, а с proxy=1 его копию для просмотра (proxy.go);
 // ServeContent сам умеет перемотку (Range)
 func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {

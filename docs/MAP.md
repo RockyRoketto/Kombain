@@ -87,7 +87,7 @@
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
-| `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler` |
+| `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler`, волна на таймлайне: `wavePeaks`, `makeWave`, `waveHandler` (рисует `tkWaveDraw` в `web/js/tracks.js`) |
 | `proxy.go` | копии для просмотра: `proxyDir`, `proxyStem`, `proxyPath`, `proxyPiecePath`, `proxyArgs`, `proxyStatus`, `encodeReverse`, `proxyStop`, `proxyPrune`, `proxyUsage`, `proxyClear`, `proxyCleanup` |
 | `snapshot.go` | кадр в PNG: `saveFrame`, `saveMontFrame` (кадр монтажа), `snapPlan` (декодер и формат с прозрачностью), `snapArgs`, `snapName`, `snapPublish` |
 | `sequence.go` | кадры: видео в папку PNG (`seqPattern`, `seqFrames`, `seqRemove`, `removeResult`, `hasResult`) и картинки в видео (`canJoin`, `joinRate`, `naturalLess`, `joinGroups`, `joinLeads`, `joinStem`, `writeFrameList`, `checkFrameSizes`) |
@@ -152,7 +152,7 @@
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 
-Вне `/api`: `/` (страница), `/favicon.png`, `/thumb` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
+Вне `/api`: `/` (страница), `/favicon.png`, `/thumb`, `/wave` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
 
 ## Сборка, выпуск, прочее
 
