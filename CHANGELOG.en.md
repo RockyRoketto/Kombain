@@ -3,6 +3,19 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 2.1
+
+- Auto subtitles: the app recognizes speech and creates the cues itself, offline after a single download. Cue start and end are checked against the audio
+- Subtitles in the editor: .srt files, a cue editor on the track, burned into the picture or added as a separate track in the file
+- Text tool: captions in any Windows font, with an outline
+- Clip color correction and color background removal, visible in the viewport right away
+- The effects panel is split into Video, Audio and Clip tabs
+- Left and right channel level meter
+- Rule-of-thirds grid and safe zones in the viewport, a resizable effects panel
+- Custom right-click menu on clips, cues and text fields
+- Projects are now saved as .kb files, old .k9000 files still open
+- App data is arranged into folders automatically on first launch
+
 ## 2.0.0
 
 - Cleaner header: no icon, the name in an orange frame and the version on the left, tabs in the center
