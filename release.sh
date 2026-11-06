@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Выпуск новой версии: release.cmd 1.6.0 (или bash release.sh 1.6.0 "- что нового" "- what's new")
-# Меняет версию в update.go и winres.json, дописывает CHANGELOG.md и CHANGELOG.en.md, делает коммит, тег vX.Y.Z и git push.
+# Выпуск новой версии: release.cmd 2.1 (или bash release.sh 2.1 "- что нового" "- what's new")
+# Меняет версию в update.go и winres.json, дописывает CHANGELOG.md и CHANGELOG.en.md, делает коммит, тег vX.Y и git push.
 # Дальше GitHub Actions сам соберёт Konvertor.exe и выложит релиз — у коллег программа предложит обновиться.
 set -euo pipefail
 cd "$(dirname "$(cygpath -u "$0" 2>/dev/null || echo "$0")")"
 
 die() { echo "Ошибка: $*" >&2; exit 1; }
 
-cur=$(grep -oE 'appVersion *= *"[0-9]+\.[0-9]+\.[0-9]+"' update.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+cur=$(grep -oE 'appVersion *= *"[0-9]+(\.[0-9]+)+"' update.go | grep -oE '[0-9]+(\.[0-9]+)+')
 ver=${1:-}
-[ -n "$ver" ] || read -rp "Сейчас версия $cur. Новая версия (например 1.5.0): " ver
+[ -n "$ver" ] || read -rp "Сейчас версия $cur. Новая версия (например 2.1): " ver
 ver=${ver#[vV]}
-[[ $ver =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "версия должна быть вида 1.5.0, а не «$ver»"
+[[ $ver =~ ^[0-9]+\.[0-9]+$ ]] || die "версия должна быть вида 2.1, а не «$ver»"
 newest=$(printf '%s\n%s\n' "$cur" "$ver" | sort -V | tail -1)
 [ "$ver" != "$cur" ] && [ "$newest" = "$ver" ] || die "новая версия $ver должна быть больше текущей $cur"
 ! git rev-parse -q --verify "refs/tags/v$ver" >/dev/null || die "тег v$ver уже есть"
@@ -30,7 +30,7 @@ clean_notes() { printf '%s\n' "$1" | sed -e 's/[[:space:]]*$//' | sed -e '/./,$!
 
 notes=${2:-}
 notes_en=${3:-}
-[ -z "$notes" ] || [ -n "$notes_en" ] || die 'нужен и английский текст: release.sh 1.6.0 "- пункт" "- item"'
+[ -z "$notes" ] || [ -n "$notes_en" ] || die 'нужен и английский текст: release.sh 2.1 "- пункт" "- item"'
 [ -n "$notes" ] || notes=$(ask_notes 'по-русски')
 [ -n "$notes_en" ] || notes_en=$(ask_notes 'по-английски')
 notes=$(clean_notes "$notes")
@@ -46,7 +46,10 @@ fi
 # версия в коде и в свойствах exe
 re=${cur//./\\.}
 sed -i -E "s/(appVersion *= *\")$re\"/\1$ver\"/" update.go
-sed -i -e "s/\"$re\.0\"/\"$ver.0\"/g" -e "s/\"$re\"/\"$ver\"/g" winres/winres.json
+# числовая версия в свойствах exe всегда из четырёх частей: 2.1 -> 2.1.0.0
+four() { local v=$1; while [ "$(tr -cd . <<<"$v" | wc -c)" -lt 3 ]; do v=$v.0; done; printf %s "$v"; }
+cur4=$(four "$cur")
+sed -i -e "s/\"${cur4//./\\.}\"/\"$(four "$ver")\"/g" -e "s/\"$re\"/\"$ver\"/g" winres/winres.json
 
 # журналы: новый раздел над прошлыми
 add_section() {

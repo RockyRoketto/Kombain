@@ -1,5 +1,5 @@
 @echo off
-rem Выпуск новой версии. Пример: release.cmd 1.5.0
+rem Выпуск новой версии. Пример: release.cmd 2.1
 rem Сам скрипт — release.sh, его выполняет bash из Git for Windows.
 chcp 65001 >nul
 set "BASH="

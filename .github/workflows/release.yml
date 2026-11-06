@@ -1,5 +1,5 @@
 # Сборка Konvertor.exe и выпуск релиза на GitHub.
-# Запускается тегом vX.Y.Z (его ставит release.cmd) или вручную во вкладке Actions (тогда — только сборка, без релиза).
+# Запускается тегом vX.Y (его ставит release.cmd) или вручную во вкладке Actions (тогда — только сборка, без релиза).
 name: Сборка и релиз
 
 on:
@@ -55,7 +55,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VER: ${{ steps.ver.outputs.ver }}
         run: |
-          # текст релиза — разделы «## X.Y.Z» из CHANGELOG.md и CHANGELOG.en.md; строку «### English» ищет программа (splitNotes)
+          # текст релиза — разделы «## X.Y» из CHANGELOG.md и CHANGELOG.en.md; строку «### English» ищет программа (splitNotes)
           section() { awk -v v="$VER" 'index($0, "## " v) == 1 { f = 1; next } /^## / { f = 0 } f' "$1"; }
           section CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "Новая версия $VER" > notes.md

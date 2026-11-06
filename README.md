@@ -162,7 +162,7 @@ $env:GOOS='windows'; $env:CGO_ENABLED='0'; go build -trimpath -ldflags "-s -w -H
 <summary>Выпуск новой версии</summary>
 
 ```
-release.cmd X.Y.Z
+release.cmd X.Y
 ```
 
 Скрипт спросит «что нового» на русском и английском (Блокнот), поменяет версию в update.go и winres/winres.json, допишет CHANGELOG.md и CHANGELOG.en.md, сделает коммит, тег и push. GitHub Actions за 3–5 минут соберёт Konvertor.exe и выложит релиз. Нужен установленный Git for Windows.

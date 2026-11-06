@@ -1,6 +1,6 @@
 # What's new
 
-English version of CHANGELOG.md, with the same "## X.Y.Z" sections. release.cmd adds new versions at the top.
+English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
 ## 2.0.0
