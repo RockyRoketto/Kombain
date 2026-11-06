@@ -15,8 +15,8 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-	"time"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/wailsapp/go-webview2/pkg/edge"
