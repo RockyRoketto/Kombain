@@ -87,7 +87,7 @@ function mtRemove(it) {
 }
 function mtClear() {
   mvFileOff();
-  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; tkCanvas = null; tkSubs = null; });
+  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; tkCanvas = null; tkSubs = null; tkGuides = {x: [], y: []}; });
 }
 function mtRender() {
   $('mtEmpty').classList.toggle('hide', mtFiles.length > 0);

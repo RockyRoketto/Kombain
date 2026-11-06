@@ -121,28 +121,31 @@ function mvSubsPress(e, h) {
   const w0 = s.w || .9, x0 = s.x || .5, low = s.h || s.size, cx = e.clientX, cy = e.clientY;
   const L = (r.left - cv.left) / cv.width, R = (r.right - cv.left) / cv.width, T = (r.top - cv.top) / cv.height, B = (r.bottom - cv.top) / cv.height;
   const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const onX = v => { const s = mvSnap([v], cv.width, 'x'); mvGuides(s.at, -1); return v + s.d; }, onY = v => { const s = mvSnap([v], cv.height, 'y'); mvGuides(-1, s.at); return v + s.d; };
   let moved = false;
   tkDrag(e, ev => {
     moved = true;
     if (side) {
       const dx = (ev.clientX - cx) / cv.width, dy = (ev.clientY - cy) / cv.height, patch = {};
       if (/[we]/.test(side)) {
-        const a = side.includes('w') ? clamp(L + dx, 0, R - .1) : L, b = side.includes('e') ? clamp(R + dx, L + .1, 1) : R;
+        const a = side.includes('w') ? clamp(onX(L + dx), 0, R - .1) : L, b = side.includes('e') ? clamp(onX(R + dx), L + .1, 1) : R;
         patch.w = mtRnd(b - a, 3); patch.x = +((a + b) / 2).toFixed(4);
       }
       if (/[ns]/.test(side)) {
-        const a = side.includes('n') ? clamp(T + dy, 0, B - .02) : T, b = side.includes('s') ? clamp(B + dy, T + .02, 1) : B;
+        const a = side.includes('n') ? clamp(onY(T + dy), 0, B - .02) : T, b = side.includes('s') ? clamp(onY(B + dy), T + .02, 1) : B;
         patch.h = +(b - a).toFixed(4); patch.y = +b.toFixed(4);
       }
       mtSubsLive(patch);
     } else {
-      let x = Math.min(Math.max(x0 + (ev.clientX - cx) / cv.width, w0 / 2), 1 - w0 / 2);
-      if (Math.abs(x - .5) < .012) x = .5;   // середина кадра прилипает
-      tkSubs.x = +x.toFixed(4);
-      tkSubs.y = +Math.min(Math.max((r.bottom - cv.top + ev.clientY - cy) / cv.height, low), 1).toFixed(4);
+      // прилипают края и середина контейнера: к краям и середине кадра и к направляющим
+      const tall = B - T, rawX = x0 + (ev.clientX - cx) / cv.width, rawY = B + (ev.clientY - cy) / cv.height;
+      const sx = mvSnap([rawX - w0 / 2, rawX, rawX + w0 / 2], cv.width, 'x'), sy = mvSnap([rawY - tall, rawY - tall / 2, rawY], cv.height, 'y');
+      mvGuides(sx.at, sy.at);
+      tkSubs.x = +clamp(rawX + sx.d, w0 / 2, 1 - w0 / 2).toFixed(4);
+      tkSubs.y = +clamp(rawY + sy.d, low, 1).toFixed(4);
       mvSubsDraw();
     }
-  }, () => { if (moved) tkCommit(before); });
+  }, () => { mvGuides(-1, -1); if (moved) tkCommit(before); });
 }
 $('mvSubs').addEventListener('click', e => e.stopPropagation());
 // Сетка и телевизионные зоны поверх кадра: только для просмотра, в результат не идут
@@ -237,12 +240,15 @@ function mvCanvasDims() {
   return {w: 1920, h: 1080};
 }
 function mvSizeCanvas() {
-  const d = mvCanvasDims(), W = mvStage.clientWidth, H = mvStage.clientHeight;
+  const pad = mvRulersSeen() ? MV_RULER : 0;   // линейки сверху и слева не закрывают кадр
+  const d = mvCanvasDims(), W = mvStage.clientWidth - pad, H = mvStage.clientHeight - pad;
   const s = Math.min(W / d.w, H / d.h) || 0, w = Math.round(d.w * s), h = Math.round(d.h * s);
-  Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: Math.floor((W - w) / 2) + 'px', top: Math.floor((H - h) / 2) + 'px'});
+  Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: pad + Math.floor((W - w) / 2) + 'px', top: pad + Math.floor((H - h) / 2) + 'px'});
   mvCanvasBtn();
+  mvRulersDraw();
 }
-new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); tkClips().filter(c => c.blur || c.shA).forEach(mvPlaceClip); mvLook(); } }).observe(mvStage);   // размытие и тень в точках экрана
+function mvStageFit() { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); tkClips().filter(c => c.blur || c.shA).forEach(mvPlaceClip); mvLook(); }   // размытие и тень в точках экрана
+new ResizeObserver(() => { if (tab === 'mont') mvStageFit(); }).observe(mvStage);
 // Рамка слоя в долях холста. Без своей рамки слой вписан по центру, как делает движок.
 function mvBox(c) { return c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : mvFitBox(c); }
 // слой, вписанный в кадр по центру (tlFitBox)
@@ -642,10 +648,10 @@ function mvFrameDraw() {
   Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + o.l * bw + 'px', top: top + 'px', width: (1 - o.l - o.r) * bw + 'px', height: (1 - o.t - o.b) * bh + 'px',
     transformOrigin: `${(.5 - o.l) * bw}px ${(.5 - o.t) * bh}px`, transform: c.rot ? `rotate(${c.rot}deg)` : ''});
 }
-// на сколько сдвинуть, чтобы одно из значений list встало на край или середину кадра
-function mvSnap(list, px) {
-  let best = 0, at = -1, lim = 8 / px;
-  if (tkSnapOn) for (const a of list) for (const p of [0, .5, 1]) {
+// на сколько сдвинуть, чтобы одно из значений list встало на край или середину кадра, а с axis ещё и на направляющую
+function mvSnap(list, px, axis) {
+  let best = 0, at = -1, lim = 12 / px;
+  if (tkSnapOn) for (const a of list) for (const p of [0, .5, 1, ...(axis ? mvGuidePts(axis) : [])]) {
     const d = Math.abs(p - a);
     if (d <= lim) { lim = d; best = p - a; at = p; }
   }
@@ -711,13 +717,13 @@ function mvFrameDrag(e, c, corner, pick) {
     if (!corner) {
       // повёрнутый слой прилипает серединой, остальной по тому, что видно
       const seen = (a, s, l, r) => c.rot ? [a + s / 2] : [a + s * l, a + s * (l + 1 - r) / 2, a + s * (1 - r)];
-      const sx = mvSnap(seen(o.x + dx, o.w, cut.l, cut.r), W), sy = mvSnap(seen(o.y + dy, o.h, cut.t, cut.b), H);
+      const sx = mvSnap(seen(o.x + dx, o.w, cut.l, cut.r), W, 'x'), sy = mvSnap(seen(o.y + dy, o.h, cut.t, cut.b), H, 'y');
       set(o.x + dx + sx.d, o.y + dy + sy.d, o.w, o.h);
       mvGuides(sx.at, sy.at);
     } else {
       // угол под мышью; в повёрнутом слое размеры считаются вдоль его сторон, прилипания нет
       const mx = startX + ev.clientX - x0, my = startY + ev.clientY - y0, none = {d: 0, at: -1};
-      const sx = c.rot ? none : mvSnap([mx / W], W), sy = c.rot ? none : mvSnap([my / H], H);
+      const sx = c.rot ? none : mvSnap([mx / W], W, 'x'), sy = c.rot ? none : mvSnap([my / H], H, 'y');
       const local = (ax, ay) => [(ax - fixX) * cos + (ay - fixY) * sin, -(ax - fixX) * sin + (ay - fixY) * cos];
       const [lx, ly] = local(mx, my), [lxs, lys] = local(mx + sx.d * W, my + sy.d * H);
       const kx = v => (left ? -v : v) / seenW, ky = v => (up ? -v : v) / seenH;
@@ -809,7 +815,11 @@ function mvCropDrag(e, c, side) {
 mvStage.addEventListener('pointerdown', e => {
   if (e.button !== 0 || mv.file || chromaPick) return;
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
-  const h = e.target.closest('[data-c]'), sub = !h && mvSubsAt(e);
+  // слой, прилипший к направляющей, лежит ручками прямо на ней: ручка важнее
+  const gl = e.target.closest('.mv-gl');
+  const h = gl ? document.elementsFromPoint(e.clientX, e.clientY).find(el => el.dataset.c) : e.target.closest('[data-c]');
+  if (gl && !h) { mvGuideDrag(e, gl.dataset.a, +gl.dataset.i); return; }
+  const sub = !h && mvSubsAt(e);
   if (sub) { mvSubsPress(e, sub); return; }
   if (mvSubsSel) { mvSubsSel = false; mvSubsDraw(); }
   if (!tkClips().length) return;
@@ -857,6 +867,7 @@ function mvFileShow(it) {
   mv.pool.forEach(e => { if (e.clip !== null) mvRelease(e); });
   mv.file = it;
   mv.fileReady = false;
+  mvRulersDraw();
   mvFrame.classList.add('hide');
   mvStage.classList.remove('framed');
   mvStage.classList.add('canplay', 'filemode');
@@ -887,6 +898,7 @@ function mvFileOff(quiet) {
   if (mv.fileStop) mv.fileStop();
   mv.fileStop = null;
   mv.file = null;
+  mvSizeCanvas();
   mv.fileReady = false;
   mtV.classList.add('hide');
   $('mvSeek').classList.add('hide');

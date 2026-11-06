@@ -13,6 +13,7 @@ let tkUndoList = [], tkRedoList = [], tkBoard = [], tkPath = '', tkSaveTimer = 0
 let tkIn = null, tkOut = null;   // метки начала и конца вывода, секунды; null — метки нет
 let tkMarkers = [];              // метки на таймлайне, секунды, по возрастанию
 let tkCanvas = null;             // размер холста {w, h}; null — как у первого видео
+let tkGuides = {x: [], y: []};    // направляющие вьюпорта, доли кадра: x — вертикальные линии, y — горизонтальные
 let tkSubs = null;               // субтитры {path, mode, font, size, pos}; null — нет
 const tkEls = new Map();   // id клипа → его элемент: при перерисовке картинки в клипах не мигают
 
@@ -57,7 +58,7 @@ function fmtTc(x) {
 }
 
 // ---------- отмена и сохранение ----------
-const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
+const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
 // связь из одного клипа ничего не значит: второй удалён или разрезан отдельно
 function tkTidyLinks() {
   const n = new Map();
@@ -91,11 +92,11 @@ function tkBack(from, to) {
 }
 function tkApply(o) {
   tkTracks = o.tracks;
-  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null; tkSubs = o.subs || null;
+  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null; tkSubs = o.subs || null; tkGuides = o.guides || {x: [], y: []};
   tkNext = tkClips().reduce((a, c) => Math.max(a, c.id + 1, (c.link || 0) + 1), tkNext);
   mtSetFiles(o.files || []);
 }
-const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
+const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
 function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath}))); }
 // Проект из файла или автосохранения. Файл могли править руками, поэтому каждое значение проверяется.
 function tkLoad(o, path) {
@@ -141,6 +142,8 @@ function tkLoad(o, path) {
   tkOut = num(o.out, null);
   if (tkOut !== null && tkOut <= (tkIn || 0)) tkOut = null;
   tkMarkers = times(o.markers);
+  const guides = l => (Array.isArray(l) ? l : []).filter(v => Number.isFinite(v) && v > -2 && v < 3).slice(0, 200);
+  tkGuides = {x: guides(o.guides && o.guides.x), y: guides(o.guides && o.guides.y)};
   tkCanvas = o.canvas && o.canvas.w >= 16 && o.canvas.h >= 16 && o.canvas.w <= 7680 && o.canvas.h <= 7680 ? {w: o.canvas.w & ~1, h: o.canvas.h & ~1} : null;
   const sub = o.subs;
   tkSubs = sub && typeof sub.path === 'string' && sub.path ? {path: sub.path,
