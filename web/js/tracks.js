@@ -566,16 +566,22 @@ function tkCutHere() {
   const list = (tkSel.size ? tkSelected() : tkClips()).filter(hit);
   if (list.length) tkDo(() => tkSplitAll(list, tkAt));
 }
+function tkDrop(ripple) {
+  for (const tr of tkTracks) {
+    const gone = tr.clips.filter(c => tkSel.has(c.id)).sort((a, b) => b.at - a.at);
+    tr.clips = tr.clips.filter(c => !tkSel.has(c.id));
+    if (ripple) for (const g of gone) for (const c of tr.clips) if (c.at >= tkEnd(g) - TK_EPS) c.at -= tkLen(g);
+  }
+  tkSel.clear();
+}
 function tkRemove(ripple) {
-  if (!tkSel.size) return;
-  tkDo(() => {
-    for (const tr of tkTracks) {
-      const gone = tr.clips.filter(c => tkSel.has(c.id)).sort((a, b) => b.at - a.at);
-      tr.clips = tr.clips.filter(c => !tkSel.has(c.id));
-      if (ripple) for (const g of gone) for (const c of tr.clips) if (c.at >= tkEnd(g) - TK_EPS) c.at -= tkLen(g);
-    }
-    tkSel.clear();
-  });
+  if (tkSel.size) tkDo(() => tkDrop(ripple));
+}
+// Delete: всё, что выбрано, и клипы, и реплики, одним шагом отмены
+function tkDeleteSel() {
+  if (!tkSel.size && mtCueSel === null && !mtCueMany.size) return;
+  const cues = mtCueSel !== null || mtCueMany.size;   // без выбранной реплики нельзя: mtCueDrop взял бы ту, что под линией кадра
+  tkDo(() => { tkDrop(false); if (cues) mtCueDrop(); });
 }
 function tkCopy() {
   tkBoard = tkSelected().map(c => Object.assign({}, c, {track: tkTracks.indexOf(tkTrackOf(c))}));
@@ -782,6 +788,7 @@ function tkBandDrag(e) {
   const band = $('tkBand'), inner = $('tkInner').getBoundingClientRect();
   const x0 = e.clientX - inner.left, y0 = e.clientY - inner.top;
   const keep = e.ctrlKey || e.shiftKey ? new Set(tkSel) : new Set();
+  const keepCues = e.ctrlKey || e.shiftKey ? new Set([...mtCueMany, ...(mtCueSel === null ? [] : [mtCueSel])]) : new Set();
   let on = false;
   tkDrag(e, ev => {
     const r = $('tkInner').getBoundingClientRect();
@@ -797,13 +804,23 @@ function tkBandDrag(e) {
       const q = el.getBoundingClientRect();
       if (q.left - r.left < L + W && q.right - r.left > L && q.top - r.top < T + H && q.bottom - r.top > T) tkIds(tkById(id)).forEach(x => next.add(x));
     }
+    // реплики на дорожке S выделяются той же рамкой
+    const cues = new Set(keepCues);
+    for (const el of $('tkSubLane').children) {
+      const q = el.getBoundingClientRect();
+      if (q.left - r.left < L + W && q.right - r.left > L && q.top - r.top < T + H && q.bottom - r.top > T) cues.add(+el.dataset.i);
+    }
+    mtCueMany.clear();
+    cues.forEach(i => mtCueMany.add(i));
+    mtCueSel = cues.size ? Math.min(...cues) : null;
+    mtCueLane();
     // перерисовка только при смене выделения
     if (next.size === tkSel.size && [...next].every(x => tkSel.has(x))) return;
     tkSel = next;
     tkRender();
   }, ev => {
     band.classList.add('hide');
-    if (on) { tkSelChanged(); return; }
+    if (on) { mtCuesFill(); tkSelChanged(); return; }
     tkSel.clear();
     tkSelChanged();
     tkSeek(tkTimeAt(ev));
@@ -829,7 +846,7 @@ $('tkScroll').addEventListener('pointerdown', e => {
     tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
     return;
   }
-  if (mtCueSel !== null) { mtCueSel = null; mtCueLane(); mtCuesFill(); }
+  if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (mtCueSel !== null || mtCueMany.size)) { mtCueNone(); mtCueLane(); mtCuesFill(); }
   const el = e.target.closest('.tk-clip');
   if (tkTool === 'razor') {
     const c = el && tkById(+el.dataset.id);
@@ -919,7 +936,7 @@ $('tkZoom').addEventListener('input', () => tkZoomTo(2 ** +$('tkZoom').value));
 const TK_HELP = [
   ['kh.g.view', [[['kh.space'], 'kh.play'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
   ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
-  ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['Ctrl+A'], 'kh.all']]],
+  ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
   ['kh.g.link', [[['Ctrl+L'], 'kh.unlink'], [['kh.altMouse'], 'kh.alt']]],
   ['kh.g.marks', [[['I', 'O'], 'kh.io'], [['Ctrl+Shift+X'], 'kh.ioOff'], [['M'], 'kh.marker'], [['kh.rightClick'], 'kh.markerOff']]],
   ['kh.g.zoom', [[['+', '−'], 'kh.zoom'], [['kh.ctrlWheel'], 'kh.wheel'], [['\\'], 'kh.fit']]],
@@ -948,8 +965,8 @@ const TK_KEYS = {
   KeyI: () => tkMark('in'),
   KeyO: () => tkMark('out'),
   KeyM: tkPutMarker,
-  Delete: () => { if (mtCueSel !== null) mtCueDelete(); else tkRemove(false); },
-  Backspace: () => { if (mtCueSel !== null) mtCueDelete(); else tkRemove(false); },
+  Delete: tkDeleteSel,
+  Backspace: tkDeleteSel,
   Equal: () => tkZoomTo(tkPps * 1.5),
   NumpadAdd: () => tkZoomTo(tkPps * 1.5),
   Minus: () => tkZoomTo(tkPps / 1.5),
@@ -961,7 +978,7 @@ const TK_KEYS = {
   ArrowDown: () => { mvPause(); tkEdge(1); },
   Home: () => $('mtStart').click(),
   End: () => $('mtEnd').click(),
-  Escape: () => { mvFileOff(); tkSel.clear(); tkSetTool('select'); tkSelChanged(); },
+  Escape: () => { mvFileOff(); tkSel.clear(); mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); tkSelChanged(); },
 };
 const TK_CTRL_KEYS = {
   KeyK: tkCutHere,
@@ -972,7 +989,10 @@ const TK_CTRL_KEYS = {
   KeyX: () => { tkCopy(); tkRemove(false); },
   KeyV: () => tkInsert(tkBoard, tkAt),
   KeyD: tkDuplicate,
-  KeyA: () => { tkSel = new Set(tkClips().map(c => c.id)); tkSelChanged(); },
+  KeyA: () => {
+    if (mtCueSel !== null || mtCueMany.size) { mtCueAll(); return; }   // выбрана реплика: всё значит все реплики
+    tkSel = new Set(tkClips().map(c => c.id)); tkSelChanged();
+  },
   KeyS: () => mtProjectSave(false),
 };
 document.addEventListener('keydown', e => {

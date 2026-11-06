@@ -1,6 +1,9 @@
 // ---------- правка субтитров: дорожка S на таймлайне и список реплик в панели ----------
 // Реплики лежат в проекте (tkSubs.cues, поля a, b, t), всегда по порядку и без наложений. Каждое действие отменяется.
 let mtCueSel = null;             // номер выбранной реплики
+const mtCueMany = new Set();     // все выбранные, когда их несколько (рамка, Ctrl и Shift с мышью, Ctrl+A); mtCueSel среди них
+const mtCuePicked = i => i === mtCueSel || mtCueMany.has(i);
+function mtCueNone() { mtCueSel = null; mtCueMany.clear(); }
 let mtCueBefore = null;          // состояние до начала ввода: весь ввод отменяется одним шагом
 let mtCaret = null;              // где стоял курсор в тексте: {i, pos}
 const MT_CUE_MIN = .1;
@@ -23,12 +26,13 @@ let mtCueSig = '';
 function mtCueLane() {
   const list = mtCueList(), on = !!tkSubs;
   $('tkSubRow').classList.toggle('hide', !on);
-  const sig = on ? JSON.stringify([tkPps, mtCueSel, list]) : '';
+  const sig = on ? JSON.stringify([tkPps, mtCueSel, [...mtCueMany], list]) : '';
   if (sig === mtCueSig) return;
   mtCueSig = sig;
-  $('tkSubLane').innerHTML = list.map((c, i) => `<div class="tk-cue${i === mtCueSel ? ' sel' : ''}" data-i="${i}" style="left:${c.a * tkPps}px;width:${Math.max((c.b - c.a) * tkPps, 2)}px" title="${esc(c.t)}"><b class="l"></b>${esc(c.t.replace(/\s+/g, ' '))}<b class="r"></b></div>`).join('');
+  $('tkSubLane').innerHTML = list.map((c, i) => `<div class="tk-cue${mtCuePicked(i) ? ' sel' : ''}" data-i="${i}" style="left:${c.a * tkPps}px;width:${Math.max((c.b - c.a) * tkPps, 2)}px" title="${esc(c.t)}"><b class="l"></b>${esc(c.t.replace(/\s+/g, ' '))}<b class="r"></b></div>`).join('');
 }
 function mtCueSelect(i, seek) {
+  mtCueNone();
   mtCueSel = i;
   if (tkSel.size) { tkSel = new Set(); tkSelChanged(); }
   mtCueLane();
@@ -42,13 +46,42 @@ function mtCueReveal(row) {
   const box = $('mtCueList'), top = row.offsetTop - box.offsetTop;
   if (top < box.scrollTop || top + row.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top - box.clientHeight / 3;
 }
+// Ctrl или Shift с мышью добавляет реплику к выбранным или убирает её
+function mtCueToggle(i) {
+  if (mtCueSel !== null) mtCueMany.add(mtCueSel);
+  if (mtCueMany.has(i)) mtCueMany.delete(i); else mtCueMany.add(i);
+  mtCueSel = mtCueMany.has(mtCueSel) ? mtCueSel : mtCueMany.size ? Math.min(...mtCueMany) : null;
+  mtCueLane();
+  mtCuesFill();
+}
+function mtCueAll() {
+  const n = mtCueList().length;
+  mtCueNone();
+  if (!n) { mtCueLane(); mtCuesFill(); return; }
+  for (let i = 0; i < n; i++) mtCueMany.add(i);
+  mtCueSel = 0;
+  if (tkSel.size) { tkSel = new Set(); tkSelChanged(); }
+  mtCueLane();
+  mtCuesFill();
+}
 function mtCueDown(e, el) {
   const list = mtCueList(), i = +el.dataset.i, c = list[i];
   if (!c) return;
-  mtCueSelect(i, false);
+  if (e.ctrlKey || e.metaKey || e.shiftKey) { mtCueToggle(i); e.preventDefault(); return; }
+  const inGroup = mtCueMany.size > 1 && mtCueMany.has(i);
+  if (!inGroup) mtCueSelect(i, false);
   const lo = i > 0 ? list[i - 1].b : 0, hi = i + 1 < list.length ? list[i + 1].a : Infinity;
   const side = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : '';
   const before = tkState(), x0 = e.clientX, a0 = c.a, b0 = c.b;
+  // вся группа едет вместе и упирается в ближайшую невыбранную реплику
+  const group = [...(inGroup ? mtCueMany : [i])].map(n => ({c: list[n], a: list[n].a, b: list[n].b}));
+  let min = -Infinity, max = Infinity;
+  list.forEach((q, n) => {
+    if (!mtCuePicked(n)) return;
+    if (n + 1 < list.length && !mtCuePicked(n + 1)) max = Math.min(max, list[n + 1].a - q.b);
+    if (n === 0) min = Math.max(min, -q.a);
+    else if (!mtCuePicked(n - 1)) min = Math.max(min, list[n - 1].b - q.a);
+  });
   let moved = false;
   tkDrag(e, ev => {
     const dx = (ev.clientX - x0) / tkPps;
@@ -57,14 +90,18 @@ function mtCueDown(e, el) {
     if (side === 'l') c.a = mtCueSec(Math.min(Math.max(a0 + dx, lo), b0 - MT_CUE_MIN));
     else if (side === 'r') c.b = mtCueSec(Math.max(Math.min(b0 + dx, hi), a0 + MT_CUE_MIN));
     else {
-      const d = Math.min(Math.max(dx, lo - a0), hi - b0);
-      c.a = mtCueSec(a0 + d); c.b = mtCueSec(b0 + d);
+      const d = Math.min(Math.max(dx, min), max);
+      for (const g of group) { g.c.a = mtCueSec(g.a + d); g.c.b = mtCueSec(g.b + d); }
     }
     mtCueLane();
     mvSubsDraw();
   }, () => {
     if (moved) tkCommit(before);
-    else { if (mv.playing) mvPause(); tkSeek(c.a + 1e-3); }
+    else {
+      if (inGroup) mtCueSelect(i, false);
+      if (mv.playing) mvPause();
+      tkSeek(c.a + 1e-3);
+    }
     mtCuesFill();
   });
 }
@@ -83,6 +120,9 @@ function mtCuesFill() {
   const list = mtCueList(), box = $('mtCueList');
   $('mtCueWrap').classList.toggle('hide', !tkSubs || !tkSubs.cues);
   if (mtCueSel !== null && !list[mtCueSel]) mtCueSel = null;
+  for (const i of mtCueMany) if (!list[i]) mtCueMany.delete(i);
+  // строка с курсором сначала отпускает его: иначе потеря фокуса посреди удаления запустит этот же код ещё раз
+  if (box.contains(document.activeElement) && mtCueRowOf(document.activeElement) >= list.length) document.activeElement.blur();
   while (box.children.length > list.length) box.lastChild.remove();
   while (box.children.length < list.length) {
     const row = document.createElement('div');
@@ -93,7 +133,7 @@ function mtCuesFill() {
   list.forEach((c, i) => {
     const row = box.children[i], ta = row.children[1], time = mtCueTime(c.a);
     row.dataset.i = i;
-    row.classList.toggle('sel', i === mtCueSel);
+    row.classList.toggle('sel', mtCuePicked(i));
     if (row.children[0].textContent !== time) row.children[0].textContent = time;
     if (document.activeElement !== ta && ta.value !== c.t) ta.value = c.t;
   });
@@ -176,13 +216,17 @@ function mtCueMerge() {
     mtCueSel = i;
   });
 }
+// убрать выбранные реплики без шага отмены: его делает вызывающий
+function mtCueDrop() {
+  const list = mtCueList(), one = mtCueCur(), gone = mtCueMany.size ? [...mtCueMany] : one === null ? [] : [one];
+  if (!gone.length) return;
+  gone.sort((a, b) => b - a).forEach(i => list.splice(i, 1));
+  const first = gone[gone.length - 1];
+  mtCueNone();
+  mtCueSel = list[first] ? first : list.length ? list.length - 1 : null;
+}
 function mtCueDelete() {
-  const list = mtCueList(), i = mtCueCur();
-  if (i === null) return;
-  tkDo(() => {
-    list.splice(i, 1);
-    mtCueSel = list[i] ? i : list.length ? list.length - 1 : null;
-  });
+  if (mtCueCur() !== null || mtCueMany.size) tkDo(mtCueDrop);
 }
 $('mtCueAdd').onclick = mtCueAdd;
 $('mtCueSplit').onclick = mtCueSplit;

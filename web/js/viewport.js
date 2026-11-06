@@ -33,7 +33,7 @@ function mvFadeAt(c, x) {
 // Браузер запускает контекст только после действия пользователя, поэтому resume зовём при каждом запуске просмотра.
 function mvAudio() {
   if (!mv.audio) {
-    const a = mv.audio = new AudioContext();
+    const a = mv.audio = new AudioContext({latencyHint: 'playback'});   // запас в буфере: без него звук трещит, когда страница занята кадрами
     mv.bus = a.createGain();
     mv.bus.channelCount = 2;                // моно попадает в оба канала, 5.1 сводится в стерео
     mv.bus.channelCountMode = 'explicit';
@@ -57,7 +57,10 @@ function mvGain(e) {
   return e.gain;
 }
 function mvLevel(e, c) {
-  mvGain(e).gain.value = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
+  const g = mvGain(e).gain, v = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
+  if (v === e.vol) return;
+  e.vol = v;
+  g.setTargetAtTime(v, mv.audio.currentTime, .012);   // ступеньки громкости от кадра к кадру слышны как треск
 }
 function mvVolume() { if (mv.out) mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume; }
 // плавность и громкость идут за курсором времени в каждом кадре просмотра
@@ -415,14 +418,33 @@ function mvSync(e, c, now) {
   if (el.seeking) return;
   const d = el.currentTime - want;
   let rate = c.speed;
-  if (Math.abs(d) > .25) {
-    if (now - e.t0 > 400 || !e.t0) {
-      e.t0 = now;
-      videoSeek(el, Math.min(want + e.lag * c.speed, dur));   // с запасом на время самой перемотки
-    }
-  } else if (Math.abs(d) > .03) rate = c.speed * (1 - Math.max(Math.min(d, .05), -.05));
+  if (e !== mv.master) {   // ведущий звук не трогаем: на него равняются часы (mvFollow)
+    if (Math.abs(d) > .25) {
+      if (now - e.t0 > 400 || !e.t0) {
+        e.t0 = now;
+        videoSeek(el, Math.min(want + e.lag * c.speed, dur));   // с запасом на время самой перемотки
+      }
+    } else if (Math.abs(d) > (el.muted ? .03 : .06)) rate = c.speed * (1 - Math.max(Math.min(d, .05), -.05));
+  }
+  // Подгонка без сохранения высоты: растягивание времени с сохранением высоты слышно как плавающие помехи.
+  // При своей скорости клипа высота сохраняется, как в результате.
+  const keepPitch = c.speed !== 1;
+  if (el.preservesPitch !== keepPitch) el.preservesPitch = keepPitch;
   if (Math.abs(el.playbackRate - rate) > .001) el.playbackRate = rate;
   if (el.paused) el.play().catch(() => {});
+}
+// Часы просмотра идут за звуком, а не звук за часами: перемотки и смены скорости на слух заметны, а сдвиг линии кадра на сотые нет
+function mvFollow() {
+  mv.master = null;
+  for (const {c, e} of mv.live) {
+    const el = e.el;
+    if (el.muted || el.paused || el.seeking || el.readyState < 3) continue;
+    const d = (el.currentTime - mvTime(c, tkAt)) / c.speed;
+    if (Math.abs(d) >= .5) continue;   // только что подключился: пусть сначала встанет на место
+    mv.master = e;
+    tkAt = Math.max(tkAt + (Math.abs(d) > .1 ? d : d * .1), 0);
+    return;
+  }
 }
 function mvUnload() {
   mvFileOff(true);
@@ -456,6 +478,7 @@ function mvTick(now) {
   }
   tkAt += Math.min(Math.max((now - mv.last) / 1000, 0), .25);
   mv.last = now;
+  mvFollow();
   const end = mv.loop ? mvRangeEnd() : tkTotal();
   if (tkAt >= end) {
     if (mv.loop) { tkAt = mvRangeStart(); mvShow(); }
@@ -484,6 +507,7 @@ function mvPause() {
   if (!mv.playing) return;
   mv.playing = false;
   mv.holding = false;
+  mv.master = null;
   cancelAnimationFrame(mv.raf);
   $('mtPlay').classList.remove('playing');
   mvStage.classList.remove('playing');

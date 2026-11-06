@@ -350,14 +350,18 @@ func whisperRun(ctx context.Context, ffm string, p Project, model, lang string) 
 	}
 	var cues []SubCue
 	if b, err := os.ReadFile(out + ".json"); err == nil {
+		os.WriteFile(filepath.Join(cacheDir(), "whisper-last.json"), b, 0o644) // сырые времена последнего запуска: без них сдвиг не разобрать
 		if words, err := whisperWords(b); err == nil {
-			cues = whisperGroup(words)
+			cues = whisperGroup(whisperRepair(words))
 		}
 	}
 	if len(cues) == 0 {
 		if b, err := os.ReadFile(out + ".srt"); err == nil {
 			cues = whisperClean(subsParse(subsDecode(b)))
 		}
+	}
+	if spans, err := speechSpans(ctx, ffm, wav); err == nil { // не вышло: остаются времена whisper
+		cues = whisperAlign(cues, spans)
 	}
 	return whisperPlace(cues, p.lead())
 }

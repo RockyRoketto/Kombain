@@ -551,7 +551,7 @@ $('mtSubsPick').onclick = () => dialog(async () => {
   if (!r.path) return;
   const c = await api('subs-read', {path: r.path});
   if (c.error) { say('warn', t('mt.secSubs'), c.error); return; }
-  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || []}; mtCueSel = null; });
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || []}; mtCueNone(); });
 });
 $('mtSubsOff').onclick = () => tkDo(() => { tkSubs = null; });
 // Автосубтитры: выбор модели и языка запоминается, сама работа идёт в программе (whisper.go), страница только следит за ходом
@@ -578,7 +578,7 @@ async function mtAutoWatch() {
   if (!job.path) return;   // отменили
   const c = await api('subs-read', {path: job.path});
   if (c.error) { say('warn', t('mt.auto.title'), c.error); return; }
-  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || []}; mtCueSel = null; });
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || []}; mtCueNone(); });
   document.querySelector('details[data-sec=subs]').open = true;
   toast({id: 'auto', type: 'ok', title: t('mt.auto.done'), text: esc(base(job.path)), ttl: 6000});
 }

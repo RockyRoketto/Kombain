@@ -511,6 +511,7 @@ func runUI(s *Server) {
 	})
 	chromium.MessageCallback = func(string, *edge.ICoreWebView2, *edge.ICoreWebView2WebMessageReceivedEventArgs) {}
 	chromium.MessageWithAdditionalObjectsCallback = onWebMessage
+	chromium.SetPermission(edge.CoreWebView2PermissionKindClipboardRead, edge.CoreWebView2PermissionStateAllow) // «Вставить» в своём меню, без окна с вопросом
 	// цвет WebView2 до первой отрисовки: задаётся только так, настройки ниже применятся уже после Embed
 	bg := themeBg(windowLight)
 	os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", fmt.Sprintf("FF%02X%02X%02X", bg[0], bg[1], bg[2]))
@@ -522,6 +523,7 @@ func runUI(s *Server) {
 		st.PutAreDevToolsEnabled(false)
 		st.PutIsStatusBarEnabled(false)
 		st.PutAreDefaultScriptDialogsEnabled(true)
+		st.PutAreDefaultContextMenusEnabled(false) // меню браузера не нужно: своё в web/js/ctxmenu.js
 	}
 	chromium.SetBackgroundColour(bg[0], bg[1], bg[2], 255)
 	chromium.Navigate(s.url())
