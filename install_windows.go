@@ -27,15 +27,15 @@ import (
 
 const uninstallKey = `Software\Microsoft\Windows\CurrentVersion\Uninstall\Konvertor9000`
 
-// так назывались ярлыки до переименования в «Конвертер 9000»
-const oldShortcutName = "Конвертор 9000.lnk"
+// так назывались ярлыки раньше: при обновлении старые убираются
+var oldShortcutNames = []string{"Конвертор 9000.lnk", "Конвертер 9000.lnk", "Konverter 9000.lnk"}
 
 // shortcutFile: ярлык называется на языке, выбранном при установке
 func shortcutFile() string { return tr("app.name") + ".lnk" }
 
 // shortcutNames: все названия, которые ярлык мог получить раньше
 func shortcutNames() []string {
-	return []string{oldShortcutName, goDict[langRU]["app.name"] + ".lnk", goDict[langEN]["app.name"] + ".lnk"}
+	return append(oldShortcutNames[:len(oldShortcutNames):len(oldShortcutNames)], goDict[langRU]["app.name"]+".lnk", goDict[langEN]["app.name"]+".lnk")
 }
 
 var (

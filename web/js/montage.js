@@ -83,7 +83,7 @@ function mtRender() {
 }
 function mtButtons() {
   $('mtSend').disabled = $('start').disabled;
-  $('dock').classList.toggle('hide', tab === 'mont' && !snap.running);
+  $('dock').classList.toggle('hide', (tab === 'mont' || tab === 'play') && !snap.running);
 }
 function mtTabChanged() {
   if (tab !== 'mont') { mvPause(); mvUnload(); return; }
@@ -157,7 +157,7 @@ function mtDragFile(e, it) {
       ghost.style.left = x0 + 'px';
       ghost.style.top = y0 + 'px';
       document.body.appendChild(ghost);
-      follow = kinFollow(ghost, {side: 0});
+      follow = kinFollow(ghost, {still: true});
     }
     follow.aim(ev.clientX - x0, ev.clientY - y0);
     place(ev);
@@ -215,7 +215,23 @@ $('mtAddFiles').onclick = () => dialog(async () => { const r = await api('pick-f
 $('mtAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); mtAdd(r.files); });
 $('mtClear').onclick = mtClear;
 
-// ---------- панель клипа: до панели эффектов здесь скорость, реверс, повтор и точная обрезка ----------
+// ---------- панель эффектов ----------
+// Разделы свёрнуты, пока их не откроют; что открыто, запоминается. Новому разделу хватит data-sec в разметке.
+(() => {
+  const key = 'konv9000.mtSecs';
+  let open = {};
+  try { open = JSON.parse(localStorage.getItem(key)) || {}; } catch (err) {}
+  $('mtPanel').querySelectorAll('details[data-sec]').forEach(d => {
+    d.open = !!open[d.dataset.sec];
+    d.addEventListener('toggle', () => {
+      open[d.dataset.sec] = d.open;
+      try { localStorage.setItem(key, JSON.stringify(open)); } catch (err) {}
+    });
+  });
+})();
+// Значение в заголовке свёрнутого раздела: пусто, пока в разделе всё как было
+const mtSum = (id, text) => { $(id).textContent = text; };
+const mtFadeSum = (a, b) => [a ? '↗' + a : '', b ? '↘' + b : ''].filter(Boolean).join(' ');
 let mtTrimIt = null;   // что открыто в окне обрезки
 function mtPanel() {
   const list = tkSelected(), one = tkOne();
@@ -229,6 +245,7 @@ function mtPanel() {
   $('mtSpeed').value = same ? String(clips[0].speed) : '';
   $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
   $('mtReverse').checked = clips.length > 0 && clips.every(c => c.reverse);
+  mtSum('mtSumTime', [same && clips[0].speed !== 1 ? clips[0].speed + '×' : '', clips.length && $('mtReverse').checked ? '↺' : ''].filter(Boolean).join(' '));
   $('mtTrim').classList.toggle('hide', !one || !clips.length);
   mtFramePanel();
   mtSoundPanel();
@@ -237,7 +254,7 @@ function mtPanel() {
         .map(([k, x]) => `<div>${esc(k)}<b>${esc(x)}</b></div>`).join('')
     : '';
 }
-// ---------- разделы «Кадр» и «Звук» ----------
+// ---------- разделы видео и звука ----------
 const mtFrameClips = () => tkSelected().filter(c => tkTrackOf(c).kind === 'v');
 const mtSoundClips = () => tkSelected().filter(c => tkTrackOf(c).kind === 'a' || (!c.part && !!(mtFile(c.path) || {}).audio));
 const mtFrameOne = () => { const c = tkOne(); return c && tkTrackOf(c).kind === 'v' ? c : null; };
@@ -247,35 +264,42 @@ const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
 function mtFramePanel() {
   const clips = mtFrameClips(), one = mtFrameOne();
-  $('mtSecFrame').classList.toggle('hide', !clips.length);
+  ['mtGroupV', 'mtSecFade'].forEach(id => $(id).classList.toggle('hide', !clips.length));
+  ['mtSecMotion', 'mtSecCrop'].forEach(id => $(id).classList.toggle('hide', !one));
   if (!clips.length) return;
-  $('mtFrameOne').classList.toggle('hide', !one);
-  mtVal('mtFadeIn', mtSame(clips, c => c.fadeIn || 0));
-  mtVal('mtFadeOut', mtSame(clips, c => c.fadeOut || 0));
+  const fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
+  mtVal('mtFadeIn', fadeIn);
+  mtVal('mtFadeOut', fadeOut);
   mtFadeMax(clips, 'mtFadeIn', 'mtFadeOut');
+  mtSum('mtSumFade', mtFadeSum(fadeIn, fadeOut));
   if (!one) return;
   const b = mvBox(one), f = mvFitBox(one), d = mvCanvasDims(), o = mvCropOf(one);
+  const x = Math.round((b.x + b.w / 2 - .5) * d.w), y = Math.round((b.y + b.h / 2 - .5) * d.h), scale = mtRnd(b.w / f.w * 100, 1), rot = one.rot || 0;
+  const crop = [o.l, o.r, o.t, o.b].map(v => mtRnd(v * 100, 1));
   mtBounds('mtPosX', -d.w, d.w);
   mtBounds('mtPosY', -d.h, d.h);
-  mtVal('mtPosX', Math.round((b.x + b.w / 2 - .5) * d.w));
-  mtVal('mtPosY', Math.round((b.y + b.h / 2 - .5) * d.h));
-  mtVal('mtScale', mtRnd(b.w / f.w * 100, 1));
-  mtVal('mtRot', one.rot || 0);
-  mtVal('mtCropL', mtRnd(o.l * 100, 1));
-  mtVal('mtCropT', mtRnd(o.t * 100, 1));
-  mtVal('mtCropR', mtRnd(o.r * 100, 1));
-  mtVal('mtCropB', mtRnd(o.b * 100, 1));
+  mtVal('mtPosX', x);
+  mtVal('mtPosY', y);
+  mtVal('mtScale', scale);
+  mtVal('mtRot', rot);
+  mtVal('mtCropL', crop[0]);
+  mtVal('mtCropR', crop[1]);
+  mtVal('mtCropT', crop[2]);
+  mtVal('mtCropB', crop[3]);
+  mtSum('mtSumMotion', x || y || scale !== 100 || rot ? `${scale}% · ${rot}°` : '');
+  mtSum('mtSumCrop', crop.some(Boolean) ? '●' : '');
   $('mtCropMouse').classList.toggle('on', mv.crop === one.id);
 }
 function mtSoundPanel() {
   const clips = mtSoundClips();
-  $('mtSecSound').classList.toggle('hide', !clips.length);
+  ['mtGroupA', 'mtSecSound'].forEach(id => $(id).classList.toggle('hide', !clips.length));
   if (!clips.length) return;
-  const v = mtSame(clips, c => c.vol === undefined ? 1 : c.vol);
+  const v = mtSame(clips, c => c.vol === undefined ? 1 : c.vol), fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
   mtVal('mtVolume', v === '' ? '' : Math.round(v * 100));
-  mtVal('mtAFadeIn', mtSame(clips, c => c.fadeIn || 0));
-  mtVal('mtAFadeOut', mtSame(clips, c => c.fadeOut || 0));
+  mtVal('mtAFadeIn', fadeIn);
+  mtVal('mtAFadeOut', fadeOut);
   mtFadeMax(clips, 'mtAFadeIn', 'mtAFadeOut');
+  mtSum('mtSumSound', [v !== '' && v !== 1 ? Math.round(v * 100) + '%' : '', mtFadeSum(fadeIn, fadeOut)].filter(Boolean).join(' '));
 }
 // число и ползунок одного ряда; разные значения у нескольких клипов: поле пустое, ползунок в начале
 function mtVal(id, v) { $(id).value = v; $(id + 'R').value = v === '' ? +$(id + 'R').min || 0 : v; }
@@ -343,8 +367,8 @@ mtCropRow('mtCropR', 'cr', 'cl');
 mtCropRow('mtCropT', 'ct', 'cb');
 mtCropRow('mtCropB', 'cb', 'ct');
 const mtTurn = d => { const c = mtFrameOne(); if (c) tkDo(() => mtPut(c, 'rot', mvRotNorm((c.rot || 0) + d), 0)); };
-$('mtRotL').onclick = () => mtTurn(-90);
-$('mtRotR').onclick = () => mtTurn(90);
+$('mtTurnL').onclick = () => mtTurn(-90);
+$('mtTurnR').onclick = () => mtTurn(90);
 $('mtCropMouse').onclick = () => {
   const c = mtFrameOne();
   mv.crop = c && mv.crop !== c.id ? c.id : 0;

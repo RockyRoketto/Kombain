@@ -25,7 +25,7 @@
 | Вкладка «Монтаж» | `web/js/montage.js`: разделитель (`mtSplitSet`), окно файлов (`mtAdd`, `mtRender`, `mtDragFile`), панель клипа (`mtPanel`, `mtTrimClosed`), `mtSend`; `web/js/viewport.js`: вьюпорт; `web/js/tracks.js`: дорожки; `web/index.html` (`#montView`), стили: раздел «вкладка «Монтаж»» в `web/style.css` |
 | Дорожки в интерфейсе, хоткеи | `web/js/tracks.js` (`tkRender`, `tkRowDrag`: высота дорожки, `TK_HELP` и `tkHelpOpen`: окно клавиш, `tkLive` и поле дорожки `off`: глаз и динамик, `tkMoveDrag`, `tkTrimDrag`, `tkSplit`, `tkSpot`, `tkDo`, `tkLoad`, `TK_KEYS`, `TK_CTRL_KEYS`) |
 | Вьюпорт: слои, звук, рамка слоя, просмотр файла | `web/js/viewport.js` (`mvShow`, `mvSync`, `mvTick`, `mvPrep`, `mvBind`, `mvBox`, `mvFrameDrag`, `mvFileShow`); рамка в рендере: `timeline.go` (`tlBoxChain`, поля `Clip.X`, `Y`, `W`, `H`). Кадр монтажа в PNG: `snapshot.go` (`saveMontFrame`) |
-| Панель слоя: положение, масштаб, поворот, кадрирование, плавность, громкость | `web/js/montage.js` (`mtFramePanel`, `mtSoundPanel`, `mtRow`: ползунок, число и Alt с мышью, `mtBoxRow`, `mtFadeRow`), разметка в `web/index.html` (`mtSecFrame`, `mtSecSound`); просмотр: `web/js/viewport.js` (`mvPlace`, `mvFadeAt`, `mvLevel`, `mvGain`, `mvLook`, `mvRotDrag`, `mvCropDrag`, `mvHandleDrag`); рендер: `timeline.go` (`tlBoxChain`, `tlFitBox`, `tlFades`, `Clip.Rot`, `CropL`, `Vol`, `FadeIn`). Проверка: `timeline_layer_test.go` |
+| Панель эффектов: положение, масштаб, поворот, кадрирование, плавность, громкость. Новый раздел: `details.mt-sec` с `data-sec` в группе `.mt-group`, свёрнутость запоминается сама | `web/js/montage.js` (`mtFramePanel`, `mtSoundPanel`, `mtSum`: значение в заголовке раздела, `mtRow`: ползунок, число и Alt с мышью, `mtBoxRow`, `mtFadeRow`), разметка в `web/index.html` (`mtSecMotion`, `mtSecCrop`, `mtSecFade`, `mtSecSound`); просмотр: `web/js/viewport.js` (`mvPlace`, `mvFadeAt`, `mvLevel`, `mvGain`, `mvLook`, `mvRotDrag`, `mvCropDrag`, `mvHandleDrag`); рендер: `timeline.go` (`tlBoxChain`, `tlFitBox`, `tlFades`, `Clip.Rot`, `CropL`, `Vol`, `FadeIn`). Проверка: `timeline_layer_test.go` |
 | Размер холста | кнопка и меню `web/js/viewport.js` (`mvCanvasBtn`, `mvCanvasMenu`, `MV_SIZES`, `mvSetCanvas`), значение `tkCanvas` в `web/js/tracks.js`, рендер: `Project.W`, `H` в `timeline.go` |
 | Логотип | `web/js/montage.js` (`mtLogo`, `MT_LOGO_W`), кнопка в `web/index.html` (`#mtLogo`) |
 | Метки начала и конца вывода | `web/js/tracks.js` (`tkIn`, `tkOut`, `tkMark`, `tkMarkAt`: что берёт нажатие на шкале, `tkMarksOff`), `web/js/montage.js` (`mtRange`, `mtProject`), `timeline.go` (`Project.In`, `Out`, `tlRange`) |
@@ -125,7 +125,7 @@
 | `js/drop.js` | `dialog`, кнопки «+ Файлы»/«+ Папка», перетаскивание, `enqueueUpload` |
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
-| `js/kinetic.js` | перетаскивание с инерцией и наклоном, ничего не знает про вкладки: `kinFollow` (элемент на пружине, пригодится для дорожек), `kinSort` (порядок в списке, соседи расступаются; `busy` и `flip`), `kinCalm` (настройка «меньше движения»), настройки `KIN` |
+| `js/kinetic.js` | перетаскивание с инерцией и наклоном, ничего не знает про вкладки: `kinFollow` (элемент на пружине, `still` без неё: так идут клипы на таймлайне), `kinSort` (порядок в списке, соседи расступаются; `busy` и `flip`), `kinCalm` (настройка «меньше движения»), настройки `KIN` |
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
 | `js/playertab.js` | вкладка «Плеер»: очередь `plFiles`, `plAdd`, `plPlay`, `plRemove`, `plRender`, `plMove`, `plButtons`, `plHold` (отпустить файл ради другого окна), `plTabChanged`, `plSend` (в конвертацию) |
@@ -152,7 +152,7 @@
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 
-Вне `/api`: `/` (страница), `/hero.jpg`, `/favicon.png`, `/thumb` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
+Вне `/api`: `/` (страница), `/favicon.png`, `/thumb` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
 
 ## Сборка, выпуск, прочее
 
@@ -163,7 +163,7 @@
 | `CHANGELOG.md`, `CHANGELOG.en.md` | что нового на двух языках; разделы версии становятся текстом релиза и плашек в программе (`splitNotes` в `selfupdate.go`) |
 | `winres/`, `rsrc_windows_amd64.syso` | иконка, манифест и свойства exe |
 | `tools/setversion.py` | правка версии в syso без go-winres |
-| `assets-original/` | исходники фото и иконки |
+| `assets-original/` | исходники старого фото и иконки |
 
 ## Проверка
 

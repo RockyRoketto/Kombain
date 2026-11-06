@@ -25,7 +25,7 @@ __CSS__
 <body>
 <header class="hero">
   <div class="hero-in">
-    <img class="hero-img" src="/hero.jpg?v=__VER__" alt="">
+    <img class="hero-img" src="/favicon.png?v=__VER__" alt="">
     <div class="hero-title">
       <h1 data-i18n="app.h1"></h1>
       <div class="by"><span id="appVer"></span>by Dmitrii Trudnikov</div>
@@ -248,8 +248,42 @@ __CSS__
       <div class="note" id="mtNoClip" data-i18n="mt.noClip"></div>
       <div class="hide" id="mtClipBox">
         <div class="mt-clipname" id="mtClipName"></div>
-        <details class="mt-sec" open>
-          <summary data-i18n="mt.secTime"></summary>
+        <div class="mt-group" id="mtGroupV" data-i18n="mt.groupVideo"></div>
+        <details class="mt-sec" id="mtSecMotion" data-sec="motion">
+          <summary><span data-i18n="mt.secMotion"></span><em id="mtSumMotion"></em></summary>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posX"></span><input type="range" class="vol" id="mtPosXR" step="1" data-i18n-aria="mt.posX"><input type="number" id="mtPosX" step="1" data-i18n-aria="mt.posX"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posY"></span><input type="range" class="vol" id="mtPosYR" step="1" data-i18n-aria="mt.posY"><input type="number" id="mtPosY" step="1" data-i18n-aria="mt.posY"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.scale"></span><input type="range" class="vol" id="mtScaleR" min="1" max="400" step="1" data-i18n-aria="mt.scale"><input type="number" id="mtScale" min="1" max="400" step="1" data-i18n-aria="mt.scale"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.rot"></span><input type="range" class="vol" id="mtRotR" min="-180" max="180" step="1" data-i18n-aria="mt.rot"><input type="number" id="mtRot" min="-180" max="180" step="1" data-i18n-aria="mt.rot"></div>
+          <div class="mt-btns">
+            <button class="ctl-b" id="mtTurnL" data-i18n-title="mt.rotL" data-i18n-aria="mt.rotL"><svg viewBox="0 0 24 24" class="line"><path d="M4 4v6h6M4.5 10A8 8 0 1 1 4 14"/></svg></button>
+            <button class="ctl-b" id="mtTurnR" data-i18n-title="mt.rotR" data-i18n-aria="mt.rotR"><svg viewBox="0 0 24 24" class="line"><path d="M20 4v6h-6M19.5 10A8 8 0 1 0 20 14"/></svg></button>
+            <button class="btn sm" id="mtFrameReset" data-i18n="mt.frameReset" data-i18n-title="mt.frameResetTip"></button>
+          </div>
+        </details>
+        <details class="mt-sec" id="mtSecCrop" data-sec="crop">
+          <summary><span data-i18n="mt.secCrop"></span><em id="mtSumCrop"></em></summary>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropL"></span><input type="range" class="vol" id="mtCropLR" min="0" max="98" step="1" data-i18n-aria="mt.cropL"><input type="number" id="mtCropL" min="0" max="98" step="1" data-i18n-aria="mt.cropL"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropR"></span><input type="range" class="vol" id="mtCropRR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"><input type="number" id="mtCropR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropT"></span><input type="range" class="vol" id="mtCropTR" min="0" max="98" step="1" data-i18n-aria="mt.cropT"><input type="number" id="mtCropT" min="0" max="98" step="1" data-i18n-aria="mt.cropT"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropB"></span><input type="range" class="vol" id="mtCropBR" min="0" max="98" step="1" data-i18n-aria="mt.cropB"><input type="number" id="mtCropB" min="0" max="98" step="1" data-i18n-aria="mt.cropB"></div>
+          <div class="mt-btns"><button class="btn sm" id="mtCropMouse" data-i18n="mt.cropMouse" data-i18n-title="mt.cropTip"></button></div>
+        </details>
+        <details class="mt-sec" id="mtSecFade" data-sec="fade">
+          <summary><span data-i18n="mt.secFade"></span><em id="mtSumFade"></em></summary>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
+        </details>
+        <div class="mt-group" id="mtGroupA" data-i18n="mt.groupSound"></div>
+        <details class="mt-sec" id="mtSecSound" data-sec="volume">
+          <summary><span data-i18n="mt.secVolume"></span><em id="mtSumSound"></em></summary>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.volume"></span><input type="range" class="vol" id="mtVolumeR" min="0" max="200" step="1" data-i18n-aria="mt.volume"><input type="number" id="mtVolume" min="0" max="200" step="1" data-i18n-aria="mt.volume"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtAFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtAFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtAFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtAFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
+        </details>
+        <div class="mt-group" data-i18n="mt.groupClip"></div>
+        <details class="mt-sec" data-sec="time">
+          <summary><span data-i18n="mt.secTime"></span><em id="mtSumTime"></em></summary>
           <label class="mt-row"><span data-i18n="mt.speed"></span>
             <select id="mtSpeed">
               <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="0.75">0,75×</option>
@@ -263,43 +297,14 @@ __CSS__
             <button class="btn sm" id="mtTrim" data-i18n="mt.trim" data-i18n-title="mt.trimTip"></button>
           </div>
         </details>
-        <details class="mt-sec" id="mtSecFrame" open>
-          <summary data-i18n="mt.secFrame"></summary>
-          <div id="mtFrameOne">
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posX"></span><input type="range" class="vol" id="mtPosXR" step="1" data-i18n-aria="mt.posX"><input type="number" id="mtPosX" step="1" data-i18n-aria="mt.posX"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posY"></span><input type="range" class="vol" id="mtPosYR" step="1" data-i18n-aria="mt.posY"><input type="number" id="mtPosY" step="1" data-i18n-aria="mt.posY"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.scale"></span><input type="range" class="vol" id="mtScaleR" min="1" max="400" step="1" data-i18n-aria="mt.scale"><input type="number" id="mtScale" min="1" max="400" step="1" data-i18n-aria="mt.scale"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.rot"></span><input type="range" class="vol" id="mtRotR" min="-180" max="180" step="1" data-i18n-aria="mt.rot"><input type="number" id="mtRot" min="-180" max="180" step="1" data-i18n-aria="mt.rot"></div>
-            <div class="mt-btns">
-              <button class="ctl-b" id="mtRotL" data-i18n-title="mt.rotL" data-i18n-aria="mt.rotL"><svg viewBox="0 0 24 24" class="line"><path d="M4 4v6h6M4.5 10A8 8 0 1 1 4 14"/></svg></button>
-              <button class="ctl-b" id="mtRotR" data-i18n-title="mt.rotR" data-i18n-aria="mt.rotR"><svg viewBox="0 0 24 24" class="line"><path d="M20 4v6h-6M19.5 10A8 8 0 1 0 20 14"/></svg></button>
-              <button class="btn sm" id="mtCropMouse" data-i18n="mt.cropMouse" data-i18n-title="mt.cropTip"></button>
-              <button class="btn sm" id="mtFrameReset" data-i18n="mt.frameReset" data-i18n-title="mt.frameResetTip"></button>
-            </div>
-            <details class="mt-sub">
-              <summary data-i18n="mt.cropTitle"></summary>
-              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropL"></span><input type="range" class="vol" id="mtCropLR" min="0" max="98" step="1" data-i18n-aria="mt.cropL"><input type="number" id="mtCropL" min="0" max="98" step="1" data-i18n-aria="mt.cropL"></div>
-              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropR"></span><input type="range" class="vol" id="mtCropRR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"><input type="number" id="mtCropR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"></div>
-              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropT"></span><input type="range" class="vol" id="mtCropTR" min="0" max="98" step="1" data-i18n-aria="mt.cropT"><input type="number" id="mtCropT" min="0" max="98" step="1" data-i18n-aria="mt.cropT"></div>
-              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropB"></span><input type="range" class="vol" id="mtCropBR" min="0" max="98" step="1" data-i18n-aria="mt.cropB"><input type="number" id="mtCropB" min="0" max="98" step="1" data-i18n-aria="mt.cropB"></div>
-            </details>
-          </div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
-        </details>
-        <details class="mt-sec" id="mtSecSound" open>
-          <summary data-i18n="mt.secSound"></summary>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.volume"></span><input type="range" class="vol" id="mtVolumeR" min="0" max="200" step="1" data-i18n-aria="mt.volume"><input type="number" id="mtVolume" min="0" max="200" step="1" data-i18n-aria="mt.volume"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtAFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtAFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
-          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtAFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtAFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
-        </details>
-        <details class="mt-sec">
-          <summary data-i18n="mt.secInfo"></summary>
+        <details class="mt-sec" data-sec="info">
+          <summary><span data-i18n="mt.secInfo"></span></summary>
           <div class="pmeta mt-clipinfo" id="mtClipInfo"></div>
         </details>
       </div>
-      <details class="mt-sec" open>
-        <summary data-i18n="mt.secResult"></summary>
+      <div class="mt-group" data-i18n="mt.groupOut"></div>
+      <details class="mt-sec" data-sec="result">
+        <summary><span data-i18n="mt.secResult"></span></summary>
         <label class="sw mt-each"><span data-i18n="mt.each"></span><input type="checkbox" id="mtEach"><i></i></label>
         <div class="note" id="mtInfo"></div>
         <div class="mt-line hide" id="mtRange"><span id="mtRangeText"></span><button class="btn sm" id="mtMarksOff" data-i18n="mt.marksOff" data-i18n-title="mt.marksOffTip"></button></div>

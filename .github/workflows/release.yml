@@ -61,4 +61,4 @@ jobs:
           [ -s notes.md ] || echo "Новая версия $VER" > notes.md
           section CHANGELOG.en.md > notes.en.md
           if [ -s notes.en.md ]; then { printf '\n### English\n\n'; cat notes.en.md; } >> notes.md; fi
-          gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Конвертер 9000 $VER" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" Konvertor.exe --title "Kombain $VER" --notes-file notes.md

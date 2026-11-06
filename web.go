@@ -14,9 +14,6 @@ import (
 //go:embed web
 var webFS embed.FS
 
-//go:embed hero.jpg
-var heroJPG []byte
-
 //go:embed favicon.png
 var faviconPNG []byte
 

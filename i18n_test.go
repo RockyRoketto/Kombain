@@ -173,7 +173,8 @@ func TestNoStrayRussian(t *testing.T) {
 	fset, files := goFiles(t)
 	allowed := map[string]bool{
 		"`[×хХ]`":              true, // banner.go: русская х в именах файлов
-		`"Конвертор 9000.lnk"`: true, // install_windows.go: старое имя ярлыка, его ищем на диске
+		`"Конвертор 9000.lnk"`: true, // install_windows.go: старые имена ярлыка, их ищем на диске
+		`"Конвертер 9000.lnk"`: true,
 	}
 	for name, f := range files {
 		if name == "i18n_strings.go" {
@@ -208,12 +209,12 @@ func TestNoStrayRussian(t *testing.T) {
 		t.Errorf("кириллица в английской странице: %s", m)
 	}
 	ru := markup(pages[langRU])
-	for _, want := range []string{`<html lang="ru">`, "<title data-i18n=\"app.name\">Конвертер 9000</title>", ">Конвертировать</button>", ">Рядом с оригиналом</b>", "by Dmitrii Trudnikov"} {
+	for _, want := range []string{`<html lang="ru">`, "<title data-i18n=\"app.name\">Kombain</title>", ">Конвертировать</button>", ">Рядом с оригиналом</b>", "by Dmitrii Trudnikov"} {
 		if !strings.Contains(ru, want) {
 			t.Errorf("в русской странице нет %q", want)
 		}
 	}
-	for _, want := range []string{`<html lang="en">`, ">Konverter 9000</title>", ">Convert</button>", ">Converter</button>", ">Banners</button>", "by Dmitrii Trudnikov"} {
+	for _, want := range []string{`<html lang="en">`, ">Kombain</title>", ">Convert</button>", ">Converter</button>", ">Banners</button>", "by Dmitrii Trudnikov"} {
 		if !strings.Contains(markup(pages[langEN]), want) {
 			t.Errorf("в английской странице нет %q", want)
 		}

@@ -49,16 +49,6 @@ func (s *Server) routes() *http.ServeMux {
 		strings.NewReplacer("__TOKEN__", s.token, "__THEME__", theme, "__VER__", appVersion).WriteString(w, pages[lang])
 	})
 
-	mux.HandleFunc("/hero.jpg", func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != s.host {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "max-age=86400")
-		w.Write(heroJPG)
-	})
-
 	mux.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != s.host {
 			http.NotFound(w, r)
@@ -264,7 +254,7 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
-	// новая версия Конвертера: скачать, заменить себя и перезапуститься
+	// новая версия программы: скачать, заменить себя и перезапуститься
 	mux.HandleFunc("/api/app-update", s.api(func(w http.ResponseWriter, r *http.Request) {
 		if err := s.updateApp(); err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})

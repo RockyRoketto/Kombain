@@ -227,9 +227,11 @@ function tkRowDrag(e, tr) {
     tkRowPaint(row, tr);
   }, () => tkChanged());
 }
+// Правый край таймлайна: за монтажом, линией кадра и метками ещё 10 секунд. Иначе то, что дальше, растягивает прокрутку за концом линейки.
+const tkRightEnd = () => TK_HEAD + (Math.max(tkTotal(), tkAt, tkIn || 0, tkOut || 0, ...tkMarkers) + 10) * tkPps;
 function tkSize() {
-  const sc = $('tkScroll');
-  $('tkInner').style.width = Math.max(sc.clientWidth, TK_HEAD + (tkTotal() + 10) * tkPps) + 'px';
+  // До края окна дотягивает min-width в стилях: ширина не зависит от полос прокрутки и не качает их
+  $('tkInner').style.width = tkRightEnd() + 'px';
   const band = $('tkRange'), on = tkIn !== null || tkOut !== null;
   band.classList.toggle('hide', !on);
   if (on) {
@@ -351,6 +353,7 @@ function tkBar() {
 }
 function tkDrawHead(follow) {
   const sc = $('tkScroll'), x = tkAt * tkPps;
+  if (parseFloat($('tkInner').style.width) < tkRightEnd()) tkSize();
   $('tkHead').style.transform = `translateX(${TK_HEAD + x}px)`;
   $('tkGrip').style.transform = `translateX(${TK_HEAD + x}px)`;
   if (follow && (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth - TK_HEAD - 20)) sc.scrollLeft = Math.max(x - 40, 0);
@@ -623,7 +626,7 @@ function tkEdgeScroll(x, dt) {
   sc.scrollLeft += v * 14 * dt;
   return true;
 }
-// Перенос клипов: выделенные идут за мышью на пружине, раскладку трогает только итог.
+// Перенос клипов: выделенные идут точно за мышью, раскладку трогает только итог.
 function tkMoveDrag(e, grab, wasSel) {
   const moving = tkSelected(), ids = new Set(moving.map(c => c.id)), shown = tkShown();
   const rowOf = c => shown.indexOf(tkTrackOf(c));
@@ -641,15 +644,16 @@ function tkMoveDrag(e, grab, wasSel) {
     dt = Math.max(d, -minAt);
     const r = tkRowAt(py);
     if (r >= 0 && fits(r - row0)) dr = r - row0;
+    // линейка растёт вместе с клипом, который уносят за её конец
+    $('tkInner').style.width = Math.max(tkRightEnd(), TK_HEAD + (Math.max(...moving.map(tkEnd)) + dt + 10) * tkPps) + 'px';
     grips.forEach(g => g.k.aim(dt * tkPps, dyOf(g.c, dr)));
   };
   const lift = () => {
     on = true;
-    const r = tkEls.get(grab.id).getBoundingClientRect(), side = Math.max(-1, Math.min(1, (x0 - r.left) / (r.width / 2) - 1));
     grips = moving.map((c, i) => {
       const el = tkEls.get(c.id);
       el.classList.add('tk-lift');
-      return {c, el, k: kinFollow(el, {side, onFrame: i ? undefined : dt_ => { if (tkEdgeScroll(px, dt_)) aim(); }})};
+      return {c, el, k: kinFollow(el, {still: true, onFrame: i ? undefined : dt_ => { if (tkEdgeScroll(px, dt_)) aim(); }})};
     });
   };
   tkDrag(e, ev => {
@@ -708,6 +712,7 @@ function tkTrimDrag(e, grab, side, alone) {
       el.style.width = tkLen(c) * tkPps + 'px';
       tkPaintMarks(el, c);
     }
+    tkSize();
   }, () => {
     $('tkSnapLine').classList.add('hide');
     const f = tkFps();
@@ -727,12 +732,14 @@ function tkTrimDrag(e, grab, side, alone) {
   });
 }
 function tkBandDrag(e) {
-  const sc = $('tkScroll'), band = $('tkBand'), inner = $('tkInner').getBoundingClientRect();
+  const band = $('tkBand'), inner = $('tkInner').getBoundingClientRect();
   const x0 = e.clientX - inner.left, y0 = e.clientY - inner.top;
   const keep = e.ctrlKey || e.shiftKey ? new Set(tkSel) : new Set();
   let on = false;
   tkDrag(e, ev => {
-    const r = $('tkInner').getBoundingClientRect(), x1 = ev.clientX - r.left, y1 = ev.clientY - r.top;
+    const r = $('tkInner').getBoundingClientRect();
+    // Рамка не выходит за дорожки: иначе она раздувает прокручиваемую область, и полосы прокрутки моргают
+    const x1 = Math.min(Math.max(ev.clientX - r.left, TK_HEAD), r.width), y1 = Math.min(Math.max(ev.clientY - r.top, 30), r.height);
     if (!on && Math.hypot(x1 - x0, y1 - y0) < KIN.drag) return;
     on = true;
     band.classList.remove('hide');
@@ -743,16 +750,18 @@ function tkBandDrag(e) {
       const q = el.getBoundingClientRect();
       if (q.left - r.left < L + W && q.right - r.left > L && q.top - r.top < T + H && q.bottom - r.top > T) tkIds(tkById(id)).forEach(x => next.add(x));
     }
+    // перерисовка только при смене выделения
+    if (next.size === tkSel.size && [...next].every(x => tkSel.has(x))) return;
     tkSel = next;
     tkRender();
   }, ev => {
     band.classList.add('hide');
-    if (on) { mtPanel(); return; }
+    if (on) { tkSelChanged(); return; }
     tkSel.clear();
     tkSelChanged();
     tkSeek(tkTimeAt(ev));
   });
-  sc.focus({preventScroll: true});
+  $('tkScroll').focus({preventScroll: true});
 }
 $('tkScroll').addEventListener('pointerdown', e => {
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();

@@ -3,6 +3,18 @@
 English version of CHANGELOG.md, with the same "## X.Y.Z" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 1.10.0
+
+- New name: the program is now called Kombain and has a new icon. Shortcuts update by themselves
+- New Edit tab: video and audio tracks, layers, effects, markers, project files, the result goes to the converter
+- New Player tab: watch files without adding them to the conversion
+- Premiere-style effects panel: groups and collapsible sections, a collapsed section shows when something in it was changed
+- Clips on the timeline follow the mouse exactly, without wobbling
+- More than 90 output formats, saving a frame to PNG, video to a PNG folder and images back to video, transparency
+- Player on preview click and trimming with preview; formats the window cannot play are prepared automatically
+- All tabs use the full screen, the window remembers its size and position
+- Fixed: timeline zoom no longer leads into empty space without a ruler, scrollbars no longer flicker during box selection, all digits are visible in the custom frame size fields, the rotate 90° right button works
+
 ## 1.9.0
 
 - Trim video and audio: click the scissors in a file row, drag the limits on the timeline and preview the part. The original stays untouched

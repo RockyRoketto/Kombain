@@ -23,7 +23,7 @@ function renderSummary(s) {
   const fl = s.files || [];
   const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
   $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
-    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : t(tab === 'play' ? 'dock.idlePlayer' : 'dock.idle'));
+    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : t('dock.idle'));
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }

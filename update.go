@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	appVersion = "1.9.0"
+	appVersion = "1.10.0"
 	appAuthor  = "Dmitrii Trudnikov"
 )
 
@@ -45,7 +45,7 @@ func init() {
 type Settings struct {
 	SkipFFmpeg    string `json:"skipFFmpeg,omitempty"`    // «пропустить эту версию ffmpeg»
 	SetupDeclined string `json:"setupDeclined,omitempty"` // версия программы, на которой нажали «без установки»
-	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию Конвертера»
+	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию программы»
 	SeenVersion   string `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
 	Theme         string `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
 	Lang          string `json:"lang,omitempty"`          // язык интерфейса, см. i18n.go; пусто = русский

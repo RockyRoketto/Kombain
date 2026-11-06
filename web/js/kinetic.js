@@ -10,8 +10,9 @@ const kinCalm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Элемент идёт за целью на пружине и наклоняется от скорости. Двигает только transform, раскладку не трогает.
 // side: где схвачен элемент, от -1 (левый край) до 1 (правый). onFrame(dt) зовётся на каждом кадре.
-function kinFollow(el, {side = 1, onFrame} = {}) {
-  const calm = kinCalm();
+// still: без пружины и наклона, элемент точно под мышью: для таймлайна, где важна точность.
+function kinFollow(el, {side = 1, onFrame, still = false} = {}) {
+  const calm = still || kinCalm();
   let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0, rot = 0, lift = 0;
   let held = true, landed = null, landBy = 0, raf = 0, last = performance.now();
   const paint = () => { el.style.transform = `translate(${x}px,${y}px) rotate(${rot}deg) scale(${1 + KIN.lift * lift})`; };
