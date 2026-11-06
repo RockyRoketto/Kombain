@@ -224,6 +224,10 @@
   .mv-safe i:nth-child(2){inset:10%}
   .mv-safe u:nth-child(3){left:50%;top:48%;bottom:48%;border-left-width:1px}
   .mv-safe u:nth-child(4){top:50%;left:48.5%;right:48.5%;border-top-width:1px}
+  .mv-safe.zone>i,.mv-safe.zone>u{display:none}
+  .mv-zone{display:none;position:absolute;box-sizing:border-box;padding:2px 5px;border:1px solid rgba(var(--acc-rgb),.9);box-shadow:0 0 0 100vmax rgba(0,0,0,.35);color:#fff;font-size:11px;font-weight:600;line-height:1.3;text-shadow:0 1px 2px #000;overflow:hidden;white-space:nowrap}
+  .mv-safe.zone>.mv-zone{display:block}
+  #mvSafeCut{position:absolute;right:0;bottom:0;box-sizing:border-box;background:rgba(0,0,0,.35);border:solid rgba(var(--acc-rgb),.9);border-width:1px 0 0 1px}
   .mt-vsplit{position:absolute;z-index:3;width:10px;cursor:ew-resize;touch-action:none}
   .mt-vsplit::after{content:"";position:absolute;top:50%;left:3px;width:4px;height:48px;margin-top:-24px;border-radius:2px;background:var(--line3)}
   .mt-vsplit:hover::after,.mt-vsplit.on::after{background:var(--acc)}

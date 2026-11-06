@@ -12,6 +12,7 @@ function ctxOpen(x, y, items) {
     if (it === '-') { m.appendChild(document.createElement('hr')); continue; }
     const b = document.createElement('button');
     b.disabled = !!it.off;
+    if (it.title) b.title = it.title;
     b.innerHTML = `<span>${esc(it.label)}</span>${it.key ? `<kbd>${esc(it.key)}</kbd>` : ''}`;
     b.onclick = () => { ctxClose(); it.run(); };
     m.appendChild(b);

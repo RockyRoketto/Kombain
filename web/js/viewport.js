@@ -151,10 +151,51 @@ function mvGuidesSet(id, btn, key, on) {
   $(btn).classList.toggle('on', on);
   storeSet(key, on ? '1' : '');
 }
-[['mvGrid', 'mvGridBtn', 'konv9000.mvGrid'], ['mvSafe', 'mvSafeBtn', 'konv9000.mvSafe']].forEach(([id, btn, key]) => {
+[['mvGrid', 'mvGridBtn', 'konv9000.mvGrid']].forEach(([id, btn, key]) => {
   mvGuidesSet(id, btn, key, !!storeGet(key));
   $(btn).onclick = () => { mvGuidesSet(id, btn, key, $(id).classList.contains('hide')); $(btn).blur(); };
 });
+// Безопасные зоны площадок: поля в процентах кадра 9:16 (значения для рекламы, у обычных роликов интерфейс похож, но точных цифр площадки не дают).
+// meta: Meta Ads Guide, https://www.facebook.com/business/ads-guide/update/video/instagram-reels (там же указаны 14, 35, 6).
+// shorts: измерено по оверлею Google 1080×1920 (288, 672, 48, 192 px), https://services.google.com/fh/files/misc/youtubesafezoneoverlay_vertical_final.png
+// tiktok: измерено по Feed.png из «In-Feed-Standard Version LTR.zip», https://ads.tiktok.com/help/article/tiktok-auction-in-feed-ads
+//   кадр 720×1280: поля 160, 440, 80, 80; справа внизу под кнопки вырез 120×280 px (cut: его доля от ширины и высоты зоны).
+const MV_ZONES = {
+  meta: {t: 14, b: 35, l: 6, r: 6, src: 'Meta Ads Guide'},
+  shorts: {t: 288 / 19.2, b: 672 / 19.2, l: 48 / 10.8, r: 192 / 10.8, src: 'Google Ads Help'},
+  tiktok: {t: 160 / 12.8, b: 440 / 12.8, l: 80 / 7.2, r: 80 / 7.2, cut: [120 / 5.6, 280 / 6.8], src: 'TikTok Ads Manager'},
+};
+let mvSafeNow = '';
+function mvSafeSet(v) {
+  const z = MV_ZONES[v], el = $('mvSafeZone');
+  mvSafeNow = v;
+  $('mvSafe').classList.toggle('hide', !v);
+  $('mvSafe').classList.toggle('zone', !!z);
+  $('mvSafeBtn').classList.toggle('on', !!v);
+  if (z) {
+    el.style.inset = `${z.t}% ${z.r}% ${z.b}% ${z.l}%`;
+    $('mvSafeName').dataset.i18n = 'mv.safe.' + v;
+    $('mvSafeName').textContent = t('mv.safe.' + v);
+    $('mvSafeCut').classList.toggle('hide', !z.cut);
+    if (z.cut) { $('mvSafeCut').style.width = z.cut[0] + '%'; $('mvSafeCut').style.height = z.cut[1] + '%'; }
+  }
+  storeSet('konv9000.mvSafe', v);
+}
+{
+  const saved = storeGet('konv9000.mvSafe');   // '1' писали прежние версии: телезоны
+  mvSafeSet(saved === '1' ? 'tv' : saved === 'tv' || MV_ZONES[saved] ? saved : '');
+}
+$('mvSafeBtn').onclick = () => {
+  const r = $('mvSafeBtn').getBoundingClientRect();
+  const item = (v, label, title) => ({label, title, key: mvSafeNow === v ? '✓' : '', run: () => mvSafeSet(v)});
+  ctxOpen(r.left, r.bottom + 4, [
+    item('', t('mv.safe.off')),
+    '-',
+    item('tv', t('mv.safe.tv')),
+    ...Object.keys(MV_ZONES).map(v => item(v, t('mv.safe.' + v), t('mv.safe.src', {src: MV_ZONES[v].src}))),
+  ]);
+  $('mvSafeBtn').blur();
+};
 $('mtVol').addEventListener('input', mvVolume);
 $('mtMute').addEventListener('click', mvVolume);
 function mvNote(text) {
