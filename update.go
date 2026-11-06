@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	appVersion = "2.1"
+	appVersion = "2.2"
 	appAuthor  = "Dmitrii Trudnikov"
 )
 

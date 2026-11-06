@@ -3,6 +3,21 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update banners when English is selected.
 
+## 2.2
+
+- Editor: layer blend modes, blur and drop shadow
+- Rulers and guides in the viewport: layers, text and subtitles snap to them
+- Preview quality Full, 1/2, 1/4: smoother editing with large files, the final file is not affected
+- Safe zones for Instagram Reels and Stories, YouTube Shorts and TikTok
+- Drop files from Explorer straight onto an editor track, right where you need them
+- Text and subtitles wrap to the width of their frame; subtitles have their own frame that does not depend on the font
+- The eye on the subtitle track hides them in the viewport and in the result
+- The program now opens clean every time, offers to save the project on closing and restores an unsaved project after a crash
+- Sliders have a mark at the original value, and the handle gently snaps to it
+- Settings now have a button to open the program folder and a settings reset
+- The cache cleans itself at startup
+- Subtle interface animations: tabs, windows and sections appear smoothly
+
 ## 2.1
 
 - Auto subtitles: the app recognizes speech and creates the cues itself, offline after a single download. Cue start and end are checked against the audio
