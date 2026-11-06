@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -50,6 +51,9 @@ func TestSubsRange(t *testing.T) {
 
 // Плоская папка старых версий переезжает. Настройки и данные окна на месте, недокачанное убрано, повторный запуск ничего не портит.
 func TestMigrateData(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("без .exe файл ffmpeg и папка ffmpeg носят одно имя")
+	}
 	base := t.TempDir()
 	t.Setenv("LOCALAPPDATA", base)
 	t.Setenv("XDG_CACHE_HOME", base)
