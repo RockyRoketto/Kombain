@@ -421,7 +421,9 @@
   .tk-edge.l{left:0}
   .tk-edge.r{right:0}
   .tk-clip:hover .tk-edge,.tk-clip.sel .tk-edge{background:rgba(var(--acc-rgb),.5)}
-  .tk-scroll.razor .tk-clip,.tk-scroll.razor .tk-edge{cursor:crosshair}
+  /* курсоры: чёрная обводка под белым, чтобы были видны на любом фоне. У ножниц точка реза в шарнире, на линии разреза */
+  .tk-scroll.razor .tk-clip,.tk-scroll.razor .tk-edge{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='18' r='3'/%3E%3Cpath d='M4 4l11.9 11.9M14.5 9.5 20 4M8.1 15.9 12 12'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='18' r='3'/%3E%3Cpath d='M4 4l11.9 11.9M14.5 9.5 20 4M8.1 15.9 12 12'/%3E%3C/g%3E%3C/svg%3E") 12 12,crosshair}
+  #mtText{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3C/svg%3E") 12 12,pointer}
   .tk-line{position:absolute;top:0;bottom:0;left:0;width:1px;pointer-events:none}
   .tk-head{z-index:5;background:var(--acc)}
   .tk-grip{position:absolute;top:0;left:-6px;z-index:2;width:13px;height:13px;background:var(--acc);clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%);cursor:ew-resize}
@@ -723,8 +725,7 @@
   @keyframes fadein{from{opacity:0}}
   @keyframes popin{from{opacity:0;transform:translateY(6px)}}
   @keyframes tick{from{opacity:0;scale:.5}}
-  /* у вкладок только прозрачность: transform сбил бы position:fixed внутри них */
-  #convView,#playView,#montView,#bannerView,.modal{animation:fadein .16s ease-out}
+  .modal{animation:fadein .16s ease-out}
   .mcard{animation:popin .2s cubic-bezier(.2,.8,.2,1)}
   .setp,.ctx{animation:popin .14s cubic-bezier(.2,.8,.2,1)}
   .ck input:checked::after{animation:tick .12s ease-out}
@@ -737,6 +738,6 @@
     transition:block-size .18s ease-out,opacity .18s ease-out,overflow 0s .18s allow-discrete,content-visibility .18s allow-discrete}
   @media (prefers-reduced-motion:reduce){
     .glide,.mt-tab,.mt-sec::details-content,.setp-adv::details-content,.mt-sec[open]::details-content,.setp-adv[open]::details-content{transition:none}
-    #convView,#playView,#montView,#bannerView,.modal,.mcard,.setp,.ctx,.ck input:checked::after{animation:none}
+    .modal,.mcard,.setp,.ctx,.ck input:checked::after{animation:none}
     .btn:active:not(:disabled),.chip:active,.segb:active{transform:none}
   }
