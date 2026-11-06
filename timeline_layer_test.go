@@ -26,6 +26,40 @@ func TestTimelineCrop(t *testing.T) {
 	}
 }
 
+// Удаление фона: на верхней дорожке видно нижнюю, на нижней в MP4 чёрный, в WebM прозрачность
+func TestTimelineKey(t *testing.T) {
+	m := newMontFixture(t)
+	under := m.color("under.mp4", "white", 320, 240, 30, 1, 0)
+	green := m.color("green.mp4", "0x00ff00", 320, 240, 30, 1, 0)
+	key := Clip{Path: green, KeyColor: "#00ff00", KeySim: 0.2, KeyBlend: 0.05, KeySpill: 0.5}
+	out := m.render(tracks([]Clip{{Path: under}}, []Clip{key}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got < 200 {
+		t.Errorf("сквозь вырезанное должно быть видно нижний слой: яркость %d", got)
+	}
+	out = m.render(tracks([]Clip{key}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got > 40 {
+		t.Errorf("без слоя под клипом в MP4 должно быть чёрное: яркость %d", got)
+	}
+	// формат с прозрачностью её сохраняет
+	out = m.render(tracks([]Clip{key}), "webm")
+	if !m.info(out).alpha {
+		t.Error("в WebM вырезанное должно остаться прозрачным")
+	}
+	// другой цвет не трогается
+	key.KeyColor = "#ff0000"
+	key.KeySpill = 0
+	out = m.render(tracks([]Clip{{Path: under}}, []Clip{key}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got > 200 {
+		t.Errorf("зелёный при красном ключе должен остаться: яркость %d", got)
+	}
+	// испорченный цвет не попадает в граф, клип остаётся как есть
+	key.KeyColor = "#0f0:evil"
+	out = m.render(tracks([]Clip{key}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got < 90 {
+		t.Errorf("с неверным цветом клип не должен вырезаться: яркость %d", got)
+	}
+}
+
 // Поворот вокруг середины рамки, по часовой, и с кадрированием, и на нижней дорожке
 func TestTimelineRotate(t *testing.T) {
 	m := newMontFixture(t)

@@ -62,8 +62,10 @@ function mvLevel(e, c) {
 function mvVolume() { if (mv.out) mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume; }
 // плавность и громкость идут за курсором времени в каждом кадре просмотра
 function mvLook() {
-  for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); }
-  for (const [id, el] of mv.pics) { const c = tkById(id); if (c) el.style.opacity = mvFadeAt(c, tkAt); }
+  const keyed = new Set();
+  for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); chromaShow(e.el, c, keyed); }
+  for (const [id, el] of mv.pics) { const c = tkById(id); if (c) { el.style.opacity = mvFadeAt(c, tkAt); if (!el.classList.contains('hide')) chromaShow(el, c, keyed); } }
+  chromaSweep(keyed);
 }
 $('mtVol').addEventListener('input', mvVolume);
 $('mtMute').addEventListener('click', mvVolume);

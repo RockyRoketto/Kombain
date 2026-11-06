@@ -114,6 +114,7 @@ function tkLoad(o, path) {
       ...share(c, 'cl'), ...share(c, 'ct'), ...share(c, 'cr'), ...share(c, 'cb'),
       ...(c.vol >= 0 && c.vol <= 2 && c.vol !== 1 ? {vol: c.vol} : {}),
       ...more(c, 'fadeIn'), ...more(c, 'fadeOut'),
+      ...(/^#[0-9a-f]{6}$/i.test(c.key) ? {key: c.key, ...more(c, 'keySim'), ...more(c, 'keyBlend'), ...more(c, 'keySpill')} : {}),
       ...(c.part === 'v' || c.part === 'a' ? {part: c.part} : {}),
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),

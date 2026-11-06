@@ -280,7 +280,14 @@
   .mt-title{font-size:14px;font-weight:600;color:var(--tx);margin:0 0 8px}
   .mt-clipname{font-size:13px;color:var(--tx);font-weight:600;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mt-group{margin:12px 0 3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
-  .mt-clipname+.mt-group{margin-top:0}
+  .mt-tabs{display:flex;gap:2px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:11px}
+  .mt-tab{flex:1;min-width:0;background:none;border:0;border-radius:8px;padding:4px 6px;font:inherit;font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer}
+  .mt-tab:hover:not(:disabled){color:var(--tx)}
+  .mt-tab.on{background:var(--accbg);color:var(--acct2);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.5)}
+  .mt-tab:disabled{opacity:.4;cursor:default}
+  .mt-tab.mark::after{content:"";display:inline-block;width:5px;height:5px;margin-left:5px;border-radius:50%;background:var(--accs);vertical-align:middle}
+  .mt-row input[type=color]{width:100%;height:20px;padding:1px;background:var(--s2);border:1px solid var(--line2);border-radius:6px;cursor:pointer}
+  .stage.mv-pick,.stage.mv-pick *{cursor:crosshair!important}
   .mt-sec{border-top:1px solid var(--line)}
   .mt-sec[open]{padding-bottom:7px}
   .mt-sec>summary{display:flex;align-items:center;gap:7px;min-height:26px;list-style:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--tx2);user-select:none}

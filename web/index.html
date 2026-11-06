@@ -247,8 +247,15 @@ __CSS__
       <div class="note" id="mtNoClip" data-i18n="mt.noClip"></div>
       <div class="hide" id="mtClipBox">
         <div class="mt-clipname" id="mtClipName"></div>
-        <div class="mt-group" id="mtGroupV" data-i18n="mt.groupVideo"></div>
-        <details class="mt-sec" id="mtSecMotion" data-sec="motion">
+        <div class="mt-tabs" id="mtTabs">
+          <button class="mt-tab" data-tab="v" data-i18n="mt.tabVideo"></button>
+          <button class="mt-tab" data-tab="a" data-i18n="mt.tabAudio"></button>
+          <button class="mt-tab" data-tab="c" data-i18n="mt.tabClip"></button>
+        </div>
+        <div class="mt-pane" data-tab="v">
+        <div id="mtCatFrame">
+        <div class="mt-group" data-i18n="mt.catFrame"></div>
+        <details class="mt-sec" data-sec="motion">
           <summary><span data-i18n="mt.secMotion"></span><em id="mtSumMotion"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posX"></span><input type="range" class="vol" id="mtPosXR" step="1" data-i18n-aria="mt.posX"><input type="number" id="mtPosX" step="1" data-i18n-aria="mt.posX"></div>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.posY"></span><input type="range" class="vol" id="mtPosYR" step="1" data-i18n-aria="mt.posY"><input type="number" id="mtPosY" step="1" data-i18n-aria="mt.posY"></div>
@@ -260,7 +267,7 @@ __CSS__
             <button class="btn sm" id="mtFrameReset" data-i18n="mt.frameReset" data-i18n-title="mt.frameResetTip"></button>
           </div>
         </details>
-        <details class="mt-sec" id="mtSecCrop" data-sec="crop">
+        <details class="mt-sec" data-sec="crop">
           <summary><span data-i18n="mt.secCrop"></span><em id="mtSumCrop"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropL"></span><input type="range" class="vol" id="mtCropLR" min="0" max="98" step="1" data-i18n-aria="mt.cropL"><input type="number" id="mtCropL" min="0" max="98" step="1" data-i18n-aria="mt.cropL"></div>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropR"></span><input type="range" class="vol" id="mtCropRR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"><input type="number" id="mtCropR" min="0" max="98" step="1" data-i18n-aria="mt.cropR"></div>
@@ -268,19 +275,39 @@ __CSS__
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropB"></span><input type="range" class="vol" id="mtCropBR" min="0" max="98" step="1" data-i18n-aria="mt.cropB"><input type="number" id="mtCropB" min="0" max="98" step="1" data-i18n-aria="mt.cropB"></div>
           <div class="mt-btns"><button class="btn sm" id="mtCropMouse" data-i18n="mt.cropMouse" data-i18n-title="mt.cropTip"></button></div>
         </details>
-        <details class="mt-sec" id="mtSecFade" data-sec="fade">
+        </div>
+        <div class="mt-group" data-i18n="mt.catBg"></div>
+        <details class="mt-sec" data-sec="key">
+          <summary><span data-i18n="mt.secKey"></span><em id="mtSumKey"></em></summary>
+          <label class="sw mt-each"><span data-i18n="mt.keyOn"></span><input type="checkbox" id="mtKeyOn"><i></i></label>
+          <div class="hide" id="mtKeyBody">
+            <div class="mt-row go"><span data-i18n="mt.keyColor"></span><input type="color" id="mtKeyColor" data-i18n-aria="mt.keyColor"><button class="btn sm" id="mtKeyPick" data-i18n="mt.keyPick" data-i18n-title="mt.keyPickTip"></button></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.keySim"></span><input type="range" class="vol" id="mtKeySimR" min="1" max="100" step="1" data-i18n-aria="mt.keySim"><input type="number" id="mtKeySim" min="1" max="100" step="1" data-i18n-aria="mt.keySim"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.keyBlend"></span><input type="range" class="vol" id="mtKeyBlendR" min="0" max="100" step="1" data-i18n-aria="mt.keyBlend"><input type="number" id="mtKeyBlend" min="0" max="100" step="1" data-i18n-aria="mt.keyBlend"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.keySpill"></span><input type="range" class="vol" id="mtKeySpillR" min="0" max="100" step="1" data-i18n-aria="mt.keySpill"><input type="number" id="mtKeySpill" min="0" max="100" step="1" data-i18n-aria="mt.keySpill"></div>
+          </div>
+        </details>
+        <div class="mt-group" data-i18n="mt.catTrans"></div>
+        <details class="mt-sec" data-sec="fade">
           <summary><span data-i18n="mt.secFade"></span><em id="mtSumFade"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
         </details>
-        <div class="mt-group" id="mtGroupA" data-i18n="mt.groupSound"></div>
-        <details class="mt-sec" id="mtSecSound" data-sec="volume">
+        </div>
+        <div class="mt-pane" data-tab="a">
+        <div class="mt-group" data-i18n="mt.catSound"></div>
+        <details class="mt-sec" data-sec="volume">
           <summary><span data-i18n="mt.secVolume"></span><em id="mtSumSound"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.volume"></span><input type="range" class="vol" id="mtVolumeR" min="0" max="200" step="1" data-i18n-aria="mt.volume"><input type="number" id="mtVolume" min="0" max="200" step="1" data-i18n-aria="mt.volume"></div>
+        </details>
+        <div class="mt-group" data-i18n="mt.catTrans"></div>
+        <details class="mt-sec" data-sec="afade">
+          <summary><span data-i18n="mt.secFade"></span><em id="mtSumAFade"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtAFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtAFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtAFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtAFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
         </details>
-        <div class="mt-group" data-i18n="mt.groupClip"></div>
+        </div>
+        <div class="mt-pane" data-tab="c">
         <details class="mt-sec" data-sec="time">
           <summary><span data-i18n="mt.secTime"></span><em id="mtSumTime"></em></summary>
           <label class="mt-row"><span data-i18n="mt.speed"></span>
@@ -300,6 +327,7 @@ __CSS__
           <summary><span data-i18n="mt.secInfo"></span></summary>
           <div class="pmeta mt-clipinfo" id="mtClipInfo"></div>
         </details>
+        </div>
       </div>
       <div class="mt-group" data-i18n="mt.groupOut"></div>
       <details class="mt-sec" data-sec="result">

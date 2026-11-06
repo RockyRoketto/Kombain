@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,6 +58,11 @@ type Clip struct {
 	// Плавное появление и исчезание, секунды на дорожке: у картинки прозрачность, у звука громкость
 	FadeIn  float64 `json:"fadeIn,omitempty"`
 	FadeOut float64 `json:"fadeOut,omitempty"`
+	// Удаление фона по цвету: цвет #rrggbb (пусто — выключено), допуск, мягкость края и подавление отсвета, доли. Просмотр: web/js/chroma.js
+	KeyColor string  `json:"key,omitempty"`
+	KeySim   float64 `json:"keySim,omitempty"`
+	KeyBlend float64 `json:"keyBlend,omitempty"`
+	KeySpill float64 `json:"keySpill,omitempty"`
 }
 
 func (c Clip) volume() float64 {
@@ -122,6 +128,12 @@ func (p *Project) fit() {
 				c.Vol = &v
 			}
 			c.FadeIn, c.FadeOut = max(c.FadeIn, 0), max(c.FadeOut, 0)
+			if !tlKeyRe.MatchString(c.KeyColor) { // значение идёт в граф ffmpeg, поэтому только настоящий цвет
+				c.KeyColor = ""
+			}
+			c.KeySim = min(max(c.KeySim, 0.001), 1)
+			c.KeyBlend = min(max(c.KeyBlend, 0), 1)
+			c.KeySpill = min(max(c.KeySpill, 0), 1)
 		}
 	}
 }
@@ -367,6 +379,7 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 		return srcInfo{}, err
 	}
 	var anyAudio, anyVideo, alpha, deep bool
+	keep := tlKeepsAlpha(f)
 	var first string
 	var reversed []montClip
 	for _, list := range tracks {
@@ -376,7 +389,7 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 			}
 			anyAudio = anyAudio || c.si.audio
 			anyVideo = anyVideo || c.si.video
-			alpha = alpha || (c.si.video && c.si.alpha)
+			alpha = alpha || (c.si.video && (c.si.alpha || (c.KeyColor != "" && keep)))
 			deep = deep || (c.si.video && c.si.deep)
 			if c.Reverse {
 				reversed = append(reversed, c.montClip)
@@ -409,7 +422,7 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 	}
 	var graph []string
 	if wantV {
-		graph = append(graph, tlVideoGraph(tracks, w, h, fps, total, alpha, deep)...)
+		graph = append(graph, tlVideoGraph(tracks, w, h, fps, total, alpha, deep, keep)...)
 	}
 	if wantA {
 		graph = append(graph, tlAudioGraph(tracks, fps, total)...)
@@ -475,7 +488,7 @@ func tlInput(c tlClip, fps float64) []string {
 // tlVideoGraph: у каждой дорожки своя склейка, потом они ложатся друг на друга.
 // Нижняя занимает всё время, пустоты в ней чёрные (прозрачные, если в монтаже есть слой с прозрачностью).
 // Верхняя начинается со своего первого клипа и заканчивается с последним: вне их overlay отдаёт то, что ниже.
-func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, deep bool) []string {
+func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, deep, keep bool) []string {
 	var layers [][]tlClip
 	for _, list := range tracks {
 		if slices.ContainsFunc(list, func(c tlClip) bool { return c.si.video }) {
@@ -528,7 +541,7 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 				gap(c.start - pos)
 			}
 			label := fmt.Sprintf("[c%d_%d]", l, len(join))
-			graph = append(graph, fmt.Sprintf("[%d:v:0]%s%s", c.input, tlClipChain(c, w, h, fps, pix, bg), label))
+			graph = append(graph, fmt.Sprintf("[%d:v:0]%s%s", c.input, tlClipChain(c, w, h, fps, pix, bg, bottom && !keep), label))
 			join = append(join, label)
 			pos = c.end
 		}
@@ -560,8 +573,15 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 
 // tlClipChain: кадры одного клипа: нужный размер и частота, реверс, скорость и точная длина.
 // Картинка в файле бывает короче звука: последний кадр держится, иначе следующий клип приехал бы раньше времени.
-func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
+// flat: под клипом ничего нет, а формат не хранит прозрачность, поэтому вырезанное становится чёрным.
+func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) string {
 	var chain []string
+	if c.KeyColor != "" {
+		chain = append(chain, tlKeyChain(c.Clip, flat)...)
+		if pix == "" {
+			pix = "yuv420p"
+		}
+	}
 	if pix != "" {
 		chain = append(chain, "format="+pix)
 	}
@@ -590,6 +610,37 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string) string {
 	// у нижней дорожки под клипом чёрный фон, у верхней слой уходит в прозрачность
 	chain = append(chain, tlFades(c, fps, "fade", "setpts", bg != "black")...)
 	return strings.Join(chain, ",")
+}
+
+var tlKeyRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// tlKeepsAlpha: хранит ли формат результата прозрачность
+func tlKeepsAlpha(f Format) bool {
+	switch f.codec() {
+	case "libvpx-vp9", "libvpx", "qtrle", "apng", "libwebp_anim":
+		return true
+	}
+	return f.Ext == "png" || f.Ext == "webp" || slices.Contains(f.Args, "yuva444p10le")
+}
+
+// tlKeyChain: удаление фона по цвету. Считается в RGB, те же формулы в просмотре (web/js/chroma.js).
+// Отсвет убирается у того канала, который в цвете фона главный: зелёного или синего.
+func tlKeyChain(c Clip, flat bool) []string {
+	hex := strings.ToLower(c.KeyColor[1:])
+	chain := []string{"format=rgba", fmt.Sprintf("colorkey=0x%s:%s:%s", hex, secs(c.KeySim), secs(c.KeyBlend))}
+	if c.KeySpill > 0 {
+		var r, g, b int
+		fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
+		if g >= r && g >= b {
+			chain = append(chain, fmt.Sprintf("despill=type=green:mix=0.5:expand=0:red=0:green=%s:blue=0", secs(-c.KeySpill)))
+		} else if b >= r {
+			chain = append(chain, fmt.Sprintf("despill=type=blue:mix=0.5:expand=0:red=0:green=0:blue=%s", secs(-c.KeySpill)))
+		}
+	}
+	if flat {
+		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
+	}
+	return chain
 }
 
 // tlFades: плавное появление и исчезание клипа. Время считается от начала целого клипа: если метка вывода срезала

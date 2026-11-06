@@ -233,6 +233,28 @@ $('mtClear').onclick = mtClear;
 const mtSum = (id, text) => { $(id).textContent = text; };
 const mtFadeSum = (a, b) => [a ? '↗' + a : '', b ? '↘' + b : ''].filter(Boolean).join(' ');
 let mtTrimIt = null;   // что открыто в окне обрезки
+// Вкладки панели: Видео, Аудио, Клип. Выбор запоминается; если у клипа такой части нет, видна первая из тех, что есть.
+// Точка на вкладке: внутри что-то изменено.
+let mtTab = 'v';
+try { mtTab = localStorage.getItem('konv9000.mtTab') || 'v'; } catch (err) {}
+function mtTabs() {
+  const has = {v: mtFrameClips().length > 0, a: mtSoundClips().length > 0, c: true};
+  const show = has[mtTab] ? mtTab : has.v ? 'v' : has.a ? 'a' : 'c';
+  $('mtPanel').querySelectorAll('.mt-pane').forEach(p => {
+    const id = p.dataset.tab, b = $('mtTabs').querySelector(`[data-tab="${id}"]`);
+    p.classList.toggle('hide', id !== show);
+    b.classList.toggle('on', id === show);
+    b.disabled = !has[id];
+    b.classList.toggle('mark', has[id] && [...p.querySelectorAll('summary em')].some(e => e.textContent && !e.closest('#mtCatFrame.hide')));
+  });
+}
+$('mtTabs').addEventListener('click', e => {
+  const b = e.target.closest('.mt-tab');
+  if (!b || b.disabled) return;
+  mtTab = b.dataset.tab;
+  try { localStorage.setItem('konv9000.mtTab', mtTab); } catch (err) {}
+  mtTabs();
+});
 function mtPanel() {
   const list = tkSelected(), one = tkOne();
   $('mtNoClip').classList.toggle('hide', list.length > 0);
@@ -262,11 +284,24 @@ const mtFrameOne = () => { const c = tkOne(); return c && tkTrackOf(c).kind === 
 const mtSame = (list, get) => { const v = get(list[0]); return list.every(c => get(c) === v) ? v : ''; };
 const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
-function mtFramePanel() {
+function mtFramePanel() { mtFrameFill(); mtTabs(); }
+function mtSoundPanel() { mtSoundFill(); mtTabs(); }
+function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
-  ['mtGroupV', 'mtSecFade'].forEach(id => $(id).classList.toggle('hide', !clips.length));
-  ['mtSecMotion', 'mtSecCrop'].forEach(id => $(id).classList.toggle('hide', !one));
+  $('mtCatFrame').classList.toggle('hide', !one);
   if (!clips.length) return;
+  const keyOn = clips.every(c => c.key);
+  $('mtKeyOn').checked = keyOn;
+  $('mtKeyBody').classList.toggle('hide', !keyOn);
+  $('mtKeyPick').classList.toggle('hide', !one);
+  $('mtKeyPick').classList.toggle('on', chromaPicking());
+  if (keyOn) {
+    $('mtKeyColor').value = clips[0].key;
+    mtVal('mtKeySim', mtSame(clips, c => mtRnd((c.keySim || 0) * 100, 0)));
+    mtVal('mtKeyBlend', mtSame(clips, c => mtRnd((c.keyBlend || 0) * 100, 0)));
+    mtVal('mtKeySpill', mtSame(clips, c => mtRnd((c.keySpill || 0) * 100, 0)));
+  }
+  mtSum('mtSumKey', clips.some(c => c.key) ? '●' : '');
   const fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
   mtVal('mtFadeIn', fadeIn);
   mtVal('mtFadeOut', fadeOut);
@@ -290,16 +325,16 @@ function mtFramePanel() {
   mtSum('mtSumCrop', crop.some(Boolean) ? '●' : '');
   $('mtCropMouse').classList.toggle('on', mv.crop === one.id);
 }
-function mtSoundPanel() {
+function mtSoundFill() {
   const clips = mtSoundClips();
-  ['mtGroupA', 'mtSecSound'].forEach(id => $(id).classList.toggle('hide', !clips.length));
   if (!clips.length) return;
   const v = mtSame(clips, c => c.vol === undefined ? 1 : c.vol), fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
   mtVal('mtVolume', v === '' ? '' : Math.round(v * 100));
   mtVal('mtAFadeIn', fadeIn);
   mtVal('mtAFadeOut', fadeOut);
   mtFadeMax(clips, 'mtAFadeIn', 'mtAFadeOut');
-  mtSum('mtSumSound', [v !== '' && v !== 1 ? Math.round(v * 100) + '%' : '', mtFadeSum(fadeIn, fadeOut)].filter(Boolean).join(' '));
+  mtSum('mtSumSound', v !== '' && v !== 1 ? Math.round(v * 100) + '%' : '');
+  mtSum('mtSumAFade', mtFadeSum(fadeIn, fadeOut));
 }
 // число и ползунок одного ряда; разные значения у нескольких клипов: поле пустое, ползунок в начале
 function mtVal(id, v) { $(id).value = v; $(id + 'R').value = v === '' ? +$(id + 'R').min || 0 : v; }
@@ -384,7 +419,21 @@ mtFadeRow('mtFadeIn', 'fadeIn', mtFrameClips);
 mtFadeRow('mtFadeOut', 'fadeOut', mtFrameClips);
 mtFadeRow('mtAFadeIn', 'fadeIn', mtSoundClips);
 mtFadeRow('mtAFadeOut', 'fadeOut', mtSoundClips);
-mtRow('mtVolume', .5, v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
+// удаление фона: значения в панели в процентах, в клипе доли
+const mtKeyRow = (id, key, lo) => mtRow(id, .5, v => mtFrameClips().forEach(c => { if (c.key) mtPut(c, key, mtRnd(Math.min(Math.max(v, lo), 100) / 100, 3), 0); }));
+mtKeyRow('mtKeySim', 'keySim', 1);
+mtKeyRow('mtKeyBlend', 'keyBlend', 0);
+mtKeyRow('mtKeySpill', 'keySpill', 0);
+$('mtKeyOn').addEventListener('change', e => {
+  const on = e.target.checked;
+  tkDo(() => mtFrameClips().forEach(c => {
+    if (on) { if (!c.key) Object.assign(c, {key: '#00b140', keySim: .25, keyBlend: .08, keySpill: .5}); }
+    else { delete c.key; delete c.keySim; delete c.keyBlend; delete c.keySpill; }
+  }));
+});
+$('mtKeyColor').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => { if (c.key) c.key = v; })); });
+$('mtKeyPick').addEventListener('click', () => { chromaPickToggle(); mtFramePanel(); });
+mtRow('mtVolume', .5,v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
 
 // ---------- логотип: картинка на новой верхней дорожке, на весь монтаж, в правом верхнем углу ----------
 const MT_LOGO_W = .15, MT_LOGO_GAP = .03;
@@ -513,7 +562,7 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
-  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut'].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
+  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'key', 'keySim', 'keyBlend', 'keySpill'].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
