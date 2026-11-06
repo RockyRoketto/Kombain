@@ -105,5 +105,5 @@ func montGraphArgs(si srcInfo, tail string) []string {
 	if si.audio {
 		args = append(args, "-map", "[a]")
 	}
-	return args
+	return append(args, si.subsMap...)
 }

@@ -762,6 +762,24 @@ func pickSound() (string, error) {
 	return p[0], nil
 }
 
+func pickSubs() (string, error) {
+	p, err := dialogOnUI(false, false, tr("dlg.pickSubs"), tr("dlg.subsFiles"), "*.srt")
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
+func pickSubsSave() (string, error) {
+	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
+		return showSaveDialog(owner, tr("dlg.saveSubs"), tr("dlg.subsFiles"), "*.srt", "srt")
+	})
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
 func pickProjectOpen() (string, error) {
 	p, err := dialogOnUI(false, false, tr("dlg.openProject"), tr("dlg.projectFiles"), "*"+projectExt+";*"+projectOldExt)
 	if err != nil || len(p) == 0 {

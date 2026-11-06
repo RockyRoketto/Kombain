@@ -59,7 +59,7 @@ var (
 	proxySlots = make(chan struct{}, proxyWorkers)
 )
 
-func proxyDir() string { return filepath.Join(dataDir(), "preview") }
+func proxyDir() string { return filepath.Join(cacheDir(), "preview") }
 
 // proxyStem: имя копии без расширения. Оно зависит от времени и размера оригинала, изменившийся файл получит новую.
 func proxyStem(p string, piece proxyPiece) (string, bool) {

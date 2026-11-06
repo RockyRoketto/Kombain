@@ -64,7 +64,7 @@ function mtRemove(it) {
 }
 function mtClear() {
   mvFileOff();
-  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; tkCanvas = null; });
+  tkDo(() => { mtFiles = []; tkTracks = tkFresh(); tkAt = 0; tkPath = ''; tkIn = tkOut = null; tkMarkers = []; tkCanvas = null; tkSubs = null; });
 }
 function mtRender() {
   $('mtEmpty').classList.toggle('hide', mtFiles.length > 0);
@@ -88,7 +88,7 @@ function mtButtons() {
 function mtTabChanged() {
   if (tab !== 'mont') { mvPause(); mvUnload(); return; }
   plHold();
-  mtSplitLoad();
+  mtSplitLoad(); mtVSplitLoad();
   tkRender();
   mvShow();
   mtCopies();
@@ -125,7 +125,47 @@ $('mtSplit').addEventListener('pointerdown', e => {
   bar.addEventListener('pointercancel', up);
 });
 function mtSplitLoad() { const h = +storeGet(MT_SPLIT_KEY); if (h > 0) mtSplitSet(h); }
-window.addEventListener('resize', () => { if (tab === 'mont') mtSplitLoad(); });
+window.addEventListener('resize', () => { if (tab === 'mont') { mtSplitLoad(); mtVSplitLoad(); } });
+// Ширина панели эффектов: тянется за полосу между ней и вьюпортом, двойной щелчок возвращает как было
+const MT_VSPLIT_KEY = 'konv9000.mtPanelW';
+function mtVSplitPlace() {
+  const p = $('mtPanel'), bar = $('mtVSplit');
+  Object.assign(bar.style, {left: p.offsetLeft - 7 + 'px', top: p.offsetTop + 'px', height: p.offsetHeight + 'px'});
+}
+function mtVSplitSet(w) {
+  const view = $('montView').clientWidth, left = $('mtStage').closest('.mt-view').offsetLeft;
+  const v = Math.round(Math.min(Math.max(w, 220), Math.max(view - left - 320, 220)));
+  $('montView').style.setProperty('--mt-right', v + 'px');
+  mvSizeCanvas();
+  return v;
+}
+function mtVSplitLoad() { const w = +storeGet(MT_VSPLIT_KEY); if (w > 0) mtVSplitSet(w); }
+new ResizeObserver(mtVSplitPlace).observe($('mtPanel'));
+$('mtVSplit').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const bar = $('mtVSplit'), x0 = e.clientX, w0 = $('mtPanel').offsetWidth;
+  let cur = w0;
+  bar.setPointerCapture(e.pointerId);
+  bar.classList.add('on');
+  const move = ev => { cur = mtVSplitSet(w0 - (ev.clientX - x0)); mtVSplitPlace(); };
+  const up = () => {
+    bar.removeEventListener('pointermove', move);
+    bar.removeEventListener('pointerup', up);
+    bar.removeEventListener('pointercancel', up);
+    bar.classList.remove('on');
+    storeSet(MT_VSPLIT_KEY, cur);
+  };
+  bar.addEventListener('pointermove', move);
+  bar.addEventListener('pointerup', up);
+  bar.addEventListener('pointercancel', up);
+});
+$('mtVSplit').addEventListener('dblclick', () => {
+  $('montView').style.removeProperty('--mt-right');
+  storeSet(MT_VSPLIT_KEY, '');
+  mvSizeCanvas();
+  mtVSplitPlace();
+});
 
 // ---------- перенос файла на дорожку ----------
 function mtDragFile(e, it) {
@@ -256,13 +296,14 @@ $('mtTabs').addEventListener('click', e => {
   mtTabs();
 });
 function mtPanel() {
+  mtSubsFill();
   const list = tkSelected(), one = tkOne();
   $('mtNoClip').classList.toggle('hide', list.length > 0);
   $('mtClipBox').classList.toggle('hide', !list.length);
   if (!list.length) return;
   const clips = list.filter(c => !tkPhoto(c));
-  $('mtClipName').textContent = one ? base(one.path) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
-  $('mtClipName').title = one ? one.path : '';
+  $('mtClipName').textContent = one ? tkClipName(one) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
+  $('mtClipName').title = one && !one.text ? one.path : '';
   const same = clips.length && clips.every(c => c.speed === clips[0].speed);
   $('mtSpeed').value = same ? String(clips[0].speed) : '';
   $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
@@ -285,7 +326,7 @@ const mtSame = (list, get) => { const v = get(list[0]); return list.every(c => g
 const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
 const MT_COLOR = [['mtColBri', 'cBri'], ['mtColCon', 'cCon'], ['mtColMid', 'cMid'], ['mtColSat', 'cSat'], ['mtColTemp', 'cTemp'], ['mtColTint', 'cTint']];
-function mtFramePanel() { mtFrameFill(); mtTabs(); }
+function mtFramePanel() { mtTextFill(); mtFrameFill(); mtTabs(); }
 function mtSoundPanel() { mtSoundFill(); mtTabs(); }
 function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
@@ -466,6 +507,109 @@ $('mtLogo').onclick = () => dialog(async () => {
   });
 });
 
+// ---------- субтитры из файла: они на весь монтаж, поэтому раздел виден и без выбранного клипа ----------
+var mtSubsWait = '', mtSubsErr = '';   // var: mtPanel может позвать раньше, чем дойдёт до этой строки
+// проект старой сборки хранит только путь: реплики прочитать из файла, дальше они живут в проекте
+async function mtSubsLoad(path) {
+  mtSubsWait = path;
+  mtSubsErr = '';
+  const r = await api('subs-read', {path});
+  if (!tkSubs || tkSubs.path !== path || tkSubs.cues) return;
+  if (r.error) mtSubsErr = r.error; else tkSubs.cues = r.cues || [];
+  mtSubsFill();
+  tkRender();
+  mvSubsDraw();
+}
+function mtSubsFill() {
+  const s = tkSubs;
+  $('mtSubsBody').classList.toggle('hide', !s);
+  $('mtSubsOff').classList.toggle('hide', !s);
+  mtSum('mtSumSubs', s ? t(s.mode === 'track' ? 'mt.subsTrack' : 'mt.subsBurn') : '');
+  $('mtSubsName').textContent = s ? base(s.path) : '';
+  $('mtSubsName').title = s ? s.path : '';
+  mtCuesFill();
+  if (!s) { mtSubsWait = mtSubsErr = ''; $('mtSubsErr').classList.add('hide'); return; }
+  if (!s.cues && s.path !== mtSubsWait) mtSubsLoad(s.path);
+  $('mtSubsErr').textContent = mtSubsErr;
+  $('mtSubsErr').classList.toggle('hide', !mtSubsErr);
+  $('mtSubsMode').value = s.mode;
+  mtFontPut($('mtSubsFont'), s.font);
+  $('mtSubsPos').value = s.pos;
+  mtVal('mtSubsSize', mtRnd(s.size * 100, 1));
+  $('mtSubsColor').value = s.color || '#ffffff';
+  $('mtSubsBackOn').checked = !!s.back;
+  $('mtSubsBackBody').classList.toggle('hide', !s.back);
+  $('mtSubsBack').value = s.back || '#000000';
+  mtVal('mtSubsBackA', Math.round((s.backA > 0 ? s.backA : .6) * 100));
+  mtVal('mtSubsW', Math.round((s.w || .9) * 100));
+  $('mtSubsLook').classList.toggle('hide', s.mode === 'track');
+  $('mtSubsNote').classList.toggle('hide', s.mode !== 'track');
+}
+$('mtSubsPick').onclick = () => dialog(async () => {
+  const r = await api('subs-pick');
+  if (r.error) { say('err', t('mt.secSubs'), r.error); return; }
+  if (!r.path) return;
+  const c = await api('subs-read', {path: r.path});
+  if (c.error) { say('warn', t('mt.secSubs'), c.error); return; }
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || []}; mtCueSel = null; });
+});
+$('mtSubsOff').onclick = () => tkDo(() => { tkSubs = null; });
+// Автосубтитры: выбор модели и языка запоминается, сама работа идёт в программе (whisper.go), страница только следит за ходом
+const mtAutoSizes = {tiny: 77691713, base: 147951465, small: 487601967};
+['mtAutoModel', 'mtAutoLang'].forEach(id => {
+  const v = storeGet('konv9000.' + id);
+  if (v && [...$(id).options].some(o => o.value === v)) $(id).value = v;
+  $(id).addEventListener('change', () => { storeSet('konv9000.' + id, $(id).value); $(id).blur(); });
+});
+function mtAutoShow(job) {
+  $('mtAutoGo').classList.toggle('hide', job.active);
+  $('mtAutoRun').classList.toggle('hide', !job.active);
+  if (job.active) {
+    const pct = Math.round(job.pct || 0), stage = job.stage || 'audio';
+    $('mtAutoText').textContent = t({tool: 'mt.auto.getTool', model: 'mt.auto.getModel', audio: 'mt.auto.audio', speech: 'mt.auto.speech'}[stage]) + (stage === 'audio' ? '' : ` ${pct}%`);
+    $('mtAutoBar').style.width = (stage === 'audio' ? 0 : pct) + '%';
+  }
+}
+async function mtAutoWatch() {
+  const job = await api('whisper-state');
+  mtAutoShow(job);
+  if (job.active) { setTimeout(mtAutoWatch, 400); return; }
+  if (job.err) { say('err', t('mt.auto.title'), job.err); return; }
+  if (!job.path) return;   // отменили
+  const c = await api('subs-read', {path: job.path});
+  if (c.error) { say('warn', t('mt.auto.title'), c.error); return; }
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || []}; mtCueSel = null; });
+  document.querySelector('details[data-sec=subs]').open = true;
+  toast({id: 'auto', type: 'ok', title: t('mt.auto.done'), text: esc(base(job.path)), ttl: 6000});
+}
+$('mtAutoGo').onclick = () => dialog(async () => {
+  if (!tkLive().length) { say('warn', t('start.emptyTitle'), t('mt.empty')); return; }
+  mvPause();
+  const model = $('mtAutoModel').value, info = await api('whisper-info');
+  const need = (info.tool ? 0 : info.toolSize) + (info.models && info.models[model] ? 0 : mtAutoSizes[model]);
+  if (need > 0 && !confirm(t('mt.auto.ask', {size: fmtSize(need)}))) return;
+  const r = await api('whisper-start', {project: mtProject().project, model, lang: $('mtAutoLang').value});
+  if (r.error) { say('err', t('mt.auto.title'), r.error); return; }
+  mtAutoWatch();
+});
+$('mtAutoStop').onclick = () => api('whisper-cancel');
+[['mtSubsMode', 'mode'], ['mtSubsFont', 'font'], ['mtSubsPos', 'pos']].forEach(([id, key]) => $(id).addEventListener('change', () => {
+  const v = $(id).value;
+  $(id).blur();
+  // выбор положения из списка снимает то, что перетащили мышью
+  if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, [key]: v}; if (key === 'pos') { delete tkSubs.x; delete tkSubs.y; } });
+}));
+$('mtSubsColor').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, color: $('mtSubsColor').value}; }); });
+$('mtSubsBack').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, back: $('mtSubsBack').value}; }); });
+$('mtSubsBackOn').addEventListener('change', () => {
+  $('mtSubsBackOn').blur();
+  if (tkSubs) tkDo(() => { tkSubs = {...tkSubs}; if ($('mtSubsBackOn').checked) tkSubs.back = $('mtSubsBack').value; else delete tkSubs.back; });
+});
+const mtSubsLive = patch => { if (tkSubs) { tkSubs = {...tkSubs, ...patch}; mtSubsFill(); mvSubsDraw(); } };
+mtRow('mtSubsBackA', .5, v => mtSubsLive({backA: mtRnd(Math.min(Math.max(v, 5), 100) / 100, 2)}));
+mtRow('mtSubsW', .25, v => { const w = mtRnd(Math.min(Math.max(v, 10), 100) / 100, 3), x = tkSubs ? tkSubs.x || .5 : .5; mtSubsLive({w, ...(tkSubs && tkSubs.x ? {x: Math.min(Math.max(x, w / 2), 1 - w / 2)} : {})}); });
+mtRow('mtSubsSize', .05, v => { if (tkSubs) { tkSubs = {...tkSubs, size: mtRnd(Math.min(Math.max(v, 1), 20) / 100, 4)}; mtSubsFill(); mvSubsDraw(); } });
+
 // строка в панели: сколько получится и что программа сделает сама
 function mtInfo() {
   const parts = [], total = tkLive().length, [a, b] = mtRange();
@@ -560,6 +704,7 @@ async function mtProjectOpen(path) {
   if (!tkLoad(r.data, r.path)) { say('err', t('mt.openFailed'), base(r.path)); return; }
   mvPause(); mvUnload();
   tkChanged();
+  mtTextRefresh();
   tkFit();
 }
 function mtProjectIncoming(path) { setTab('mont'); mtProjectOpen(path); }
@@ -575,7 +720,7 @@ const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkE
 function mtProject() {
   const tracks = tkTracks.filter(x => x.clips.length && !x.off).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
   const [a, b] = mtRange();
-  const project = {...(tkCanvas || {}), tracks, in: tkIn || 0, out: tkOut || 0};
+  const project = {...(tkCanvas || {}), tracks, in: tkIn || 0, out: tkOut || 0, ...(tkSubs ? {subs: tkSubs} : {})};
   return {project, dur: Math.max(b - a, 0), paths: tkLive().filter(mtInRange).sort((x, y) => x.at - y.at).map(c => c.path)};
 }
 const mtListOf = paths => [...new Map(paths.map(p => [mtKey(p), mtFile(p) || {path: p}])).values()];
@@ -595,7 +740,7 @@ $('mtSend').onclick = () => {
       // клип отдельным файлом, связанная пара одним файлом; остаётся только то, что попало между метками
       const group = c.link ? inside.filter(o => o.link === c.link) : [c];
       const lo = Math.max(a, Math.min(...group.map(o => o.at))), hi = Math.min(b, Math.max(...group.map(tkEnd)));
-      addMontage({...(tkCanvas || {}), tracks: group.map(o => ({clips: [mtClipOut(o, o.at)]})), in: lo, out: hi}, mtListOf(group.map(o => o.path)), hi - lo);
+      addMontage({...(tkCanvas || {}), tracks: group.map(o => ({clips: [mtClipOut(o, o.at)]})), in: lo, out: hi, ...(tkSubs ? {subs: tkSubs} : {})}, mtListOf(group.map(o => o.path)), hi - lo);
     });
   } else {
     const p = mtProject();
@@ -608,3 +753,4 @@ try {
   const saved = JSON.parse(storeGet(TK_SAVE_KEY) || 'null');
   if (saved) tkLoad(saved, saved.path);
 } catch (e) {}
+setTimeout(mtTextRefresh);   // когда все скрипты уже загружены

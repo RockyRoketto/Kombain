@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -446,6 +447,92 @@ func (s *Server) routes() *http.ServeMux {
 			return
 		}
 		writeJSON(w, map[string]any{"path": path})
+	}))
+
+	mux.HandleFunc("/api/whisper-info", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, whisperInstalled())
+	}))
+
+	mux.HandleFunc("/api/whisper-state", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, whisperState())
+	}))
+
+	mux.HandleFunc("/api/whisper-start", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Project Project `json:"project"`
+			Model   string  `json:"model"`
+			Lang    string  `json:"lang"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		s.mu.Lock()
+		ffm := s.ffmpeg
+		s.mu.Unlock()
+		if err := whisperStart(ffm, body.Project, body.Model, body.Lang); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, whisperState())
+	}))
+
+	mux.HandleFunc("/api/whisper-cancel", s.api(func(w http.ResponseWriter, r *http.Request) {
+		whisperStop()
+		writeJSON(w, map[string]any{})
+	}))
+
+	mux.HandleFunc("/api/fonts", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"fonts": systemFonts()})
+	}))
+
+	// Картинка клипа «Текст»: её рисует страница, потому что только она знает все шрифты и письмо справа налево
+	mux.HandleFunc("/api/text-png", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Data string `json:"data"`
+		}
+		json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<20)).Decode(&body)
+		path, err := saveTextPNG(body.Data)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
+	mux.HandleFunc("/api/subs-pick", s.api(func(w http.ResponseWriter, r *http.Request) {
+		path, err := pickSubs()
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
+	mux.HandleFunc("/api/subs-save", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Cues []SubCue `json:"cues"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		path, err := pickSubsSave()
+		if err == nil && path != "" {
+			err = os.WriteFile(path, []byte(subsSRT(subsRange(body.Cues, 0, math.MaxFloat64))), 0o644)
+		}
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
+	mux.HandleFunc("/api/subs-read", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		cues, err := subsRead(body.Path)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"cues": cues})
 	}))
 
 	mux.HandleFunc("/api/project-open", s.api(func(w http.ResponseWriter, r *http.Request) {

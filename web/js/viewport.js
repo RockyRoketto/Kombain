@@ -66,7 +66,68 @@ function mvLook() {
   for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); chromaShow(e.el, c, keyed); }
   for (const [id, el] of mv.pics) { const c = tkById(id); if (c) { el.style.opacity = mvFadeAt(c, tkAt); if (!el.classList.contains('hide')) chromaShow(el, c, keyed); } }
   chromaSweep(keyed);
+  mvSubsDraw();
 }
+// Субтитры поверх всех слоёв, те же размеры, что в subsASS (subtitles.go). В ASS размер шрифта — это высота строки, в CSS — кегль:
+// их отношение своё у каждого шрифта. Без файла в проекте или без реплики в этот момент ничего не видно.
+const mvSubLines = new Map();
+function mvSubLine(font) {
+  if (!mvSubLines.has(font)) {
+    const g = document.createElement('canvas').getContext('2d');
+    g.font = `100px "${font}"`;
+    const m = g.measureText('Ag');
+    mvSubLines.set(font, (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) / 100 || 1.15);
+  }
+  return mvSubLines.get(font);
+}
+function mvSubsDraw() {
+  const el = $('mvSubs'), s = tkSubs;
+  mtCueNow();
+  const text = s ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => c.t).join('\n').trim() : '';
+  el.classList.toggle('hide', !text);
+  if (!text) return;
+  let span = el.firstElementChild;
+  if (!span) { span = document.createElement('span'); el.appendChild(span); }
+  if (span.textContent !== text) span.textContent = text;
+  const size = s.size * mvCv.clientHeight, w = s.w || .9, x = s.x || .5, pad = size * .12;
+  el.dataset.pos = s.y > 0 ? 'free' : s.pos;
+  Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '',
+    fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size + 'px', color: s.color || '#fff'});
+  const a = s.backA > 0 ? s.backA : .6, hex = s.back || '#000000';
+  Object.assign(span.style, s.back
+    ? {webkitTextStroke: '', backgroundColor: `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`, padding: `${pad}px`}
+    : {webkitTextStroke: `${pad}px #000`, backgroundColor: '', padding: ''});
+  span.style.pointerEvents = s.mode === 'track' ? 'none' : '';
+}
+// Положение тянется мышью прямо во вьюпорте; у дорожки в файле его выбирает плеер
+$('mvSubs').addEventListener('pointerdown', e => {
+  const s = tkSubs;
+  if (!s || e.button !== 0 || s.mode === 'track') return;
+  e.stopPropagation();
+  if (mv.playing) mvPause();
+  const before = tkState(), cv = mvCv.getBoundingClientRect(), r = $('mvSubs').getBoundingClientRect();
+  const w = s.w || .9, x0 = s.x || .5, y0 = (r.bottom - cv.top) / cv.height, cx = e.clientX, cy = e.clientY;
+  let moved = false;
+  tkDrag(e, ev => {
+    moved = true;
+    let x = Math.min(Math.max(x0 + (ev.clientX - cx) / cv.width, w / 2), 1 - w / 2);
+    if (Math.abs(x - .5) < .012) x = .5;   // середина кадра прилипает
+    tkSubs.x = +x.toFixed(4);
+    tkSubs.y = +Math.min(Math.max(y0 + (ev.clientY - cy) / cv.height, s.size), 1).toFixed(4);
+    mvSubsDraw();
+  }, () => { if (moved) tkCommit(before); });
+});
+$('mvSubs').addEventListener('click', e => e.stopPropagation());
+// Сетка и телевизионные зоны поверх кадра: только для просмотра, в результат не идут
+function mvGuidesSet(id, btn, key, on) {
+  $(id).classList.toggle('hide', !on);
+  $(btn).classList.toggle('on', on);
+  storeSet(key, on ? '1' : '');
+}
+[['mvGrid', 'mvGridBtn', 'konv9000.mvGrid'], ['mvSafe', 'mvSafeBtn', 'konv9000.mvSafe']].forEach(([id, btn, key]) => {
+  mvGuidesSet(id, btn, key, !!storeGet(key));
+  $(btn).onclick = () => { mvGuidesSet(id, btn, key, $(id).classList.contains('hide')); $(btn).blur(); };
+});
 $('mtVol').addEventListener('input', mvVolume);
 $('mtMute').addEventListener('click', mvVolume);
 function mvNote(text) {
@@ -112,7 +173,7 @@ function mvSizeCanvas() {
   Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: Math.floor((W - w) / 2) + 'px', top: Math.floor((H - h) / 2) + 'px'});
   mvCanvasBtn();
 }
-new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); } }).observe(mvStage);
+new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); } }).observe(mvStage);
 // Рамка слоя в долях холста. Без своей рамки слой вписан по центру, как делает движок.
 function mvBox(c) { return c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : mvFitBox(c); }
 // слой, вписанный в кадр по центру (tlFitBox)

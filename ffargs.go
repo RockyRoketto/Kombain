@@ -39,8 +39,9 @@ type srcInfo struct {
 	rotated bool // в файле метка поворота на 90°: кадр ляжет боком к тому, что написано в w и h
 	deep    bool // больше 8 бит на канал: кадр занимает больше памяти
 
-	inputs []string // монтаж: все входы вместе с их параметрами вместо одного src (montPlan)
-	graph  string   // монтаж: граф фильтров с выходами [v] и [a]
+	inputs  []string // монтаж: все входы вместе с их параметрами вместо одного src (montPlan)
+	graph   string   // монтаж: граф фильтров с выходами [v] и [a]
+	subsMap []string // монтаж: как взять дорожку субтитров из входов и чем её записать
 }
 
 func probe(ctx context.Context, ffm, src string) srcInfo {

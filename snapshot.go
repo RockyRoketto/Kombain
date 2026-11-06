@@ -103,6 +103,9 @@ func snapPublish(tmp, dst string) (string, error) {
 // saveMontFrame сохраняет кадр монтажа в момент at: все слои в полном разрешении, собранные тем же движком, что и результат.
 func saveMontFrame(ffm string, p Project, at float64) (string, error) {
 	p.In, p.Out = max(at, 0), max(at, 0)+1e-6 // tlRange сам расширит до одного кадра
+	if p.Subs != nil && p.Subs.Mode == subsModeTrk {
+		p.Subs = nil // дорожка не часть кадра
+	}
 	si, err := timelineInfo(context.Background(), ffm, p, Format{Kind: "anim"})
 	if err != nil {
 		return "", err

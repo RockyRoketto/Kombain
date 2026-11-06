@@ -246,7 +246,7 @@ func writeUninstallEntry(exe string) error {
 	k.SetStringValue("InstallDate", time.Now().Format("20060102"))
 	k.SetDWordValue("NoModify", 1)
 	k.SetDWordValue("NoRepair", 1)
-	size := fileSize(exe) + fileSize(filepath.Join(dataDir(), ffName()))
+	size := fileSize(exe) + fileSize(ffPath())
 	k.SetDWordValue("EstimatedSize", uint32(size/1024))
 	return nil
 }

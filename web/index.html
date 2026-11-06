@@ -203,7 +203,7 @@ __CSS__
 
     <section class="card mt-view">
       <div class="stage" id="mtStage">
-        <div class="mv-canvas" id="mvCanvas"></div>
+        <div class="mv-canvas" id="mvCanvas"><div class="mv-grid hide" id="mvGrid"><i></i><i></i><i></i><i></i></div><div class="mv-safe hide" id="mvSafe"><i></i><i></i><u></u><u></u></div><div class="mv-subs hide" id="mvSubs" dir="auto"></div></div>
         <img id="mtImg" class="hide" alt="">
         <video id="mtVideo" class="hide" preload="auto" playsinline></video>
         <div class="mv-frame hide" id="mvFrame" data-i18n-title="mv.frameTip"><i data-c="nw"></i><i data-c="ne"></i><i data-c="sw"></i><i data-c="se"></i><i data-c="n"></i><i data-c="e"></i><i data-c="s"></i><i data-c="w"></i><i data-c="rot" data-i18n-title="mv.rotTip"></i></div>
@@ -227,6 +227,8 @@ __CSS__
             <button class="btn sm" id="mvCanvasOk" data-i18n="mv.canvasOk"></button>
           </div>
         </div>
+        <button class="ctl-b" id="mvGridBtn" data-i18n-title="mv.grid" data-i18n-aria="mv.grid"><svg viewBox="0 0 24 24" class="line"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M9 4v16M15 4v16M3 9.3h18M3 14.7h18"/></svg></button>
+        <button class="ctl-b" id="mvSafeBtn" data-i18n-title="mv.safe" data-i18n-aria="mv.safe"><svg viewBox="0 0 24 24" class="line"><rect x="2.5" y="4" width="19" height="16" rx="1"/><rect x="6" y="7" width="12" height="10"/><path d="M12 10.5v3M10.5 12h3"/></svg></button>
         <span class="mt-gap"></span>
         <button class="ctl-b" id="mtStart" data-i18n-title="mt.toStart" data-i18n-aria="mt.toStart"><svg viewBox="0 0 24 24"><path d="M6 5h2.5v14H6zM20 5v14L9.5 12z"/></svg></button>
         <button class="ctl-b" id="mtPrev" data-i18n-title="mt.framePrev" data-i18n-aria="mt.framePrev"><svg viewBox="0 0 24 24"><path d="M15 5v14L6 12zM16.5 5H19v14h-2.5z"/></svg></button>
@@ -253,6 +255,21 @@ __CSS__
           <button class="mt-tab" data-tab="c" data-i18n="mt.tabClip"></button>
         </div>
         <div class="mt-pane" data-tab="v">
+        <div class="hide" id="mtTextBox">
+        <div class="mt-group" data-i18n="mt.catText"></div>
+        <details class="mt-sec" data-sec="text" open>
+          <summary><span data-i18n="mt.secText"></span></summary>
+          <textarea class="mt-textarea" id="mtTextS" rows="3" data-i18n-aria="mt.secText"></textarea>
+          <label class="mt-row"><span data-i18n="mt.subsFont"></span><select id="mtTextFont"></select></label>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsSize"></span><input type="range" class="vol" id="mtTextSizeR" min="1" max="50" step="0.5" data-i18n-aria="mt.subsSize"><input type="number" id="mtTextSize" min="1" max="50" step="0.5" data-i18n-aria="mt.subsSize"></div>
+          <div class="mt-row go"><span data-i18n="mt.textColor"></span><input type="color" id="mtTextColor" data-i18n-aria="mt.textColor"><span class="mt-style"><button class="btn sm" id="mtTextBold" data-i18n-title="mt.textBold"><b>B</b></button><button class="btn sm" id="mtTextItalic" data-i18n-title="mt.textItalic"><i>I</i></button></span></div>
+          <label class="mt-row"><span data-i18n="mt.textAlign"></span>
+            <select id="mtTextAlign"><option value="left" data-i18n="mt.textLeft"></option><option value="center" data-i18n="mt.subsCenter"></option><option value="right" data-i18n="mt.textRight"></option></select>
+          </label>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.textStroke"></span><input type="range" class="vol" id="mtTextStrokeR" min="0" max="30" step="0.5" data-i18n-aria="mt.textStroke"><input type="number" id="mtTextStroke" min="0" max="30" step="0.5" data-i18n-aria="mt.textStroke"></div>
+          <div class="mt-row go"><span data-i18n="mt.textStrokeColor"></span><input type="color" id="mtTextStrokeColor" data-i18n-aria="mt.textStrokeColor"></div>
+        </details>
+        </div>
         <div id="mtCatFrame">
         <div class="mt-group" data-i18n="mt.catFrame"></div>
         <details class="mt-sec" data-sec="motion">
@@ -341,6 +358,63 @@ __CSS__
         </div>
       </div>
       <div class="mt-group" data-i18n="mt.groupOut"></div>
+      <details class="mt-sec" data-sec="subs">
+        <summary><span data-i18n="mt.secSubs"></span><em id="mtSumSubs"></em></summary>
+        <div class="note" data-i18n="mt.auto.note"></div>
+        <label class="mt-row"><span data-i18n="mt.auto.lang"></span>
+          <select id="mtAutoLang"><option value="auto" data-i18n="mt.auto.langAuto"></option><option value="ru" data-i18n="mt.auto.lRu"></option><option value="en">English</option><option value="ar">العربية</option><option value="uk" data-i18n="mt.auto.lUk"></option><option value="es">Español</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="tr">Türkçe</option><option value="zh">中文</option></select>
+        </label>
+        <label class="mt-row"><span data-i18n="mt.auto.model"></span>
+          <select id="mtAutoModel"><option value="small" data-i18n="mt.auto.small"></option><option value="base" data-i18n="mt.auto.base"></option><option value="tiny" data-i18n="mt.auto.tiny"></option></select>
+        </label>
+        <div class="mt-btns" id="mtAutoGoRow">
+          <button class="btn sm primary" id="mtAutoGo" data-i18n="mt.auto.go"></button>
+        </div>
+        <div class="mt-auto hide" id="mtAutoRun">
+          <div class="mt-line"><span id="mtAutoText"></span><button class="btn sm" id="mtAutoStop" data-i18n="mt.auto.stop"></button></div>
+          <div class="mt-autobar"><i id="mtAutoBar"></i></div>
+        </div>
+        <div class="mt-btns">
+          <button class="btn sm" id="mtSubsPick" data-i18n="mt.subsPick"></button>
+          <button class="btn sm hide" id="mtSubsOff" data-i18n="mt.subsOff"></button>
+        </div>
+        <div class="mt-clipname" id="mtSubsName"></div>
+        <div class="note warn hide" id="mtSubsErr"></div>
+        <div class="hide" id="mtCueWrap">
+          <div class="mt-line"><span id="mtCueCount"></span><button class="btn sm" id="mtCueSave" data-i18n="mt.cue.save" data-i18n-title="mt.cue.saveTip"></button></div>
+          <div class="note" data-i18n="mt.cue.note"></div>
+          <div class="mt-cues" id="mtCueList"></div>
+          <div class="mt-btns">
+            <button class="btn sm" id="mtCueAdd" data-i18n="mt.cue.add" data-i18n-title="mt.cue.addTip"></button>
+            <button class="btn sm" id="mtCueSplit" data-i18n="mt.cue.split" data-i18n-title="mt.cue.splitTip"></button>
+            <button class="btn sm" id="mtCueMerge" data-i18n="mt.cue.merge" data-i18n-title="mt.cue.mergeTip"></button>
+            <button class="btn sm" id="mtCueDel" data-i18n="mt.cue.del"></button>
+          </div>
+        </div>
+        <div class="hide" id="mtSubsBody">
+          <label class="mt-row"><span data-i18n="mt.subsMode"></span>
+            <select id="mtSubsMode"><option value="burn" data-i18n="mt.subsBurn"></option><option value="track" data-i18n="mt.subsTrack"></option></select>
+          </label>
+          <div class="note hide" id="mtSubsNote" data-i18n="mt.subsTrackNote"></div>
+          <div id="mtSubsLook">
+            <label class="mt-row"><span data-i18n="mt.subsFont"></span>
+              <select id="mtSubsFont"></select>
+            </label>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsSize"></span><input type="range" class="vol" id="mtSubsSizeR" min="1" max="20" step="0.5" data-i18n-aria="mt.subsSize"><input type="number" id="mtSubsSize" min="1" max="20" step="0.5" data-i18n-aria="mt.subsSize"></div>
+            <label class="mt-row"><span data-i18n="mt.subsPos"></span>
+              <select id="mtSubsPos"><option value="bottom" data-i18n="mt.subsBottom"></option><option value="center" data-i18n="mt.subsCenter"></option><option value="top" data-i18n="mt.subsTop"></option></select>
+            </label>
+            <div class="note" data-i18n="mt.subsDrag"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsW"></span><input type="range" class="vol" id="mtSubsWR" min="10" max="100" step="1" data-i18n-aria="mt.subsW"><input type="number" id="mtSubsW" min="10" max="100" step="1" data-i18n-aria="mt.subsW"></div>
+            <div class="mt-row go"><span data-i18n="mt.textColor"></span><input type="color" id="mtSubsColor" data-i18n-aria="mt.textColor"></div>
+            <label class="sw mt-each"><span data-i18n="mt.subsBackOn"></span><input type="checkbox" id="mtSubsBackOn"><i></i></label>
+            <div class="hide" id="mtSubsBackBody">
+              <div class="mt-row go"><span data-i18n="mt.subsBack"></span><input type="color" id="mtSubsBack" data-i18n-aria="mt.subsBack"></div>
+              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsBackA"></span><input type="range" class="vol" id="mtSubsBackAR" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"><input type="number" id="mtSubsBackA" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"></div>
+            </div>
+          </div>
+        </div>
+      </details>
       <details class="mt-sec" data-sec="result">
         <summary><span data-i18n="mt.secResult"></span></summary>
         <label class="sw mt-each"><span data-i18n="mt.each"></span><input type="checkbox" id="mtEach"><i></i></label>
@@ -350,6 +424,7 @@ __CSS__
       </details>
     </section>
 
+    <div class="mt-vsplit" id="mtVSplit" data-i18n-title="mt.vsplitTip"></div>
     <div class="mt-split" id="mtSplit" data-i18n-title="mt.splitTip"></div>
 
     <section class="card tk" id="tkBox">
@@ -370,6 +445,7 @@ __CSS__
         <button class="ctl-b" id="tkAddV" data-i18n-title="tk.addV" data-i18n-aria="tk.addV"><svg viewBox="0 0 24 24" class="line"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M6.5 6v12M12.5 6v12M3 12h13M20 9v6M17 12h6"/></svg></button>
         <button class="ctl-b" id="tkAddA" data-i18n-title="tk.addA" data-i18n-aria="tk.addA"><svg viewBox="0 0 24 24" class="line"><path d="M12 17V6l-6 1.5V19"/><circle cx="4.5" cy="19" r="1.5"/><circle cx="10.5" cy="17" r="1.5"/><path d="M19 8v6M16 11h6"/></svg></button>
         <button class="ctl-b" id="mtLogo" data-i18n-title="mt.logo" data-i18n-aria="mt.logo"><svg viewBox="0 0 24 24" class="line"><rect x="3" y="4" width="18" height="16" rx="2"/><rect x="13" y="7" width="5" height="4" rx="1"/></svg></button>
+        <button class="ctl-b" id="mtText" data-i18n-title="mt.textAdd" data-i18n-aria="mt.textAdd"><svg viewBox="0 0 24 24" class="line"><path d="M5 7V4h14v3M12 4v16M9 20h6"/></svg></button>
         <i class="tk-sep"></i>
         <input type="range" class="vol tk-zoom" id="tkZoom" min="0" max="9" step="0.1" data-i18n-title="tk.zoom" data-i18n-aria="tk.zoom">
         <button class="ctl-b" id="tkFitBtn" data-i18n-title="tk.fit" data-i18n-aria="tk.fit"><svg viewBox="0 0 24 24" class="line"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg></button>
@@ -383,6 +459,7 @@ __CSS__
       <div class="tk-scroll" id="tkScroll">
         <div class="tk-inner" id="tkInner">
           <div class="tk-rulerrow"><div class="tk-corner"></div><div class="tk-ruler" id="tkRuler"></div><div class="tk-grip" id="tkGrip" data-i18n-title="tk.gripTip"></div></div>
+          <div class="tk-row s hide" id="tkSubRow"><div class="tk-th"><b>S</b><span class="tk-thline"></span></div><div class="tk-lane" id="tkSubLane"></div></div>
           <div id="tkLanes"></div>
           <div class="tk-fill"><div class="tk-th"></div></div>
           <div class="tk-range hide" id="tkRange"></div>

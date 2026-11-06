@@ -28,6 +28,14 @@
 | Звук просмотра и индикатор громкости | шина Web Audio и общий ползунок: `web/js/viewport.js` (`mvAudio`, `mvGain`, `mvLevel`, `mvVol`); столбики L и R, пик, красная метка: `web/js/vumeter.js` (`vuAttach`, `vuKick`, `vuStep`, `vuDraw`) |
 | Удаление фона (хромакей) | просмотр на WebGL и пипетка: `web/js/chroma.js` (`chromaShow`, `chromaSweep`, `chromaPickToggle`, `chromaSample`), вызов в `mvLook`; панель: `mtKeyRow`, `mtKeyOn` в `web/js/montage.js`; рендер: `timeline.go` (`tlKeyChain`, `tlKeepsAlpha`, поля `Clip.KeyColor`, `KeySim`, `KeyBlend`, `KeySpill`). Новое поле клипа добавить ещё в `mtClipOut` и `tkLoad`. Проверка: `TestTimelineKey` |
 | Цветокоррекция | просмотр: `web/js/chroma.js` (`CHROMA_FRAG`, `chromaGraded`, `chromaShow`); панель: `MT_COLOR` в `web/js/montage.js`; рендер: `timeline.go` (`tlGradeChain`, поля `Clip.ColBri`, `ColCon`, `ColMid`, `ColSat`, `ColTemp`, `ColTint`). Формулы в трёх местах должны совпадать, третье в `gradeCalc` (`timeline_layer_test.go`). Проверка: `TestTimelineGrade` |
+| Автосубтитры | `whisper.go` (`whisperStart`, `whisperRun`, `whisperArgs`, адреса и суммы `whisperPkg`, `whisperModels`, тег `whisperTag`), времена слов и реплики: `whisper_words.go` (`whisperWords`, `whisperGroup`, пределы `cueMaxChars` и другие), кнопка: `mtAutoGo`, `mtAutoWatch` в `web/js/montage.js` |
+| Вид субтитров: цвет, подложка, контейнер, положение | `subsASS`, `Subs.fit` в `subtitles.go`; просмотр и перенос мышью: `mvSubsDraw` и обработчик `#mvSubs` в `web/js/viewport.js`; панель: `mtSubsFill` в `web/js/montage.js`. Проверка: `TestTimelineSubsLook` |
+| Сетка и телевизионные зоны | `mvGuidesSet` в `web/js/viewport.js`, `#mvGrid`, `#mvSafe`, кнопки `mvGridBtn`, `mvSafeBtn` |
+| Ширина панели эффектов | `mtVSplitSet`, `mtVSplitPlace` в `web/js/montage.js`, `#mtVSplit`, переменная `--mt-right` |
+| Правка субтитров | `web/js/subedit.js`: дорожка S (`mtCueLane`, `mtCueDown`), список (`mtCuesFill`), `mtCueAdd`, `mtCueSplit`, `mtCueMerge`, `mtCueDelete`; реплики в `tkSubs.cues` и `Subs.Cues`; файл: `subs-save` |
+| Инструмент «Текст» и шрифты Windows | `web/js/textclip.js` (`mtTextDraw`: рисует PNG, `mtTextRedraw`, `mtTextRefresh`, `mtFontsLoad`), поле клипа `text`, файл: `saveTextPNG` в `subtitles.go`, шрифты: `fonts_windows.go`, разметка `#mtTextBox`, `#mtText` |
+| Субтитры из файла .srt | чтение, вжигание, дорожка: `subtitles.go` (`subsRead`, `subsASS`, `subsPlan`, `Project.Subs`); просмотр: `web/js/viewport.js` (`mvSubsDraw`, `mvSubLine`: высота строки шрифта); панель: `web/js/montage.js` (`mtSubsFill`, `mtCues`), значение `tkSubs` в `web/js/tracks.js`. Размеры в `subsASS` и `mvSubsDraw` должны совпадать. Проверка: `subtitles_test.go` |
+| Где лежат данные программы, новая модель или докачиваемая программа | `files.go`: `ffDir`, `cacheDir`, `modelDir`, `toolDir`, перенос из старой раскладки `migrateData` (зовёт `startServer`) |
 | Панель эффектов: вкладки Видео, Аудио, Клип, внутри категории и разделы. Новый раздел: `details.mt-sec` с `data-sec` в `.mt-pane` под подписью `.mt-group`, свёрнутость запоминается сама | `web/js/montage.js` (`mtTabs`: вкладки и точка об изменениях, `mtFramePanel`, `mtFrameFill`, `mtSoundPanel`, `mtSoundFill`, `mtSum`: значение в заголовке раздела, `mtRow`: ползунок, число и Alt с мышью, `mtBoxRow`, `mtFadeRow`), разметка в `web/index.html` (`mtTabs`, `.mt-pane`, `mtCatFrame`); просмотр: `web/js/viewport.js` (`mvPlace`, `mvFadeAt`, `mvLevel`, `mvGain`, `mvLook`, `mvRotDrag`, `mvCropDrag`, `mvHandleDrag`); рендер: `timeline.go` (`tlBoxChain`, `tlFitBox`, `tlFades`, `Clip.Rot`, `CropL`, `Vol`, `FadeIn`). Проверка: `timeline_layer_test.go` |
 | Размер холста | кнопка и меню `web/js/viewport.js` (`mvCanvasBtn`, `mvCanvasMenu`, `MV_SIZES`, `mvSetCanvas`), значение `tkCanvas` в `web/js/tracks.js`, рендер: `Project.W`, `H` в `timeline.go` |
 | Логотип | `web/js/montage.js` (`mtLogo`, `MT_LOGO_W`), кнопка в `web/index.html` (`#mtLogo`) |
@@ -82,7 +90,11 @@
 | `main.go` | `main`, `argPaths`, `startServer`, `stopAll`, `idleExit`, `openBrowser` |
 | `state.go` | типы `Server`, `FileState`, `StartReq`, `Trim`, `DL`, `FileInfo`; `begin`, `addIncoming`, `addLog`, `logT` |
 | `formats.go` | `Format`, `fm`, `formats`, `compressFormat`, `presets`, `videoExt`, `audioExt`, `imageExt`, `mediaExt`, `mediaFilter` |
-| `files.go` | `dataDir`, `dropDir`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
+| `whisper.go` | автосубтитры: `whisperStart`, `whisperRun`, `whisperFetch`, `whisperUnpack`, `whisperInstall`, `whisperAudio`, `whisperSpeech`, `whisperPlace`, `whisperState`, `whisperStop` |
+| `whisper_words.go` | полный JSON whisper.cpp в реплики: `whisperWords`, `whisperGroup`, `whisperClean`, `whisperNoise` |
+| `fonts_windows.go`, `fonts_other.go` | `systemFonts`: список шрифтов Windows |
+| `subtitles.go` | картинка клипа «Текст» `saveTextPNG`; субтитры монтажа: `Subs`, `subsDecode`, `subsParse`, `subsRead`, `subsRange`, `subsASS`, `subsSRT`, `subsTemp`, `subsFilterPath`, `subsTrackCodec`, `subsPlan` |
+| `files.go` | `dataDir`, `ffDir`, `cacheDir`, `modelDir`, `toolDir`, `migrateData`, `dropDir`, `ffPath`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `ffargs.go` | `probe`, `gifFilter`, `planRate`, `rateArgs`, `fitCodecLimits`, `isStandardFPS`, `buildArgs`, `num`, `mbStr` |
 | `convert.go` | `run`, `finishBatch`, `convert`, `encodeTarget`, `runFF`, `set`, `kept` |
 | `fferrors.go` | `friendlyErr` (для человека), `errSummary` (для лога) |
@@ -137,6 +149,8 @@
 | `js/vumeter.js` | индикатор громкости монтажа: `vuAttach`, `vuKick`, `vuStep`, `vuDraw` |
 | `js/chroma.js` | удаление фона и цветокоррекция в просмотре: `chromaLayer`, `chromaShow`, `chromaGraded`, `chromaSweep`; пипетка: `chromaPickToggle`, `chromaSample` |
 | `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; панель клипа `mtPanel`, `mtInfo`, `mtCopies`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
+| `js/textclip.js` | инструмент «Текст»: `mtTextDraw`, `mtTextMake`, `mtTextRedraw`, `mtTextRefresh`, `mtTextPatch`, `mtTextFill`; шрифты `mtFontsLoad`, `mtFontPut` |
+| `js/subedit.js` | правка субтитров: дорожка S и список реплик, см. таблицу задач |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner`, `appBanner` |
@@ -153,7 +167,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 

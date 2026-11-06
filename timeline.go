@@ -26,6 +26,7 @@ type Project struct {
 	In     float64 `json:"in,omitempty"`  // метка начала вывода, секунда на дорожках
 	Out    float64 `json:"out,omitempty"` // метка конца; 0 — до конца монтажа
 	Tracks []Track `json:"tracks"`
+	Subs   *Subs   `json:"subs,omitempty"` // субтитры из файла, см. subtitles.go
 }
 
 type Track struct {
@@ -367,6 +368,14 @@ func tlRange(tracks [][]tlClip, p Project, fps float64, total int) ([][]tlClip, 
 	return out, b - a, nil
 }
 
+// tlOffset: с какой секунды дорожек начинается результат: метка начала на сетке кадров, как в tlRange
+func tlOffset(p Project, fps float64) float64 {
+	if p.In <= 0 && p.Out <= 0 {
+		return 0
+	}
+	return float64(int(p.In*fps+0.5)) / fps
+}
+
 // timelineInfo: всё, что нужно buildArgs, чтобы собрать проект в формат f
 func timelineInfo(ctx context.Context, ffm string, p Project, f Format) (srcInfo, error) {
 	p.fit()
@@ -438,6 +447,11 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 		graph = append(graph, tlAudioGraph(tracks, fps, total)...)
 	}
 	si.graph = strings.Join(graph, ";")
+	if p.Subs != nil && wantV {
+		if err := subsPlan(&si, *p.Subs, f, tlOffset(p, fps), inputs); err != nil {
+			return srcInfo{}, err
+		}
+	}
 	if cmdLen(si.inputs) > tlMaxInputs {
 		return srcInfo{}, errT("mont.tooMany")
 	}

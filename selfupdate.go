@@ -233,7 +233,7 @@ func (s *Server) updateApp() error {
 			}
 		}
 		if err != nil {
-			os.Remove(filepath.Join(dataDir(), "update", "Konvertor.exe"))
+			os.Remove(filepath.Join(cacheDir(), "update", "Konvertor.exe"))
 			s.mu.Lock()
 			s.appUpd.Active, s.appUpd.Err = false, err.Error()
 			s.mu.Unlock()
@@ -249,9 +249,9 @@ func (s *Server) updateApp() error {
 	return nil
 }
 
-// fetchApp скачивает exe в dataDir/update и проверяет размер, сумму и что это вообще exe
+// fetchApp скачивает exe в cache/update и проверяет размер, сумму и что это вообще exe
 func (s *Server) fetchApp(url string, size int64, sum string) (string, error) {
-	dir := filepath.Join(dataDir(), "update")
+	dir := filepath.Join(cacheDir(), "update")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

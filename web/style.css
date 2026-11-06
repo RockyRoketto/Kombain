@@ -170,7 +170,7 @@
   .f.cur{background:var(--accbg)}
   /* вкладка «Монтаж»: экран над настройками, справа список с кнопками порядка */
   /* ----- вкладка «Монтаж»: файлы, вьюпорт, панель, снизу дорожки ----- */
-  #montView{grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);grid-template-rows:minmax(0,1fr) auto auto;row-gap:0;margin-bottom:10px}
+  #montView{position:relative;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) var(--mt-right,clamp(220px,20vw,320px));grid-template-rows:minmax(0,1fr) auto auto;row-gap:0;margin-bottom:10px}
   .mt-split{grid-column:1/-1;height:12px;cursor:ns-resize;touch-action:none;position:relative}
   .mt-split::after{content:"";position:absolute;left:50%;top:4px;width:48px;height:4px;margin-left:-24px;border-radius:2px;background:var(--line3)}
   .mt-split:hover::after,.mt-split.on::after{background:var(--acc)}
@@ -195,6 +195,43 @@
   #mtStage video#mtVideo{z-index:1}
   #mtNote{z-index:3}
   .mv-canvas{position:absolute;z-index:0;overflow:hidden;background:var(--canvas)}
+  .mv-subs{position:absolute;z-index:999;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
+  .mv-subs span{pointer-events:auto;cursor:move;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+  .mv-grid,.mv-safe{position:absolute;inset:0;z-index:998;pointer-events:none}
+  .mv-grid i,.mv-safe i,.mv-safe u{position:absolute;border:0 solid rgba(var(--acc-rgb),.75)}
+  .mv-grid i:nth-child(1){left:33.333%;top:0;bottom:0;border-left-width:1px}
+  .mv-grid i:nth-child(2){left:66.667%;top:0;bottom:0;border-left-width:1px}
+  .mv-grid i:nth-child(3){top:33.333%;left:0;right:0;border-top-width:1px}
+  .mv-grid i:nth-child(4){top:66.667%;left:0;right:0;border-top-width:1px}
+  .mv-safe i{border-width:1px}
+  .mv-safe i:nth-child(1){inset:5%}
+  .mv-safe i:nth-child(2){inset:10%}
+  .mv-safe u:nth-child(3){left:50%;top:48%;bottom:48%;border-left-width:1px}
+  .mv-safe u:nth-child(4){top:50%;left:48.5%;right:48.5%;border-top-width:1px}
+  .mt-vsplit{position:absolute;z-index:3;width:10px;cursor:ew-resize;touch-action:none}
+  .mt-vsplit::after{content:"";position:absolute;top:50%;left:3px;width:4px;height:48px;margin-top:-24px;border-radius:2px;background:var(--line3)}
+  .mt-vsplit:hover::after,.mt-vsplit.on::after{background:var(--acc)}
+  .tk-row.s{height:30px}
+  .tk-cue{position:absolute;top:2px;bottom:2px;box-sizing:border-box;padding:0 6px;overflow:hidden;border-radius:4px;background:var(--accbg);border:1px solid rgba(var(--acl-rgb),.45);font-size:10.5px;line-height:24px;color:var(--tx);white-space:nowrap;text-overflow:ellipsis;cursor:grab}
+  .tk-cue.sel{border-color:var(--accs);box-shadow:0 0 0 1px var(--accs)}
+  .tk-cue b{position:absolute;top:0;bottom:0;width:6px;cursor:ew-resize}
+  .tk-cue b.l{left:0}
+  .tk-cue b.r{right:0}
+  .mt-cues{position:relative;max-height:300px;margin:6px 0;overflow-y:auto}
+  .mt-cue{display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px;padding:2px;border-radius:5px;border:1px solid transparent}
+  .mt-cue.now{background:var(--accbg)}
+  .mt-cue.sel{border-color:var(--accs)}
+  .mt-cue-t{align-self:start;padding:3px 0;background:none;border:0;color:var(--dim);font-size:10.5px;font-variant-numeric:tabular-nums;text-align:left;cursor:pointer}
+  .mt-cue-t:hover{color:var(--acct)}
+  .mt-cue textarea{box-sizing:border-box;width:100%;min-height:22px;padding:2px 5px;border-radius:5px;font:inherit;font-size:12px;line-height:1.35;resize:none;field-sizing:content;unicode-bidi:plaintext}
+  .mt-textarea{box-sizing:border-box;width:100%;margin-bottom:6px;padding:4px 6px;border-radius:6px;font:inherit;font-size:12px;resize:vertical}
+  .mt-style{display:flex;gap:4px;justify-content:flex-end}
+  .mt-style .btn.on{border-color:rgba(var(--acc-rgb),.6);color:var(--acct)}
+  .mt-autobar{height:4px;margin:6px 0;border-radius:2px;background:var(--line2);overflow:hidden}
+  .mt-autobar i{display:block;height:100%;width:0;background:var(--acct)}
+  .mv-subs[data-pos=bottom]{bottom:5%}
+  .mv-subs[data-pos=top]{top:5%}
+  .mv-subs[data-pos=center]{top:50%;transform:translateY(-50%)}
   .stage .mv-layer{position:absolute;inset:auto;margin:0;max-width:none;max-height:none;display:block;pointer-events:none}
   .stage .mv-layer.mv-off{visibility:hidden}
   .mv-frame{position:absolute;z-index:2;box-sizing:border-box;border:1px solid var(--acc);cursor:move}

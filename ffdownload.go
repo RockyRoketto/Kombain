@@ -38,7 +38,12 @@ var dlStall = 60 * time.Second
 // download качает url в path (не больше limit байт) и возвращает размер. size — размер, если сервер его не сообщит;
 // extra (может быть nil) получает те же данные, например для контрольной суммы. При ошибке path удаляется.
 func download(url, path string, size, limit int64, extra io.Writer, progress func(float64)) (int64, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	return downloadCtx(context.Background(), url, path, size, limit, extra, progress)
+}
+
+// downloadCtx: то же, но скачивание можно прервать через parent
+func downloadCtx(parent context.Context, url, path string, size, limit int64, extra io.Writer, progress func(float64)) (int64, error) {
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	stall := time.AfterFunc(dlStall, cancel)
 	defer stall.Stop()
@@ -146,7 +151,7 @@ func (s *Server) downloadFFmpeg() error {
 }
 
 func (s *Server) tryDownload(url string) error {
-	dir := dataDir()
+	dir := ffDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

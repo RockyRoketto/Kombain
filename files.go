@@ -27,8 +27,58 @@ func dataDir() string {
 	return filepath.Join(d, "ffmpeg-batch")
 }
 
+// Папки внутри dataDir. settings.json, window.json и webview лежат прямо в ней:
+//
+//	ffmpeg\          сам ffmpeg
+//	cache\           то, что можно стереть без потерь: preview, drop, update
+//	models\<вид>\    скачанные модели, например models\whisper
+//	tools\<вид>\     скачанные программы, например tools\whisper
+func ffDir() string    { return filepath.Join(dataDir(), "ffmpeg") }
+func cacheDir() string { return filepath.Join(dataDir(), "cache") }
+
+func modelDir(kind string) string { return filepath.Join(dataDir(), "models", kind) }
+func toolDir(kind string) string  { return filepath.Join(dataDir(), "tools", kind) }
+
 // сюда копируются файлы, перетащенные в окно браузера (пути у них недоступны)
-func dropDir() string { return filepath.Join(dataDir(), "drop") }
+func dropDir() string { return filepath.Join(cacheDir(), "drop") }
+
+func ffPath() string { return filepath.Join(ffDir(), ffName()) }
+
+// migrateData переносит данные из плоской папки старых версий. Звать только тем, кто занял порт:
+// тогда другой копии программы нет и файлы никто не держит. Что не вышло перенести сейчас, уедет при следующем запуске,
+// а до тех пор ffmpeg найдёт findFFmpeg.
+func migrateData() {
+	root := dataDir()
+	os.MkdirAll(ffDir(), 0o755)
+	os.MkdirAll(cacheDir(), 0o755)
+	os.MkdirAll(filepath.Join(root, "models"), 0o755)
+	os.MkdirAll(filepath.Join(root, "tools"), 0o755)
+
+	// Уже есть новый: старый появился при откате на прошлую версию, он лишний
+	if old := filepath.Join(root, ffName()); fileExists(old) {
+		if fileExists(ffPath()) {
+			os.Remove(old)
+		} else {
+			os.Rename(old, ffPath())
+		}
+	}
+	if old := filepath.Join(root, "preview"); dirExists(old) {
+		if dirExists(proxyDir()) {
+			os.RemoveAll(old) // копии всегда можно сделать заново
+		} else {
+			os.Rename(old, proxyDir())
+		}
+	}
+	// недокачанное и временное переносить незачем
+	for _, name := range []string{"drop", "update", "ffmpeg.zip.part", ffName() + ".part"} {
+		os.RemoveAll(filepath.Join(root, name))
+	}
+}
+
+func dirExists(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
+}
 
 func defaultOut() string {
 	home, err := os.UserHomeDir()
@@ -64,8 +114,10 @@ func fileSize(p string) int64 {
 
 // порядок: скачанный программой (его она умеет обновлять) → рядом с exe → PATH
 func findFFmpeg() string {
-	p := filepath.Join(dataDir(), ffName())
-	if fileExists(p) {
+	if p := ffPath(); fileExists(p) {
+		return p
+	}
+	if p := filepath.Join(dataDir(), ffName()); fileExists(p) { // старое место, ещё не перенесён
 		return p
 	}
 	if exe, err := os.Executable(); err == nil {

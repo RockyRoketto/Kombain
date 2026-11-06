@@ -13,6 +13,7 @@ let tkUndoList = [], tkRedoList = [], tkBoard = [], tkPath = '', tkSaveTimer = 0
 let tkIn = null, tkOut = null;   // метки начала и конца вывода, секунды; null — метки нет
 let tkMarkers = [];              // метки на таймлайне, секунды, по возрастанию
 let tkCanvas = null;             // размер холста {w, h}; null — как у первого видео
+let tkSubs = null;               // субтитры {path, mode, font, size, pos}; null — нет
 const tkEls = new Map();   // id клипа → его элемент: при перерисовке картинки в клипах не мигают
 
 const tkClips = () => tkTracks.flatMap(x => x.clips);
@@ -23,7 +24,9 @@ const tkTotal = () => tkClips().reduce((a, c) => Math.max(a, tkEnd(c)), 0);
 const tkLive = () => tkTracks.filter(x => !x.off).flatMap(x => x.clips);
 const tkById = id => tkClips().find(c => c.id === id);
 const tkTrackOf = c => tkTracks.find(x => x.clips.includes(c));
+const MT_TEXT_DEF = {s: '', font: 'Arial', size: .08, color: '#ffffff', bold: false, italic: false, align: 'center', stroke: 0, strokeColor: '#000000'};   // клип «Текст», textclip.js; нужно уже при загрузке проекта
 const tkPhoto = c => !c.src;
+const tkClipName = c => c.text ? c.text.s.replace(/\s+/g, ' ') : base(c.path);   // у клипа «Текст» в пути только служебное имя
 const tkShown = () => [...tkTracks.filter(x => x.kind === 'v').reverse(), ...tkTracks.filter(x => x.kind === 'a')];
 const tkRowH = tr => tr.thin ? TK_ROW_MIN : tr.h || 58;
 const tkSmall = tr => tkRowH(tr) < 32;   // в низкой дорожке кадров и волны не разобрать
@@ -54,7 +57,7 @@ function fmtTc(x) {
 }
 
 // ---------- отмена и сохранение ----------
-const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
+const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
 // связь из одного клипа ничего не значит: второй удалён или разрезан отдельно
 function tkTidyLinks() {
   const n = new Map();
@@ -84,14 +87,15 @@ function tkBack(from, to) {
   to.push(tkState());
   tkApply(JSON.parse(s));
   tkChanged();
+  mtTextRefresh();
 }
 function tkApply(o) {
   tkTracks = o.tracks;
-  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null;
+  tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null; tkSubs = o.subs || null;
   tkNext = tkClips().reduce((a, c) => Math.max(a, c.id + 1, (c.link || 0) + 1), tkNext);
   mtSetFiles(o.files || []);
 }
-const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
+const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
 function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath}))); }
 // Проект из файла или автосохранения. Файл могли править руками, поэтому каждое значение проверяется.
 function tkLoad(o, path) {
@@ -120,11 +124,12 @@ function tkLoad(o, path) {
       ...(c.part === 'v' || c.part === 'a' ? {part: c.part} : {}),
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),
+      ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text}, ...more(c, 'nw')} : {}),
     }))}));
   if (!tracks.some(x => x.kind === 'v')) tracks.unshift({kind: 'v', thin: false, clips: []});
   if (!tracks.some(x => x.kind === 'a')) tracks.push({kind: 'a', thin: false, clips: []});
   tracks.sort((a, b) => (a.kind === 'v' ? 0 : 1) - (b.kind === 'v' ? 0 : 1));
-  const paths = tracks.flatMap(x => x.clips).map(c => ({path: c.path}));
+  const paths = tracks.flatMap(x => x.clips).filter(c => !c.text).map(c => ({path: c.path}));   // картинка текста в окно файлов не встаёт
   const files = (Array.isArray(o.files) ? o.files : []).filter(f => f && typeof f.path === 'string').concat(paths);
   tkTracks = tracks;
   mtSetFiles(files);
@@ -134,6 +139,18 @@ function tkLoad(o, path) {
   if (tkOut !== null && tkOut <= (tkIn || 0)) tkOut = null;
   tkMarkers = times(o.markers);
   tkCanvas = o.canvas && o.canvas.w >= 16 && o.canvas.h >= 16 && o.canvas.w <= 7680 && o.canvas.h <= 7680 ? {w: o.canvas.w & ~1, h: o.canvas.h & ~1} : null;
+  const sub = o.subs;
+  tkSubs = sub && typeof sub.path === 'string' && sub.path ? {path: sub.path,
+    ...(Array.isArray(sub.cues) ? {cues: sub.cues.filter(c => c && Number.isFinite(c.a) && Number.isFinite(c.b) && c.b > c.a && c.a >= 0 && typeof c.t === 'string').sort((x, y) => x.a - y.a)} : {}),
+    mode: sub.mode === 'track' ? 'track' : 'burn',
+    font: typeof sub.font === 'string' && sub.font ? sub.font : 'Arial', size: sub.size >= .01 && sub.size <= .2 ? sub.size : .05,
+    pos: ['top', 'center'].includes(sub.pos) ? sub.pos : 'bottom',
+    ...(/^#[0-9a-f]{6}$/i.test(sub.color) ? {color: sub.color} : {}),
+    ...(/^#[0-9a-f]{6}$/i.test(sub.back) ? {back: sub.back} : {}),
+    ...(sub.backA > 0 && sub.backA <= 1 ? {backA: sub.backA} : {}),
+    ...(sub.w >= .1 && sub.w <= 1 ? {w: sub.w} : {}),
+    ...(sub.x > 0 && sub.x < 1 ? {x: sub.x} : {}),
+    ...(sub.y > 0 && sub.y <= 1 ? {y: sub.y} : {})} : null;
   tkTidyLinks();
   if (o.pps > 0) tkPps = Math.min(Math.max(o.pps, TK_MIN_PPS), TK_MAX_PPS);
   if (typeof o.snap === 'boolean') tkSnapOn = o.snap;
@@ -161,7 +178,7 @@ function tkPaintBody(el, c, sig, first, last, wave) {
   const tag = (c.speed !== 1 ? `${String(c.speed).replace('.', lang === 'ru' ? ',' : '.')}× ` : '') + (c.reverse ? '⇄ ' : '');
   el.innerHTML = (wave && c.src ? `<canvas class="tk-wave${c.reverse ? ' flip' : ''}"></canvas>` : '') +
     (first ? `<img class="tk-pic" src="${tkThumb(c, a)}" alt="" draggable="false" onerror="this.remove()">` : '') +
-    `<span class="tk-name">${esc(tag)}${esc(base(c.path))}</span>` +
+    `<span class="tk-name">${esc(tag)}${esc(tkClipName(c))}</span>` +
     (last ? `<img class="tk-pic end" src="${tkThumb(c, b)}" alt="" draggable="false" onerror="this.remove()">` : '') +
     '<i class="tk-edge l"></i><i class="tk-edge r"></i><div class="tk-mks"></div>';
   tkWaveDraw(el, c);
@@ -239,6 +256,7 @@ function tkRender() {
     seen.add(c.id);
   }));
   for (const [id, el] of tkEls) if (!seen.has(id)) { el.remove(); tkEls.delete(id); }
+  mtCueLane();
   tkSize(); tkDrawHead(); tkRuler(); tkBar();
 }
 function tkRowPaint(row, tr) {
@@ -800,6 +818,8 @@ $('tkScroll').addEventListener('pointerdown', e => {
     return;
   }
   if (e.button !== 0 || e.target.closest('.tk-th')) return;
+  const cueEl = e.target.closest('.tk-cue');
+  if (cueEl) { mtCueDown(e, cueEl); return; }
   const mark = tkMarkAt(e);
   if (mark[0] === 'k') { tkMarkerDrag(e, +mark.slice(1)); return; }
   if (mark) { tkMarkDrag(e, mark); return; }
@@ -809,6 +829,7 @@ $('tkScroll').addEventListener('pointerdown', e => {
     tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
     return;
   }
+  if (mtCueSel !== null) { mtCueSel = null; mtCueLane(); mtCuesFill(); }
   const el = e.target.closest('.tk-clip');
   if (tkTool === 'razor') {
     const c = el && tkById(+el.dataset.id);
@@ -927,8 +948,8 @@ const TK_KEYS = {
   KeyI: () => tkMark('in'),
   KeyO: () => tkMark('out'),
   KeyM: tkPutMarker,
-  Delete: () => tkRemove(false),
-  Backspace: () => tkRemove(false),
+  Delete: () => { if (mtCueSel !== null) mtCueDelete(); else tkRemove(false); },
+  Backspace: () => { if (mtCueSel !== null) mtCueDelete(); else tkRemove(false); },
   Equal: () => tkZoomTo(tkPps * 1.5),
   NumpadAdd: () => tkZoomTo(tkPps * 1.5),
   Minus: () => tkZoomTo(tkPps / 1.5),

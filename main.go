@@ -48,6 +48,7 @@ func (s *Server) stopAll() {
 	}
 	if s.ownsDrop {
 		os.RemoveAll(dropDir())
+		os.RemoveAll(subsDir())
 		proxyCleanup()
 	}
 }
@@ -85,7 +86,9 @@ func startServer() *Server {
 		}
 	}
 	if fixed { // чистим хвосты от прошлого запуска (только если нет другого живого экземпляра)
+		migrateData()
 		os.RemoveAll(dropDir())
+		os.RemoveAll(subsDir())
 	}
 	inst := installInfo()
 	prevInstalled := "" // запись об установке afterUpdate перепишет, а прошлая версия нужна для «Что нового»

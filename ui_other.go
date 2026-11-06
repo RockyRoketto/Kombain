@@ -33,6 +33,14 @@ func runUI(s *Server) {
 	s.idleExit()
 }
 
+func pickSubs() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
+
+func pickSubsSave() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
+
 func pickProjectOpen() (string, error) {
 	return "", errT("dlg.onlyWindows")
 }
