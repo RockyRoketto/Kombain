@@ -643,6 +643,10 @@
   .linkb{background:none;border:0;padding:0;color:var(--acct);text-decoration:underline;text-underline-offset:3px;font-size:12px}
   input[type=range]{-webkit-appearance:none;appearance:none;width:150px;height:6px;border-radius:99px;background:var(--track);outline:none}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--acc);border:3px solid var(--s1);box-shadow:0 0 0 1px var(--accs);cursor:pointer}
+  /* риска исходного значения (web/js/sliders.js): --sl-t ширина шарика, центр шарика ходит от t/2 до 100%-t/2 */
+  input[type=range][data-origin]{--sl-t:18px;--sl-x:calc(var(--sl-t) / 2 + (100% - var(--sl-t)) * var(--sl-p,0))}
+  input[type=range][data-origin].vol{--sl-t:13px}
+  input[type=range][data-origin]::-webkit-slider-runnable-track{background:linear-gradient(to right,transparent calc(var(--sl-x) - 1px),var(--knob) 0,var(--knob) calc(var(--sl-x) + 1px),transparent 0) center / 100% 10px no-repeat}
   .rng{display:flex;align-items:center;gap:10px}
   .rng output{min-width:24px;text-align:right;font-variant-numeric:tabular-nums;color:var(--acct2);font-weight:600}
   .sw{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;color:var(--tx2)}

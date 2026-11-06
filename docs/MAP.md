@@ -34,6 +34,7 @@
 | Меню правой кнопки | `web/js/ctxmenu.js` (`ctxItems`: что где показать, `ctxOpen`), выключение меню браузера и разрешение на чтение буфера: `runUI` в `ui_windows.go` |
 | Вид субтитров: цвет, подложка, контейнер, положение | `subsASS`, `Subs.fit` (своя высота рамки `Subs.H`) в `subtitles.go`; просмотр и мышь: `mvSubsDraw`, `mvSubsAt`, `mvSubsPress` в `web/js/viewport.js`; панель: `mtSubsFill` в `web/js/montage.js`. Проверка: `TestTimelineSubsLook` |
 | Сетка и безопасные зоны | `mvGuidesSet`, `mvSafeSet`, цифры площадок `MV_ZONES` в `web/js/viewport.js`, `#mvGrid`, `#mvSafe`, кнопки `mvGridBtn`, `mvSafeBtn` |
+| Риска и магнит ползунков | `web/js/sliders.js` (`slPlace`, `slEnd`, ширина магнита `SL_ZONE`), значение в `data-origin` у ползунка в `web/index.html`, рисует `::-webkit-slider-runnable-track` в `web/style.css` (`--sl-t`: ширина шарика) |
 | Ширина панели эффектов | `mtVSplitSet`, `mtVSplitPlace` в `web/js/montage.js`, `#mtVSplit`, переменная `--mt-right` |
 | Правка субтитров | `web/js/subedit.js`: дорожка S (`mtCueLane`, `mtCueDown`, глаз `#tkSubEye`, поле `tkSubs.off`), выделение нескольких (`mtCueMany`, `mtCuePicked`, `mtCueToggle`, `mtCueAll`, рамка в `tkBandDrag`), список (`mtCuesFill`), `mtCueAdd`, `mtCueSplit`, `mtCueMerge`, `mtCueDelete`, `mtCueDrop`; реплики в `tkSubs.cues` и `Subs.Cues`; файл: `subs-save` |
 | Инструмент «Текст» и шрифты Windows | `web/js/textclip.js` (`mtTextDraw`: рисует PNG, `mtTextWrap`, рамка как область текста: `text.box`, `mtTextBoxed`, `mtTextBoxMove`, вызов в `mvSetBox`; `mtTextRedraw`, `mtTextRefresh`, `mtFontsLoad`), поле клипа `text`, файл: `saveTextPNG` в `subtitles.go`, шрифты: `fonts_windows.go`, разметка `#mtTextBox`, `#mtText` |
@@ -147,6 +148,7 @@
 | `js/start.js` | `currentReq`, `startBatch`, кнопки «Конвертировать», «Стоп», ffmpeg |
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
 | `js/anim.js` | переезд выделения вкладки `glideTabs` (`#tabs`, `#mtTabs`); остальные анимации в разделе «лёгкие анимации» в `web/style.css` |
+| `js/sliders.js` | риска исходного значения и магнит у ползунков с `data-origin`: `slPlace`, `slEnd` |
 | `js/kinetic.js` | перетаскивание с инерцией и наклоном, ничего не знает про вкладки: `kinFollow` (элемент на пружине, `still` без неё: так идут клипы на таймлайне), `kinSort` (порядок в списке, соседи расступаются; `busy` и `flip`), `kinCalm` (настройка «меньше движения»), настройки `KIN` |
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
