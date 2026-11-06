@@ -103,6 +103,7 @@ function tkLoad(o, path) {
   const times = list => (Array.isArray(list) ? list : []).filter(x => Number.isFinite(x) && x >= 0).sort((a, b) => a - b);
   const share = (c, key) => c[key] > 0 && c[key] <= .98 ? {[key]: c[key]} : {};
   const more = (c, key) => c[key] > 0 && Number.isFinite(c[key]) ? {[key]: c[key]} : {};
+  const grade = (c, key) => c[key] && Number.isFinite(c[key]) ? {[key]: Math.min(Math.max(c[key], -1), 1)} : {};
   const tracks = o.tracks.filter(x => x && (x.kind === 'v' || x.kind === 'a')).map(x => ({kind: x.kind, thin: !!x.thin,
     ...(x.h >= TK_ROW_MIN && x.h <= TK_ROW_MAX ? {h: x.h} : {}),
     ...(x.off ? {off: true} : {}),
@@ -115,6 +116,7 @@ function tkLoad(o, path) {
       ...(c.vol >= 0 && c.vol <= 2 && c.vol !== 1 ? {vol: c.vol} : {}),
       ...more(c, 'fadeIn'), ...more(c, 'fadeOut'),
       ...(/^#[0-9a-f]{6}$/i.test(c.key) ? {key: c.key, ...more(c, 'keySim'), ...more(c, 'keyBlend'), ...more(c, 'keySpill')} : {}),
+      ...grade(c, 'cBri'), ...grade(c, 'cCon'), ...grade(c, 'cMid'), ...grade(c, 'cSat'), ...grade(c, 'cTemp'), ...grade(c, 'cTint'),
       ...(c.part === 'v' || c.part === 'a' ? {part: c.part} : {}),
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),

@@ -63,6 +63,13 @@ type Clip struct {
 	KeySim   float64 `json:"keySim,omitempty"`
 	KeyBlend float64 `json:"keyBlend,omitempty"`
 	KeySpill float64 `json:"keySpill,omitempty"`
+	// Цветокоррекция, каждое значение от -1 до 1, 0 — как в файле. Просмотр: web/js/chroma.js
+	ColBri  float64 `json:"cBri,omitempty"`  // яркость
+	ColCon  float64 `json:"cCon,omitempty"`  // контраст
+	ColMid  float64 `json:"cMid,omitempty"`  // средние тона
+	ColSat  float64 `json:"cSat,omitempty"`  // насыщенность
+	ColTemp float64 `json:"cTemp,omitempty"` // температура: больше нуля теплее
+	ColTint float64 `json:"cTint,omitempty"` // оттенок: больше нуля в пурпурный, меньше в зелёный
 }
 
 func (c Clip) volume() float64 {
@@ -134,6 +141,9 @@ func (p *Project) fit() {
 			c.KeySim = min(max(c.KeySim, 0.001), 1)
 			c.KeyBlend = min(max(c.KeyBlend, 0), 1)
 			c.KeySpill = min(max(c.KeySpill, 0), 1)
+			for _, v := range []*float64{&c.ColBri, &c.ColCon, &c.ColMid, &c.ColSat, &c.ColTemp, &c.ColTint} {
+				*v = min(max(*v, -1), 1)
+			}
 		}
 	}
 }
@@ -576,10 +586,21 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 // flat: под клипом ничего нет, а формат не хранит прозрачность, поэтому вырезанное становится чёрным.
 func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) string {
 	var chain []string
-	if c.KeyColor != "" {
-		chain = append(chain, tlKeyChain(c.Clip, flat)...)
-		if pix == "" {
-			pix = "yuv420p"
+	keyed, graded := c.KeyColor != "", c.graded()
+	deep := c.si.deep && !keyed // удаление фона считается в 8 битах, больше тут не сохранить
+	if keyed {
+		chain = append(chain, tlKeyChain(c.Clip)...)
+	}
+	if graded { // после удаления фона: ключ смотрит на цвета файла, как в просмотре
+		chain = append(chain, tlGradeChain(c.Clip, deep)...)
+	}
+	if keyed && flat {
+		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
+	}
+	if (keyed || graded) && pix == "" {
+		pix = "yuv420p"
+		if deep {
+			pix = "yuv444p10le"
 		}
 	}
 	if pix != "" {
@@ -625,7 +646,7 @@ func tlKeepsAlpha(f Format) bool {
 
 // tlKeyChain: удаление фона по цвету. Считается в RGB, те же формулы в просмотре (web/js/chroma.js).
 // Отсвет убирается у того канала, который в цвете фона главный: зелёного или синего.
-func tlKeyChain(c Clip, flat bool) []string {
+func tlKeyChain(c Clip) []string {
 	hex := strings.ToLower(c.KeyColor[1:])
 	chain := []string{"format=rgba", fmt.Sprintf("colorkey=0x%s:%s:%s", hex, secs(c.KeySim), secs(c.KeyBlend))}
 	if c.KeySpill > 0 {
@@ -637,8 +658,37 @@ func tlKeyChain(c Clip, flat bool) []string {
 			chain = append(chain, fmt.Sprintf("despill=type=blue:mix=0.5:expand=0:red=0:green=0:blue=%s", secs(-c.KeySpill)))
 		}
 	}
-	if flat {
-		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
+	return chain
+}
+
+func (c Clip) graded() bool {
+	return c.ColBri != 0 || c.ColCon != 0 || c.ColMid != 0 || c.ColSat != 0 || c.ColTemp != 0 || c.ColTint != 0
+}
+
+// tlGradeChain: цветокоррекция в RGB, те же формулы и тот же порядок в просмотре (CHROMA_FRAG в web/js/chroma.js):
+// баланс белого, средние тона, контраст, яркость, насыщенность. Прозрачность не трогается.
+func tlGradeChain(c Clip, deep bool) []string {
+	num := func(v float64) string { return strconv.FormatFloat(v, 'f', 5, 64) }
+	pix := "format=rgba"
+	if deep {
+		pix = "format=rgba64le"
+	}
+	chain := []string{pix}
+	if c.ColBri != 0 || c.ColCon != 0 || c.ColMid != 0 || c.ColTemp != 0 || c.ColTint != 0 {
+		// запятые внутри выражения экранированы для графа ffmpeg
+		curve := func(gain float64) string {
+			return fmt.Sprintf(`maxval*clip((pow(clip(val/maxval*%s\,0\,1)\,%s)-0.5)*%s+0.5+(%s)\,0\,1)+0.5`,
+				num(gain), num(math.Pow(2, -c.ColMid)), num(math.Pow(2, 2*c.ColCon)), num(c.ColBri/2))
+		}
+		chain = append(chain, fmt.Sprintf("lutrgb=r=%s:g=%s:b=%s", curve(1+0.3*c.ColTemp), curve(1-0.3*c.ColTint), curve(1-0.3*c.ColTemp)))
+	}
+	if c.ColSat != 0 {
+		const lr, lg, lb = 0.2126, 0.7152, 0.0722 // вклад каналов в яркость
+		s := 1 + c.ColSat
+		chain = append(chain, fmt.Sprintf("colorchannelmixer=rr=%s:rg=%s:rb=%s:gr=%s:gg=%s:gb=%s:br=%s:bg=%s:bb=%s",
+			num(lr*(1-s)+s), num(lg*(1-s)), num(lb*(1-s)),
+			num(lr*(1-s)), num(lg*(1-s)+s), num(lb*(1-s)),
+			num(lr*(1-s)), num(lg*(1-s)), num(lb*(1-s)+s)))
 	}
 	return chain
 }

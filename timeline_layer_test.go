@@ -1,6 +1,88 @@
 package main
 
-import "testing"
+import (
+	"math"
+	"os/exec"
+	"testing"
+)
+
+// gradeCalc: те же формулы, что в tlGradeChain и CHROMA_FRAG: по ним сверяется результат ffmpeg
+func gradeCalc(rgb [3]float64, c Clip) [3]float64 {
+	clip := func(v float64) float64 { return min(max(v, 0), 1) }
+	gain := [3]float64{1 + 0.3*c.ColTemp, 1 - 0.3*c.ColTint, 1 - 0.3*c.ColTemp}
+	for i := range rgb {
+		v := math.Pow(clip(rgb[i]/255*gain[i]), math.Pow(2, -c.ColMid))
+		rgb[i] = clip((v-0.5)*math.Pow(2, 2*c.ColCon) + 0.5 + c.ColBri/2)
+	}
+	l, s := 0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2], 1+c.ColSat
+	for i := range rgb {
+		rgb[i] = clip(l+(rgb[i]-l)*s) * 255
+	}
+	return rgb
+}
+
+// rgbOf: средний цвет первого кадра
+func (m *montFixture) rgbOf(p string) [3]float64 {
+	m.t.Helper()
+	out, err := exec.Command(m.ffm, "-hide_banner", "-loglevel", "error", "-i", p, "-frames:v", "1", "-vf", "scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-").Output()
+	if err != nil || len(out) < 3 {
+		m.t.Fatalf("кадр из %s: %v", p, err)
+	}
+	return [3]float64{float64(out[0]), float64(out[1]), float64(out[2])}
+}
+
+// Цветокоррекция: результат ffmpeg сходится с формулами просмотра, одна и в паре с удалением фона
+func TestTimelineGrade(t *testing.T) {
+	m := newMontFixture(t)
+	src := m.color("src.mp4", "0x806040", 320, 240, 30, 1, 0)
+	orig := m.rgbOf(src)
+	for _, c := range []Clip{
+		{ColBri: 0.3}, {ColBri: -0.4}, {ColCon: 0.5}, {ColCon: -0.5}, {ColMid: 0.6}, {ColMid: -0.6},
+		{ColSat: 0.8}, {ColSat: -1}, {ColTemp: 0.7}, {ColTint: -0.7},
+		{ColBri: 0.1, ColCon: 0.2, ColMid: -0.2, ColSat: 0.3, ColTemp: -0.4, ColTint: 0.3},
+	} {
+		c.Path = src
+		got, want := m.rgbOf(m.render(tracks([]Clip{c}), "mp4")), gradeCalc(orig, c)
+		for i := range got {
+			if math.Abs(got[i]-want[i]) > 5 {
+				t.Errorf("%+v: получилось %v, по формулам %v", c, got, want)
+				break
+			}
+		}
+	}
+	// 10 бит не падает и остаётся 10 бит
+	deep := m.make("deep.mov", "-f", "lavfi", "-i", "color=c=0x806040:s=320x240:r=30:d=1", "-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le")
+	if got := m.rgbOf(m.render(tracks([]Clip{{Path: deep, ColBri: 0.3}}), "prores422")); got[0] <= orig[0]+20 {
+		t.Errorf("10 бит: яркость не прибавилась: %v, было %v", got, orig)
+	}
+	// вместе с удалением фона: ключ смотрит на исходный цвет, коррекция не возвращает вырезанное
+	under := m.color("under.mp4", "white", 320, 240, 30, 1, 0)
+	green := m.color("green.mp4", "0x00ff00", 320, 240, 30, 1, 0)
+	key := Clip{Path: green, KeyColor: "#00ff00", KeySim: 0.2, KeyBlend: 0.05, ColSat: -1, ColBri: -0.5}
+	if got := m.lumaAt(m.render(tracks([]Clip{{Path: under}}, []Clip{key}), "mp4"), 0.5, 0.5, 0.5); got < 200 {
+		t.Errorf("коррекция не должна мешать удалению фона: яркость %d", got)
+	}
+	// значения вне пределов обрезаются
+	over := Project{Tracks: []Track{{Clips: []Clip{{ColBri: 5, ColTint: -5}}}}}
+	over.fit()
+	if c := over.Tracks[0].Clips[0]; c.ColBri != 1 || c.ColTint != -1 {
+		t.Errorf("пределы: %+v", c)
+	}
+}
+
+// Коррекция не сдвигает цвета файла с тегами BT.709: ровно то, что покажет просмотр
+func TestTimelineGradeBT709(t *testing.T) {
+	m := newMontFixture(t)
+	src := m.make("hd.mp4", "-f", "lavfi", "-i", "color=c=0xc03030:s=1280x720:r=30:d=1",
+		"-vf", "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p", "-c:v", "libx264", "-preset", "ultrafast",
+		"-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709")
+	plain, tiny := m.rgbOf(m.render(tracks([]Clip{{Path: src}}), "mp4")), m.rgbOf(m.render(tracks([]Clip{{Path: src, ColBri: 0.001}}), "mp4"))
+	for i := range plain {
+		if math.Abs(plain[i]-tiny[i]) > 4 {
+			t.Fatalf("цвет съехал: без коррекции %v, с коррекцией %v", plain, tiny)
+		}
+	}
+}
 
 // Кадрирование срезает край на месте: остальная картинка не растягивается и не съезжает
 func TestTimelineCrop(t *testing.T) {

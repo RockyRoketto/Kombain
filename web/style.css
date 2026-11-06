@@ -232,13 +232,13 @@
   .mt-view{container-type:inline-size}
   @container (max-width:600px){#mvCanvasSize{display:none}}
   /* панель эффектов: параметр занимает одну строку */
-  .mt-row{display:grid;grid-template-columns:74px minmax(0,1fr) 44px;align-items:center;gap:6px;min-height:23px;font-size:11.5px;color:var(--tx2)}
+  .mt-row{display:grid;grid-template-columns:80px minmax(0,1fr) 44px;align-items:center;gap:6px;min-height:23px;font-size:11.5px;color:var(--tx2)}
   .mt-row>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .mt-row input[type=range].vol{flex:none;width:100%;min-width:0}
   .mt-row input[type=number],.mt-row select{box-sizing:border-box;width:100%;height:20px;padding:0 4px;border-radius:5px;font-size:11.5px}
   .mt-row input[type=number]::-webkit-inner-spin-button,.mt-row input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   .mt-row select{grid-column:2 / -1}
-  .mt-row.go{grid-template-columns:74px 36px minmax(0,1fr)}
+  .mt-row.go{grid-template-columns:80px 36px minmax(0,1fr)}
   .mt-row .btn.sm{min-width:0;padding:1px 4px;font-size:11px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mt-panel.alt .mt-row[data-n]{cursor:ew-resize}
   .mt-btns{display:flex;align-items:center;gap:4px;min-height:25px}
