@@ -316,6 +316,28 @@ __CSS__
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.colTint"></span><input type="range" class="vol" id="mtColTintR" min="-100" max="100" step="1" data-i18n-aria="mt.colTint"><input type="number" id="mtColTint" min="-100" max="100" step="1" data-i18n-aria="mt.colTint"></div>
           <div class="mt-btns"><button class="btn sm" id="mtColorReset" data-i18n="mt.colReset"></button></div>
         </details>
+        <details class="mt-sec" data-sec="blend">
+          <summary><span data-i18n="mt.secBlend"></span><em id="mtSumBlend"></em></summary>
+          <label class="mt-row" data-i18n-title="mt.blendTip"><span data-i18n="mt.blend"></span>
+            <select id="mtBlend"><option value="" data-i18n="mt.blendNormal"></option><option value="screen" data-i18n="mt.blendScreen"></option><option value="plus-lighter" data-i18n="mt.blendAdd"></option><option value="lighten" data-i18n="mt.blendLighten"></option><option value="multiply" data-i18n="mt.blendMultiply"></option><option value="darken" data-i18n="mt.blendDarken"></option><option value="overlay" data-i18n="mt.blendOverlay"></option><option value="hard-light" data-i18n="mt.blendHard"></option><option value="difference" data-i18n="mt.blendDiff"></option></select>
+          </label>
+        </details>
+        <div class="mt-group" data-i18n="mt.catFx"></div>
+        <details class="mt-sec" data-sec="blur">
+          <summary><span data-i18n="mt.secBlur"></span><em id="mtSumBlur"></em></summary>
+          <div class="mt-row" data-n data-i18n-title="mt.fxTip"><span data-i18n="mt.blur"></span><input type="range" class="vol" id="mtBlurR" min="0" max="20" step="0.05" data-i18n-aria="mt.blur"><input type="number" id="mtBlur" min="0" max="20" step="0.05" data-i18n-aria="mt.blur"></div>
+        </details>
+        <details class="mt-sec" data-sec="shadow">
+          <summary><span data-i18n="mt.secShadow"></span><em id="mtSumShadow"></em></summary>
+          <label class="sw mt-each"><span data-i18n="mt.shOn"></span><input type="checkbox" id="mtShOn"><i></i></label>
+          <div class="hide" id="mtShBody">
+            <div class="mt-row go"><span data-i18n="mt.shColor"></span><input type="color" id="mtShC" data-i18n-aria="mt.shColor"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.shA"></span><input type="range" class="vol" id="mtShAR" min="1" max="100" step="1" data-i18n-aria="mt.shA"><input type="number" id="mtShA" min="1" max="100" step="1" data-i18n-aria="mt.shA"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.fxTip"><span data-i18n="mt.shX"></span><input type="range" class="vol" id="mtShXR" min="-50" max="50" step="0.05" data-i18n-aria="mt.shX"><input type="number" id="mtShX" min="-50" max="50" step="0.05" data-i18n-aria="mt.shX"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.fxTip"><span data-i18n="mt.shY"></span><input type="range" class="vol" id="mtShYR" min="-50" max="50" step="0.05" data-i18n-aria="mt.shY"><input type="number" id="mtShY" min="-50" max="50" step="0.05" data-i18n-aria="mt.shY"></div>
+            <div class="mt-row" data-n data-i18n-title="mt.fxTip"><span data-i18n="mt.shB"></span><input type="range" class="vol" id="mtShBR" min="0" max="20" step="0.05" data-i18n-aria="mt.shB"><input type="number" id="mtShB" min="0" max="20" step="0.05" data-i18n-aria="mt.shB"></div>
+          </div>
+        </details>
         <div class="mt-group" data-i18n="mt.catBg"></div>
         <details class="mt-sec" data-sec="key">
           <summary><span data-i18n="mt.secKey"></span><em id="mtSumKey"></em></summary>

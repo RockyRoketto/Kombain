@@ -71,6 +71,14 @@ type Clip struct {
 	ColSat  float64 `json:"cSat,omitempty"`  // насыщенность
 	ColTemp float64 `json:"cTemp,omitempty"` // температура: больше нуля теплее
 	ColTint float64 `json:"cTint,omitempty"` // оттенок: больше нуля в пурпурный, меньше в зелёный
+	Blend   string  `json:"blend,omitempty"` // режим наложения, см. tlBlends; пусто: обычный
+	// Размытие и тень. Длины в долях высоты кадра: σ гауссианы и смещение. Просмотр: mvFx в web/js/viewport.js
+	Blur    float64 `json:"blur,omitempty"`
+	ShadowA float64 `json:"shA,omitempty"` // непрозрачность тени, 0 — тени нет
+	ShadowX float64 `json:"shX,omitempty"`
+	ShadowY float64 `json:"shY,omitempty"`
+	ShadowB float64 `json:"shB,omitempty"` // мягкость
+	ShadowC string  `json:"shC,omitempty"` // цвет
 }
 
 func (c Clip) volume() float64 {
@@ -142,6 +150,15 @@ func (p *Project) fit() {
 			c.KeySim = min(max(c.KeySim, 0.001), 1)
 			c.KeyBlend = min(max(c.KeyBlend, 0), 1)
 			c.KeySpill = min(max(c.KeySpill, 0), 1)
+			if _, ok := tlBlends[c.Blend]; !ok { // значение идёт в граф ffmpeg, поэтому только из списка
+				c.Blend = ""
+			}
+			c.Blur, c.ShadowB = min(max(c.Blur, 0), tlMaxBlur), min(max(c.ShadowB, 0), tlMaxBlur)
+			c.ShadowA = min(max(c.ShadowA, 0), 1)
+			c.ShadowX, c.ShadowY = min(max(c.ShadowX, -1), 1), min(max(c.ShadowY, -1), 1)
+			if !tlKeyRe.MatchString(c.ShadowC) {
+				c.ShadowC = "#000000"
+			}
 			for _, v := range []*float64{&c.ColBri, &c.ColCon, &c.ColMid, &c.ColSat, &c.ColTemp, &c.ColTint} {
 				*v = min(max(*v, -1), 1)
 			}
@@ -513,12 +530,7 @@ func tlInput(c tlClip, fps float64) []string {
 // Нижняя занимает всё время, пустоты в ней чёрные (прозрачные, если в монтаже есть слой с прозрачностью).
 // Верхняя начинается со своего первого клипа и заканчивается с последним: вне их overlay отдаёт то, что ниже.
 func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, deep, keep bool) []string {
-	var layers [][]tlClip
-	for _, list := range tracks {
-		if slices.ContainsFunc(list, func(c tlClip) bool { return c.si.video }) {
-			layers = append(layers, list)
-		}
-	}
+	layers := tlLayers(tracks)
 	// одна непрозрачная дорожка формат не трогает: 10 бит исходника доходят до результата как в обычной склейке
 	mainFmt, upperFmt := "", "yuva420p"
 	if deep {
@@ -534,7 +546,8 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 	}
 	var graph []string
 	under := ""
-	for l, layer := range layers {
+	for l, lay := range layers {
+		layer, blend := lay.clips, tlBlends[lay.blend]
 		bottom := l == 0
 		bg, pix := "black@0", upperFmt
 		if bottom {
@@ -558,7 +571,7 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 			if !c.si.video {
 				continue
 			}
-			if !bottom && len(join) == 0 {
+			if !bottom && blend == "" && len(join) == 0 {
 				pos, first = c.start, c.start
 			}
 			if c.start > pos {
@@ -569,7 +582,7 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 			join = append(join, label)
 			pos = c.end
 		}
-		if bottom && pos < total {
+		if (bottom || blend != "") && pos < total { // blend ждёт кадры обоих входов, поэтому слой с режимом идёт всю длину монтажа
 			gap(total - pos)
 		}
 		out := fmt.Sprintf("[t%d]", l)
@@ -589,10 +602,84 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 		if l == len(layers)-1 {
 			next = "[v]"
 		}
+		if blend != "" {
+			rgb := "format=gbrp"
+			if deep {
+				rgb = "format=gbrp10le"
+			}
+			base, top := fmt.Sprintf("[u%d]", l), fmt.Sprintf("[m%d]", l)
+			graph = append(graph, tlBlendGraph(under, out, base, top, l, upperFmt, rgb, blend)...)
+			under, out = base, top
+		}
 		graph = append(graph, under+out+"overlay=format=auto:eof_action=pass"+next)
 		under = next
 	}
 	return graph
+}
+
+// tlBlends: режимы наложения: значение mix-blend-mode в просмотре → режим фильтра blend. Числа совпадают по формулам,
+// проверка в TestTimelineBlend. Названия overlay и hardlight у ffmpeg поменяны местами относительно CSS: так и надо.
+// soft-light нет: формула ffmpeg считает совсем другое (0xE0 поверх 0x60: 216 против 142 в браузере).
+var tlBlends = map[string]string{
+	"":             "",
+	"screen":       "screen",
+	"plus-lighter": "addition",
+	"lighten":      "lighten",
+	"multiply":     "multiply",
+	"darken":       "darken",
+	"overlay":      "hardlight",
+	"hard-light":   "overlay",
+	"difference":   "difference",
+}
+
+type tlLayer struct {
+	clips []tlClip
+	blend string
+}
+
+// tlLayers: слои графа снизу вверх. Клипы одной дорожки во времени не пересекаются, поэтому клипы с разными режимами
+// можно разнести по отдельным слоям. Под самым нижним режимом лежит пустой слой: режим считается от чёрного кадра, как в просмотре.
+func tlLayers(tracks [][]tlClip) []tlLayer {
+	var layers []tlLayer
+	for _, list := range tracks {
+		var modes []string
+		for _, c := range list {
+			if c.si.video && !slices.Contains(modes, c.Blend) {
+				modes = append(modes, c.Blend)
+			}
+		}
+		slices.Sort(modes) // обычный режим первым
+		for _, m := range modes {
+			var clips []tlClip
+			for _, c := range list {
+				if c.si.video && c.Blend == m {
+					clips = append(clips, c)
+				}
+			}
+			layers = append(layers, tlLayer{clips, m})
+		}
+	}
+	if len(layers) > 0 && layers[0].blend != "" {
+		layers = slices.Insert(layers, 0, tlLayer{})
+	}
+	return layers
+}
+
+// tlBlendGraph: слой top смешивается с тем, что под ним. У blend нет прозрачности, поэтому его результат берёт
+// прозрачность слоя и обычным overlay ложится на нижнее: вне рамки и в плавности слоя видно нижнее как есть.
+// Формат перед split и scale на ветках обязательны: у split на всех выходах один формат, и без них ffmpeg мог перевести
+// весь слой в gbrp ещё до split, а тогда alphaextract падает. Какой выход победит, зависит от остального графа (в PNG падало, в MP4 нет).
+func tlBlendGraph(under, top, base, out string, l int, pix, rgb, mode string) []string {
+	name := func(s string) string { return fmt.Sprintf("[%s%d]", s, l) }
+	return []string{
+		under + "split=2" + base + name("ub"),
+		top + "format=" + pix + ",split=2" + name("ta") + name("tb"),
+		name("ub") + "scale," + rgb + name("uc"),
+		name("ta") + "scale," + rgb + name("tc"),
+		name("tc") + name("uc") + "blend=all_mode=" + mode + name("bl"),
+		name("tb") + "alphaextract" + name("am"),
+		name("bl") + name("am") + "alphamerge" + out,
+	}
 }
 
 // tlClipChain: кадры одного клипа: нужный размер и частота, реверс, скорость и точная длина.
@@ -608,27 +695,43 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	if graded { // после удаления фона: ключ смотрит на цвета файла, как в просмотре
 		chain = append(chain, tlGradeChain(c.Clip, deep)...)
 	}
-	if keyed && flat {
+	fx := c.Blur > 0 || c.ShadowA > 0
+	if keyed && flat && !fx { // с эффектами чёрное подставляется после них
 		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
 	}
-	if (keyed || graded) && pix == "" {
+	if (keyed || graded || fx) && pix == "" {
 		pix = "yuv420p"
 		if deep {
 			pix = "yuv444p10le"
 		}
 	}
-	if pix != "" {
-		chain = append(chain, "format="+pix)
+	// Эффекты считаются на слое с прозрачностью размером с кадр, а нужный формат и фон появляются после них
+	work, boxBg := pix, bg
+	if fx {
+		work, boxBg = "yuva444p", "black@0"
+		if deep {
+			work = "yuva444p10le"
+		}
+	}
+	if work != "" {
+		chain = append(chain, "format="+work)
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
 	box := c.Clip
-	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped()) && cw > 0 && ch > 0 {
+	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped() || fx) && cw > 0 && ch > 0 {
 		box.X, box.Y, box.W, box.H = tlFitBox(cw, ch, w, h)
 	}
 	if box.W > 0 {
-		chain = append(chain, tlBoxChain(box, w, h, bg)...)
+		chain = append(chain, tlBoxChain(box, w, h, boxBg)...)
 	} else if cw, ch := c.size(); cw != w || ch != h {
-		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, bg))
+		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, boxBg))
+	}
+	if fx {
+		chain = append(chain, tlFxChain(c, w, h, work)...)
+		if bg == "black" { // под слоем ничего нет: прозрачное становится чёрным
+			chain = append(chain, "premultiply=inplace=1")
+		}
+		chain = append(chain, "format="+pix)
 	}
 	rate := rateStr(fps)
 	chain = append(chain, "setsar=1", "fps="+rate)
@@ -645,6 +748,39 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	// у нижней дорожки под клипом чёрный фон, у верхней слой уходит в прозрачность
 	chain = append(chain, tlFades(c, fps, "fade", "setpts", bg != "black")...)
 	return strings.Join(chain, ",")
+}
+
+const tlMaxBlur = 0.2 // размытие и мягкость тени: σ не больше этой доли высоты кадра
+
+// tlFxChain: размытие, потом тень, в том же порядке, что filter в просмотре (mvFx). На входе кадр с прозрачностью.
+// Поля вокруг кадра нужны, чтобы край размывался в прозрачность, как в браузере: gblur сам повторил бы крайние точки.
+func tlFxChain(c tlClip, w, h int, pix string) []string {
+	var chain []string
+	sigma := func(v float64) string { return strconv.FormatFloat(v*float64(h), 'f', 3, 64) }
+	margin := func(s, off float64) int { return int(math.Ceil((3.5*s+math.Abs(off))*float64(h))) + 2 }
+	if c.Blur > 0 {
+		m := margin(c.Blur, 0)
+		chain = append(chain, "premultiply=inplace=1", // иначе цвет прозрачных полей затемняет край
+			fmt.Sprintf("pad=%d:%d:%d:%d:color=black@0", w+2*m, h+2*m, m, m),
+			"gblur=sigma="+sigma(c.Blur)+":steps=3",
+			fmt.Sprintf("crop=%d:%d:%d:%d", w, h, m, m),
+			"unpremultiply=inplace=1")
+	}
+	if c.ShadowA > 0 {
+		var r, g, b int
+		fmt.Sscanf(c.ShadowC, "#%02x%02x%02x", &r, &g, &b)
+		m := margin(c.ShadowB, max(math.Abs(c.ShadowX), math.Abs(c.ShadowY)))
+		dx, dy := int(math.Round(c.ShadowX*float64(h))), int(math.Round(c.ShadowY*float64(h)))
+		// тень: сплошной цвет, прозрачность от слоя; цвет везде одинаковый, поэтому размывать можно без premultiply
+		soft := ""
+		if c.ShadowB > 0 {
+			soft = ",gblur=sigma=" + sigma(c.ShadowB) + ":steps=3"
+		}
+		a, s, o := fmt.Sprintf("[fa%d]", c.input), fmt.Sprintf("[fb%d]", c.input), fmt.Sprintf("[fc%d]", c.input)
+		chain = append(chain, fmt.Sprintf("split=2%s%s;%sformat=rgba,pad=%d:%d:%d:%d:color=black@0,lutrgb=r=%d:g=%d:b=%d:a=val*%s%s,crop=%d:%d:%d:%d,format=%s%s;%s%soverlay=format=auto,format=%s",
+			a, s, a, w+2*m, h+2*m, m, m, r, g, b, strconv.FormatFloat(c.ShadowA, 'f', 4, 64), soft, w, h, m-dx, m-dy, pix, o, o, s, pix))
+	}
+	return chain
 }
 
 var tlKeyRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)

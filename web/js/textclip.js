@@ -51,7 +51,7 @@ async function mtTextMake(x, c) {
   const r = await api('text-png', {data: pic.cv.toDataURL('image/png').split(',')[1]});
   if (r.error) { say('err', t('mt.secText'), r.error); return null; }
   if (!mtFile(r.path)) mtKnown.set(mtKey(r.path), {name: base(r.path), dir: dirOf(r.path), path: r.path, size: 0, w: pic.cv.width, h: pic.cv.height, kind: 'p', bad: false, audio: false, reading: Promise.resolve()});
-  return {path: r.path, w: pic.w / d.w, h: pic.h / d.h};
+  return {path: r.path, fresh: r.fresh, w: pic.w / d.w, h: pic.h / d.h};
 }
 // Положить новую картинку в клип: середина и растяжение рамки остаются
 const mtTextTurn = new Map();
@@ -61,7 +61,15 @@ async function mtTextRedraw(c) {
   const made = await mtTextMake(text, c);
   const now = tkById(c.id);
   if (!made || !now || now.text !== text || mtTextTurn.get(c.id) !== turn) return;
-  if (now.path === made.path && now.w > 0) return;
+  if (now.path === made.path && now.w > 0) {
+    if (made.fresh) {   // файл убрала чистка кэша и он появился снова: окно и дорожка могли не дождаться его
+      const pic = mv.pics.get(now.id), el = tkEls.get(now.id);
+      if (pic) delete pic.dataset.url;
+      if (el) delete el.dataset.sig;
+      tkChanged();
+    }
+    return;
+  }
   if (text.box && now.w > 0) {   // рамку задаёт пользователь, картинка её только заполняет
     Object.assign(now, {path: made.path, nw: now.w});
     tkChanged();

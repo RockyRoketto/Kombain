@@ -493,12 +493,12 @@ func (s *Server) routes() *http.ServeMux {
 			Data string `json:"data"`
 		}
 		json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<20)).Decode(&body)
-		path, err := saveTextPNG(body.Data)
+		path, fresh, err := saveTextPNG(body.Data)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, map[string]any{"path": path})
+		writeJSON(w, map[string]any{"path": path, "fresh": fresh})
 	}))
 
 	mux.HandleFunc("/api/subs-pick", s.api(func(w http.ResponseWriter, r *http.Request) {

@@ -166,6 +166,7 @@ const MV_ZONES = {
   tiktok: {t: 160 / 12.8, b: 440 / 12.8, l: 80 / 7.2, r: 80 / 7.2, cut: [120 / 5.6, 280 / 6.8], src: 'TikTok Ads Manager'},
 };
 let mvSafeNow = '';
+const mvSafeKey = v => 'mv.safe.' + v;
 function mvSafeSet(v) {
   const z = MV_ZONES[v], el = $('mvSafeZone');
   mvSafeNow = v;
@@ -174,8 +175,8 @@ function mvSafeSet(v) {
   $('mvSafeBtn').classList.toggle('on', !!v);
   if (z) {
     el.style.inset = `${z.t}% ${z.r}% ${z.b}% ${z.l}%`;
-    $('mvSafeName').dataset.i18n = 'mv.safe.' + v;
-    $('mvSafeName').textContent = t('mv.safe.' + v);
+    $('mvSafeName').dataset.i18n = mvSafeKey(v);
+    $('mvSafeName').textContent = t(mvSafeKey(v));
     $('mvSafeCut').classList.toggle('hide', !z.cut);
     if (z.cut) { $('mvSafeCut').style.width = z.cut[0] + '%'; $('mvSafeCut').style.height = z.cut[1] + '%'; }
   }
@@ -192,7 +193,7 @@ $('mvSafeBtn').onclick = () => {
     item('', t('mv.safe.off')),
     '-',
     item('tv', t('mv.safe.tv')),
-    ...Object.keys(MV_ZONES).map(v => item(v, t('mv.safe.' + v), t('mv.safe.src', {src: MV_ZONES[v].src}))),
+    ...Object.keys(MV_ZONES).map(v => item(v, t(mvSafeKey(v)), t('mv.safe.src', {src: MV_ZONES[v].src}))),
   ]);
   $('mvSafeBtn').blur();
 };
@@ -241,7 +242,7 @@ function mvSizeCanvas() {
   Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: Math.floor((W - w) / 2) + 'px', top: Math.floor((H - h) / 2) + 'px'});
   mvCanvasBtn();
 }
-new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); } }).observe(mvStage);
+new ResizeObserver(() => { if (tab === 'mont') { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); tkClips().filter(c => c.blur || c.shA).forEach(mvPlaceClip); mvLook(); } }).observe(mvStage);   // размытие и тень в точках экрана
 // Рамка слоя в долях холста. Без своей рамки слой вписан по центру, как делает движок.
 function mvBox(c) { return c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : mvFitBox(c); }
 // слой, вписанный в кадр по центру (tlFitBox)
@@ -254,10 +255,24 @@ function mvFitBox(c) {
 const mvCropOf = c => ({l: c.cl || 0, t: c.ct || 0, r: c.cr || 0, b: c.cb || 0});
 // Порядок как в движке (tlBoxChain): кадрирование срезает края на месте, поворот идёт вокруг середины рамки
 function mvPlace(el, c) {
-  const b = mvBox(c), o = mvCropOf(c);
-  Object.assign(el.style, {left: b.x * 100 + '%', top: b.y * 100 + '%', width: b.w * 100 + '%', height: b.h * 100 + '%', objectFit: c.w > 0 ? 'fill' : 'contain',
-    clipPath: o.l || o.t || o.r || o.b ? `inset(${o.t * 100}% ${o.r * 100}% ${o.b * 100}% ${o.l * 100}%)` : '',
-    transform: c.rot ? `rotate(${c.rot}deg)` : ''});
+  const b = mvBox(c), o = mvCropOf(c), fx = mvFx(c), cut = o.l || o.t || o.r || o.b, inner = fx && cut;
+  // filter у браузера идёт раньше clip-path: тень и край размытия обрезались бы. Поэтому с эффектами срезается само содержимое, как в tlBoxChain
+  const w = 1 - o.l - o.r, h = 1 - o.t - o.b, box = inner ? {x: b.x + o.l * b.w, y: b.y + o.t * b.h, w: b.w * w, h: b.h * h} : b;
+  Object.assign(el.style, {left: box.x * 100 + '%', top: box.y * 100 + '%', width: box.w * 100 + '%', height: box.h * 100 + '%', objectFit: c.w > 0 || inner ? 'fill' : 'contain',
+    clipPath: cut && !inner ? `inset(${o.t * 100}% ${o.r * 100}% ${o.b * 100}% ${o.l * 100}%)` : '',
+    objectViewBox: inner ? `inset(${o.t * 100}% ${o.r * 100}% ${o.b * 100}% ${o.l * 100}%)` : '',
+    transformOrigin: inner ? `${(.5 - o.l) / w * 100}% ${(.5 - o.t) / h * 100}%` : '',   // поворот вокруг середины всей рамки
+    transform: c.rot ? `rotate(${c.rot}deg)` : '', filter: fx, mixBlendMode: c.blend || ''});   // режимы и формулы как у ffmpeg: tlBlends в timeline.go
+}
+// Размытие и тень, порядок и размеры как в tlFxChain (timeline.go). Сдвиг тени считается на экране, а filter стоит до поворота, поэтому сдвиг поворачивается обратно
+function mvFx(c) {
+  const px = mvCv.clientHeight, out = [];
+  if (c.blur) out.push(`blur(${c.blur * px}px)`);
+  if (c.shA) {
+    const a = (c.rot || 0) * Math.PI / 180, x = c.shX || 0, y = c.shY || 0, [r, g, b] = chromaRGB(c.shC || '#000000').map(v => Math.round(v * 255));
+    out.push(`drop-shadow(${(x * Math.cos(a) + y * Math.sin(a)) * px}px ${(y * Math.cos(a) - x * Math.sin(a)) * px}px ${(c.shB || 0) * px}px rgba(${r},${g},${b},${c.shA}))`);
+  }
+  return out.join(' ');
 }
 // Новый размер холста: рамки не растягиваются, а уменьшаются или растут вместе с кадром
 function mvSetCanvas(next) {

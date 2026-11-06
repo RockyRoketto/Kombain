@@ -127,14 +127,14 @@ func TestSaveTextPNG(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", os.Getenv("LOCALAPPDATA"))
 	png := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nданные"))
-	a, err := saveTextPNG(png)
+	a, _, err := saveTextPNG(png)
 	if err != nil || !fileExists(a) {
 		t.Fatal(a, err)
 	}
-	if b, _ := saveTextPNG(png); b != a {
+	if b, _, _ := saveTextPNG(png); b != a {
 		t.Errorf("один текст, два файла: %s %s", a, b)
 	}
-	if _, err := saveTextPNG(base64.StdEncoding.EncodeToString([]byte("not png"))); err == nil {
+	if _, _, err := saveTextPNG(base64.StdEncoding.EncodeToString([]byte("not png"))); err == nil {
 		t.Error("принят не PNG")
 	}
 }

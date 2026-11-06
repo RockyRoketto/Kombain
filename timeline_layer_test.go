@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"os/exec"
 	"testing"
@@ -242,4 +243,15 @@ func TestTimelineCanvasSize(t *testing.T) {
 	if got := m.lumaAt(out, 0.5, 0.5, 0.1); got > 40 {
 		t.Errorf("сверху пусто: яркость %d", got)
 	}
+}
+
+// rgbAt: цвет маленького куска кадра на отметке 0,5 с
+func (m *montFixture) rgbAt(p string, x, y float64) [3]float64 {
+	m.t.Helper()
+	vf := fmt.Sprintf("crop=4:4:(iw-4)*%g:(ih-4)*%g,scale=1:1", x, y)
+	out, err := exec.Command(m.ffm, "-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", p, "-frames:v", "1", "-vf", vf, "-f", "rawvideo", "-pix_fmt", "rgb24", "-").Output()
+	if err != nil || len(out) < 3 {
+		m.t.Fatalf("кадр из %s: %v", p, err)
+	}
+	return [3]float64{float64(out[0]), float64(out[1]), float64(out[2])}
 }

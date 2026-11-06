@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -298,26 +299,29 @@ func subsSRT(cues []SubCue) string {
 func subsDir() string { return filepath.Join(cacheDir(), "subs") }
 
 // saveTextPNG: картинка клипа «Текст». Имя по содержимому: одинаковый текст даёт один файл. Настоящие данные лежат в проекте, страница рисует заново при открытии.
-func saveTextPNG(b64 string) (string, error) {
+// fresh: файла не было. Если страница уже пробовала его показать, ей надо загрузить его снова. Дата файла отмечает последнее использование (textPrune).
+func saveTextPNG(b64 string) (path string, fresh bool, err error) {
 	b, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")) {
-		return "", errors.New("not a PNG")
+		return "", false, errors.New("not a PNG")
 	}
-	dir := filepath.Join(cacheDir(), "text")
+	dir := textDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
+		return "", false, err
 	}
 	sum := sha256.Sum256(b)
 	p := filepath.Join(dir, hex.EncodeToString(sum[:12])+".png")
 	if fileExists(p) {
-		return p, nil
+		now := time.Now()
+		os.Chtimes(p, now, now)
+		return p, false, nil
 	}
 	tmp, err := os.CreateTemp(dir, "*.part")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	_, err = tmp.Write(b)
 	if e := tmp.Close(); err == nil {
@@ -328,9 +332,9 @@ func saveTextPNG(b64 string) (string, error) {
 	}
 	if err != nil {
 		os.Remove(tmp.Name())
-		return "", err
+		return "", false, err
 	}
-	return p, nil
+	return p, true, nil
 }
 
 // subsTemp: у каждого запуска свой файл, их убирает следующий запуск программы и её закрытие (startServer, stopAll)

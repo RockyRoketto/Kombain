@@ -348,6 +348,22 @@ function mtFrameFill() {
   mtSum('mtSumKey', clips.some(c => c.key) ? '●' : '');
   MT_COLOR.forEach(([id, key]) => mtVal(id, mtSame(clips, c => mtRnd((c[key] || 0) * 100, 0))));
   mtSum('mtSumColor', clips.some(chromaGraded) ? '●' : '');
+  const blends = new Set(clips.map(c => c.blend || '')), sel = $('mtBlend');
+  if (blends.size === 1) sel.value = clips[0].blend || ''; else sel.selectedIndex = -1;   // у выбранных клипов режимы разные
+  mtSum('mtSumBlend', blends.size > 1 ? '●' : sel.value ? sel.selectedOptions[0].textContent : '');
+  const blur = mtSame(clips, c => mtRnd((c.blur || 0) * 100, 2)), shOn = clips.every(c => c.shA);
+  mtVal('mtBlur', blur);
+  mtSum('mtSumBlur', blur ? blur + '%' : clips.some(c => c.blur) ? '●' : '');
+  $('mtShOn').checked = shOn;
+  $('mtShBody').classList.toggle('hide', !shOn);
+  if (shOn) {
+    $('mtShC').value = clips[0].shC || '#000000';
+    mtVal('mtShA', mtSame(clips, c => mtRnd(c.shA * 100, 0)));
+    mtVal('mtShX', mtSame(clips, c => mtRnd((c.shX || 0) * 100, 2)));
+    mtVal('mtShY', mtSame(clips, c => mtRnd((c.shY || 0) * 100, 2)));
+    mtVal('mtShB', mtSame(clips, c => mtRnd((c.shB || 0) * 100, 2)));
+  }
+  mtSum('mtSumShadow', clips.some(c => c.shA) ? '●' : '');
   const fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
   mtVal('mtFadeIn', fadeIn);
   mtVal('mtFadeOut', fadeOut);
@@ -482,6 +498,22 @@ $('mtKeyPick').addEventListener('click', () => { chromaPickToggle(); mtFramePane
 // цветокоррекция: в панели от -100 до 100, в клипе доли
 MT_COLOR.forEach(([id, key]) => mtRow(id, .5, v => mtFrameClips().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, -100), 100) / 100, 3), 0))));
 $('mtColorReset').onclick = () => tkDo(() => mtFrameClips().forEach(c => MT_COLOR.forEach(x => delete c[x[1]])));
+$('mtBlend').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => mtPut(c, 'blend', v, ''))); });
+// размытие и тень: в панели проценты высоты кадра, в клипе доли; предел как tlMaxBlur в timeline.go
+const mtFxRow = (id, key, lo, hi, on) => mtRow(id, .05, v => mtFrameClips().forEach(c => { if (!on || c.shA) mtPut(c, key, mtRnd(Math.min(Math.max(v, lo), hi) / 100, 4), 0); }));
+mtFxRow('mtBlur', 'blur', 0, 20);
+mtFxRow('mtShX', 'shX', -50, 50, true);
+mtFxRow('mtShY', 'shY', -50, 50, true);
+mtFxRow('mtShB', 'shB', 0, 20, true);
+mtRow('mtShA', .5, v => mtFrameClips().forEach(c => { if (c.shA) c.shA = mtRnd(Math.min(Math.max(v, 1), 100) / 100, 3); }));
+$('mtShOn').addEventListener('change', e => {
+  const on = e.target.checked;
+  tkDo(() => mtFrameClips().forEach(c => {
+    if (on) { if (!c.shA) Object.assign(c, {shA: .6, shX: .01, shY: .015, shB: .015, shC: '#000000'}); }
+    else ['shA', 'shX', 'shY', 'shB', 'shC'].forEach(key => delete c[key]);
+  }));
+});
+$('mtShC').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => { if (c.shA) c.shC = v; })); });
 mtRow('mtVolume', .5,v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
 
 // ---------- логотип: картинка на новой верхней дорожке, на весь монтаж, в правом верхнем углу ----------
@@ -725,7 +757,7 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
-  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'key', 'keySim', 'keyBlend', 'keySpill', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
+  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
