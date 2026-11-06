@@ -69,10 +69,14 @@ __CSS__
           <div><span class="lb" data-i18n="setp.jobs"></span><span class="hint" data-i18n="setp.jobsHint"></span></div>
           <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         </div>
-        <div class="stack">
-          <span class="lb" data-i18n="setp.extra"></span>
-          <input type="text" id="extra" data-i18n-ph="setp.extraPh">
-        </div>
+        <details class="setp-adv" id="extraBox">
+          <summary data-i18n="setp.adv"></summary>
+          <div class="stack">
+            <span class="lb" data-i18n="setp.extra"></span>
+            <input type="text" id="extra" data-i18n-ph="setp.extraPh">
+            <div class="note" data-i18n="setp.extraHint"></div>
+          </div>
+        </details>
       </section>
       <section class="setp-group">
         <h2 data-i18n="setp.sounds"></h2>
@@ -91,6 +95,13 @@ __CSS__
           </div>
         </div>
         <div class="note" data-i18n="sound.note"></div>
+      </section>
+      <section class="setp-group">
+        <h2 data-i18n="setp.app"></h2>
+        <div class="setp-btns">
+          <button class="btn sm" id="openData" data-i18n="setp.openData" data-i18n-title="setp.openDataTitle"></button>
+          <button class="btn sm" id="resetAll" data-i18n="setp.reset"></button>
+        </div>
       </section>
       <!-- в своём окне программу закрывает крестик, эта кнопка только для браузера -->
       <section class="setp-group exit">

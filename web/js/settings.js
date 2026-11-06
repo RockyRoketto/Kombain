@@ -184,6 +184,25 @@ document.addEventListener('pointerdown', e => {
   if (!e.target.closest('#setPanel, #gearBtn')) setPanel(false);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setPanel(false); });
+// заполненное поле не прячем: иначе аргументы молча действуют на каждую конвертацию
+$('extraBox').open = !!$('extra').value.trim();
+$('openData').onclick = async () => {
+  const r = await api('open-data');
+  if (r.error) say('warn', t('folder.title'), r.error);
+};
+// Что не настройки, а работа пользователя, остаётся
+const RESET_KEEP = ['konv9000.presets', 'konv9000.newsSeen', 'konv9000.mtProject'];
+$('resetAll').onclick = async () => {
+  if (snap.running) { say('warn', t('setp.reset'), t('setp.resetBusy')); return; }
+  if (!confirm(t('setp.resetAsk'))) return;
+  const r = await api('settings', {reset: true});
+  if (r.error) { say('err', t('setp.reset'), r.error); return; }
+  try {
+    tkAutosave();   // отложенное автосохранение не успело бы до перезагрузки
+    Object.keys(localStorage).filter(k => k.startsWith('konv9000') && !RESET_KEEP.includes(k)).forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+  location.reload();
+};
 // тема: сама применяется в applyTheme (index.html), выбор хранит программа в settings.json
 function renderTheme() {
   document.querySelectorAll('#themeSeg .segb').forEach(b => {

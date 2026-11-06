@@ -64,7 +64,7 @@
 | Имя и папка результата | `files.go` (`outPath`) |
 | Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
-| Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`) |
+| Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`, сброс `resetAll` и что он оставляет `RESET_KEEP`, в Go: поле `reset` в `/api/settings`) |
 | Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
 | Настройка, которую должен знать Go | `update.go` (`Settings`), `api.go` (`/api/settings`) |
 | Тексты и язык | страница: `web/i18n.json`, в разметке метки `data-i18n`, в коде `t()` и `tn()` из `web/js/i18n.js`; Go: `i18n_strings.go`, `tr()`, `errT()`, `logT()` из `i18n.go`; переключатель: `web/js/settings.js` (`renderLang`) |
@@ -170,7 +170,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
 

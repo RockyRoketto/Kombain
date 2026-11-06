@@ -122,15 +122,22 @@ $('mtText').onclick = () => dialog(async () => {
 
 // ---------- шрифты Windows: для текста и для субтитров ----------
 let mtFontList = [];
+// Название показано своим шрифтом. В значковых шрифтах вместо букв рисунки, название было бы не прочитать.
+const MT_FONT_ICONS = /^(wingdings|webdings|symbol|marlett|ms outlook|bookshelf symbol|mt extra)/i;
+function mtFontOpt(font) {
+  const o = new Option(font, font);
+  if (!MT_FONT_ICONS.test(font)) o.style.fontFamily = `"${font}"`;
+  return o;
+}
 function mtFontPut(sel, font) {
   // шрифта с другого компьютера может не быть в списке: значение всё равно показать
-  if (![...sel.options].some(o => o.value === font)) sel.add(new Option(font, font));
+  if (![...sel.options].some(o => o.value === font)) sel.add(mtFontOpt(font));
   sel.value = font;
 }
 async function mtFontsLoad() {
   const r = await api('fonts');
   mtFontList = r.fonts && r.fonts.length ? r.fonts : ['Arial', 'Segoe UI', 'Tahoma', 'Verdana', 'Times New Roman', 'Georgia', 'Impact'];
-  [$('mtTextFont'), $('mtSubsFont')].forEach(sel => { const keep = sel.value; sel.replaceChildren(...mtFontList.map(f => new Option(f, f))); if (keep) mtFontPut(sel, keep); });
+  [$('mtTextFont'), $('mtSubsFont')].forEach(sel => { const keep = sel.value; sel.replaceChildren(...mtFontList.map(mtFontOpt)); if (keep) mtFontPut(sel, keep); });
   mtPanel();
 }
 mtFontsLoad();

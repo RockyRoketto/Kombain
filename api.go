@@ -197,6 +197,7 @@ func (s *Server) routes() *http.ServeMux {
 		var body struct {
 			Theme *string `json:"theme"`
 			Lang  *string `json:"lang"`
+			Reset bool    `json:"reset"` // кнопка «Сбросить настройки»: язык и отметки об обновлениях остаются
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
@@ -219,12 +220,15 @@ func (s *Server) routes() *http.ServeMux {
 			s.settings.Lang = *body.Lang
 			setLang(*body.Lang)
 		}
-		if body.Theme != nil || body.Lang != nil {
+		if body.Reset {
+			s.settings.Theme, s.settings.BannerJpgRel, s.settings.BannerWebpRel = "", "", ""
+		}
+		if body.Theme != nil || body.Lang != nil || body.Reset {
 			saveErr = saveSettings(s.settings) // под замком: быстрые переключения не перепутают порядок записи
 		}
 		theme, lang := normTheme(s.settings.Theme), normLang(s.settings.Lang)
 		s.mu.Unlock()
-		if body.Theme != nil {
+		if body.Theme != nil || body.Reset {
 			windowThemeChanged()
 		}
 		if body.Lang != nil {
@@ -642,6 +646,12 @@ func (s *Server) routes() *http.ServeMux {
 			return
 		}
 		openFolder(body.Path)
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/open-data", s.api(func(w http.ResponseWriter, r *http.Request) {
+		os.MkdirAll(dataDir(), 0o755)
+		openFolder(dataDir())
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
