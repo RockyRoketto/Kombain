@@ -1,6 +1,16 @@
 // ---------- настройки ----------
 const FIELDS = ['crf','speed','abr','height','fps','jobs','extra','outDir','codec','target','jpgDir','webpDir','gifPalette','joinFps'];
 const CHECKS = ['overwrite', 'copyDup', 'bAutoDirs'];
+// Что переживает новый запуск. Остальные поля, формат и вкладка возвращаются к начальным значениям.
+const FIELDS_KEEP = ['jobs', 'outDir', 'jpgDir', 'webpDir'];
+// Новый запуск программы, а не перезагрузка страницы: sessionStorage живёт, пока открыто окно
+const NEW_RUN = (() => {
+  try {
+    if (sessionStorage.getItem('konv9000.live')) return false;
+    sessionStorage.setItem('konv9000.live', '1');
+  } catch (e) {}
+  return true;
+})();
 let tab = 'conv';        // вкладка: 'conv' — конвертер, 'play' — плеер, 'mont' — монтаж, 'banner' — баннеры
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
@@ -14,11 +24,11 @@ function save() {
 function load() {
   try {
     const o = JSON.parse(localStorage.getItem('konv9000') || '{}');
-    if (o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
+    if (!NEW_RUN && o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
-    if (['conv', 'play', 'mont', 'banner'].includes(o.tab)) tab = o.tab;
+    if (!NEW_RUN && ['conv', 'play', 'mont', 'banner'].includes(o.tab)) tab = o.tab;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
-    FIELDS.forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
+    FIELDS.filter(k => !NEW_RUN || FIELDS_KEEP.includes(k)).forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
     CHECKS.forEach(k => { if (o[k] !== undefined) $(k).checked = o[k]; });
   } catch (e) {}
 }

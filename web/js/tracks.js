@@ -97,7 +97,12 @@ function tkApply(o) {
   mtSetFiles(o.files || []);
 }
 const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
-function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath}))); }
+function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath, dirty: tkDirty()}))); }
+// Есть ли несохранённые изменения. Размер файла не считается: он приходит позже, когда файл прочитан.
+const tkWork = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => f.path)});
+let tkSavedWork = '';
+function tkMarkSaved() { tkSavedWork = tkWork(); }
+const tkDirty = () => !!(tkClips().length || mtFiles.length || tkSubs) && tkWork() !== tkSavedWork;
 // Проект из файла или автосохранения. Файл могли править руками, поэтому каждое значение проверяется.
 function tkLoad(o, path) {
   if (!o || !Array.isArray(o.tracks)) return false;
@@ -165,6 +170,7 @@ function tkLoad(o, path) {
   if (typeof o.snap === 'boolean') tkSnapOn = o.snap;
   tkPath = path || '';
   tkSel.clear(); tkUndoList = []; tkRedoList = [];
+  tkMarkSaved();
   return true;
 }
 

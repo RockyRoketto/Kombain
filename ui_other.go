@@ -23,6 +23,8 @@ func windowThemeChanged() {} // своего окна здесь нет, стр�
 func windowLangChanged()  {}
 
 func activateRunning([]string) bool { return false } // своего окна здесь нет
+func closeAck()                     {}
+func closeFromPage()                {}
 
 func runUI(s *Server) {
 	if os.Getenv("FFB_NO_BROWSER") == "" {

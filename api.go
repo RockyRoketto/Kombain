@@ -655,11 +655,26 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/session", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"crashed": lastCrashed})
+	}))
+
+	mux.HandleFunc("/api/close-ack", s.api(func(w http.ResponseWriter, r *http.Request) {
+		closeAck()
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/close-go", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"ok": true})
+		closeFromPage()
+	}))
+
 	mux.HandleFunc("/api/exit", s.api(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": true})
 		go func() {
 			time.Sleep(200 * time.Millisecond)
 			s.stopAll()
+			markStopped()
 			os.Exit(0)
 		}()
 	}))

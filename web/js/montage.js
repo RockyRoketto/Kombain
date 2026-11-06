@@ -771,11 +771,13 @@ function mtTrimClosed() {
 // ---------- проект файлом ----------
 async function mtProjectSave(ask) {
   const r = await api('project-save', {path: ask ? '' : tkPath, data: tkFile()});
-  if (r.error) { say('err', t('mt.saveFailed'), r.error); return; }
-  if (!r.path) return;
+  if (r.error) { say('err', t('mt.saveFailed'), r.error); return false; }
+  if (!r.path) return false;
   tkPath = r.path;
+  tkMarkSaved();
   tkAutosave();
   toast({id: 'snap', type: 'ok', title: t('mt.saved'), text: esc(base(r.path)), ttl: 5000});
+  return true;
 }
 // path: файл открыли снаружи, двойным щелчком; без него программа спросит сама
 async function mtProjectOpen(path) {
@@ -830,8 +832,9 @@ $('mtSend').onclick = () => {
   setTab('conv');
 };
 
+// Перезагрузка страницы возвращает монтаж как был. Новый запуск начинается чисто, см. session.js.
 try {
   const saved = JSON.parse(storeGet(TK_SAVE_KEY) || 'null');
-  if (saved) tkLoad(saved, saved.path);
+  if (!NEW_RUN && saved && tkLoad(saved, saved.path) && saved.dirty) tkSavedWork = '';
 } catch (e) {}
 setTimeout(mtTextRefresh);   // когда все скрипты уже загружены

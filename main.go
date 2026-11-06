@@ -127,10 +127,26 @@ func main() {
 	if !hasArg("--updated") && activateRunning(paths) {
 		return
 	}
+	markRunning()
 	s := startServer()
 	go s.addIncoming(paths)
 	runUI(s) // окно программы (Windows) или вкладка браузера
+	markStopped()
 }
+
+// Метка «программа работает». Осталась с прошлого раза: программа упала или выключился компьютер.
+var lastCrashed bool
+
+func runMark() string { return filepath.Join(dataDir(), "running.flag") }
+
+func markRunning() {
+	_, err := os.Stat(runMark())
+	lastCrashed = err == nil
+	os.MkdirAll(dataDir(), 0o755)
+	os.WriteFile(runMark(), nil, 0o644)
+}
+
+func markStopped() { os.Remove(runMark()) }
 
 // argPaths: файлы и папки из командной строки («Отправить», перетаскивание на значок).
 // Пути полные: у второго запуска своя рабочая папка.

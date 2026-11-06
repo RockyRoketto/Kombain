@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"time"
 	"syscall"
 	"unsafe"
 
@@ -176,6 +177,18 @@ func runOnUI(f func()) {
 	pPostMessageW.Call(mainHwnd, wmAppCall, 0, 0)
 }
 
+// closeAcked: страница услышала просьбу закрыться и сама скажет, когда можно
+var closeAcked atomic.Bool
+
+func closeAck() { closeAcked.Store(true) }
+
+func closeWindow() {
+	saveWindowPlace()
+	pDestroyWindow.Call(mainHwnd)
+}
+
+func closeFromPage() { runOnUI(closeWindow) }
+
 func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 	switch msg {
 	case wmAppCall:
@@ -211,9 +224,10 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 		mm[7] = int32(dpiScale(600))
 		return 0
 	case wmClose:
+		running := false
 		if srv != nil {
 			srv.mu.Lock()
-			running := srv.running
+			running = srv.running
 			srv.mu.Unlock()
 			if running {
 				r, _, _ := pMessageBoxW.Call(hwnd,
@@ -224,8 +238,19 @@ func wndProc(hwnd, msg, wp, lp uintptr) uintptr {
 				}
 			}
 		}
-		saveWindowPlace()
-		pDestroyWindow.Call(hwnd)
+		if !webReady.Load() {
+			closeWindow()
+			return 0
+		}
+		// Про несохранённое спрашивает страница. Не ответила (не загрузилась, зависла) — закрываем сами.
+		closeAcked.Store(false)
+		chromium.Eval(fmt.Sprintf("window.__konvClose && window.__konvClose(%t)", running))
+		go func() {
+			time.Sleep(4 * time.Second) // занятая страница отвечает не сразу, а без вопроса пропадёт работа
+			if !closeAcked.Load() {
+				runOnUI(closeWindow)
+			}
+		}()
 		return 0
 	case wmDestroy:
 		pPostQuitMessage.Call(0)
@@ -531,6 +556,7 @@ func runUI(s *Server) {
 
 	messageLoop()
 	s.stopAll()
+	markStopped()
 	windows.Exit(0)
 }
 
