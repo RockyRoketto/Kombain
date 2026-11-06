@@ -35,7 +35,7 @@ function mtSetFiles(list) {
     mtFiles.push(mtItem(f.path, f.size));
   }
 }
-// Файлы снаружи падают в окно файлов, на дорожки их переносят мышью. Что уже есть в окне, второй раз не встаёт.
+// Брошенные мимо дорожек файлы падают в окно файлов, на дорожки их переносят мышью. Что уже есть в окне, второй раз не встаёт.
 function mtAdd(list) {
   const bad = [], fresh = [];
   for (const f of list || []) {
@@ -45,6 +45,29 @@ function mtAdd(list) {
   }
   if (bad.length) say('warn', t('mt.notMedia'), bad.join(', '));
   if (fresh.length) tkDo(() => { fresh.forEach(f => mtFiles.push(mtItem(f.path, f.size))); });
+}
+// Файлы брошены на дорожку: на каждой дорожке встают друг за другом от места броска. Окно файлов и дорожка меняются одним шагом отмены.
+async function mtAddAt(list, aim) {
+  const names = (list || []).map(f => base(f.path)), bad = names.filter(n => !mtFits(n));
+  if (bad.length) say('warn', t('mt.notMedia'), bad.join(', '));
+  const items = (list || []).filter(f => mtFits(base(f.path))).map(f => mtItem(f.path, f.size));
+  if (!items.length) return;
+  await Promise.allSettled(items.map(it => it.reading));   // длина и вид файла известны только после чтения
+  const good = items.filter(it => !it.bad && it.kind);
+  if (good.length < items.length) say('warn', t('mt.noDurTitle'), t('mt.noDur'));
+  mvFileOff();
+  tkDo(() => {
+    items.forEach(it => { if (!mtFiles.includes(it)) mtFiles.push(it); });
+    const next = new Map(), ids = [];
+    for (const it of good) {
+      // пока файлы читались, дорожка могла исчезнуть; звук не встанет на видео, и наоборот: тогда первая подходящая в то же время
+      const tr = tkTracks.includes(aim.tr) && tkFitsTrack(it, aim.tr) ? aim.tr : tkFirstOf(it.kind === 'a' ? 'a' : 'v');
+      const c = tkPlace(it, tr, next.has(tr) ? next.get(tr) : aim.at);
+      next.set(tr, tkEnd(c));
+      ids.push(...tkIds(c));
+    }
+    tkSel = new Set(ids);
+  });
 }
 // файл из плеера: встаёт в окно файлов и в конец дорожки
 async function mtShow(f) {
@@ -170,6 +193,19 @@ $('mtVSplit').addEventListener('dblclick', () => {
 });
 
 // ---------- перенос файла на дорожку ----------
+// Файлы из Проводника над дорожками: метка места и линия магнита. Длина файла до броска неизвестна, поэтому метка условной длины.
+function mtDropHide() { $('tkDrop').classList.add('hide'); $('tkSnapLine').classList.add('hide'); }
+function mtDropHover(e) {
+  const r = tkRowAt(e.clientY), tr = tkShown()[r], box = $('tkScroll').getBoundingClientRect(), drop = $('tkDrop');
+  if (!tr || e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) { mtDropHide(); return null; }
+  let at = tkTimeAt(e);
+  at = Math.max(at + tkSnapBy([at], tkSnapPts(new Set())), 0);
+  $('tkLanes').querySelectorAll('.tk-lane')[r].appendChild(drop);
+  drop.style.left = at * tkPps + 'px';
+  drop.style.width = TK_PHOTO * tkPps + 'px';
+  drop.classList.remove('hide');
+  return {tr, at};
+}
 function mtDragFile(e, it) {
   const x0 = e.clientX, y0 = e.clientY;
   let ghost = null, follow = null, row = -1, at = 0;

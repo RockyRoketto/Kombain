@@ -10,17 +10,30 @@ $('pickOut').onclick = () => dialog(async () => {
 
 // ---------- перетаскивание ----------
 let dragDepth = 0;
+let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
 const dropEl = () => $(tab === 'banner' ? 'bDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl().classList.add('over'); });
-window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropEl().classList.remove('over'); });
+window.addEventListener('dragover', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  if (tab === 'mont') dropEl().classList.toggle('over', !mtDropHover(e));   // над дорожкой файл встанет на неё, окно файлов не подсвечивается
+});
+window.addEventListener('dragleave', e => {
+  if (!hasFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth) return;
+  dropEl().classList.remove('over');
+  if (tab === 'mont') mtDropHide();
+});
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over');
+  const aim = tab === 'mont' ? mtDropHover(e) : null;
+  if (tab === 'mont') mtDropHide();
   if (snap.running && tab !== 'play' && tab !== 'mont') return;   // смотреть и монтировать можно и во время конвертации
   if (NATIVE_DROP) {
-    try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {}
+    try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); dropAim = aim; return; } catch (err) {}
   }
   if (tab === 'play' || tab === 'mont') {   // браузер даёт только копии, а плееру и монтажу нужен сам файл
     say('warn', t('drop.notSuitableTitle'), t('pl.noDrop'));
@@ -38,7 +51,15 @@ window.addEventListener('drop', e => {
   }
   collect(entries).then(list => enqueueUpload(list));
 });
-window.__konvDrop = list => tab === 'banner' ? bAdd(list) : tab === 'play' ? plAdd(list) : tab === 'mont' ? mtAdd(list) : addInfos(list);
+window.__konvDrop = list => {
+  const aim = dropAim;
+  dropAim = null;
+  if (tab === 'mont' && aim) mtAddAt(list, aim);
+  else if (tab === 'banner') bAdd(list);
+  else if (tab === 'play') plAdd(list);
+  else if (tab === 'mont') mtAdd(list);
+  else addInfos(list);
+};
 function readAll(reader) {
   return new Promise(res => {
     const out = [];

@@ -157,7 +157,7 @@
 | `js/viewport.js` | вьюпорт монтажа: `mv`, холст `mvCanvasDims`, `mvSizeCanvas`; проверка файлов и копии `mvPrep`; набор `<video>` `mvBind`, `mvRelease`; кадр `mvShow`, синхронизация `mvSync`, `mvTick`, `mvPlay`, `mvPause`; рамка `mvBox`, `mvFrameDraw`, `mvFrameDrag`, `mvSnap`; файл из окна файлов `mvFileShow`, `mvFileOff`; звук `mvAudio` |
 | `js/vumeter.js` | индикатор громкости монтажа: `vuAttach`, `vuKick`, `vuStep`, `vuDraw` |
 | `js/chroma.js` | удаление фона и цветокоррекция в просмотре: `chromaLayer`, `chromaShow`, `chromaGraded`, `chromaSweep`; пипетка: `chromaPickToggle`, `chromaSample` |
-| `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; панель клипа `mtPanel`, `mtInfo`, `mtCopies`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
+| `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; файлы из Проводника на дорожку `mtDropHover`, `mtAddAt` (вызов из `drop.js`, `dropAim`); панель клипа `mtPanel`, `mtInfo`, `mtCopies`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
 | `js/textclip.js` | инструмент «Текст»: `mtTextDraw`, `mtTextMake`, `mtTextRedraw`, `mtTextRefresh`, `mtTextPatch`, `mtTextFill`; шрифты `mtFontsLoad`, `mtFontPut` |
 | `js/subedit.js` | правка субтитров: дорожка S и список реплик, см. таблицу задач |
 | `js/ctxmenu.js` | меню правой кнопки: `ctxOpen`, `ctxClose`, `ctxItems`, `ctxText`, `ctxCue`, `ctxClip` |
