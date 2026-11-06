@@ -159,3 +159,25 @@ func TestProxyManyAndReverse(t *testing.T) {
 		t.Error("копии не удалены")
 	}
 }
+
+// Качество просмотра: у уменьшенной копии своё имя и свой размер, обычная копия не меняется
+func TestProxyScale(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "a.mp4")
+	if err := os.WriteFile(src, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plain, _ := proxyStem(src, proxyPiece{})
+	half, _ := proxyStem(src, proxyPiece{Scale: 2})
+	wrong, _ := proxyStem(src, proxyPiece{Scale: 3})
+	if half == plain || wrong != plain {
+		t.Fatalf("имена копий: %s %s %s", plain, half, wrong)
+	}
+	has := func(o proxyOpts, want string) {
+		t.Helper()
+		if s := strings.Join(proxyArgs(src, "o.mp4", o), " "); !strings.Contains(s, want) {
+			t.Fatalf("нет %q в %s", want, s)
+		}
+	}
+	has(proxyOpts{video: true}, "min(1280,iw)/2")
+	has(proxyOpts{video: true, scale: 4}, "min(1280,iw/4)/2")
+}

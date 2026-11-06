@@ -220,7 +220,90 @@ const mvSrc = (c, x) => { const s = (x - c.at) * c.speed; return c.reverse ? c.f
 const mvTime = (c, x) => c.reverse ? (x - c.at) * c.speed : mvSrc(c, x);
 const mvUnder = (c, x) => x >= c.at - 1e-4 && x < tkEnd(c) - 1e-4;
 const mvRev = c => c.reverse ? {from: +c.from.toFixed(3), len: +c.len.toFixed(3)} : null;
-const mvKey = c => c.reverse ? `${mtKey(c.path)}|${c.from.toFixed(3)}|${c.len.toFixed(3)}` : mtKey(c.path);
+const mvKey = c => {
+  if (c.reverse) return `${mtKey(c.path)}|${c.from.toFixed(3)}|${c.len.toFixed(3)}`;
+  const low = mvLowOf(c);
+  return low ? mvLowId(c.path, low) : mtKey(c.path);
+};
+
+// ---------- качество просмотра: на результат не влияет. Пока уменьшенная копия считается, играет то, что играло ----------
+const MV_QUAL_KEY = 'konv9000.mvQual', MV_LOW_MIN = 1280;   // файл меньше этого декодируется легко, копия не окупится
+let mvQual = [2, 4].includes(+storeGet(MV_QUAL_KEY)) ? +storeGet(MV_QUAL_KEY) : 1;
+const mvLow = {ready: new Set(), bad: new Set(), busy: new Map()};
+const mvLowId = (path, q) => `${mtKey(path)}|q${q}`;
+function mvLowWanted(c) {
+  const it = mtFile(c.path);
+  return mvQual > 1 && !c.reverse && !tkPhoto(c) && !!it && it.kind !== 'a' && !it.bad && Math.max(it.w || 0, it.h || 0) > MV_LOW_MIN;
+}
+const mvLowOf = c => mvLowWanted(c) && mvLow.ready.has(mvLowId(c.path, mvQual)) ? mvQual : 0;
+async function mvLowPoll(id, j) {
+  const r = await api('proxy', {path: j.path, scale: j.q});
+  if (mvLow.busy.get(id) !== j) return;
+  if (r.ready || r.error) {
+    mvLow.busy.delete(id);
+    if (r.error) mvLow.bad.add(id);   // остаётся оригинал
+    else {
+      mvLow.ready.add(id);
+      mv.state.set(id, {ok: true, proxy: true, pct: 0, fail: ''});
+      mtCopies();
+      mvShow();
+    }
+  } else {
+    j.pct = r.pct || 0;
+    j.timer = setTimeout(() => mvLowPoll(id, j), 500);
+  }
+  mvQualBtn();
+}
+function mvLowPrep() {
+  for (const [id, j] of mvLow.busy) {
+    if (j.q === mvQual) continue;
+    clearTimeout(j.timer);
+    mvLow.busy.delete(id);
+    api('proxy-stop', {path: j.path, scale: j.q});
+  }
+  for (const c of tkClips()) {
+    if (!mvLowWanted(c)) continue;
+    const id = mvLowId(c.path, mvQual);
+    if (mvLow.ready.has(id) || mvLow.bad.has(id) || mvLow.busy.has(id)) continue;
+    const j = {path: c.path, q: mvQual, pct: 0, timer: 0};
+    mvLow.busy.set(id, j);
+    mvLowPoll(id, j);
+  }
+  mvQualBtn();
+}
+// Копии стёрты: всё считается заново
+function mvLowReset() {
+  for (const j of mvLow.busy.values()) clearTimeout(j.timer);
+  mvLow.busy.clear(); mvLow.ready.clear(); mvLow.bad.clear();
+}
+function mvQualBtn() {
+  const b = $('mvQualBtn'), jobs = [...mvLow.busy.values()];
+  if (mvQual === 1) { b.dataset.i18n = 'mv.qual.full'; b.textContent = t('mv.qual.full'); }
+  else {
+    delete b.dataset.i18n;
+    b.textContent = `1/${mvQual}` + (jobs.length ? ` ${Math.round(jobs.reduce((a, j) => a + j.pct, 0) / jobs.length)}%` : '');
+  }
+  b.classList.toggle('on', mvQual > 1);
+}
+function mvQualSet(q) {
+  if (q === mvQual) return;
+  mvQual = q;
+  storeSet(MV_QUAL_KEY, q > 1 ? String(q) : '');
+  mvLowPrep();
+  mvShow();
+  mvLook();
+}
+mvQualBtn();
+$('mvQualBtn').onclick = () => {
+  const r = $('mvQualBtn').getBoundingClientRect();
+  const item = (q, label, title) => ({label, title, key: mvQual === q ? '✓' : '', run: () => mvQualSet(q)});
+  ctxOpen(r.left, r.bottom + 4, [
+    item(1, t('mv.qual.full'), t('mv.qual.fullHint')),
+    item(2, '1/2', t('mv.qual.lowHint', {n: 2})),
+    item(4, '1/4', t('mv.qual.lowHint', {n: 4})),
+  ]);
+  $('mvQualBtn').blur();
+};
 const mvFps = c => { const it = mtFile(c.path); return it && it.fps > 0 ? it.fps : 30; };
 
 // ---------- холст: тот же размер, что выберет движок (tlCanvas) ----------
@@ -296,6 +379,7 @@ function mvSetCanvas(next) {
 
 // ---------- проверка файлов: что окно играет само, а для чего нужна копия. Идёт заранее, чтобы копия была готова к своему месту ----------
 function mvPrep() {
+  mvLowPrep();
   const want = new Map();
   for (const tr of tkTracks) for (const c of tr.clips) {
     const it = mtFile(c.path);
@@ -310,8 +394,9 @@ function mvPrep() {
     mv.state.set(key, st);
     el.preload = 'metadata'; el.muted = true;
     const done = () => { const stop = mv.probes.get(key); mv.probes.delete(key); if (stop) stop(); mvShow(); };
+    const low = mvLowOf(c);
     mv.probes.set(key, attachMedia(el, c.path, mtFile(c.path).kind !== 'a', {
-      rev: mvRev(c),
+      rev: mvRev(c), proxy: !!low, scale: low,
       ready(proxy) { st.ok = true; st.proxy = !!proxy; done(); mtCopies(); },
       wait(pct) { st.proxy = true; st.pct = pct; mvNotes(); },
       fail(text) { st.fail = text || t('pv.cantPlay'); done(); },
@@ -353,7 +438,7 @@ function mvBind(c) {
     const st = mv.state.get(key), me = e, it = mtFile(c.path);
     e.key = key;
     e.stop = attachMedia(e.el, c.path, !it || it.kind !== 'a', {
-      proxy: st.proxy, rev: mvRev(c),
+      proxy: st.proxy, rev: mvRev(c), scale: mvLowOf(c),
       ready() { if (me.key === key) { me.ready = true; mvShow(); } },
       wait() {},
       fail() {},

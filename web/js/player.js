@@ -1,17 +1,17 @@
 // ---------- общее для окна просмотра и окна обрезки ----------
-const mediaUrl = (p, proxy, rev) => `/media?t=${TOKEN}&p=${encodeURIComponent(p)}${proxy ? '&proxy=1' : ''}${rev ? `&rev=1&from=${rev.from}&len=${rev.len}` : ''}`;
+const mediaUrl = (p, proxy, rev, scale) => `/media?t=${TOKEN}&p=${encodeURIComponent(p)}${proxy ? '&proxy=1' : ''}${rev ? `&rev=1&from=${rev.from}&len=${rev.len}` : ''}${scale ? `&scale=${scale}` : ''}`;
 
 // Показать файл в <video>: сначала как есть, а если проигрыватель не умеет, то копию от ffmpeg (proxy.go).
 // cb.ready(копия ли) — можно играть, cb.wait(процент) — копия готовится, cb.fail(текст) — не вышло.
-// cb.proxy — уже известно, что нужна копия; cb.rev {from, len} — нужен кусок задом наперёд.
+// cb.proxy — уже известно, что нужна копия; cb.rev {from, len} — нужен кусок задом наперёд; cb.scale — копия в 2 или 4 раза меньше.
 // Возвращает функцию, которая всё останавливает.
 function attachMedia(v, path, needPicture, cb) {
   let usingProxy = false, alive = true, timer = 0;
-  const piece = cb.rev ? {rev: true, from: cb.rev.from, len: cb.rev.len} : {};
+  const piece = cb.rev ? {rev: true, from: cb.rev.from, len: cb.rev.len} : cb.scale ? {scale: cb.scale} : {};
   const poll = async () => {
     const r = await api('proxy', {path, ...piece});
     if (!alive) return;
-    if (r.ready) { v.src = mediaUrl(path, true, cb.rev); return; }
+    if (r.ready) { v.src = mediaUrl(path, true, cb.rev, cb.scale); return; }
     if (r.error) { cb.fail(r.error); return; }
     cb.wait(r.pct || 0);
     timer = setTimeout(poll, 500);

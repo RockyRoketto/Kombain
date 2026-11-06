@@ -713,6 +713,7 @@ async function mtCopies() {
 $('mtCopiesClear').onclick = async () => {
   mvPause(); mvUnload();
   mv.state.clear();
+  mvLowReset();
   await api('proxy-clear');
   await mtCopies();
   mvShow();

@@ -296,6 +296,7 @@ func (s *Server) mediaHandler(w http.ResponseWriter, r *http.Request) {
 			piece.From, _ = strconv.ParseFloat(q.Get("from"), 64)
 			piece.Len, _ = strconv.ParseFloat(q.Get("len"), 64)
 		}
+		piece.Scale, _ = strconv.Atoi(q.Get("scale"))
 		out, ok := proxyPiecePath(p, piece)
 		if !ok {
 			http.NotFound(w, r)

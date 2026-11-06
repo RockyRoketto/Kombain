@@ -69,7 +69,9 @@ function chromaShow(src, c, used) {
   const w = src.videoWidth || src.naturalWidth, h = src.videoHeight || src.naturalHeight, l = w && h ? chromaLayer(src) : null;
   if (!l) return;
   const {cv, gl, u} = l, rgb = c.key ? chromaRGB(c.key) : [0, 0, 0];
-  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+  // Качество просмотра: считать меньше точек. У копии файл уже уменьшен, второй раз не делим
+  const it = mtFile(c.path), s = Math.min(1, ((it && it.w) || w) / mvQual / w), cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+  if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; gl.viewport(0, 0, cw, ch); }
   try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch (err) { return; }
   gl.uniform1f(u.keyed, c.key ? 1 : 0);
   gl.uniform3f(u.gain, 1 + .3 * (c.cTemp || 0), 1 - .3 * (c.cTint || 0), 1 - .3 * (c.cTemp || 0));

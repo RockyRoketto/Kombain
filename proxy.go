@@ -39,6 +39,16 @@ type proxyPiece struct {
 	Rev  bool    `json:"rev"`
 	From float64 `json:"from"`
 	Len  float64 `json:"len"`
+	// Scale: копия для просмотра в 2 или 4 раза меньше оригинала (качество просмотра во вьюпорте)
+	Scale int `json:"scale"`
+}
+
+// size: допустимый делитель размера, всё прочее считается обычной копией
+func (p proxyPiece) size() int {
+	if p.Scale == 2 || p.Scale == 4 {
+		return p.Scale
+	}
+	return 0
 }
 
 type proxyJob struct {
@@ -70,6 +80,9 @@ func proxyStem(p string, piece proxyPiece) (string, bool) {
 	if piece.Rev {
 		key += fmt.Sprintf("|rev|%.3f|%.3f", piece.From, piece.Len)
 	}
+	if s := piece.size(); s > 0 {
+		key += fmt.Sprintf("|scale|%d", s)
+	}
 	sum := sha256.Sum256([]byte(key))
 	return filepath.Join(proxyDir(), hex.EncodeToString(sum[:12])), true
 }
@@ -97,6 +110,7 @@ func proxyPath(p string) (string, bool) { return proxyPiecePath(p, proxyPiece{})
 // proxyOpts: как именно считать один кусок копии
 type proxyOpts struct {
 	video, alpha, rev bool
+	scale             int
 	decoder           string
 	from, cut         float64
 }
@@ -119,7 +133,11 @@ func proxyArgs(src, dst string, o proxyOpts) []string {
 		args = append(append(args, "-map", "0:a:0", "-vn"), flip...)
 		return append(args, "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart", "-f", "mp4", dst)
 	}
-	vf, pix := "scale='trunc(min(1280,iw)/2)*2':-2", "yuv420p"
+	width := "iw"
+	if o.scale > 0 {
+		width = fmt.Sprintf("iw/%d", o.scale)
+	}
+	vf, pix := "scale='trunc(min(1280,"+width+")/2)*2':-2", "yuv420p"
 	if o.alpha {
 		pix = "yuva420p"
 	}
@@ -193,7 +211,7 @@ func (j *proxyJob) make(ctx context.Context, ffm string) error {
 		return err
 	}
 	mi := getMediaInfo(ffm, j.src)
-	o := proxyOpts{video: mi.VCodec != "" && !mi.Cover, rev: j.piece.Rev, from: j.piece.From, cut: j.piece.Len}
+	o := proxyOpts{video: mi.VCodec != "" && !mi.Cover, rev: j.piece.Rev, from: j.piece.From, cut: j.piece.Len, scale: j.piece.size()}
 	ext := ".mp4"
 	if o.video {
 		si := probe(ctx, ffm, j.src)
