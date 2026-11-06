@@ -30,8 +30,10 @@ func TestProjectType(t *testing.T) {
 		}
 		return v
 	}
-	if got := read(projectExt); got != projectProgID {
-		t.Errorf("расширение ведёт на %q", got)
+	for _, ext := range []string{projectExt, projectOldExt} {
+		if got := read(ext); got != projectProgID {
+			t.Errorf("расширение %s ведёт на %q", ext, got)
+		}
 	}
 	if got, want := read(projectProgID+`\DefaultIcon`), `"`+exe+`",0`; got != want {
 		t.Errorf("иконка %q, ждали %q", got, want)

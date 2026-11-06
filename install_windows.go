@@ -181,6 +181,7 @@ func writeProjectType(root, exe string) error {
 	}
 	for _, v := range [][2]string{
 		{projectExt, projectProgID},
+		{projectOldExt, projectProgID},
 		{projectProgID, tr("dlg.projectFile")},
 		{projectProgID + `\DefaultIcon`, `"` + exe + `",0`},
 		{projectProgID + `\shell\open\command`, `"` + exe + `" "%1"`},
@@ -193,7 +194,7 @@ func writeProjectType(root, exe string) error {
 }
 
 func deleteProjectType(root string) {
-	for _, path := range []string{projectProgID + `\shell\open\command`, projectProgID + `\shell\open`, projectProgID + `\shell`, projectProgID + `\DefaultIcon`, projectProgID, projectExt} {
+	for _, path := range []string{projectProgID + `\shell\open\command`, projectProgID + `\shell\open`, projectProgID + `\shell`, projectProgID + `\DefaultIcon`, projectProgID, projectExt, projectOldExt} {
 		registry.DeleteKey(registry.CURRENT_USER, root+`\`+path)
 	}
 }

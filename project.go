@@ -10,16 +10,22 @@ import (
 )
 
 const (
-	projectExt     = ".k9000"
+	projectExt     = ".kb"
+	projectOldExt  = ".k9000" // так назывались файлы проектов раньше: они по-прежнему открываются и сохраняются под своим именем
 	projectMaxSize = 64 << 20
 )
+
+func isProjectFile(path string) bool {
+	ext := filepath.Ext(path)
+	return strings.EqualFold(ext, projectExt) || strings.EqualFold(ext, projectOldExt)
+}
 
 // writeProject пишет через временный файл: сбой на середине не должен испортить уже сохранённый проект
 func writeProject(path string, data []byte) (string, error) {
 	if !json.Valid(data) {
 		return "", errT("mont.badProject", filepath.Base(path))
 	}
-	if !strings.EqualFold(filepath.Ext(path), projectExt) {
+	if !isProjectFile(path) {
 		path += projectExt
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), "konvertor-project-*.tmp")
@@ -41,7 +47,7 @@ func writeProject(path string, data []byte) (string, error) {
 }
 
 func readProject(path string) ([]byte, error) {
-	if !strings.EqualFold(filepath.Ext(path), projectExt) {
+	if !isProjectFile(path) {
 		return nil, errT("mont.badProject", filepath.Base(path))
 	}
 	st, err := os.Stat(path)

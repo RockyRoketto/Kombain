@@ -15,11 +15,12 @@ const mv = {
   live: [],          // {c, e}: играющие сейчас
   file: null, fileStop: null, fileReady: false, pic: '',
 };
-bindVolume(mtV, $('mtMute'), $('mtVol'));   // громкость общая: mtV здесь хранит значение для всех слоёв
+const mvVol = {volume: .8, muted: false};   // общий ползунок: стоит на выходе шины, поэтому индикатор его не видит
+bindVolume(mvVol, $('mtMute'), $('mtVol'));
 keepSeeking(mtV);
 trackFrame(mtV);
 // картинка из связанной пары молчит: её звук играет свой клип на звуковой дорожке
-const mvMuted = c => mtV.muted || !!(c && c.part === 'v');
+const mvMuted = c => !!(c && c.part === 'v');
 // доля плавности клипа в момент x: 0 совсем нет, 1 полностью. Как в движке (tlFades)
 function mvFadeAt(c, x) {
   const len = tkLen(c), d = x - c.at, a = Math.min(c.fadeIn || 0, len), b = Math.min(c.fadeOut || 0, len);
@@ -28,23 +29,37 @@ function mvFadeAt(c, x) {
   if (b > 0) k *= Math.min(Math.max((len - d) / b, 0), 1);
   return k;
 }
-// громче 100% элемент <video> не умеет: такой клип идёт через усилитель Web Audio
-function mvGain(e) {
-  if (!e.gain) {
-    mv.audio = mv.audio || new AudioContext();
-    e.gain = mv.audio.createGain();
-    mv.audio.createMediaElementSource(e.el).connect(e.gain);
-    e.gain.connect(mv.audio.destination);
+// Весь звук просмотра: <video> → усилитель клипа → шина → общий ползунок → колонки. С шины снимает уровень индикатор.
+// Браузер запускает контекст только после действия пользователя, поэтому resume зовём при каждом запуске просмотра.
+function mvAudio() {
+  if (!mv.audio) {
+    const a = mv.audio = new AudioContext();
+    mv.bus = a.createGain();
+    mv.bus.channelCount = 2;                // моно попадает в оба канала, 5.1 сводится в стерео
+    mv.bus.channelCountMode = 'explicit';
+    mv.bus.channelInterpretation = 'speakers';
+    mv.out = a.createGain();
+    mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume;
+    mv.bus.connect(mv.out);
+    mv.out.connect(a.destination);
+    a.createMediaElementSource(mtV).connect(mv.bus);
+    vuAttach(a, mv.bus, () => mv.playing || (!!mv.file && !mtV.paused));
   }
   if (mv.audio.state === 'suspended') mv.audio.resume();
+}
+function mvGain(e) {
+  if (!e.gain) {
+    mvAudio();
+    e.gain = mv.audio.createGain();
+    mv.audio.createMediaElementSource(e.el).connect(e.gain);
+    e.gain.connect(mv.bus);
+  }
   return e.gain;
 }
 function mvLevel(e, c) {
-  const k = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
-  e.el.volume = mtV.volume * Math.min(k, 1);
-  if (k > 1 || e.gain) mvGain(e).gain.value = Math.max(k, 1);
+  mvGain(e).gain.value = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
 }
-function mvVolume() { mv.pool.forEach(e => { const c = e.clip !== null && tkById(e.clip); e.el.muted = mvMuted(c); mvLevel(e, c); }); }
+function mvVolume() { if (mv.out) mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume; }
 // плавность и громкость идут за курсором времени в каждом кадре просмотра
 function mvLook() {
   for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); }
@@ -158,9 +173,9 @@ function mvNewEntry() {
   const el = document.createElement('video');
   el.className = 'mv-layer mv-off';
   el.preload = 'auto'; el.playsInline = true;
-  el.volume = mtV.volume; el.muted = mtV.muted;
   keepSeeking(el);
   const e = {el, key: '', clip: null, ready: false, stop: null, lag: .08, t0: 0, used: 0};
+  mvGain(e);   // сразу на шину: иначе первый миг звук шёл бы мимо ползунка и индикатора
   el.addEventListener('seeked', () => { if (e.t0) { e.lag = Math.min(Math.max((performance.now() - e.t0) / 1000, .02), .6); e.t0 = 0; } });
   mvCv.appendChild(el);
   mv.pool.push(e);
@@ -388,10 +403,12 @@ function mvTick(now) {
   tkDrawHead(true);
 }
 function mvPlay() {
+  mvAudio();
   if (mv.file) { if (mv.fileReady) mtV.play().catch(() => {}); return; }
   if (!tkClips().length || mv.playing) return;
   if (tkAt >= tkTotal() - 1e-3) tkAt = mv.loop ? mvRangeStart() : 0;
   mv.playing = true;
+  vuKick();
   mv.holding = true;
   mv.holdTo = performance.now() + 1500;
   $('mtPlay').classList.add('playing');
@@ -657,6 +674,7 @@ function mvFileDraw() {
   mvStage.classList.toggle('playing', !mtV.paused);
 }
 ['timeupdate', 'seeked', 'play', 'pause', 'durationchange'].forEach(n => mtV.addEventListener(n, mvFileDraw));
+mtV.addEventListener('play', vuKick);
 function mvFileShow(it) {
   if (it.bad || !it.kind) { say('warn', t('mt.noDurTitle'), t('mt.noDur')); return; }
   if (mv.file === it) return;

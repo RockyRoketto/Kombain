@@ -115,7 +115,7 @@ func (r StartReq) trim(src string) (start, length float64, ok bool) {
 // addIncoming: файлы и папки, переданные программе снаружи. Не медиафайлы молча пропускаем.
 func (s *Server) addIncoming(paths []string) {
 	for _, p := range paths {
-		if strings.EqualFold(filepath.Ext(p), projectExt) {
+		if isProjectFile(p) {
 			s.mu.Lock()
 			s.incomingProject = p
 			s.mu.Unlock()

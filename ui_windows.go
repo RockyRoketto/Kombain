@@ -763,7 +763,7 @@ func pickSound() (string, error) {
 }
 
 func pickProjectOpen() (string, error) {
-	p, err := dialogOnUI(false, false, tr("dlg.openProject"), tr("dlg.projectFiles"), "*"+projectExt)
+	p, err := dialogOnUI(false, false, tr("dlg.openProject"), tr("dlg.projectFiles"), "*"+projectExt+";*"+projectOldExt)
 	if err != nil || len(p) == 0 {
 		return "", err
 	}

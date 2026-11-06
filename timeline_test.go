@@ -634,7 +634,7 @@ func TestTimelineTooManyInputs(t *testing.T) {
 func TestProjectFile(t *testing.T) {
 	dir := t.TempDir()
 	s := &Server{}
-	s.addIncoming([]string{filepath.Join(dir, "снаружи.K9000")})
+	s.addIncoming([]string{filepath.Join(dir, "снаружи.KB")})
 	if s.incomingProject == "" || len(s.incoming) != 0 {
 		t.Errorf("файл проекта снаружи: %q, в конвертер ушло %d", s.incomingProject, len(s.incoming))
 	}
@@ -642,8 +642,21 @@ func TestProjectFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.Ext(p) != projectExt {
+	if filepath.Ext(p) != ".kb" {
 		t.Errorf("расширение: %s", p)
+	}
+	// старый проект: двойной щелчок и чтение работают, а сохранение не плодит второй файл
+	s = &Server{}
+	s.addIncoming([]string{filepath.Join(dir, "старый.k9000")})
+	if s.incomingProject == "" {
+		t.Error("старый файл проекта снаружи не принят")
+	}
+	old := filepath.Join(dir, "старый.k9000")
+	if got, err := writeProject(old, []byte(`{"v":1}`)); err != nil || got != old {
+		t.Errorf("сохранение старого проекта: %q, %v", got, err)
+	}
+	if b, err := readProject(old); err != nil || string(b) != `{"v":1}` {
+		t.Errorf("чтение старого проекта: %q, %v", b, err)
 	}
 	if b, err := readProject(p); err != nil || string(b) != `{"v":1}` {
 		t.Errorf("прочитано %q, %v", b, err)
@@ -658,7 +671,7 @@ func TestProjectFile(t *testing.T) {
 	if _, err := readProject(p); err == nil {
 		t.Error("прочитался мусор")
 	}
-	if rest := mustRead(t, dir); len(rest) != 1 {
+	if rest := mustRead(t, dir); len(rest) != 2 { // новый и старый проект
 		t.Errorf("остались лишние файлы: %d", len(rest))
 	}
 }
