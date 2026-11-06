@@ -705,3 +705,30 @@
     .dock{padding:6px 12px 8px}
     .dock-in{padding:5px 6px 5px 14px}
   }
+
+  /* ----- лёгкие анимации: только появление и отклик, раскладку не двигают ----- */
+  .glided{position:relative}
+  .glided>button{position:relative;z-index:1}
+  .glided>button.on{background:none;box-shadow:none}
+  .glide{position:absolute;left:0;top:0;border-radius:8px;background:var(--accbg);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.5);pointer-events:none;
+    transition:transform .22s cubic-bezier(.2,.8,.2,1),width .22s cubic-bezier(.2,.8,.2,1),height .22s cubic-bezier(.2,.8,.2,1),opacity .15s}
+  @keyframes fadein{from{opacity:0}}
+  @keyframes popin{from{opacity:0;transform:translateY(6px)}}
+  @keyframes tick{from{opacity:0;scale:.5}}
+  /* у вкладок только прозрачность: transform сбил бы position:fixed внутри них */
+  #convView,#playView,#montView,#bannerView,.modal{animation:fadein .16s ease-out}
+  .mcard{animation:popin .2s cubic-bezier(.2,.8,.2,1)}
+  .setp,.ctx{animation:popin .14s cubic-bezier(.2,.8,.2,1)}
+  .ck input:checked::after{animation:tick .12s ease-out}
+  .btn:active:not(:disabled),.chip:active,.segb:active{transform:translateY(1px)}
+  .mt-tab{transition:color .12s}
+  .mt-sec,.setp-adv{interpolate-size:allow-keywords}
+  .mt-sec::details-content,.setp-adv::details-content{block-size:0;opacity:0;overflow:clip;
+    transition:block-size .18s ease-out,opacity .18s ease-out,overflow 0s allow-discrete,content-visibility .18s allow-discrete}
+  .mt-sec[open]::details-content,.setp-adv[open]::details-content{block-size:auto;opacity:1;overflow:visible;
+    transition:block-size .18s ease-out,opacity .18s ease-out,overflow 0s .18s allow-discrete,content-visibility .18s allow-discrete}
+  @media (prefers-reduced-motion:reduce){
+    .glide,.mt-tab,.mt-sec::details-content,.setp-adv::details-content,.mt-sec[open]::details-content,.setp-adv[open]::details-content{transition:none}
+    #convView,#playView,#montView,#bannerView,.modal,.mcard,.setp,.ctx,.ck input:checked::after{animation:none}
+    .btn:active:not(:disabled),.chip:active,.segb:active{transform:none}
+  }
