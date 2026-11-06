@@ -87,7 +87,7 @@ function mvSubLine(font) {
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
   mtCueNow();
-  const text = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => c.t).join('\n').trim() : '';
+  const text = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t).join('\n').trim() : '';
   el.classList.toggle('hide', !text);
   if (!text) return;
   // обёртка держит текст по центру рамки, а сам span остаётся строчным: подложка рисуется на каждую строку
@@ -610,7 +610,9 @@ function mvPlaceClip(c) {
 const MV_MIN_BOX = .02, MV_MAX_BOX = 4, MV_SEEN = .01, MV_MAX_CROP = .98;
 function mvSetBox(c, x, y, w, h) {
   w = Math.min(Math.max(w, MV_MIN_BOX), MV_MAX_BOX); h = Math.min(Math.max(h, MV_MIN_BOX), MV_MAX_BOX);
+  const resized = c.w !== w || c.h !== h;
   c.w = w; c.h = h;
+  if (resized && c.text && c.text.box) mtTextBoxMove(c);
   c.x = Math.min(Math.max(x, MV_SEEN - w), 1 - MV_SEEN);
   c.y = Math.min(Math.max(y, MV_SEEN - h), 1 - MV_SEEN);
 }
@@ -648,6 +650,7 @@ function mvFrameDrag(e, c, corner, pick) {
     if (ev.pointerId !== e.pointerId) return;
     const dx = (ev.clientX - x0) / W, dy = (ev.clientY - y0) / H;
     if (!on && Math.hypot(ev.clientX - x0, ev.clientY - y0) < KIN.drag) return;
+    if (!on && corner && c.text && !c.text.box) mtTextBoxed(c);
     on = true;
     if (!corner) {
       // повёрнутый слой прилипает серединой, остальной по тому, что видно
@@ -663,7 +666,7 @@ function mvFrameDrag(e, c, corner, pick) {
       const [lx, ly] = local(mx, my), [lxs, lys] = local(mx + sx.d * W, my + sy.d * H);
       const kx = v => (left ? -v : v) / seenW, ky = v => (up ? -v : v) / seenH;
       let sw, sh, gx = -1, gy = -1;
-      if (ev.shiftKey) {   // свободно: каждая сторона сама по себе
+      if (ev.shiftKey || c.text) {   // свободно: каждая сторона сама по себе; у текста рамка всегда свободна
         sw = kx(lxs); sh = ky(lys);
         gx = sx.at; gy = sy.at;
       } else {   // пропорции те же, ведёт та сторона, что изменилась сильнее

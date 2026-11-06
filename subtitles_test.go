@@ -278,7 +278,10 @@ func TestTimelineSubsLook(t *testing.T) {
 	src := m.color("src.mp4", "black", 640, 360, 30, 1, 0)
 	cues := []SubCue{{Start: 0, End: 1, Text: "ММ ММ ММ ММ ММ ММ"}}
 	frame := func(s Subs) []byte {
-		s.Mode, s.Cues = subsModeBurn, cues
+		s.Mode = subsModeBurn
+		if s.Cues == nil {
+			s.Cues = cues
+		}
 		if s.Size == 0 {
 			s.Size = 0.1
 		}
@@ -334,6 +337,16 @@ func TestTimelineSubsLook(t *testing.T) {
 	_, _, py0, py1, _, _ = box(frame(Subs{Size: 0.03, W: 0.9, Y: 0.5, H: 0.4}))
 	if py1-py0 > 25 {
 		t.Errorf("мелкий шрифт не уместился в одну строку: высота %d", py1-py0)
+	}
+	// разрыв строки в реплике: держит две строки, пока его не уберут
+	broken := []SubCue{{Start: 0, End: 1, Text: "ММ ММ\nММ ММ"}}
+	_, _, jy0, jy1, _, _ := box(frame(Subs{Cues: broken}))
+	if jy1-jy0 < 50 {
+		t.Errorf("разрыв строки потерялся: высота %d", jy1-jy0)
+	}
+	_, _, jy0, jy1, _, _ = box(frame(Subs{Cues: broken, Join: true}))
+	if jy1-jy0 > 45 {
+		t.Errorf("разрыв строки не убран: высота %d", jy1-jy0)
 	}
 	// подложка: вокруг букв плотный цвет, а не только сами буквы
 	f := frame(Subs{Color: "#000000", Back: "#00ff00", BackA: 1})

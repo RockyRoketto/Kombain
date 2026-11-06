@@ -548,6 +548,7 @@ function mtSubsFill() {
   $('mtSubsBack').value = s.back || '#000000';
   mtVal('mtSubsBackA', Math.round((s.backA > 0 ? s.backA : .6) * 100));
   mtVal('mtSubsW', Math.round((s.w || .9) * 100));
+  $('mtSubsJoin').checked = !!s.join;
   $('mtSubsNote').classList.toggle('hide', s.mode === 'burn');
 }
 $('mtSubsPick').onclick = () => dialog(async () => {
@@ -609,6 +610,7 @@ $('mtAutoStop').onclick = () => api('whisper-cancel');
   // выбор положения из списка снимает то, что перетащили мышью
   if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, [key]: v}; if (key === 'pos') { delete tkSubs.x; delete tkSubs.y; delete tkSubs.h; } });
 }));
+$('mtSubsJoin').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, join: $('mtSubsJoin').checked}; }); });
 $('mtSubsColor').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, color: $('mtSubsColor').value}; }); });
 $('mtSubsBack').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, back: $('mtSubsBack').value}; }); });
 $('mtSubsBackOn').addEventListener('change', () => {

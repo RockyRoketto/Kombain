@@ -54,7 +54,11 @@ type Subs struct {
 	X float64 `json:"x,omitempty"`
 	Y float64 `json:"y,omitempty"`
 	H float64 `json:"h,omitempty"`
+	// Join: разрывы строк внутри реплик не учитываются при вжигании, текст переносится только по ширине рамки
+	Join bool `json:"join,omitempty"`
 }
+
+var subsBreak = regexp.MustCompile(`\s*\n\s*`)
 
 var subsHex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
@@ -270,7 +274,11 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		place = fmt.Sprintf(`{\an5\pos(%.1f,%.1f)}`, s.X*float64(w), (s.Y-s.H/2)*float64(h))
 	}
 	for _, c := range cues {
-		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(c.Text))
+		text := c.Text
+		if s.Join {
+			text = subsBreak.ReplaceAllString(text, " ")
+		}
+		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
 	}
 	return sb.String()
 }

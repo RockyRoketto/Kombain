@@ -4,21 +4,36 @@
 const MT_TEXT_SCALE = 2;   // запас резкости, если рамку растянут
 const MT_RTL = /[֐-ࣿיִ-﷿ﹰ-﻿]/;
 
-function mtTextDraw(x, H) {
+// Перенос по словам. Слово шире области остаётся целым и обрежется краем картинки.
+function mtTextWrap(g, para, width) {
+  const out = [];
+  let cur = '';
+  for (const word of para.split(/\s+/).filter(Boolean)) {
+    const next = cur ? cur + ' ' + word : word;
+    if (cur && g.measureText(next).width > width) { out.push(cur); cur = word; } else cur = next;
+  }
+  out.push(cur);
+  return out;
+}
+// box — область текста в пикселях холста: картинка получает её размер, строки переносятся по ширине, текст стоит по центру высоты.
+// Без box картинка по размеру текста, строки только из Enter.
+function mtTextDraw(x, H, box) {
   const cv = document.createElement('canvas'), k = MT_TEXT_SCALE, px = x.size * H * k, sw = x.stroke * px;
   const font = `${x.italic ? 'italic ' : ''}${x.bold ? 'bold ' : ''}${px}px "${x.font}"`;
   let g = cv.getContext('2d');
   g.font = font;
-  const lines = (x.s || ' ').split('\n'), wide = Math.max(...lines.map(l => g.measureText(l || ' ').width));
-  const m = g.measureText('Ag'), asc = m.fontBoundingBoxAscent || px, line = asc + (m.fontBoundingBoxDescent || px * .25), pad = Math.ceil(px * .1 + sw);
-  cv.width = Math.max(Math.ceil(wide + pad * 2), 2);
-  cv.height = Math.max(Math.ceil(line * lines.length + pad * 2), 2);
+  const pad = Math.ceil(px * .1 + sw), areaW = box ? Math.max(Math.ceil(box.w * k), 2) : 0;
+  const lines = (x.s || ' ').split('\n').flatMap(l => box ? mtTextWrap(g, l, areaW - pad * 2) : [l]), wide = Math.max(...lines.map(l => g.measureText(l || ' ').width));
+  const m = g.measureText('Ag'), asc = m.fontBoundingBoxAscent || px, line = asc + (m.fontBoundingBoxDescent || px * .25);
+  cv.width = box ? areaW : Math.max(Math.ceil(wide + pad * 2), 2);
+  cv.height = box ? Math.max(Math.ceil(box.h * k), 2) : Math.max(Math.ceil(line * lines.length + pad * 2), 2);
+  const top = box ? (cv.height - line * lines.length) / 2 : pad;
   g = cv.getContext('2d');   // смена размера сбрасывает настройки
   g.font = font;
   g.lineJoin = 'round';
   g.textBaseline = 'alphabetic';
   lines.forEach((l, i) => {
-    const y = pad + asc + i * line, rtl = MT_RTL.test(l);
+    const y = top + asc + i * line, rtl = MT_RTL.test(l);
     g.direction = rtl ? 'rtl' : 'ltr';
     g.textAlign = x.align;
     const at = x.align === 'left' ? pad : x.align === 'right' ? cv.width - pad : cv.width / 2;
@@ -29,10 +44,10 @@ function mtTextDraw(x, H) {
   return {cv, w: cv.width / k, h: cv.height / k};
 }
 // картинка на диске, размер в долях холста
-async function mtTextMake(x) {
+async function mtTextMake(x, c) {
   const d = mvCanvasDims();
   try { await document.fonts.load(`${x.size * 100}px "${x.font}"`); } catch (e) {}
-  const pic = mtTextDraw(x, d.h);
+  const pic = mtTextDraw(x, d.h, x.box && c && c.w > 0 ? {w: c.w * d.w, h: c.h * d.h} : null);
   const r = await api('text-png', {data: pic.cv.toDataURL('image/png').split(',')[1]});
   if (r.error) { say('err', t('mt.secText'), r.error); return null; }
   if (!mtFile(r.path)) mtKnown.set(mtKey(r.path), {name: base(r.path), dir: dirOf(r.path), path: r.path, size: 0, w: pic.cv.width, h: pic.cv.height, kind: 'p', bad: false, audio: false, reading: Promise.resolve()});
@@ -43,14 +58,31 @@ const mtTextTurn = new Map();
 async function mtTextRedraw(c) {
   const turn = (mtTextTurn.get(c.id) || 0) + 1, text = c.text;
   mtTextTurn.set(c.id, turn);
-  const made = await mtTextMake(text);
+  const made = await mtTextMake(text, c);
   const now = tkById(c.id);
   if (!made || !now || now.text !== text || mtTextTurn.get(c.id) !== turn) return;
   if (now.path === made.path && now.w > 0) return;
+  if (text.box && now.w > 0) {   // рамку задаёт пользователь, картинка её только заполняет
+    Object.assign(now, {path: made.path, nw: now.w});
+    tkChanged();
+    return;
+  }
   const k = now.nw > 0 && now.w > 0 ? now.w / now.nw : 1;
   const cx = now.w > 0 ? now.x + now.w / 2 : .5, cy = now.w > 0 ? now.y + now.h / 2 : .5, w = made.w * k, h = made.h * k;
   Object.assign(now, {path: made.path, nw: made.w, w, h, x: cx - w / 2, y: cy - h / 2});
   tkChanged();
+}
+// Первая правка рамки делает её областью текста. Растянутая раньше надпись остаётся того же размера: растяжение переходит в шрифт.
+function mtTextBoxed(c) {
+  const k = c.nw > 0 && c.w > 0 ? c.w / c.nw : 1;
+  c.text = {...c.text, box: true, size: mtRnd(c.text.size * k, 4)};
+}
+// Рамка меняется: новая картинка не чаще, чем раз в 100 мс, последняя обязательно. Новый объект text отменяет запоздавшие картинки.
+let mtTextBoxTimer = 0;
+function mtTextBoxMove(c) {
+  c.text = {...c.text};
+  if (mtTextBoxTimer) return;
+  mtTextBoxTimer = setTimeout(() => { mtTextBoxTimer = 0; const now = tkById(c.id); if (now && now.text) mtTextRedraw(now); }, 100);
 }
 // после открытия проекта и отмены файлов может не быть, а значения клипа могли стать другими
 function mtTextRefresh() { tkClips().filter(c => c.text).forEach(mtTextRedraw); }
