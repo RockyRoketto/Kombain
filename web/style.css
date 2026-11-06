@@ -198,8 +198,21 @@
   #mtStage video#mtVideo{z-index:1}
   #mtNote{z-index:3}
   .mv-canvas{position:absolute;z-index:0;overflow:hidden;background:var(--canvas)}
-  .mv-subs{position:absolute;z-index:999;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
+  .mv-subs{position:absolute;z-index:999;display:flex;align-items:center;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
+  .mv-subs-t{flex:1;min-width:0}
+  .mv-subs.sel{pointer-events:auto;cursor:move}
   .mv-subs span{pointer-events:auto;cursor:move;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+  .mv-subs.sel{outline:1px solid var(--acc)}
+  .mv-subs i{display:none;position:absolute;box-sizing:border-box;width:11px;height:11px;background:var(--acc);border:1px solid var(--on-acc);border-radius:2px;pointer-events:auto}
+  .mv-subs.sel i{display:block}
+  .mv-subs i[data-sc="nw"]{left:0;top:0;cursor:nwse-resize}
+  .mv-subs i[data-sc="ne"]{right:0;top:0;cursor:nesw-resize}
+  .mv-subs i[data-sc="sw"]{left:0;bottom:0;cursor:nesw-resize}
+  .mv-subs i[data-sc="se"]{right:0;bottom:0;cursor:nwse-resize}
+  .mv-subs i[data-sc="n"]{left:calc(50% - 5.5px);top:0;cursor:ns-resize}
+  .mv-subs i[data-sc="s"]{left:calc(50% - 5.5px);bottom:0;cursor:ns-resize}
+  .mv-subs i[data-sc="w"]{left:0;top:calc(50% - 5.5px);cursor:ew-resize}
+  .mv-subs i[data-sc="e"]{right:0;top:calc(50% - 5.5px);cursor:ew-resize}
   .mv-grid,.mv-safe{position:absolute;inset:0;z-index:998;pointer-events:none}
   .mv-grid i,.mv-safe i,.mv-safe u{position:absolute;border:0 solid rgba(var(--acc-rgb),.75)}
   .mv-grid i:nth-child(1){left:33.333%;top:0;bottom:0;border-left-width:1px}
@@ -383,7 +396,7 @@
   .tk-row.thin .tk-mini{height:18px}
   .tk-mini[data-a="del"]{color:var(--err)}
   .tk-mini.on{color:var(--acc)}
-  .tk-row.off .tk-clip{opacity:.35}
+  .tk-row.off .tk-clip,.tk-row.off .tk-cue{opacity:.35}
   .tk-row.off .tk-th b{color:var(--dim);border-color:var(--line3)}
   .tk-mini:hover{background:var(--s4);color:var(--tx)}
   .tk-mini[data-a="del"]:hover{color:var(--err2)}

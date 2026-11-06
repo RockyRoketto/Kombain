@@ -32,6 +32,7 @@ const (
 	subsFont     = "Arial"
 	subsModeBurn = "burn"
 	subsModeTrk  = "track"
+	subsModeBoth = "both"
 )
 
 // Subs: настройки субтитров проекта. Шрифт, размер и положение важны только при вжигании:
@@ -39,7 +40,7 @@ const (
 type Subs struct {
 	Path string   `json:"path"`
 	Cues []SubCue `json:"cues"`           // реплики после правок; nil — взять из файла Path
-	Mode string   `json:"mode"`           // subsModeBurn или subsModeTrk
+	Mode string   `json:"mode"`           // subsModeBurn, subsModeTrk или subsModeBoth
 	Font string   `json:"font,omitempty"` // название шрифта Windows
 	Size float64  `json:"size,omitempty"` // высота строки, доля высоты кадра
 	Pos  string   `json:"pos,omitempty"`  // bottom, center, top
@@ -47,10 +48,12 @@ type Subs struct {
 	Color string  `json:"color,omitempty"` // цвет текста #rrggbb, пусто — белый
 	Back  string  `json:"back,omitempty"`  // цвет подложки #rrggbb, пусто — без неё
 	BackA float64 `json:"backA,omitempty"` // её непрозрачность, 0–1
-	// Контейнер: ширина и середина в долях кадра, Y — нижний край текста в долях высоты. Y задан — Pos не важен.
+	// Контейнер: ширина и середина в долях кадра, Y — нижний край в долях высоты. Y задан — Pos не важен.
+	// H — своя высота рамки, не зависит от шрифта, текст стоит по её центру; 0 — рамка по тексту, Y тогда нижний край текста.
 	W float64 `json:"w,omitempty"`
 	X float64 `json:"x,omitempty"`
 	Y float64 `json:"y,omitempty"`
+	H float64 `json:"h,omitempty"`
 }
 
 var subsHex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -221,6 +224,12 @@ func (s Subs) fit() Subs {
 	}
 	s.X = min(max(s.X, s.W/2), 1-s.W/2) // контейнер целиком в кадре
 	s.Y = min(max(s.Y, 0), 1)
+	if s.Y <= 0 || s.H <= 0 {
+		s.H = 0 // высота без нижнего края ничего не значит
+	} else {
+		s.H = min(max(s.H, 0.02), 1)
+		s.Y = max(s.Y, s.H) // рамка целиком в кадре
+	}
 	return s
 }
 
@@ -256,8 +265,12 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		s.Font, size, col, col, outlineCol, border, outline, align, marginL, marginR, marginV)
 	sb.WriteString("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
 	esc := strings.NewReplacer("\n", `\N`, "{", `\{`, "}", `\}`)
+	place := "" // у рамки своей высоты текст по её центру; ширину переноса задают те же поля MarginL и MarginR
+	if s.H > 0 {
+		place = fmt.Sprintf(`{\an5\pos(%.1f,%.1f)}`, s.X*float64(w), (s.Y-s.H/2)*float64(h))
+	}
 	for _, c := range cues {
-		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s\n", subsAssClock(c.Start), subsAssClock(c.End), esc.Replace(c.Text))
+		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(c.Text))
 	}
 	return sb.String()
 }
@@ -359,7 +372,8 @@ func subsTrackCodec(f Format) string {
 // Реплик между метками нет: результат просто без субтитров.
 func subsPlan(si *srcInfo, sub Subs, f Format, offset float64, inputs int) error {
 	sub = sub.fit()
-	if sub.Mode == subsModeTrk && subsTrackCodec(f) == "" {
+	track, burn := sub.Mode == subsModeTrk || sub.Mode == subsModeBoth, sub.Mode != subsModeTrk
+	if track && subsTrackCodec(f) == "" {
 		return errT("mont.subsTrack")
 	}
 	all := sub.Cues
@@ -373,7 +387,7 @@ func subsPlan(si *srcInfo, sub Subs, f Format, offset float64, inputs int) error
 	if len(cues) == 0 {
 		return nil
 	}
-	if sub.Mode == subsModeTrk {
+	if track {
 		name, err := subsTemp(".srt", subsSRT(cues))
 		if err != nil {
 			return err
@@ -381,6 +395,8 @@ func subsPlan(si *srcInfo, sub Subs, f Format, offset float64, inputs int) error
 		si.inputs = append(si.inputs, "-i", name)
 		// default: без этой отметки многие плееры дорожку не включают, и кажется, что её нет
 		si.subsMap = []string{"-map", fmt.Sprintf("%d:0", inputs), "-c:s", subsTrackCodec(f), "-disposition:s:0", "default"}
+	}
+	if !burn {
 		return nil
 	}
 	name, err := subsTemp(".ass", subsASS(cues, sub, si.w, si.h))

@@ -142,7 +142,7 @@ function tkLoad(o, path) {
   const sub = o.subs;
   tkSubs = sub && typeof sub.path === 'string' && sub.path ? {path: sub.path,
     ...(Array.isArray(sub.cues) ? {cues: sub.cues.filter(c => c && Number.isFinite(c.a) && Number.isFinite(c.b) && c.b > c.a && c.a >= 0 && typeof c.t === 'string').sort((x, y) => x.a - y.a)} : {}),
-    mode: sub.mode === 'track' ? 'track' : 'burn',
+    mode: ['track', 'both'].includes(sub.mode) ? sub.mode : 'burn',
     font: typeof sub.font === 'string' && sub.font ? sub.font : 'Arial', size: sub.size >= .01 && sub.size <= .2 ? sub.size : .05,
     pos: ['top', 'center'].includes(sub.pos) ? sub.pos : 'bottom',
     ...(/^#[0-9a-f]{6}$/i.test(sub.color) ? {color: sub.color} : {}),
@@ -150,7 +150,9 @@ function tkLoad(o, path) {
     ...(sub.backA > 0 && sub.backA <= 1 ? {backA: sub.backA} : {}),
     ...(sub.w >= .1 && sub.w <= 1 ? {w: sub.w} : {}),
     ...(sub.x > 0 && sub.x < 1 ? {x: sub.x} : {}),
-    ...(sub.y > 0 && sub.y <= 1 ? {y: sub.y} : {})} : null;
+    ...(sub.y > 0 && sub.y <= 1 ? {y: sub.y} : {}),
+    ...(sub.h > 0 && sub.h <= 1 ? {h: sub.h} : {}),
+    ...(sub.off === true ? {off: true} : {})} : null;
   tkTidyLinks();
   if (o.pps > 0) tkPps = Math.min(Math.max(o.pps, TK_MIN_PPS), TK_MAX_PPS);
   if (typeof o.snap === 'boolean') tkSnapOn = o.snap;
@@ -495,7 +497,7 @@ function tkCascade(tr) {
 
 // ---------- действия ----------
 function tkSeek(x) { tkAt = tkRound(Math.max(x, 0)); tkDrawHead(true); mvShow(); }
-function tkSelChanged() { tkRender(); mtPanel(); mvFrameDraw(); }
+function tkSelChanged() { tkRender(); mtPanel(); mvFrameDraw(); mvSubsDraw(); }
 function tkNewClip(it, at) {
   const photo = it.kind === 'p';
   return {id: tkNext++, path: it.path, at, from: 0, len: photo ? TK_PHOTO : it.dur, speed: 1, reverse: false, src: photo ? 0 : it.dur};

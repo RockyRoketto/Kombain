@@ -130,7 +130,9 @@ window.addEventListener('resize', () => { if (tab === 'mont') { mtSplitLoad(); m
 const MT_VSPLIT_KEY = 'konv9000.mtPanelW';
 function mtVSplitPlace() {
   const p = $('mtPanel'), bar = $('mtVSplit');
-  Object.assign(bar.style, {left: p.offsetLeft - 7 + 'px', top: p.offsetTop + 'px', height: p.offsetHeight + 'px'});
+  const v = $('mtStage').closest('.mt-view');
+  // полоса шириной 10 px ровно посередине зазора между вьюпортом и панелью
+  Object.assign(bar.style, {left: Math.round((v.offsetLeft + v.offsetWidth + p.offsetLeft) / 2) - 5 + 'px', top: p.offsetTop + 'px', height: p.offsetHeight + 'px'});
 }
 function mtVSplitSet(w) {
   const view = $('montView').clientWidth, left = $('mtStage').closest('.mt-view').offsetLeft;
@@ -524,7 +526,7 @@ function mtSubsFill() {
   const s = tkSubs;
   $('mtSubsBody').classList.toggle('hide', !s);
   $('mtSubsOff').classList.toggle('hide', !s);
-  mtSum('mtSumSubs', s ? t(s.mode === 'track' ? 'mt.subsTrack' : 'mt.subsBurn') : '');
+  mtSum('mtSumSubs', s ? t({track: 'mt.subsTrack', both: 'mt.subsBoth'}[s.mode] || 'mt.subsBurn') : '');
   $('mtSubsName').textContent = s ? base(s.path) : '';
   $('mtSubsName').title = s ? s.path : '';
   mtCuesFill();
@@ -532,7 +534,11 @@ function mtSubsFill() {
   if (!s.cues && s.path !== mtSubsWait) mtSubsLoad(s.path);
   $('mtSubsErr').textContent = mtSubsErr;
   $('mtSubsErr').classList.toggle('hide', !mtSubsErr);
-  $('mtSubsMode').value = s.mode;
+  // оба выключить нельзя: для этого есть кнопка «Убрать»
+  $('mtSubsBurn').checked = s.mode !== 'track';
+  $('mtSubsTrk').checked = s.mode !== 'burn';
+  $('mtSubsBurn').disabled = s.mode === 'burn';
+  $('mtSubsTrk').disabled = s.mode === 'track';
   mtFontPut($('mtSubsFont'), s.font);
   $('mtSubsPos').value = s.pos;
   mtVal('mtSubsSize', mtRnd(s.size * 100, 1));
@@ -542,8 +548,7 @@ function mtSubsFill() {
   $('mtSubsBack').value = s.back || '#000000';
   mtVal('mtSubsBackA', Math.round((s.backA > 0 ? s.backA : .6) * 100));
   mtVal('mtSubsW', Math.round((s.w || .9) * 100));
-  $('mtSubsLook').classList.toggle('hide', s.mode === 'track');
-  $('mtSubsNote').classList.toggle('hide', s.mode !== 'track');
+  $('mtSubsNote').classList.toggle('hide', s.mode === 'burn');
 }
 $('mtSubsPick').onclick = () => dialog(async () => {
   const r = await api('subs-pick');
@@ -551,7 +556,7 @@ $('mtSubsPick').onclick = () => dialog(async () => {
   if (!r.path) return;
   const c = await api('subs-read', {path: r.path});
   if (c.error) { say('warn', t('mt.secSubs'), c.error); return; }
-  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || []}; mtCueNone(); });
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || [], off: false}; mtCueNone(); });
 });
 $('mtSubsOff').onclick = () => tkDo(() => { tkSubs = null; });
 // Автосубтитры: выбор модели и языка запоминается, сама работа идёт в программе (whisper.go), страница только следит за ходом
@@ -578,7 +583,7 @@ async function mtAutoWatch() {
   if (!job.path) return;   // отменили
   const c = await api('subs-read', {path: job.path});
   if (c.error) { say('warn', t('mt.auto.title'), c.error); return; }
-  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || []}; mtCueNone(); });
+  tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || [], off: false}; mtCueNone(); });
   document.querySelector('details[data-sec=subs]').open = true;
   toast({id: 'auto', type: 'ok', title: t('mt.auto.done'), text: esc(base(job.path)), ttl: 6000});
 }
@@ -593,11 +598,16 @@ $('mtAutoGo').onclick = () => dialog(async () => {
   mtAutoWatch();
 });
 $('mtAutoStop').onclick = () => api('whisper-cancel');
-[['mtSubsMode', 'mode'], ['mtSubsFont', 'font'], ['mtSubsPos', 'pos']].forEach(([id, key]) => $(id).addEventListener('change', () => {
+['mtSubsBurn', 'mtSubsTrk'].forEach(id => $(id).addEventListener('change', () => {
+  $(id).blur();
+  const burn = $('mtSubsBurn').checked, trk = $('mtSubsTrk').checked;
+  if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, mode: burn && trk ? 'both' : trk ? 'track' : 'burn'}; });
+}));
+[['mtSubsFont', 'font'], ['mtSubsPos', 'pos']].forEach(([id, key]) => $(id).addEventListener('change', () => {
   const v = $(id).value;
   $(id).blur();
   // выбор положения из списка снимает то, что перетащили мышью
-  if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, [key]: v}; if (key === 'pos') { delete tkSubs.x; delete tkSubs.y; } });
+  if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, [key]: v}; if (key === 'pos') { delete tkSubs.x; delete tkSubs.y; delete tkSubs.h; } });
 }));
 $('mtSubsColor').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, color: $('mtSubsColor').value}; }); });
 $('mtSubsBack').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, back: $('mtSubsBack').value}; }); });
@@ -720,7 +730,7 @@ const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkE
 function mtProject() {
   const tracks = tkTracks.filter(x => x.clips.length && !x.off).map(x => ({clips: x.clips.map(c => mtClipOut(c, c.at))}));
   const [a, b] = mtRange();
-  const project = {...(tkCanvas || {}), tracks, in: tkIn || 0, out: tkOut || 0, ...(tkSubs ? {subs: tkSubs} : {})};
+  const project = {...(tkCanvas || {}), tracks, in: tkIn || 0, out: tkOut || 0, ...(tkSubs && !tkSubs.off ? {subs: tkSubs} : {})};
   return {project, dur: Math.max(b - a, 0), paths: tkLive().filter(mtInRange).sort((x, y) => x.at - y.at).map(c => c.path)};
 }
 const mtListOf = paths => [...new Map(paths.map(p => [mtKey(p), mtFile(p) || {path: p}])).values()];

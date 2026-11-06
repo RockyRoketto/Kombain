@@ -74,6 +74,7 @@ function mvLook() {
 // Субтитры поверх всех слоёв, те же размеры, что в subsASS (subtitles.go). В ASS размер шрифта — это высота строки, в CSS — кегль:
 // их отношение своё у каждого шрифта. Без файла в проекте или без реплики в этот момент ничего не видно.
 const mvSubLines = new Map();
+var mvSubsSel = false;   // выбраны ли субтитры во вьюпорте: тогда видны рамка и ручки
 function mvSubLine(font) {
   if (!mvSubLines.has(font)) {
     const g = document.createElement('canvas').getContext('2d');
@@ -86,40 +87,63 @@ function mvSubLine(font) {
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
   mtCueNow();
-  const text = s ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => c.t).join('\n').trim() : '';
+  const text = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => c.t).join('\n').trim() : '';
   el.classList.toggle('hide', !text);
   if (!text) return;
-  let span = el.firstElementChild;
-  if (!span) { span = document.createElement('span'); el.appendChild(span); }
+  // обёртка держит текст по центру рамки, а сам span остаётся строчным: подложка рисуется на каждую строку
+  let span = el.querySelector('span');
+  if (!span) { const box = document.createElement('div'); box.className = 'mv-subs-t'; span = document.createElement('span'); box.append(span); el.prepend(box); }
   if (span.textContent !== text) span.textContent = text;
+  if (tkSel.size) mvSubsSel = false;
+  el.classList.toggle('sel', mvSubsSel && !mv.playing);
   const size = s.size * mvCv.clientHeight, w = s.w || .9, x = s.x || .5, pad = size * .12;
   el.dataset.pos = s.y > 0 ? 'free' : s.pos;
-  Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '',
+  Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '', height: s.y > 0 && s.h > 0 ? s.h * 100 + '%' : '',
     fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size + 'px', color: s.color || '#fff'});
   const a = s.backA > 0 ? s.backA : .6, hex = s.back || '#000000';
   Object.assign(span.style, s.back
     ? {webkitTextStroke: '', backgroundColor: `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`, padding: `${pad}px`}
     : {webkitTextStroke: `${pad}px #000`, backgroundColor: '', padding: ''});
-  span.style.pointerEvents = s.mode === 'track' ? 'none' : '';
 }
-// Положение тянется мышью прямо во вьюпорте; у дорожки в файле его выбирает плеер
-$('mvSubs').addEventListener('pointerdown', e => {
-  const s = tkSubs;
-  if (!s || e.button !== 0 || s.mode === 'track') return;
-  e.stopPropagation();
+// Субтитры и их ручки под мышью. Смотрим по точке, а не по e.target: рамка выбранного слоя лежит выше холста и забирает нажатие.
+function mvSubsAt(e) {
+  return document.elementsFromPoint(e.clientX, e.clientY).find(n => n.matches('#mvSubs span, #mvSubs i, #mvSubs.sel')) || null;
+}
+// Мышью во вьюпорте: текст и пустое место выбранной рамки двигают её, ручки меняют только рамку, противоположный край стоит на месте.
+// Шрифт меняет только поле «Размер». Рамка получает свою высоту, когда тянут верх или низ.
+function mvSubsPress(e, h) {
+  const s = tkSubs, el = $('mvSubs'), side = h.dataset.sc || '';
   if (mv.playing) mvPause();
-  const before = tkState(), cv = mvCv.getBoundingClientRect(), r = $('mvSubs').getBoundingClientRect();
-  const w = s.w || .9, x0 = s.x || .5, y0 = (r.bottom - cv.top) / cv.height, cx = e.clientX, cy = e.clientY;
+  if (tkSel.size) { tkSel.clear(); tkSelChanged(); }
+  mvSubsSel = true;
+  mvSubsDraw();
+  const before = tkState(), cv = mvCv.getBoundingClientRect(), r = el.getBoundingClientRect();
+  const w0 = s.w || .9, x0 = s.x || .5, low = s.h || s.size, cx = e.clientX, cy = e.clientY;
+  const L = (r.left - cv.left) / cv.width, R = (r.right - cv.left) / cv.width, T = (r.top - cv.top) / cv.height, B = (r.bottom - cv.top) / cv.height;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
   let moved = false;
   tkDrag(e, ev => {
     moved = true;
-    let x = Math.min(Math.max(x0 + (ev.clientX - cx) / cv.width, w / 2), 1 - w / 2);
-    if (Math.abs(x - .5) < .012) x = .5;   // середина кадра прилипает
-    tkSubs.x = +x.toFixed(4);
-    tkSubs.y = +Math.min(Math.max(y0 + (ev.clientY - cy) / cv.height, s.size), 1).toFixed(4);
-    mvSubsDraw();
+    if (side) {
+      const dx = (ev.clientX - cx) / cv.width, dy = (ev.clientY - cy) / cv.height, patch = {};
+      if (/[we]/.test(side)) {
+        const a = side.includes('w') ? clamp(L + dx, 0, R - .1) : L, b = side.includes('e') ? clamp(R + dx, L + .1, 1) : R;
+        patch.w = mtRnd(b - a, 3); patch.x = +((a + b) / 2).toFixed(4);
+      }
+      if (/[ns]/.test(side)) {
+        const a = side.includes('n') ? clamp(T + dy, 0, B - .02) : T, b = side.includes('s') ? clamp(B + dy, T + .02, 1) : B;
+        patch.h = +(b - a).toFixed(4); patch.y = +b.toFixed(4);
+      }
+      mtSubsLive(patch);
+    } else {
+      let x = Math.min(Math.max(x0 + (ev.clientX - cx) / cv.width, w0 / 2), 1 - w0 / 2);
+      if (Math.abs(x - .5) < .012) x = .5;   // середина кадра прилипает
+      tkSubs.x = +x.toFixed(4);
+      tkSubs.y = +Math.min(Math.max((r.bottom - cv.top + ev.clientY - cy) / cv.height, low), 1).toFixed(4);
+      mvSubsDraw();
+    }
   }, () => { if (moved) tkCommit(before); });
-});
+}
 $('mvSubs').addEventListener('click', e => e.stopPropagation());
 // Сетка и телевизионные зоны поверх кадра: только для просмотра, в результат не идут
 function mvGuidesSet(id, btn, key, on) {
@@ -724,10 +748,14 @@ function mvCropDrag(e, c, side) {
 }
 // Нажатие сразу выбирает слой под мышью, и его можно тянуть, не отпуская кнопку. Мимо слоёв — выбор снимается.
 mvStage.addEventListener('pointerdown', e => {
-  if (e.button !== 0 || mv.file || !tkClips().length) return;
+  if (e.button !== 0 || mv.file || chromaPick) return;
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  const h = e.target.closest('[data-c]'), sub = !h && mvSubsAt(e);
+  if (sub) { mvSubsPress(e, sub); return; }
+  if (mvSubsSel) { mvSubsSel = false; mvSubsDraw(); }
+  if (!tkClips().length) return;
   if (mv.playing) mvPause();
-  const cur = mvFrameClip(), h = e.target.closest('[data-c]'), top = mvHit(e);
+  const cur = mvFrameClip(), top = mvHit(e);
   if (cur && h) {
     e.preventDefault();
     if (h.dataset.c === 'rot') mvRotDrag(e, cur);

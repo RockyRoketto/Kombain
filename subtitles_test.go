@@ -216,6 +216,19 @@ func TestTimelineSubsTrack(t *testing.T) {
 		t.Errorf("avi: %v", err)
 	}
 
+	p.Subs = &Subs{Path: subs.Path, Mode: subsModeBoth} // и в кадре, и дорожкой
+	both := m.render(p, "mp4")
+	if info, _ := exec.Command(m.ffm, "-hide_banner", "-i", both).CombinedOutput(); !strings.Contains(string(info), "Subtitle: mov_text") {
+		t.Errorf("оба: нет дорожки:\n%s", info)
+	}
+	if got := m.bandMax(both, 0.5); got <= 40 {
+		t.Errorf("оба: текста нет в кадре: %d", got)
+	}
+	if _, err := m.tryRender(p, "avi264"); err == nil {
+		t.Error("оба: avi без дорожки должен дать ошибку")
+	}
+	p.Subs = subs
+
 	p.In, p.Out = 1, 1.5 // между реплик: результат есть, дорожки нет
 	out := m.render(p, "mp4")
 	if info, _ := exec.Command(m.ffm, "-hide_banner", "-i", out).CombinedOutput(); strings.Contains(string(info), "Subtitle:") {
@@ -265,7 +278,10 @@ func TestTimelineSubsLook(t *testing.T) {
 	src := m.color("src.mp4", "black", 640, 360, 30, 1, 0)
 	cues := []SubCue{{Start: 0, End: 1, Text: "ММ ММ ММ ММ ММ ММ"}}
 	frame := func(s Subs) []byte {
-		s.Mode, s.Cues, s.Size = subsModeBurn, cues, 0.1
+		s.Mode, s.Cues = subsModeBurn, cues
+		if s.Size == 0 {
+			s.Size = 0.1
+		}
 		p := tracks([]Clip{{Path: src}})
 		p.Subs = &s
 		out, err := exec.Command(m.ffm, "-hide_banner", "-loglevel", "error", "-ss", "0.5", "-i", m.render(p, "mp4"), "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-").Output()
@@ -302,6 +318,22 @@ func TestTimelineSubsLook(t *testing.T) {
 	_, _, wy0, wy1, _, _ := box(frame(Subs{W: 0.2}))
 	if wy1-wy0 < 50 {
 		t.Errorf("строка не перенеслась: высота %d", wy1-wy0)
+	}
+	// рамка своей высоты: текст по её центру при любом шрифте, рамка 36–180 px, центр 108
+	for _, size := range []float64{0.1, 0.03} {
+		_, _, y0, y1, _, _ := box(frame(Subs{Size: size, W: 0.9, Y: 0.5, H: 0.4}))
+		if mid := (y0 + y1) / 2; mid < 102 || mid > 114 {
+			t.Errorf("шрифт %v: середина текста %d, ждали около 108", size, mid)
+		}
+	}
+	// ширина рамки по-прежнему переносит строку, мелкий шрифт в той же рамке помещается в одну
+	_, _, py0, py1, _, _ := box(frame(Subs{W: 0.2, Y: 0.5, H: 0.4}))
+	if py1-py0 < 50 {
+		t.Errorf("в рамке своей высоты строка не перенеслась: высота %d", py1-py0)
+	}
+	_, _, py0, py1, _, _ = box(frame(Subs{Size: 0.03, W: 0.9, Y: 0.5, H: 0.4}))
+	if py1-py0 > 25 {
+		t.Errorf("мелкий шрифт не уместился в одну строку: высота %d", py1-py0)
 	}
 	// подложка: вокруг букв плотный цвет, а не только сами буквы
 	f := frame(Subs{Color: "#000000", Back: "#00ff00", BackA: 1})

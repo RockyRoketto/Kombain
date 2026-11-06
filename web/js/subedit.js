@@ -25,12 +25,19 @@ function mtCueCur() {
 let mtCueSig = '';
 function mtCueLane() {
   const list = mtCueList(), on = !!tkSubs;
+  const off = on && !!tkSubs.off, eye = $('tkSubEye'), tip = t(off ? 'tk.show' : 'tk.hide');
   $('tkSubRow').classList.toggle('hide', !on);
+  $('tkSubRow').classList.toggle('off', off);
+  eye.classList.toggle('on', off);
+  if (eye.title !== tip) { eye.title = tip; eye.setAttribute('aria-label', tip); }
+  if (eye.dataset.off !== String(off) || !eye.firstChild) { eye.dataset.off = off; eye.innerHTML = TK_ICON[off ? 'vOff' : 'vOn']; }
   const sig = on ? JSON.stringify([tkPps, mtCueSel, [...mtCueMany], list]) : '';
   if (sig === mtCueSig) return;
   mtCueSig = sig;
   $('tkSubLane').innerHTML = list.map((c, i) => `<div class="tk-cue${mtCuePicked(i) ? ' sel' : ''}" data-i="${i}" style="left:${c.a * tkPps}px;width:${Math.max((c.b - c.a) * tkPps, 2)}px" title="${esc(c.t)}"><b class="l"></b>${esc(c.t.replace(/\s+/g, ' '))}<b class="r"></b></div>`).join('');
 }
+// Скрытые субтитры остаются в проекте и правятся, но их нет ни во вьюпорте, ни в результате
+$('tkSubEye').onclick = () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, off: !tkSubs.off}; }); };
 function mtCueSelect(i, seek) {
   mtCueNone();
   mtCueSel = i;

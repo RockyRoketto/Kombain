@@ -214,7 +214,7 @@ __CSS__
 
     <section class="card mt-view">
       <div class="stage" id="mtStage">
-        <div class="mv-canvas" id="mvCanvas"><div class="mv-grid hide" id="mvGrid"><i></i><i></i><i></i><i></i></div><div class="mv-safe hide" id="mvSafe"><i></i><i></i><u></u><u></u></div><div class="mv-subs hide" id="mvSubs" dir="auto"></div></div>
+        <div class="mv-canvas" id="mvCanvas"><div class="mv-grid hide" id="mvGrid"><i></i><i></i><i></i><i></i></div><div class="mv-safe hide" id="mvSafe"><i></i><i></i><u></u><u></u></div><div class="mv-subs hide" id="mvSubs" dir="auto"><i data-sc="nw"></i><i data-sc="ne"></i><i data-sc="sw"></i><i data-sc="se"></i><i data-sc="n"></i><i data-sc="s"></i><i data-sc="w"></i><i data-sc="e"></i></div></div>
         <img id="mtImg" class="hide" alt="">
         <video id="mtVideo" class="hide" preload="auto" playsinline></video>
         <div class="mv-frame hide" id="mvFrame" data-i18n-title="mv.frameTip"><i data-c="nw"></i><i data-c="ne"></i><i data-c="sw"></i><i data-c="se"></i><i data-c="n"></i><i data-c="e"></i><i data-c="s"></i><i data-c="w"></i><i data-c="rot" data-i18n-title="mv.rotTip"></i></div>
@@ -403,9 +403,8 @@ __CSS__
           </div>
         </div>
         <div class="hide" id="mtSubsBody">
-          <label class="mt-row"><span data-i18n="mt.subsMode"></span>
-            <select id="mtSubsMode"><option value="burn" data-i18n="mt.subsBurn"></option><option value="track" data-i18n="mt.subsTrack"></option></select>
-          </label>
+          <label class="sw mt-each"><span data-i18n="mt.subsBurn"></span><input type="checkbox" id="mtSubsBurn"><i></i></label>
+          <label class="sw mt-each"><span data-i18n="mt.subsTrack"></span><input type="checkbox" id="mtSubsTrk"><i></i></label>
           <div class="note hide" id="mtSubsNote" data-i18n="mt.subsTrackNote"></div>
           <div id="mtSubsLook">
             <label class="mt-row"><span data-i18n="mt.subsFont"></span>
@@ -470,7 +469,7 @@ __CSS__
       <div class="tk-scroll" id="tkScroll">
         <div class="tk-inner" id="tkInner">
           <div class="tk-rulerrow"><div class="tk-corner"></div><div class="tk-ruler" id="tkRuler"></div><div class="tk-grip" id="tkGrip" data-i18n-title="tk.gripTip"></div></div>
-          <div class="tk-row s hide" id="tkSubRow"><div class="tk-th"><b>S</b><span class="tk-thline"></span></div><div class="tk-lane" id="tkSubLane"></div></div>
+          <div class="tk-row s hide" id="tkSubRow"><div class="tk-th"><b>S</b><span class="tk-thline"></span><button class="tk-mini" id="tkSubEye"></button><span class="tk-gap"></span><span class="tk-gap"></span></div><div class="tk-lane" id="tkSubLane"></div></div>
           <div id="tkLanes"></div>
           <div class="tk-fill"><div class="tk-th"></div></div>
           <div class="tk-range hide" id="tkRange"></div>

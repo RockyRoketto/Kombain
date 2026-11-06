@@ -105,6 +105,10 @@ func saveMontFrame(ffm string, p Project, at float64) (string, error) {
 	p.In, p.Out = max(at, 0), max(at, 0)+1e-6 // tlRange сам расширит до одного кадра
 	if p.Subs != nil && p.Subs.Mode == subsModeTrk {
 		p.Subs = nil // дорожка не часть кадра
+	} else if p.Subs != nil && p.Subs.Mode == subsModeBoth {
+		s := *p.Subs
+		s.Mode = subsModeBurn // в кадр идёт только вжигание: у картинки нет дорожек
+		p.Subs = &s
 	}
 	si, err := timelineInfo(context.Background(), ffm, p, Format{Kind: "anim"})
 	if err != nil {
