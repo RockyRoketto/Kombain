@@ -14,6 +14,8 @@ const mv = {
   probes: new Map(), // что проверяем сейчас
   live: [],          // {c, e}: играющие сейчас
   file: null, fileStop: null, fileReady: false, pic: '',
+  tr: new Map(),     // переходы: id клипа → края (mvTrMap в mvtrans.js)
+  trBg: new Map(),   // плашки цвета переходов fadeblack и fadewhite
 };
 const mvVol = {volume: .8, muted: false};   // общий ползунок: стоит на выходе шины, поэтому индикатор его не видит
 bindVolume(mvVol, $('mtMute'), $('mtVol'));
@@ -21,9 +23,9 @@ keepSeeking(mtV);
 trackFrame(mtV);
 // картинка из связанной пары молчит: её звук играет свой клип на звуковой дорожке
 const mvMuted = c => !!(c && c.part === 'v');
-// доля плавности клипа в момент x: 0 совсем нет, 1 полностью. Как в движке (tlFades)
+// доля плавности клипа в момент x: 0 совсем нет, 1 полностью. Как в движке (tlFades): край с переходом плавность заменяет он
 function mvFadeAt(c, x) {
-  const len = tkLen(c), d = x - c.at, a = Math.min(c.fadeIn || 0, len), b = Math.min(c.fadeOut || 0, len);
+  const len = tkLen(c), d = x - c.at, t = mv.tr.get(c.id), a = t && t.i ? 0 : Math.min(c.fadeIn || 0, len), b = t && t.o ? 0 : Math.min(c.fadeOut || 0, len);
   let k = 1;
   if (a > 0) k *= Math.min(Math.max(d / a, 0), 1);
   if (b > 0) k *= Math.min(Math.max((len - d) / b, 0), 1);
@@ -57,7 +59,7 @@ function mvGain(e) {
   return e.gain;
 }
 function mvLevel(e, c) {
-  const g = mvGain(e).gain, v = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) : 1;
+  const g = mvGain(e).gain, v = c ? (c.vol === undefined ? 1 : c.vol) * mvFadeAt(c, tkAt) * mvTrGain(c, tkAt) : 1;
   if (v === e.vol) return;
   e.vol = v;
   g.setTargetAtTime(v, mv.audio.currentTime, .012);   // ступеньки громкости от кадра к кадру слышны как треск
@@ -65,9 +67,10 @@ function mvLevel(e, c) {
 function mvVolume() { if (mv.out) mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume; }
 // плавность и громкость идут за курсором времени в каждом кадре просмотра
 function mvLook() {
-  const keyed = new Set();
-  for (const {c, e} of mv.live) { e.el.style.opacity = mvFadeAt(c, tkAt); mvLevel(e, c); chromaShow(e.el, c, keyed); }
-  for (const [id, el] of mv.pics) { const c = tkById(id); if (c) { el.style.opacity = mvFadeAt(c, tkAt); if (!el.classList.contains('hide')) chromaShow(el, c, keyed); } }
+  const keyed = new Set(), op = c => mvFadeAt(c, tkAt) * mvTrOpacity(c, tkAt);
+  mvTrFrame();
+  for (const {c, e} of mv.live) { e.el.style.opacity = op(c); mvLevel(e, c); chromaShow(e.el, c, keyed); }
+  for (const [id, el] of mv.pics) { const c = tkById(id); if (c) { el.style.opacity = op(c); if (!el.classList.contains('hide')) chromaShow(el, c, keyed); } }
   chromaSweep(keyed);
   mvSubsDraw();
 }
@@ -354,6 +357,7 @@ function mvPlace(el, c) {
     objectViewBox: inner ? `inset(${o.t * 100}% ${o.r * 100}% ${o.b * 100}% ${o.l * 100}%)` : '',
     transformOrigin: inner ? `${(.5 - o.l) / w * 100}% ${(.5 - o.t) / h * 100}%` : '',   // поворот вокруг середины всей рамки
     transform: c.rot ? `rotate(${c.rot}deg)` : '', filter: fx, mixBlendMode: c.blend || ''});   // режимы и формулы как у ffmpeg: tlBlends в timeline.go
+  mvTrPlace(el, c, box, inner ? [(.5 - o.l) / w, (.5 - o.t) / h] : [.5, .5], cut && !inner ? o : null);   // переход на краю (mvtrans.js)
 }
 // Размытие и тень, порядок и размеры как в tlFxChain (timeline.go). Сдвиг тени считается на экране, а filter стоит до поворота, поэтому сдвиг поворачивается обратно
 function mvFx(c) {
@@ -456,7 +460,7 @@ function mvBind(c) {
 // id клипов, которые должны играть в момент x, снизу вверх
 function mvActiveSig(x) {
   let s = '';
-  for (const c of tkLive()) if (mvUnder(c, x)) s += c.id + ',';
+  for (const c of tkLive()) if (mvShown(c, x)) s += c.id + ',';
   return s;
 }
 function mvPicFor(c, z) {
@@ -469,7 +473,7 @@ function mvPicFor(c, z) {
     mvCv.appendChild(el);
     mv.pics.set(c.id, el);
   }
-  el.style.zIndex = z + 1;
+  el.dataset.z = z;   // слой дорожки z, место ставит mvPlace
   mvPlace(el, c);
   return el;
 }
@@ -502,16 +506,18 @@ function mvShow() {
   mvCv.classList.remove('hide');
   mvSizeCanvas();
   mvPrep();
-  // кто звучит и виден сейчас и кто скоро начнётся
+  mv.tr = mvTrMap();
+  // кто звучит и виден сейчас и кто скоро начнётся. У стыка с переходом клип виден и за своим краем (mvSpan)
   const active = [], soon = [];
   let vids = 0;
   mv.extra = false;
   tkTracks.forEach((tr, z) => tr.off || tr.clips.forEach(c => {
-    if (mvUnder(c, x)) {
+    const start = mvSpan(c)[0];
+    if (mvShown(c, x)) {
       let frozen = false;
       if (tr.kind === 'v' && !tkPhoto(c) && ++vids > MV_LIVE) { frozen = true; mv.extra = true; }
       active.push({c, z, tr, frozen});
-    } else if (mv.playing && c.at > x && c.at - x < MV_AHEAD) soon.push({c, z, tr});
+    } else if (mv.playing && start > x && start - x < MV_AHEAD) soon.push({c, z, tr});
   }));
   mv.shownAt = now;
   mv.sig = mvActiveSig(x);
@@ -535,7 +541,7 @@ function mvShow() {
       e.el.muted = mvMuted(c);
       e.el.classList.toggle('hide', !visual);
       e.el.classList.toggle('mv-off', !on);
-      if (visual) { e.el.style.zIndex = z + 1; mvPlace(e.el, c); }
+      if (visual) { e.el.dataset.z = z; mvPlace(e.el, c); }
       if (on) mv.live.push({c, e});
     }
     if (!visual) continue;
@@ -546,7 +552,7 @@ function mvShow() {
     el.classList.remove('hide');
     keepPics.add(c.id);
     if (tkPhoto(c)) mvPicSrc(el, mediaUrl(c.path), thumbUrl(c.path, 0, 1280));
-    else if (!mv.playing || !el.dataset.url) mvPicSrc(el, thumbUrl(c.path, c.src ? (mvSrc(c, x) / c.src).toFixed(3) : 0, 1280));
+    else if (!mv.playing || !el.dataset.url) mvPicSrc(el, thumbUrl(c.path, c.src ? Math.min(Math.max(mvSrc(c, x) / c.src, 0), 1).toFixed(3) : 0, 1280));
   }
   for (const a of soon) {
     const {c, z, tr} = a;
@@ -560,10 +566,11 @@ function mvShow() {
       if (e) {
         e.el.classList.add('mv-off');
         e.el.classList.toggle('hide', tr.kind !== 'v');
-        if (tr.kind === 'v') { e.el.style.zIndex = z + 1; mvPlace(e.el, c); }
+        if (tr.kind === 'v') { e.el.dataset.z = z; mvPlace(e.el, c); }
+        const t0 = Math.max(mvTime(c, mvSpan(c)[0]), 0);
         if (e.ready) {
           if (!e.el.paused) e.el.pause();
-          if (Math.abs(e.el.currentTime - mvTime(c, c.at)) > .02) videoSeek(e.el, mvTime(c, c.at));
+          if (Math.abs(e.el.currentTime - t0) > .02) videoSeek(e.el, t0);
         }
       }
     }
@@ -583,11 +590,16 @@ function mvSync(e, c, now) {
   if (!mv.playing || mv.holding) {
     if (!el.paused) el.pause();
     if (el.playbackRate !== c.speed) el.defaultPlaybackRate = el.playbackRate = c.speed;
-    if (Math.abs(el.currentTime - want) > .5 / mvFps(c)) videoSeek(el, Math.min(want, dur));
+    if (Math.abs(el.currentTime - Math.max(want, 0)) > .5 / mvFps(c)) videoSeek(el, Math.min(Math.max(want, 0), dur));
     return;
   }
   if (want >= dur - .02) {   // картинка в файле кончилась раньше клипа: держится последний кадр, как в результате
     if (!el.paused) el.pause();
+    return;
+  }
+  if (want < 0) {   // стык с переходом раньше начала файла: держится первый кадр, как стоп-кадр в результате
+    if (!el.paused) el.pause();
+    if (el.currentTime > .5 / mvFps(c) && !el.seeking) videoSeek(el, 0);
     return;
   }
   if (el.seeking) return;
@@ -630,6 +642,8 @@ function mvUnload() {
   mv.probes.clear();
   for (const el of mv.pics.values()) el.remove();
   mv.pics.clear();
+  for (const div of mv.trBg.values()) div.remove();
+  mv.trBg.clear();
   mvPicture('');
   mvNote('');
   mvFrame.classList.add('hide');
@@ -643,7 +657,7 @@ function mvTick(now) {
   if (mv.holding) {   // начало: все слои встали на место, стартуем вместе
     const ready = mv.pool.every(e => {
       const c = e.clip !== null && tkById(e.clip);
-      return !c || !mvUnder(c, tkAt) || (e.ready && !e.el.seeking && e.el.readyState >= 2);
+      return !c || !mvShown(c, tkAt) || (e.ready && !e.el.seeking && e.el.readyState >= 2);
     });
     if (!ready && now < mv.holdTo) return;
     mv.holding = false;
@@ -660,7 +674,7 @@ function mvTick(now) {
     else { tkAt = end; mvPause(); return; }
   } else if (now - mv.shownAt > 250 || mvActiveSig(tkAt) !== mv.sig) mvShow();
   else for (const {c, e} of mv.live) mvSync(e, c, now);
-  for (const tr of tkTracks) if (tr.kind === 'v' && !tr.off) for (const c of tr.clips) if (c.kf && mvUnder(c, tkAt)) { kfPose(c, tkAt); mvPlaceClip(c); }   // ключи на каждом кадре
+  for (const tr of tkTracks) if (tr.kind === 'v' && !tr.off) for (const c of tr.clips) if (c.kf && mvShown(c, tkAt)) { kfPose(c, tkAt); mvPlaceClip(c); }   // ключи на каждом кадре
   mvLook();
   tkDrawHead(true);
 }

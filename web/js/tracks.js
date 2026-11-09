@@ -7,6 +7,10 @@
 // tkTracks идёт снизу вверх, как ждёт движок: сначала видео, потом звук. На экране видео показано верхней дорожкой вверх.
 const TK_HEAD = 124, TK_PHOTO = 5, TK_UNDO = 100, TK_EPS = 1e-3, TK_MIN_PPS = 1, TK_MAX_PPS = 512, TK_GRAB = 10, TK_ROW_MIN = 20, TK_ROW_MAX = 160;
 const TK_SAVE_KEY = 'konv9000.mtProject';
+// Переходы на краю клипа: trIn — из соседа слева вплотную (стык) или из пустоты, trOut — в пустоту; {k: вид, d: секунды}.
+// Виды как tlTransKinds в transitions.go: только те, что просмотр повторяет на CSS (mvtrans.js)
+const TK_TRANS = ['fade', 'fadeblack', 'fadewhite', 'wipeleft', 'wiperight', 'wipeup', 'wipedown', 'slideleft', 'slideright', 'slideup', 'slidedown', 'circleopen', 'circleclose', 'zoomin'];
+const TK_TRANS_MAX = 10;   // секунд, как tlMaxTrans
 const tkFresh = () => ['v', 'v', 'a', 'a'].map(kind => ({kind, thin: false, clips: []}));
 let tkTracks = tkFresh(), tkSel = new Set(), tkAt = 0, tkPps = 40, tkTool = 'select', tkSnapOn = true, tkNext = 1;
 let tkUndoList = [], tkRedoList = [], tkBoard = [], tkPath = '', tkSaveTimer = 0;
@@ -114,6 +118,7 @@ function tkLoad(o, path) {
   const share = (c, key) => c[key] > 0 && c[key] <= .98 ? {[key]: c[key]} : {};
   const more = (c, key) => c[key] > 0 && Number.isFinite(c[key]) ? {[key]: c[key]} : {};
   const grade = (c, key) => c[key] && Number.isFinite(c[key]) ? {[key]: Math.min(Math.max(c[key], -1), 1)} : {};
+  const trans = (c, key) => { const t = c[key]; return t && TK_TRANS.includes(t.k) && t.d > 0 && Number.isFinite(t.d) ? {[key]: {k: t.k, d: Math.min(t.d, TK_TRANS_MAX)}} : {}; };
   const tracks = o.tracks.filter(x => x && (x.kind === 'v' || x.kind === 'a')).map(x => ({kind: x.kind, thin: !!x.thin,
     ...(x.h >= TK_ROW_MIN && x.h <= TK_ROW_MAX ? {h: x.h} : {}),
     ...(x.off ? {off: true} : {}),
@@ -124,7 +129,7 @@ function tkLoad(o, path) {
       ...(Number.isFinite(c.rot) && c.rot ? {rot: c.rot % 360} : {}),
       ...share(c, 'cl'), ...share(c, 'ct'), ...share(c, 'cr'), ...share(c, 'cb'),
       ...(c.vol >= 0 && c.vol <= 2 && c.vol !== 1 ? {vol: c.vol} : {}),
-      ...more(c, 'fadeIn'), ...more(c, 'fadeOut'),
+      ...more(c, 'fadeIn'), ...more(c, 'fadeOut'), ...trans(c, 'trIn'), ...trans(c, 'trOut'),
       ...(/^#[0-9a-f]{6}$/i.test(c.key) ? {key: c.key, ...more(c, 'keySim'), ...more(c, 'keyBlend'), ...more(c, 'keySpill')} : {}),
       ...(['screen', 'plus-lighter', 'lighten', 'multiply', 'darken', 'overlay', 'hard-light', 'difference'].includes(c.blend) ? {blend: c.blend} : {}),
       ...more(c, 'blur'),
@@ -567,6 +572,7 @@ function tkSplit(c, x, tr) {
   kfSplit(right, cut);
   if (c.anim) { const {i, o} = c.anim; if (i) c.anim = {i}; else delete c.anim; if (o) right.anim = {o}; else delete right.anim; }   // появление у левой части, исчезание у правой
   delete c.fadeOut; delete right.fadeIn;   // на месте разреза плавности нет: появление остаётся у начала, исчезание у конца
+  delete c.trOut; delete right.trIn;       // и перехода нет: из соседа слева он остаётся у левой части, в пустоту у правой
   tr.clips.splice(tr.clips.indexOf(c) + 1, 0, right);
   return right;
 }

@@ -19,7 +19,7 @@ var faviconPNG []byte
 
 var webJS = []string{
 	"i18n.js", "core.js", "settings.js", "filelist.js", "drop.js", "start.js", "toasts.js",
-	"sliders.js", "kinetic.js", "player.js", "preview.js", "trim.js", "playertab.js", "tracks.js", "montage.js", "textclip.js", "subedit.js", "ctxmenu.js", "vumeter.js", "viewport.js", "rulers.js", "viewzoom.js", "chroma.js", "keyframes.js", "setup.js", "updates.js", "sounds.js", "poll.js", "bannertab.js", "session.js", "boot.js", "anim.js",
+	"sliders.js", "kinetic.js", "player.js", "preview.js", "trim.js", "playertab.js", "tracks.js", "montage.js", "textclip.js", "subedit.js", "ctxmenu.js", "vumeter.js", "viewport.js", "mvtrans.js", "rulers.js", "viewzoom.js", "chroma.js", "keyframes.js", "setup.js", "updates.js", "sounds.js", "poll.js", "bannertab.js", "session.js", "boot.js", "anim.js",
 }
 
 // страница на каждом языке: разметка переведена заранее, чтобы при запуске не мигал другой язык

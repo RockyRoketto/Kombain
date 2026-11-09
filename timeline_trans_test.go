@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"maps"
+	"os"
+	"regexp"
+	"testing"
+)
 
 // Переход на стыке: стоит по центру, берёт кадры за краями, длина монтажа не меняется
 func TestTimelineTransCut(t *testing.T) {
@@ -73,4 +78,23 @@ func TestTimelineTransSoundAndLayers(t *testing.T) {
 	q := tracks(cut)
 	q.In = 0.9
 	nearly(t, "длина с меткой", m.info(m.render(q, "mp4")).dur, 1.1, 0.1)
+}
+
+// Список видов в просмотре (TK_TRANS в web/js/tracks.js) совпадает с tlTransKinds: просмотр умеет каждый вид из рендера
+func TestTransKindsJS(t *testing.T) {
+	b, err := os.ReadFile("web/js/tracks.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`const TK_TRANS = \[([^\]]*)\]`).FindSubmatch(b)
+	if m == nil {
+		t.Fatal("нет TK_TRANS в tracks.js")
+	}
+	js := map[string]bool{}
+	for _, k := range regexp.MustCompile(`'(\w+)'`).FindAllSubmatch(m[1], -1) {
+		js[string(k[1])] = true
+	}
+	if !maps.Equal(js, tlTransKinds) {
+		t.Errorf("виды в JS %v, в Go %v", js, tlTransKinds)
+	}
 }
