@@ -143,23 +143,6 @@ __CSS__
 
 <div class="wrap">
   <div class="banners">
-    <div id="newsBanner" class="banner okb hide">
-      <div id="newsText"></div>
-      <div class="brow"><button id="newsOk" class="btn sm" data-i18n="btn.gotIt"></button></div>
-      <div id="newsNotes" class="banner-notes news-notes"></div>
-    </div>
-
-    <div id="appBanner" class="banner hide">
-      <div id="appText"></div>
-      <div class="brow" id="appRow">
-        <button id="appGo" class="btn primary sm" data-i18n="btn.update"></button>
-        <button id="appLater" class="btn sm" data-i18n="btn.later"></button>
-        <button id="appSkip" class="linkbtn" data-i18n="btn.skipVersion"></button>
-      </div>
-      <div id="appNotes" class="banner-notes hide"></div>
-      <div class="bar hide" id="appProg"><i></i></div>
-    </div>
-
     <div id="ffBanner" class="banner hide">
       <div id="ffText" data-i18n="ffu.notFound"></div>
       <div class="brow" id="ffRow">
@@ -742,6 +725,43 @@ __CSS__
 </div>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- окна «Вышел Kombain X.Y» и «Что нового»: updates.js -->
+<div id="appWin" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="appTitle">
+  <div class="mcard upd-card" id="appCard">
+    <div class="upd-head">
+      <div class="upd-ico"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></div>
+      <div class="upd-hd"><div class="upd-eye" id="appEye"></div><h3 id="appTitle"></h3></div>
+      <button class="x" id="appX" data-i18n-title="btn.close">✕</button>
+    </div>
+    <div class="upd-meta" id="appMeta"></div>
+    <div class="bar hide" id="appProg"><i></i></div>
+    <div class="upd-body" id="appBody">
+      <div class="upd-label" data-i18n="app.whatsNew"></div>
+      <div class="upd-notes" id="appNotes"></div>
+    </div>
+    <div class="upd-foot" id="appRow">
+      <button id="appSkip" class="linkbtn" data-i18n="btn.skipVersion"></button>
+      <button id="appLater" class="btn" data-i18n="btn.later"></button>
+      <button id="appGo" class="btn primary" data-i18n="btn.update"></button>
+    </div>
+  </div>
+</div>
+
+<div id="newsWin" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="newsTitle">
+  <div class="mcard upd-card">
+    <div class="upd-head">
+      <div class="upd-ico ok"><svg viewBox="0 0 24 24"><path d="M12 3.5l1.9 5 5 1.9-5 1.9-1.9 5-1.9-5-5-1.9 5-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg></div>
+      <div class="upd-hd"><div class="upd-eye" data-i18n="app.eyeDone"></div><h3 id="newsTitle"></h3></div>
+      <button class="x" id="newsX" data-i18n-title="btn.close">✕</button>
+    </div>
+    <div class="upd-body">
+      <div class="upd-label" data-i18n="app.whatsNew"></div>
+      <div class="upd-notes" id="newsNotes"></div>
+    </div>
+    <div class="upd-foot"><button id="newsOk" class="btn primary" data-i18n="btn.gotIt"></button></div>
+  </div>
+</div>
 
 <div id="keysHelp" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="khTitle">
   <div class="mcard kh-card">

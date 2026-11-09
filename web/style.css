@@ -155,8 +155,44 @@
   .banner.okb{background:rgba(var(--ok-rgb),.07);border-color:rgba(var(--ok-rgb),.3)}
   .banner.okb b{color:var(--ok)}
   .banner .bar{flex-basis:100%}
-  .banner-notes{flex-basis:100%;color:var(--dim);white-space:pre-wrap;max-height:72px;overflow:auto}
-  .news-notes{max-height:112px}
+  /* окна «Вышел Kombain» и «Что нового» */
+  .mcard.upd-card{max-width:520px;padding:0;display:flex;flex-direction:column;overflow:hidden;max-height:min(640px,100%)}
+  .upd-head{flex:none;display:flex;align-items:center;gap:14px;padding:22px 20px 0 24px}
+  .upd-ico{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
+    background:var(--accbg);color:var(--acct);border:1px solid rgba(var(--acl-rgb),.25)}
+  .upd-ico svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .upd-ico.ok{background:rgba(var(--ok-rgb),.1);color:var(--ok);border-color:rgba(var(--ok-rgb),.28)}
+  .upd-hd{flex:1;min-width:0}
+  .upd-eye{font-size:12px;font-weight:600;color:var(--dim);margin-bottom:2px}
+  .upd-card .upd-hd h3{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+  .upd-head .x{align-self:flex-start;font-size:16px}
+  .upd-meta{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:14px 24px 0;font-size:13px;color:var(--tx3)}
+  .upd-meta:empty{display:none}
+  .upd-ver{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:99px;background:var(--s3);border:1px solid var(--line2);
+    font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .upd-ver s{text-decoration:none;color:var(--dim)}
+  .upd-ver b{color:var(--acct)}
+  .upd-warn{color:var(--acct2)}
+  .upd-card .bar{flex:none;margin:0 24px 24px}
+  .upd-card.compact .upd-meta{padding-bottom:22px}
+  .upd-card.dl .upd-meta{padding-bottom:12px}
+  .upd-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-top:18px;border-top:1px solid var(--line)}
+  .upd-label{flex:none;padding:14px 24px 4px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+  .upd-notes{flex:1 1 auto;min-height:0;overflow:auto;padding:0 24px 16px;font-size:14px;line-height:1.5;color:var(--tx2)}
+  .upd-notes ul{list-style:none;margin:0;padding:0}
+  .upd-notes li{position:relative;padding:7px 0 7px 22px}
+  .upd-notes li+li{border-top:1px solid var(--line)}
+  .upd-notes li::before{content:"";position:absolute;left:3px;top:calc(7px + .75em - 3.5px);width:7px;height:7px;border-radius:50%;
+    background:var(--acc);box-shadow:0 0 0 3px var(--accbg)}
+  .upd-notes h4{display:inline-block;margin:14px 0 2px;padding:2px 9px;border-radius:99px;background:var(--accbg);
+    font-size:12px;font-weight:700;color:var(--acct)}
+  .upd-notes h4:first-child{margin-top:4px}
+  .upd-notes p{margin:6px 0}
+  .upd-foot{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;
+    padding:14px 20px 16px 24px;background:var(--s2);border-top:1px solid var(--line)}
+  .upd-foot .linkbtn{margin-right:auto}
+  .upd-foot .btn{padding:10px 18px}
+  .upd-foot .btn.primary{padding:10px 22px;font-size:14px}
   .brow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .linkbtn{background:none;border:0;padding:4px 2px;color:var(--dim);font-size:13px;text-decoration:underline;text-underline-offset:3px}
   .linkbtn:hover{color:var(--tx2)}

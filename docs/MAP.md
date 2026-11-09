@@ -78,7 +78,7 @@
 | Сводки в заголовках разделов | `web/js/settings.js` (`applyKind`, `renderParamSum`, `renderPresets`, `renderOut`) |
 | Список файлов | `web/js/filelist.js` |
 | Всплывашки, итог пачки | `web/js/toasts.js` |
-| Плашки обновлений и «Что нового» | `web/js/updates.js`; логика — `update.go`, `selfupdate.go`, `whatsnew.go` |
+| Плашка ffmpeg, окна обновления и «Что нового» | `web/js/updates.js` (окна `#appWin`, `#newsWin` в `web/index.html`); логика — `update.go`, `selfupdate.go`, `whatsnew.go` |
 | Установка и удаление | `install_windows.go`, `web/js/setup.js` |
 | Окно, перетаскивание, диалоги | `ui_windows.go`, `web/js/drop.js` |
 | Превью | `media.go`, `web/js/player.js` (`makePlayer`), `web/js/preview.js` |
@@ -126,7 +126,7 @@
 | `theme.go` | значения темы, `validTheme`, `normTheme`, цвет фона окна `bgDark`, `bgLight` |
 | `i18n.go`, `i18n_strings.go` | язык интерфейса: `normLang`, `setLang`, `tr`, `errT`; словарь `goDict` |
 | `selfupdate.go` | `updateRepo`, `splitNotes`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
-| `whatsnew.go` | плашка «Что нового»: `changelogSince` (разбор вшитых `CHANGELOG.md` и `CHANGELOG.en.md`), `whatsNewSince`, `initNews`, `newsSeen` |
+| `whatsnew.go` | окно «Что нового»: `changelogSince` (разбор вшитых `CHANGELOG.md` и `CHANGELOG.en.md`), `whatsNewSince`, `initNews`, `newsSeen` |
 | `install_windows.go` | `doInstall`, `createShortcut`, `addSendTo`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
 | `ui_windows.go` | `runUI`, `wndProc`, `activateRunning` и `receivePaths` (второй запуск), `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `pickSound`, `comCall` |
 | `winplace.go` | размер и положение окна между запусками: `winPlace`, `loadWinPlace`, `saveWinPlace`, `fit`; вызовы Windows: `saveWindowPlace`, `showMainWindow` в `ui_windows.go` |
@@ -168,7 +168,7 @@
 | `js/ctxmenu.js` | меню правой кнопки: `ctxOpen`, `ctxClose`, `ctxItems`, `ctxText`, `ctxCue`, `ctxClip` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
-| `js/updates.js` | `ffBanner`, `appBanner` |
+| `js/updates.js` | `ffBanner` (плашка ffmpeg), `appBanner` и `newsBanner` (окна поверх программы «Вышел Kombain» и «Что нового»), `notesHtml` (список из CHANGELOG) |
 | `js/sounds.js` | звуки: `batchSound`, `playSound`, `beep` (запасной сигнал), `renderSounds`; выбор в `localStorage` |
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
