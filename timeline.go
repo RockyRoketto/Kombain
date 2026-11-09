@@ -84,7 +84,20 @@ type Clip struct {
 	// Переходы на краях (transitions.go): TrIn — из соседа слева или из пустоты, TrOut — в пустоту
 	TrIn  *Trans `json:"trIn,omitempty"`
 	TrOut *Trans `json:"trOut,omitempty"`
+	// Непрозрачность слоя, 0…1, без значения 1. Указатель, потому что 0 это невидимый слой. Ключи: Keys.O
+	Op *float64 `json:"op,omitempty"`
 }
+
+// opacity: непрозрачность без ключей
+func (c Clip) opacity() float64 {
+	if c.Op == nil {
+		return 1
+	}
+	return *c.Op
+}
+
+// faded: слой где-то прозрачнее, чем в файле: по своему свойству или по ключам
+func (c Clip) faded() bool { return c.opacity() < 1 || (c.Keys != nil && len(c.Keys.O) > 0) }
 
 func (c Clip) volume() float64 {
 	if c.Vol == nil {
@@ -149,6 +162,10 @@ func (p *Project) fit() {
 				c.Vol = &v
 			}
 			c.FadeIn, c.FadeOut = max(c.FadeIn, 0), max(c.FadeOut, 0)
+			if c.Op != nil {
+				op := min(max(*c.Op, 0), 1)
+				c.Op = &op
+			}
 			if !tlKeyRe.MatchString(c.KeyColor) { // значение идёт в граф ffmpeg, поэтому только настоящий цвет
 				c.KeyColor = ""
 			}
@@ -440,7 +457,7 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 			}
 			anyAudio = anyAudio || c.si.audio
 			anyVideo = anyVideo || c.si.video
-			alpha = alpha || (c.si.video && (c.si.alpha || (c.KeyColor != "" && keep)))
+			alpha = alpha || (c.si.video && (c.si.alpha || ((c.KeyColor != "" || c.faded()) && keep)))
 			deep = deep || (c.si.video && c.si.deep)
 			if c.Reverse {
 				reversed = append(reversed, c.montClip)
@@ -740,7 +757,8 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	if keyed && flat && !fx { // с эффектами чёрное подставляется после них
 		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
 	}
-	if (keyed || graded || fx) && pix == "" {
+	faded := c.faded()
+	if (keyed || graded || fx || faded) && pix == "" {
 		pix = "yuv420p"
 		if deep {
 			pix = "yuv444p10le"
@@ -759,7 +777,7 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
 	box := c.Clip
-	anim := c.Keys.any()
+	anim := c.Keys.moves()
 	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped() || fx || anim) && cw > 0 && ch > 0 {
 		box.X, box.Y, box.W, box.H = tlFitBox(cw, ch, w, h)
 	}
@@ -807,9 +825,39 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 			effects()
 		}
 	}
+	if faded { // после эффектов: тень гаснет вместе со слоем, как opacity в просмотре
+		chain = append(chain, tlOpChain(c, w, h, fps, pix, deep, bg == "black")...)
+	}
 	// у нижней дорожки под клипом чёрный фон, у верхней слой уходит в прозрачность
 	chain = append(chain, tlFades(c, fps, "fade", "setpts", bg != "black")...)
 	return strings.Join(chain, ",")
+}
+
+// tlOpChain: непрозрачность слоя, своя или по ключам. Множитель считает geq раз в кадр на картинке 2×2 и растягивает до кадра,
+// потом он умножает прозрачность слоя: geq на весь кадр считал бы выражение в каждой точке, а это в сотни раз дольше.
+// flat: под слоем чёрный фон без прозрачности, слой темнеет к чёрному, как плавность (tlFades).
+// Время как у kfPlace: номер кадра от начала клипа, с учётом метки начала вывода и запаса перехода.
+func tlOpChain(c tlClip, w, h int, fps float64, pix string, deep, flat bool) []string {
+	work, gray, top := "yuva444p", "gray", 255
+	if deep {
+		work, gray, top = "yuva444p10le", "gray10le", 1023
+	}
+	val := kfNum(c.opacity())
+	if c.Keys != nil && len(c.Keys.O) > 0 {
+		val = kfExpr(c.kfTrack(c.Keys.O), fps, fmt.Sprintf("(N+%d)", c.head-c.tin.ext()))
+	}
+	// запятые внутри выражения экранированы для графа ffmpeg
+	val = strings.ReplaceAll(fmt.Sprintf("%d*clip(%s,0,1)", top, val), ",", `\,`)
+	l := func(s string) string { return fmt.Sprintf("[%s%d]", s, c.input) }
+	chain := []string{fmt.Sprintf("format=%s,split=3%s%s%s;%sscale=2:2,format=%s,geq=lum=%s,scale=%d:%d:flags=neighbor%s;%salphaextract,format=%s%s;%s%sblend=all_mode=multiply%s;%s%salphamerge",
+		work, l("oa"), l("ob"), l("oc"), l("oc"), gray, val, w, h, l("om"), l("ob"), gray, l("ox"), l("ox"), l("om"), l("oy"), l("oa"), l("oy"))}
+	if flat {
+		chain = append(chain, "premultiply=inplace=1")
+	}
+	if pix != "" {
+		chain = append(chain, "format="+pix)
+	}
+	return chain
 }
 
 const tlMaxBlur = 0.2 // размытие и мягкость тени: σ не больше этой доли высоты кадра

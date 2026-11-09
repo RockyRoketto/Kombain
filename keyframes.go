@@ -26,6 +26,7 @@ type Keys struct {
 	Y []Key `json:"y,omitempty"` // по вертикали
 	W []Key `json:"w,omitempty"` // ширина рамки, доли кадра; высота меняется в той же пропорции, что у рамки клипа
 	R []Key `json:"r,omitempty"` // поворот, градусы по часовой
+	O []Key `json:"o,omitempty"` // непрозрачность слоя, 0…1 (tlOpChain)
 }
 
 const kfMax = 500 // ключей у одного свойства
@@ -33,7 +34,10 @@ const kfMax = 500 // ключей у одного свойства
 // kfEases: кривые: in — разгон, out — торможение, inout — то и другое, bounce — отскок в конце
 var kfEases = map[string]bool{"": true, "in": true, "out": true, "inout": true, "bounce": true}
 
-func (k *Keys) any() bool { return k != nil && len(k.X)+len(k.Y)+len(k.W)+len(k.R) > 0 }
+func (k *Keys) any() bool { return k.moves() || (k != nil && len(k.O) > 0) }
+
+// moves: есть ключи рамки. Ключи одной прозрачности слой не двигают, собирать его через perspective незачем
+func (k *Keys) moves() bool { return k != nil && len(k.X)+len(k.Y)+len(k.W)+len(k.R) > 0 }
 
 // fit: значения из интерфейса в допустимые пределы, по порядку времени, без двух ключей на одном месте
 func (k *Keys) fit() {
@@ -57,6 +61,7 @@ func (k *Keys) fit() {
 	k.X, k.Y = clean(k.X, -far, 1+far), clean(k.Y, -far, 1+far)
 	k.W = clean(k.W, 0.002, tlMaxBox)
 	k.R = clean(k.R, -36000, 36000)
+	k.O = clean(k.O, 0, 1)
 }
 
 // kfTrack: ключи по времени клипа на дорожке, секунды от его начала. Скорость и реверс клипа тянут ключи за собой.

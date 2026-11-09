@@ -481,11 +481,13 @@ function mtFrameFill() {
   mtVal('mtPosY', y);
   mtVal('mtScale', scale);
   mtVal('mtRot', rot);
+  const op = mtRnd((one.op ?? 1) * 100, 0);
+  mtVal('mtOpacity', op);
   mtVal('mtCropL', crop[0]);
   mtVal('mtCropR', crop[1]);
   mtVal('mtCropT', crop[2]);
   mtVal('mtCropB', crop[3]);
-  mtSum('mtSumMotion', x || y || scale !== 100 || rot ? `${scale}% · ${rot}°` : '');
+  mtSum('mtSumMotion', x || y || scale !== 100 || rot || op !== 100 ? `${scale}% · ${rot}°` + (op !== 100 ? ` · ${op}%` : '') : '');
   mtSum('mtSumCrop', crop.some(Boolean) ? '●' : '');
   $('mtCropMouse').classList.toggle('on', mv.crop === one.id);
 }
@@ -560,6 +562,7 @@ mtBoxRow('mtScale', .5, (c, v, b) => {
   mvSetBox(c, b.x + b.w / 2 - w / 2, b.y + b.h / 2 - h / 2, w, h);
 });
 mtBoxRow('mtRot', .5, (c, v) => mtPut(c, 'rot', mvRotNorm(v), 0));
+mtBoxRow('mtOpacity', .5, (c, v) => mtPut(c, 'op', mtRnd(Math.min(Math.max(v, 0), 100) / 100, 4), 1));
 const mtCropRow = (id, key, other) => mtBoxRow(id, .25, (c, v) => mtPut(c, key, mtRnd(Math.min(Math.max(v / 100, 0), MV_MAX_CROP - (c[other] || 0)), 4), 0));
 mtCropRow('mtCropL', 'cl', 'cr');
 mtCropRow('mtCropR', 'cr', 'cl');
@@ -576,7 +579,7 @@ $('mtCropMouse').onclick = () => {
 };
 $('mtFrameReset').onclick = () => {
   const c = mtFrameOne();
-  if (c) tkDo(() => ['x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete c[key]));
+  if (c) tkDo(() => ['x', 'y', 'w', 'h', 'rot', 'op', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete c[key]));
 };
 const mtFadeRow = (id, key, list) => mtRow(id, .02, v => list().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, 0), tkLen(c)), 2), 0)));
 mtFadeRow('mtFadeIn', 'fadeIn', mtFrameClips);
@@ -865,7 +868,7 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
-  ...Object.fromEntries(['kf', 'rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'trIn', 'trOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
+  ...Object.fromEntries(['kf', 'rot', 'op', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'trIn', 'trOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };

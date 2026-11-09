@@ -1,6 +1,6 @@
 // ---------- дорожки монтажа: клипы, инструменты, масштаб, прилипание, отмена, хоткеи. Рендер: timeline.go ----------
 // Клип: {id, path, at, from, len, speed, reverse, src, x, y, w, h, part, link, marks}. at — секунда на дорожке, from и len — кусок файла, src — длина файла (у фото 0),
-// x, y, w, h — рамка слоя в долях кадра, без w слой вписан в кадр по центру. rot — поворот, градусы. cl, ct, cr, cb — кадрирование, доли слоя.
+// x, y, w, h — рамка слоя в долях кадра, без w слой вписан в кадр по центру. rot — поворот, градусы. op — непрозрачность 0…1, без значения 1. cl, ct, cr, cb — кадрирование, доли слоя.
 // vol — громкость, 1 как в файле; fadeIn, fadeOut — плавность, секунды на дорожке. Без значения: как в файле и без плавности.
 // part: что клип берёт из файла, 'v' картинку, 'a' звук, без него всё сразу (фото, файлы без звука, старые проекты).
 // link: общий номер у связанных клипов, они двигаются и режутся вместе. marks: метки на клипе, секунды файла, поэтому держатся за кадр.
@@ -127,6 +127,7 @@ function tkLoad(o, path) {
       reverse: !!c.reverse, src: num(c.src, 0),
       ...(c.w > 0 && c.h > 0 && Number.isFinite(c.x) && Number.isFinite(c.y) ? {x: c.x, y: c.y, w: Math.min(c.w, 4), h: Math.min(c.h, 4)} : {}),
       ...(Number.isFinite(c.rot) && c.rot ? {rot: c.rot % 360} : {}),
+      ...(c.op >= 0 && c.op < 1 ? {op: c.op} : {}),
       ...share(c, 'cl'), ...share(c, 'ct'), ...share(c, 'cr'), ...share(c, 'cb'),
       ...(c.vol >= 0 && c.vol <= 2 && c.vol !== 1 ? {vol: c.vol} : {}),
       ...more(c, 'fadeIn'), ...more(c, 'fadeOut'), ...trans(c, 'trIn'), ...trans(c, 'trOut'),
@@ -536,7 +537,7 @@ function tkPlace(it, tr, at) {
 // Отделить звук клипа в свой клип на звуковой дорожке. link: номер связи, 0 — без связи.
 function tkAddSound(c, link) {
   const a = Object.assign({}, c, {id: tkNext++, part: 'a'});
-  ['marks', 'x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete a[key]);
+  ['marks', 'x', 'y', 'w', 'h', 'rot', 'op', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete a[key]);
   c.part = 'v';
   if (link) c.link = a.link = link;
   let row = tkTracks.find(x => x.kind === 'a' && tkSpot([{c: a, tr: x}], 0) === 0);

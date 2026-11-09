@@ -67,7 +67,7 @@ function mvLevel(e, c) {
 function mvVolume() { if (mv.out) mv.out.gain.value = mvVol.muted ? 0 : mvVol.volume; }
 // плавность и громкость идут за курсором времени в каждом кадре просмотра
 function mvLook() {
-  const keyed = new Set(), op = c => mvFadeAt(c, tkAt) * mvTrOpacity(c, tkAt);
+  const keyed = new Set(), op = c => (c.op ?? 1) * mvFadeAt(c, tkAt) * mvTrOpacity(c, tkAt);   // c.op с ключами ставит поза (kfPose)
   mvTrFrame();
   for (const {c, e} of mv.live) { e.el.style.opacity = op(c); mvLevel(e, c); chromaShow(e.el, c, keyed); }
   for (const [id, el] of mv.pics) { const c = tkById(id); if (c) { el.style.opacity = op(c); if (!el.classList.contains('hide')) chromaShow(el, c, keyed); } }

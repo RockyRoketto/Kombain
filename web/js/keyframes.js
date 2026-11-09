@@ -1,11 +1,11 @@
 // ---------- ключевые кадры рамки слоя: середина, ширина и поворот меняются со временем (Keys в keyframes.go) ----------
-// c.kf = {x, y, w, r}: списки ключей {s, v, e}. s — секунда файла, как у меток клипа, поэтому ключ держится за кадр при обрезке и разрезе;
-// v — середина рамки в долях кадра (x, y), ширина рамки в долях кадра (w, высота в той же пропорции), поворот в градусах (r);
+// c.kf = {x, y, w, r, o}: списки ключей {s, v, e}. s — секунда файла, как у меток клипа, поэтому ключ держится за кадр при обрезке и разрезе;
+// v — середина рамки в долях кадра (x, y), ширина рамки в долях кадра (w, высота в той же пропорции), поворот в градусах (r), непрозрачность 0…1 (o, поле клипа op);
 // e — кривая до следующего ключа (KF_EASES). Списки и c.kf меняются только заменой: копии клипов делят их без вреда.
 // Перед показом клип ставится в позу текущего момента (kfPose): его x, y, w, h, rot становятся значениями из ключей,
 // поэтому вьюпорт, рамка и панель работают как обычно. Правка этих полей мышью или в панели при следующей позе уходит в ключ (kfSync).
 // Для отмены и сохранения поля с ключами берутся в позе начала клипа (kfCanon): перемотка не считается правкой.
-const KF_PROPS = ['x', 'y', 'w', 'r'], KF_EASES = ['', 'in', 'out', 'inout', 'bounce'];
+const KF_PROPS = ['x', 'y', 'w', 'r', 'o'], KF_EASES = ['', 'in', 'out', 'inout', 'bounce'];
 // те же формулы в kfEase (keyframes.go), проверка графа в keyframes_test.go
 function kfEase(e, p) {
   if (e === 'in') return p * p * p;
@@ -35,11 +35,12 @@ function kfAt(list, t) {
 }
 const kfHalf = () => .5 / tkFps();
 // значения рамки по полям клипа
-function kfNow(c) { const b = mvBox(c); return {x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, r: c.rot || 0}; }
+function kfNow(c) { const b = mvBox(c); return {x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, r: c.rot || 0, o: c.op ?? 1}; }
 function kfApply(o, v) {
   const b = mvBox(o), h = b.h * v.w / b.w;
   o.w = v.w; o.h = h; o.x = v.x - v.w / 2; o.y = v.y - h / 2;
   if (v.r) o.rot = v.r; else delete o.rot;
+  if (v.o < 1) o.op = +Math.max(v.o, 0).toFixed(4); else delete o.op;
 }
 function kfValues(c, at) {
   const now = kfNow(c), t = Math.min(Math.max(at, c.at), tkEnd(c)) - c.at;
@@ -105,7 +106,7 @@ function kfLoad(kf) {
   const out = {};
   for (const p of KF_PROPS) {
     const list = (Array.isArray(kf[p]) ? kf[p] : []).filter(k => k && Number.isFinite(k.s) && k.s >= 0 && Number.isFinite(k.v))
-      .map(k => ({s: k.s, v: p === 'w' ? Math.min(Math.max(k.v, .002), MV_MAX_BOX) : k.v, ...(KF_EASES.includes(k.e) && k.e ? {e: k.e} : {})})).sort((a, b) => a.s - b.s).slice(0, 500);
+      .map(k => ({s: k.s, v: p === 'w' ? Math.min(Math.max(k.v, .002), MV_MAX_BOX) : p === 'o' ? Math.min(Math.max(k.v, 0), 1) : k.v, ...(KF_EASES.includes(k.e) && k.e ? {e: k.e} : {})})).sort((a, b) => a.s - b.s).slice(0, 500);
     if (list.length) out[p] = list;
   }
   return Object.keys(out).length ? {kf: out} : {};
@@ -124,7 +125,7 @@ function kfSplit(right, cut) {
 }
 
 // ---------- панель: ромбик у каждого свойства рамки ----------
-const KF_ROWS = {x: 'mtPosX', y: 'mtPosY', w: 'mtScale', r: 'mtRot'};
+const KF_ROWS = {x: 'mtPosX', y: 'mtPosY', w: 'mtScale', r: 'mtRot', o: 'mtOpacity'};
 function kfPanel() {
   const c = mtFrameOne();
   if (c) kfPose(c, tkAt);
