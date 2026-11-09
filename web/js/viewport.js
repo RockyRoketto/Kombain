@@ -325,9 +325,11 @@ function mvCanvasDims() {
 function mvSizeCanvas() {
   const pad = mvRulersSeen() ? MV_RULER : 0;   // линейки сверху и слева не закрывают кадр
   const d = mvCanvasDims(), W = mvStage.clientWidth - pad, H = mvStage.clientHeight - pad;
-  const s = Math.min(W / d.w, H / d.h) || 0, w = Math.round(d.w * s), h = Math.round(d.h * s);
-  Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: pad + Math.floor((W - w) / 2) + 'px', top: pad + Math.floor((H - h) / 2) + 'px'});
+  const s = mvViewScale(Math.min(W / d.w, H / d.h) || 0), w = Math.round(d.w * s), h = Math.round(d.h * s);   // сдвиг и масштаб вида: viewzoom.js
+  mvViewClamp(W, H, w, h);
+  Object.assign(mvCv.style, {width: w + 'px', height: h + 'px', left: pad + Math.round((W - w) / 2 + mvView.x) + 'px', top: pad + Math.round((H - h) / 2 + mvView.y) + 'px'});
   mvCanvasBtn();
+  mvZoomBtn();
   mvRulersDraw();
 }
 function mvStageFit() { mvSizeCanvas(); mvFrameDraw(); mvSubsDraw(); tkClips().filter(c => c.blur || c.shA).forEach(mvPlaceClip); mvLook(); }   // размытие и тень в точках экрана
@@ -724,7 +726,7 @@ function mvFrameDraw() {
   const c = mvFrameClip();
   mvFrame.classList.toggle('hide', !c);
   mvStage.classList.toggle('framed', !!c);
-  if (!c) return;
+  if (!c) { mvOffDraw(null); return; }
   // рамка обводит то, что осталось после кадрирования, и поворачивается вокруг середины всего слоя
   const b = mvBox(c), o = mvCropOf(c), W = mvCv.offsetWidth, H = mvCv.offsetHeight, bw = b.w * W, bh = b.h * H;
   const top = mvCv.offsetTop + b.y * H + o.t * bh;
@@ -733,6 +735,7 @@ function mvFrameDraw() {
   mvFrame.classList.toggle('rotin', top < 26);   // ручке поворота нет места над кадром
   Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + o.l * bw + 'px', top: top + 'px', width: (1 - o.l - o.r) * bw + 'px', height: (1 - o.t - o.b) * bh + 'px',
     transformOrigin: `${(.5 - o.l) * bw}px ${(.5 - o.t) * bh}px`, transform: c.rot ? `rotate(${c.rot}deg)` : ''});
+  mvOffDraw(c);   // слой целиком вне вида: стрелка у края (viewzoom.js)
 }
 // на сколько сдвинуть, чтобы одно из значений list встало на край или середину кадра, а с axis ещё и на направляющую
 function mvSnap(list, px, axis) {
@@ -755,14 +758,15 @@ function mvPlaceClip(c) {
   if (e) mvPlace(e.el, c);
   if (pic) mvPlace(pic, c);
 }
-const MV_MIN_BOX = .02, MV_MAX_BOX = 4, MV_SEEN = .01, MV_MAX_CROP = .98;
+// MV_FAR: слой можно увести за кадр целиком, но не дальше размера кадра от края (как tlFarOut в timeline.go)
+const MV_MIN_BOX = .02, MV_MAX_BOX = 4, MV_FAR = 1, MV_MAX_CROP = .98;
 function mvSetBox(c, x, y, w, h) {
   w = Math.min(Math.max(w, MV_MIN_BOX), MV_MAX_BOX); h = Math.min(Math.max(h, MV_MIN_BOX), MV_MAX_BOX);
   const resized = c.w !== w || c.h !== h;
   c.w = w; c.h = h;
   if (resized && c.text && c.text.box) mtTextBoxMove(c);
-  c.x = Math.min(Math.max(x, MV_SEEN - w), 1 - MV_SEEN);
-  c.y = Math.min(Math.max(y, MV_SEEN - h), 1 - MV_SEEN);
+  c.x = Math.min(Math.max(x, -MV_FAR - w), 1 + MV_FAR);
+  c.y = Math.min(Math.max(y, -MV_FAR - h), 1 + MV_FAR);
 }
 // попала ли мышь в то, что видно от клипа
 function mvInside(c, ev) {

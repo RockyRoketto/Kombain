@@ -98,7 +98,7 @@ const (
 	tlAudioHz   = 48000
 
 	tlMaxBox  = 4.0  // рамка слоя не больше стольких кадров: дальше ffmpeg не хватит памяти на кадр
-	tlMinSeen = 0.01 // какая часть кадра всегда остаётся за слоем, иначе его не поймать мышью
+	tlFarOut  = 1.0  // слой может уйти за кадр целиком, но не дальше размера кадра от края (MV_FAR во вьюпорте)
 	tlMaxCrop = 0.98 // сколько слоя можно срезать: что-то должно остаться
 	tlMaxVol  = 2.0  // громкость не больше 200%
 	tlMaxSide = 7680 // сторона холста
@@ -131,8 +131,8 @@ func (p *Project) fit() {
 			c.Speed = min(max(c.Speed, montMinSpeed), montMaxSpeed)
 			if c.W > 0 && c.H > 0 {
 				c.W, c.H = min(c.W, tlMaxBox), min(c.H, tlMaxBox)
-				c.X = min(max(c.X, tlMinSeen-c.W), 1-tlMinSeen)
-				c.Y = min(max(c.Y, tlMinSeen-c.H), 1-tlMinSeen)
+				c.X = min(max(c.X, -tlFarOut-c.W), 1+tlFarOut)
+				c.Y = min(max(c.Y, -tlFarOut-c.H), 1+tlFarOut)
 			} else {
 				c.X, c.Y, c.W, c.H = 0, 0, 0, 0
 			}

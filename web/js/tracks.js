@@ -949,12 +949,15 @@ $('tkZoom').addEventListener('input', () => tkZoomTo(2 ** +$('tkZoom').value));
 
 // ---------- окно горячих клавиш. Клавиша с приставкой kh. переводится, остальные написаны как на клавиатуре ----------
 const TK_HELP = [
-  ['kh.g.view', [[['kh.space'], 'kh.play'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
+  ['kh.g.view', [[['kh.space'], 'kh.play'], [['kh.spaceDrag', 'kh.wheelDrag'], 'kh.pan'], [['F'], 'kh.showLayer'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
   ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['T'], 'kh.text'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
   ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
   ['kh.g.link', [[['Ctrl+L'], 'kh.unlink'], [['kh.altMouse'], 'kh.alt']]],
   ['kh.g.marks', [[['I', 'O'], 'kh.io'], [['Ctrl+Shift+X'], 'kh.ioOff'], [['M'], 'kh.marker'], [['kh.rightClick'], 'kh.markerOff']]],
-  ['kh.g.zoom', [[['+', '−'], 'kh.zoom'], [['kh.ctrlWheel'], 'kh.wheel'], [['\\'], 'kh.fit']]],
+  ['kh.g.zoom', [[['+', '−'], 'kh.zoom'], [['kh.ctrlWheel'], 'kh.wheel'], [['\\'], 'kh.fit'], [['kh.ctrlWheel'], 'kh.viewZoom'], [['Shift+\\'], 'kh.viewFit']]],
+  ['kh.g.mouse', [[['kh.m.shiftCorner'], 'kh.m.free'], [['kh.m.shiftRot'], 'kh.m.rot15'], [['kh.m.dblLayer'], 'kh.m.refit'],
+    [['kh.m.ctrlClick', 'kh.m.shiftClick'], 'kh.m.addSel'], [['kh.m.band'], 'kh.m.bandSel'], [['kh.m.dblFile'], 'kh.m.append'], [['kh.m.dblCue'], 'kh.m.cueEdit'],
+    [['kh.m.altRow'], 'kh.m.scrub'], [['kh.m.altSlider'], 'kh.m.noMagnet'], [['kh.m.rightClip'], 'kh.m.menu']]],
   ['kh.g.project', [[['Ctrl+S'], 'kh.save'], [['Ctrl+Shift+S'], 'kh.saveAs']]],
 ];
 function tkHelpOpen() {
@@ -973,10 +976,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('keysHe
 // ---------- хоткеи: по коду клавиши, поэтому работают и в русской раскладке ----------
 const tkTyping = el => el.matches && el.matches('input:not([type=range]):not([type=checkbox]),select,textarea');
 const TK_KEYS = {
-  Space: () => mvToggle(),
+  Space: () => mvHandDown(),   // старт и стоп при отпускании, если вид не двигали (viewzoom.js)
   KeyV: () => tkSetTool('select'),
   KeyC: () => tkSetTool('razor'),
   KeyT: () => mtTextTool(!mtTextOn),
+  KeyF: () => mvShowLayer(),
   KeyS: () => $('tkSnapBtn').click(),
   KeyI: () => tkMark('in'),
   KeyO: () => tkMark('out'),
@@ -1019,6 +1023,7 @@ document.addEventListener('keydown', e => {
   else if (ctrl && e.shiftKey && e.code === 'KeyS') fn = () => mtProjectSave(true);
   else if (ctrl && e.shiftKey && e.code === 'KeyX') fn = tkMarksOff;
   else if (!ctrl && e.shiftKey && e.code === 'Delete') fn = () => tkRemove(true);
+  else if (!ctrl && e.shiftKey && e.code === 'Backslash') fn = mvViewFit;   // вид по размеру окна (viewzoom.js)
   else if (!ctrl && e.shiftKey && e.code === 'ArrowLeft') fn = () => mvStep(-1);
   else if (!ctrl && e.shiftKey && e.code === 'ArrowRight') fn = () => mvStep(1);
   else if (ctrl && !e.shiftKey) fn = TK_CTRL_KEYS[e.code];
@@ -1026,5 +1031,6 @@ document.addEventListener('keydown', e => {
   if (!fn) return;
   e.preventDefault();
   if (e.target.blur && e.target !== document.body) e.target.blur();   // иначе пробел нажмёт кнопку, на которой фокус
+  if (e.repeat && e.code === 'Space') return;   // зажатый пробел — это рука, а не череда нажатий
   fn();
 });

@@ -177,6 +177,38 @@ func TestTimelineRotate(t *testing.T) {
 	check("за кадром", out, [3]float64{0.99, 0.45, 0})
 }
 
+// Слой можно увести за кадр целиком (для прилётов из-за края): кадр собирается, слоя в нём нет. Дальше размера кадра от края нельзя.
+func TestTimelineFarOut(t *testing.T) {
+	m := newMontFixture(t)
+	under := m.color("under.mp4", "black", 320, 240, 30, 1, 0)
+	bar := m.color("bar.mp4", "white", 160, 30, 30, 1, 0)
+	for _, c := range []Clip{
+		{Path: bar, X: 1.3, Y: 0.4, W: 0.5, H: 0.125},
+		{Path: bar, X: -0.8, Y: 0.4, W: 0.5, H: 0.125},
+		{Path: bar, X: 0.25, Y: -0.6, W: 0.5, H: 0.125},
+		{Path: bar, X: 0.25, Y: 1.05, W: 0.5, H: 0.125, Rot: 30},
+		{Path: bar, X: 1.2, Y: 0.4, W: 0.5, H: 0.125, CropL: 0.3},
+	} {
+		out := m.render(tracks([]Clip{{Path: under}}, []Clip{c}), "mp4")
+		for _, p := range [][2]float64{{0.02, 0.5}, {0.5, 0.5}, {0.98, 0.5}, {0.5, 0.02}, {0.5, 0.98}} {
+			if got := m.lumaAt(out, 0.5, p[0], p[1]); got > 60 {
+				t.Errorf("X %.2f Y %.2f: точка %.2f, %.2f яркость %d, слоя в кадре быть не должно", c.X, c.Y, p[0], p[1], got)
+			}
+		}
+	}
+	// единственная дорожка целиком за кадром: чёрный кадр
+	out := m.render(tracks([]Clip{{Path: bar, X: -1.2, Y: 0, W: 1, H: 1}}), "mp4")
+	if got := m.lumaAt(out, 0.5, 0.5, 0.5); got > 60 {
+		t.Errorf("нижняя дорожка за кадром: яркость %d", got)
+	}
+	// пределы: не дальше размера кадра от края
+	far := tracks([]Clip{{Path: bar, X: 5, Y: -5, W: 0.5, H: 0.25}})
+	far.fit()
+	if c := far.Tracks[0].Clips[0]; c.X != 1+tlFarOut || c.Y != -tlFarOut-0.25 {
+		t.Errorf("пределы: X %v Y %v", c.X, c.Y)
+	}
+}
+
 // Плавность: на нижней дорожке из чёрного, на верхней из того, что под ней, и с того же места, если голову клипа срезала метка
 func TestTimelineFade(t *testing.T) {
 	m := newMontFixture(t)

@@ -62,6 +62,8 @@ function ctxClip(el) {
     {label: t('ctx.copy'), key: 'Ctrl+C', run: tkCopy},
     {label: t('kh.dup'), key: 'Ctrl+D', run: tkDuplicate},
     '-',
+    {label: t('mv.showLayer'), key: 'F', off: tkTrackOf(c).kind !== 'v', run: () => mvShowLayer(c)},
+    '-',
     {label: t('kh.del'), key: 'Delete', run: () => tkRemove(false)},
     {label: t('kh.ripple'), key: 'Shift+Delete', run: () => tkRemove(true)},
   ];

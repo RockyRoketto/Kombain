@@ -152,7 +152,7 @@ function mtTextTool(on) {
 $('mtText').onclick = () => mtTextTool(!mtTextOn);
 // перехват раньше обработчиков вьюпорта: нажатие не выбирает и не двигает слой
 $('mtStage').addEventListener('pointerdown', e => {
-  if (!mtTextOn || e.button !== 0) return;
+  if (!mtTextOn || e.button !== 0 || mvHand) return;   // с зажатым пробелом нажатие двигает вид (viewzoom.js)
   e.preventDefault();
   e.stopImmediatePropagation();   // выбор слоя висит на том же элементе
   mtTextTool(false);

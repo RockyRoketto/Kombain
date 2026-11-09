@@ -276,7 +276,16 @@
   #mtStage{flex:1;height:auto;min-height:100px;background:var(--s2);touch-action:none}
   #mtStage video#mtVideo{z-index:1}
   #mtNote{z-index:3}
-  .mv-canvas{position:absolute;z-index:0;overflow:hidden;background:var(--canvas)}
+  .mv-canvas{position:absolute;z-index:0;background:var(--canvas)}
+  /* что вышло за край кадра, видно приглушённо (в результат не попадёт); край кадра обведён */
+  .mv-canvas::after{content:"";position:absolute;inset:0;z-index:997;pointer-events:none;outline:1px solid color-mix(in srgb,var(--dim) 45%,transparent);box-shadow:0 0 0 20000px color-mix(in srgb,var(--s2) 72%,transparent)}
+  #mtStage.filemode .mv-canvas::after{display:none}
+  /* выбранный слой целиком вне вида: стрелка у края в его сторону (mvOffDraw) */
+  .mv-offarrow{position:absolute;z-index:4;width:30px;height:30px;margin:-15px 0 0 -15px;padding:0;border:0;border-radius:50%;background:var(--acc);color:var(--on-acc);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+  .mv-offarrow svg{width:18px;height:18px;transform:rotate(var(--a,0rad))}
+  .mv-offarrow:hover{filter:brightness(1.1)}
+  #mtStage.hand,#mtStage.hand *{cursor:grab!important}
+  #mtStage.panning,#mtStage.panning *{cursor:grabbing!important}
   .mv-subs{position:absolute;z-index:999;display:flex;align-items:center;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
   .mv-subs-t{flex:1;min-width:0}
   .mv-subs.sel{pointer-events:auto;cursor:move}
