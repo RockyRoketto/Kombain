@@ -3,6 +3,14 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 2.3
+
+- Inspector instead of the long panel: icon tabs on the left, settings search (Ctrl+F)
+- Transitions between clips and at clip edges: dissolve, wipes, slides, circle, zoom; a bar on the track, D key
+- Layer opacity and its keyframes
+- Timeline snapping: playhead, keys, In/Out marks and transition edges
+- Clicking a subtitle cue no longer moves the playhead
+
 ## 2.2
 
 - Editor: layer blend modes, blur and drop shadow
