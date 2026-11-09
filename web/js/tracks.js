@@ -475,7 +475,16 @@ function tkRowAt(y) {
 }
 function tkSnapPts(skip) {
   const pts = [0, tkAt, ...tkMarkers];
-  for (const c of tkClips()) if (!skip.has(c.id)) pts.push(c.at, tkEnd(c), ...tkClipMarks(c).map(m => c.at + m.x));
+  if (tkIn !== null) pts.push(tkIn);
+  if (tkOut !== null) pts.push(tkOut);
+  for (const c of tkClips()) if (!skip.has(c.id)) {
+    pts.push(c.at, tkEnd(c), ...tkClipMarks(c).map(m => c.at + m.x));
+    if (c.kf) for (const p of KF_PROPS) for (const k of kfList(c, p)) pts.push(c.at + k.t);   // ключи
+    for (const side of ['i', 'o']) {   // края переходов других клипов
+      const tr = c[tkTrKey(side)];
+      if (tr) pts.push(...tkTrSpan(c, side, tr.d));
+    }
+  }
   return pts;
 }
 // на сколько сдвинуть, чтобы одно из времён list встало на точку из pts; заодно показывает линию
@@ -874,8 +883,11 @@ $('tkScroll').addEventListener('pointerdown', e => {
   if (mark) { tkMarkDrag(e, mark); return; }
   if (e.target.closest('#tkRuler, #tkGrip')) {
     if (mv.playing) mvPause();
-    tkSeek(tkTimeAt(e));
-    tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
+    // ползунок магнитится к краям клипов, переходам, ключам и меткам; S включает и выключает
+    const pts = tkSnapPts(new Set()).filter(p => Math.abs(p - tkAt) > TK_EPS);
+    const seek = ev => { const x = tkTimeAt(ev); tkSeek(x + tkSnapBy([x], pts)); };
+    seek(e);
+    tkDrag(e, seek, () => $('tkSnapLine').classList.add('hide'));
     return;
   }
   const trEl = e.target.closest('.tk-tr');

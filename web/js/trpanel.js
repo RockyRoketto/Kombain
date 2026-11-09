@@ -89,11 +89,12 @@ function tkTrDown(e, el) {
   if (!tkTrSel || tkTrSel.id !== s.id || tkTrSel.side !== s.side) tkTrPick(s);
   if (!e.target.closest('.tk-tre')) { e.preventDefault(); return; }
   const before = tkState(), {c} = got, key = tkTrKey(s.side), cut = s.side === 'i' && !!tkTrPrev(c);
+  const pts = tkSnapPts(new Set([c.id]));
   tkDrag(e, ev => {
-    const x = tkTimeAt(ev), d = cut ? 2 * Math.abs(x - c.at) : s.side === 'i' ? x - c.at : tkEnd(c) - x;
+    const x0 = tkTimeAt(ev), x = x0 + tkSnapBy([x0], pts), d = cut ? 2 * Math.abs(x - c.at) : s.side === 'i' ? x - c.at : tkEnd(c) - x;
     c[key] = {...c[key], d: tkTrClamp(c, s.side, d)};
     tkRender(); mvShow(); trFill();
-  }, () => tkCommit(before));
+  }, () => { $('tkSnapLine').classList.add('hide'); tkCommit(before); });
 }
 
 // ---------- перетаскивание образца из вкладки на стык или край ----------
