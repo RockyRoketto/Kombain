@@ -633,7 +633,9 @@ function tkDuplicate() {
 }
 function tkSetTool(x) { tkTool = x; if (x !== 'razor') $('tkCutLine').classList.add('hide'); tkBar(); }
 function tkEdge(dir) {
-  const pts = [0, ...tkMarkers, ...tkClips().flatMap(c => [c.at, tkEnd(c), ...tkClipMarks(c).map(m => c.at + m.x)])].map(x => +x.toFixed(4));
+  // ключевые кадры выделенных клипов тоже точки остановки (keyframes.js)
+  const keys = c => KF_PROPS.flatMap(p => kfList(c, p).map(k => k.t)).filter(x => x >= -1e-6 && x <= tkLen(c) + 1e-6).map(x => c.at + x);
+  const pts = [0, ...tkMarkers, ...tkClips().flatMap(c => [c.at, tkEnd(c), ...tkClipMarks(c).map(m => c.at + m.x)]), ...tkSelected().flatMap(keys)].map(x => +x.toFixed(4));
   const list = [...new Set(pts)].sort((a, b) => a - b);
   const to = dir < 0 ? list.filter(x => x < tkAt - TK_EPS).pop() : list.find(x => x > tkAt + TK_EPS);
   if (to !== undefined) tkSeek(to);

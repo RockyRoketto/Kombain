@@ -5,6 +5,8 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -150,13 +152,46 @@ func (s *Server) downloadFFmpeg() error {
 	return nil
 }
 
+// parseSum достаёт sha256 из текста вида «hash  имя» (checksums.sha256) или просто «hash».
+// name пустой — берём первую строку; иначе строку с этим файлом. Не нашли — пустая строка.
+func parseSum(text, name string) string {
+	for _, line := range strings.Split(text, "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 || len(f[0]) != 64 {
+			continue
+		}
+		if name == "" || (len(f) > 1 && strings.TrimPrefix(f[1], "*") == name) {
+			return strings.ToLower(f[0])
+		}
+	}
+	return ""
+}
+
+// fetchFFSum спрашивает у того же сервера контрольную сумму архива: у gyan.dev это url+".sha256",
+// у BtbN общий checksums.sha256 в папке релиза. Пустая строка — суммы нет (сервер не отдал).
+func fetchFFSum(url string) string {
+	if b, err := httpGet(url+".sha256", 4096); err == nil {
+		if s := parseSum(string(b), ""); s != "" {
+			return s
+		}
+	}
+	if i := strings.LastIndex(url, "/"); i > 0 {
+		if b, err := httpGet(url[:i]+"/checksums.sha256", 1<<20); err == nil {
+			return parseSum(string(b), url[i+1:])
+		}
+	}
+	return ""
+}
+
 func (s *Server) tryDownload(url string) error {
 	dir := ffDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 	zipPath := filepath.Join(dir, "ffmpeg.zip.part")
-	if _, err := download(url, zipPath, 0, 2<<30, nil, func(p float64) {
+	want := fetchFFSum(url)
+	h := sha256.New()
+	if _, err := download(url, zipPath, 0, 2<<30, h, func(p float64) {
 		s.mu.Lock()
 		s.dl.Pct = p
 		s.mu.Unlock()
@@ -164,6 +199,11 @@ func (s *Server) tryDownload(url string) error {
 		return err
 	}
 	defer os.Remove(zipPath)
+	if want == "" {
+		s.logT("log.ffNoSum", url)
+	} else if got := hex.EncodeToString(h.Sum(nil)); got != want {
+		return errT("err.ffBadSum")
+	}
 
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {

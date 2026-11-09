@@ -23,6 +23,7 @@ var goDict = map[string]map[string]string{
 		"err.ffDownloading":   "подожди, ffmpeg ещё скачивается",
 		"err.waitConvert":     "сначала дождись конца конвертации",
 		"err.ffNotInArchive":  "ffmpeg не найден в архиве",
+		"err.ffBadSum":        "контрольная сумма ffmpeg не совпала, файл не взят",
 		"err.stalled":         "связь зависла: больше %d с нет данных",
 
 		"ff.noSpace":       "На диске кончилось место.",
@@ -85,6 +86,7 @@ var goDict = map[string]map[string]string{
 		"log.install":          "Установка: %v",
 		"log.installed":        "Установлено в %s",
 		"log.ffReady":          "ffmpeg готов: %s",
+		"log.ffNoSum":          "ffmpeg: %s — контрольная сумма недоступна, проверка пропущена",
 		"log.ffCheckFailed":    "Не удалось проверить свежую версию ffmpeg: %v",
 		"log.ffLatest":         "Свежий ffmpeg: %s",
 		"log.appCheckFailed":   "Не удалось проверить новую версию Kombain: %v",
@@ -172,6 +174,7 @@ var goDict = map[string]map[string]string{
 		"err.ffDownloading":   "please wait, ffmpeg is still downloading",
 		"err.waitConvert":     "wait for the conversion to finish first",
 		"err.ffNotInArchive":  "ffmpeg not found in the archive",
+		"err.ffBadSum":        "ffmpeg checksum mismatch, file rejected",
 		"err.stalled":         "connection stalled: no data for more than %d s",
 
 		"ff.noSpace":       "The disk is full.",
@@ -234,6 +237,7 @@ var goDict = map[string]map[string]string{
 		"log.install":          "Install: %v",
 		"log.installed":        "Installed to %s",
 		"log.ffReady":          "ffmpeg ready: %s",
+		"log.ffNoSum":          "ffmpeg: %s — checksum unavailable, check skipped",
 		"log.ffCheckFailed":    "Could not check for a new ffmpeg version: %v",
 		"log.ffLatest":         "Latest ffmpeg: %s",
 		"log.appCheckFailed":   "Could not check for a new Kombain version: %v",
