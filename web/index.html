@@ -283,6 +283,7 @@ __CSS__
         <div class="mt-tabs mt-rail" id="mtTabs">
           <button class="mt-tab" data-tab="frame" data-i18n-title="mt.tab.frame" data-i18n-aria="mt.tab.frame"><svg viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/></svg></button>
           <button class="mt-tab" data-tab="anim" data-i18n-title="mt.tab.anim" data-i18n-aria="mt.tab.anim"><svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 8.5-8.5 8.5L3.5 12z"/></svg></button>
+          <button class="mt-tab" data-tab="trans" data-i18n-title="mt.tab.trans" data-i18n-aria="mt.tab.trans"><svg viewBox="0 0 24 24"><path d="M3.5 5.5h5l7 13h5M3.5 18.5h5l7-13h5"/></svg></button>
           <button class="mt-tab" data-tab="color" data-i18n-title="mt.tab.color" data-i18n-aria="mt.tab.color"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path class="solid" d="M12 3.5a8.5 8.5 0 0 1 0 17z"/></svg></button>
           <button class="mt-tab" data-tab="fx" data-i18n-title="mt.tab.fx" data-i18n-aria="mt.tab.fx"><svg viewBox="0 0 24 24"><path d="M11 3c.7 4.6 2.4 6.3 7 7-4.6.7-6.3 2.4-7 7-.7-4.6-2.4-6.3-7-7 4.6-.7 6.3-2.4 7-7zM19 15v6M16 18h6"/></svg></button>
           <button class="mt-tab" data-tab="sound" data-i18n-title="mt.tab.sound" data-i18n-aria="mt.tab.sound"><svg viewBox="0 0 24 24"><path class="solid" d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button>
@@ -350,6 +351,21 @@ __CSS__
           <summary><span data-i18n="mt.secFade"></span><em id="mtSumFade"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeIn"></span><input type="range" class="vol" id="mtFadeInR" min="0" step="0.1" data-i18n-aria="mt.fadeIn"><input type="number" id="mtFadeIn" min="0" step="0.1" data-i18n-aria="mt.fadeIn"></div>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fadeOut"></span><input type="range" class="vol" id="mtFadeOutR" min="0" step="0.1" data-i18n-aria="mt.fadeOut"><input type="number" id="mtFadeOut" min="0" step="0.1" data-i18n-aria="mt.fadeOut"></div>
+        </details>
+        </div>
+        <div class="mt-pane" data-tab="trans">
+        <details class="mt-sec hide" data-sec="trsel" id="trSelBox" open>
+          <summary><span data-i18n="tr.secSel"></span></summary>
+          <div class="note" id="trWhere"></div>
+          <label class="mt-row" id="trKindRow"><span data-i18n="tr.kind"></span><select id="trKind"></select></label>
+          <div class="note hide" id="trSoundNote" data-i18n="tr.soundNote"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="tr.dur"></span><input type="range" class="vol" id="trDurR" min="0.04" max="10" step="0.02" data-i18n-aria="tr.dur"><input type="number" id="trDur" min="0.04" max="10" step="0.1" data-i18n-aria="tr.dur"></div>
+          <div class="mt-btns"><button class="btn sm" id="trDel" data-i18n="tr.del"></button></div>
+        </details>
+        <details class="mt-sec" data-sec="trans" open>
+          <summary><span data-i18n="tr.secKinds"></span></summary>
+          <div class="note" data-i18n="tr.tip"></div>
+          <div class="tr-cards" id="trCards"></div>
         </details>
         </div>
         <div class="mt-pane" data-tab="color">

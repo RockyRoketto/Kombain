@@ -5,11 +5,11 @@
 // Прогресс P как у xfade: 1 в начале перехода, 0 в конце.
 
 // Переходы всех дорожек: id клипа → {i, o}, край {k: вид, h, cut}. У стыка h — половина перехода (столько за краем и столько до него),
-// у свободного края весь переход внутри клипа
-function mvTrMap() {
+// у свободного края весь переход внутри клипа. all: и выключенные дорожки (плашки на дорожке, trpanel.js)
+function mvTrMap(all) {
   const out = new Map(), ok = t => t && TK_TRANS.includes(t.k) && t.d > 0, dur = t => Math.min(t.d, TK_TRANS_MAX);
   for (const tr of tkTracks) {
-    if (tr.off) continue;
+    if (tr.off && !all) continue;
     const list = [...tr.clips].sort((a, b) => a.at - b.at), e = list.map(() => ({i: null, o: null}));
     // вплотную: картинка с картинкой одного режима наложения, звук со звуком (tlMeet)
     const meet = (a, b) => Math.abs(tkEnd(a) - b.at) < 1e-3 && (tr.kind === 'a' || (a.blend || '') === (b.blend || ''));

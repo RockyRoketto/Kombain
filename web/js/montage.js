@@ -313,14 +313,15 @@ const mtFadeSum = (a, b) => [a ? '↗' + a : '', b ? '↘' + b : ''].filter(Bool
 let mtTrimIt = null;   // что открыто в окне обрезки
 // Вкладки инспектора: полоса значков слева. Выбор запоминается; если вкладке нечего показать (нет такого клипа), видна первая доступная.
 // Точка на значке: внутри что-то изменено. Раздел, который в вкладке один, всегда открыт.
-const MT_TAB_KEY = {frame: 'mt.tab.frame', anim: 'mt.tab.anim', color: 'mt.tab.color', fx: 'mt.tab.fx', sound: 'mt.tab.sound', clip: 'mt.tab.clip', subs: 'mt.tab.subs', out: 'mt.tab.out'};
+const MT_TAB_KEY = {frame: 'mt.tab.frame', anim: 'mt.tab.anim', trans: 'mt.tab.trans', color: 'mt.tab.color', fx: 'mt.tab.fx', sound: 'mt.tab.sound', clip: 'mt.tab.clip', subs: 'mt.tab.subs', out: 'mt.tab.out'};
 let mtTab = 'frame';
 try { mtTab = localStorage.getItem('konv9000.mtTab2') || 'frame'; } catch (err) {}
 function mtHas() {
   const v = mtFrameClips().length > 0, any = tkSelected().length > 0;
-  return {frame: !!mtFrameOne(), anim: v, color: v, fx: v, sound: mtSoundClips().length > 0, clip: any, subs: true, out: true};
+  return {frame: !!mtFrameOne(), anim: v, color: v, fx: v, sound: mtSoundClips().length > 0, clip: any, subs: true, out: true, trans: true};   // без клипа на замену идут Субтитры, а не Переходы
 }
 function mtTabs() {
+  trFill();   // вкладка «Переходы» (trpanel.js)
   const has = mtHas(), show = has[mtTab] ? mtTab : Object.keys(has).find(k => has[k]);
   $('mtPanel').querySelectorAll('.mt-pane').forEach(p => {
     const id = p.dataset.tab, b = $('mtTabs').querySelector(`[data-tab="${id}"]`);
@@ -332,7 +333,8 @@ function mtTabs() {
     if (secs.length === 1) secs[0].open = true;
   });
   $('mtTabName').textContent = t(MT_TAB_KEY[show]);
-  const clipTab = !['subs', 'out'].includes(show);
+  $('mtNoClip').classList.toggle('hide', tkSelected().length > 0 || show === 'trans');
+  const clipTab = !['subs', 'out', 'trans'].includes(show);
   $('mtClipName').classList.toggle('hide', !clipTab || !tkSelected().length);
 }
 function mtTabGo(id) {

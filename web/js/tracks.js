@@ -193,6 +193,7 @@ function tkPaint(el, c, tr) {
   if (el.dataset.sig !== sig) tkPaintBody(el, c, sig, first, last, wave);
   tkPaintMarks(el, c);
   if (c.kf || el.querySelector('.tk-kfs')) kfPaintClip(el, c);
+  tkTrPaint(el, c);   // плашки переходов (trpanel.js)
 }
 function tkPaintBody(el, c, sig, first, last, wave) {
   el.dataset.sig = sig;
@@ -252,6 +253,7 @@ const TK_ICON = {
   up: tkSvg('<path d="m6 15 6-6 6 6"/>'), down: tkSvg('<path d="m6 9 6 6 6-6"/>'), close: tkSvg('<path d="M6 6l12 12M18 6 6 18"/>'),
 };
 function tkRender() {
+  tkTrPrep();   // переходы для плашек (trpanel.js)
   const box = $('tkLanes'), shown = tkShown(), one = {v: tkTracks.filter(x => x.kind === 'v').length, a: tkTracks.filter(x => x.kind === 'a').length};
   const sig = shown.map(x => x.kind + (x.thin ? 't' : '') + (x.off ? 'o' : '') + (x.clips.length ? 'u' : '')).join() + lang;
   if (box.dataset.sig !== sig) {
@@ -605,6 +607,7 @@ function tkRemove(ripple) {
 // Delete: всё, что выбрано, и клипы, и реплики, одним шагом отмены
 function tkDeleteSel() {
   if (kfPickDrop()) return;   // выбран ромбик ключа: удаляются ключи в этом месте, а не клип
+  if (tkTrSel && tkTrRemove()) return;   // выбран переход: удаляется он (trpanel.js)
   if (!tkSel.size && mtCueSel === null && !mtCueMany.size) return;
   const cues = mtCueSel !== null || mtCueMany.size;   // без выбранной реплики нельзя: mtCueDrop взял бы ту, что под линией кадра
   tkDo(() => { tkDrop(false); if (cues) mtCueDrop(); });
@@ -874,6 +877,9 @@ $('tkScroll').addEventListener('pointerdown', e => {
     tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
     return;
   }
+  const trEl = e.target.closest('.tk-tr');
+  if (tkTrSel && !trEl) { tkTrSel = null; tkRender(); mtTabs(); }   // выбранный переход снимается щелчком мимо
+  if (trEl && tkTool !== 'razor') { if (kfPick) kfPickSet(null); tkTrDown(e, trEl); return; }
   if (kfPick && !e.target.closest('.tk-kf')) kfPickSet(null);   // выбранный ромбик снимается щелчком мимо
   if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (mtCueSel !== null || mtCueMany.size)) { mtCueNone(); mtCueLane(); mtCuesFill(); }
   const el = e.target.closest('.tk-clip');
@@ -971,7 +977,7 @@ $('tkZoom').addEventListener('input', () => tkZoomTo(2 ** +$('tkZoom').value));
 const TK_HELP = [
   ['kh.g.view', [[['kh.space'], 'kh.play'], [['kh.spaceDrag', 'kh.wheelDrag'], 'kh.pan'], [['F'], 'kh.showLayer'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
   ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['T'], 'kh.text'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
-  ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
+  ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['D'], 'kh.trans'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
   ['kh.g.link', [[['Ctrl+L'], 'kh.unlink'], [['kh.altMouse'], 'kh.alt']]],
   ['kh.g.marks', [[['I', 'O'], 'kh.io'], [['Ctrl+Shift+X'], 'kh.ioOff'], [['M'], 'kh.marker'], [['kh.rightClick'], 'kh.markerOff']]],
   ['kh.g.zoom', [[['+', '−'], 'kh.zoom'], [['kh.ctrlWheel'], 'kh.wheel'], [['\\'], 'kh.fit'], [['kh.ctrlWheel'], 'kh.viewZoom'], [['Shift+\\'], 'kh.viewFit']]],
@@ -1005,6 +1011,7 @@ const TK_KEYS = {
   KeyI: () => tkMark('in'),
   KeyO: () => tkMark('out'),
   KeyM: tkPutMarker,
+  KeyD: tkTrDefault,   // переход по умолчанию на ближайший стык (trpanel.js)
   Delete: tkDeleteSel,
   Backspace: tkDeleteSel,
   Equal: () => tkZoomTo(tkPps * 1.5),
@@ -1018,7 +1025,7 @@ const TK_KEYS = {
   ArrowDown: () => { mvPause(); tkEdge(1); },
   Home: () => $('mtStart').click(),
   End: () => $('mtEnd').click(),
-  Escape: () => { mvFileOff(); tkSel.clear(); mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); mtTextTool(false); tkSelChanged(); },
+  Escape: () => { mvFileOff(); tkSel.clear(); tkTrSel = null; mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); mtTextTool(false); tkSelChanged(); },
 };
 const TK_CTRL_KEYS = {
   KeyK: tkCutHere,

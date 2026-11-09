@@ -97,4 +97,12 @@ func TestTransKindsJS(t *testing.T) {
 	if !maps.Equal(js, tlTransKinds) {
 		t.Errorf("виды в JS %v, в Go %v", js, tlTransKinds)
 	}
+	// у каждого вида название во вкладке «Переходы» (trName в trpanel.js) на обоих языках
+	for lang, dict := range pageDict() {
+		for k := range tlTransKinds {
+			if dict["tr.k."+k] == "" {
+				t.Errorf("%s: нет названия вида tr.k.%s", lang, k)
+			}
+		}
+	}
 }
