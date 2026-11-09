@@ -139,17 +139,39 @@ $('mtTextItalic').onclick = () => { const c = tkOne(); if (c && c.text) mtTextDo
 mtRow('mtTextSize', .1, v => mtTextPatch({size: mtRnd(Math.min(Math.max(v, 1), 50) / 100, 4)}));
 mtRow('mtTextStroke', .05, v => mtTextPatch({stroke: mtRnd(Math.min(Math.max(v, 0), 30) / 100, 4)}));
 
-// Новый текст: с текущего места, на верхней дорожке; если там занято, на новой
-$('mtText').onclick = () => dialog(async () => {
+// Инструмент «Текст»: кнопка или T включает режим, щелчок в кадре ставит туда надпись. Esc и повторное нажатие отменяют.
+// Над самой кнопкой курсор обычный, курсор T только над вьюпортом в режиме.
+let mtTextOn = false;
+function mtTextTool(on) {
+  if (on === mtTextOn) return;
+  mtTextOn = on;
+  if (on) { mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
+  mvStage.classList.toggle('mv-texting', on);
+  $('mtText').classList.toggle('on', on);
+}
+$('mtText').onclick = () => mtTextTool(!mtTextOn);
+// перехват раньше обработчиков вьюпорта: нажатие не выбирает и не двигает слой
+$('mtStage').addEventListener('pointerdown', e => {
+  if (!mtTextOn || e.button !== 0) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();   // выбор слоя висит на том же элементе
+  mtTextTool(false);
+  const r = mvCv.getBoundingClientRect(), in01 = v => Math.min(Math.max(v, 0), 1);
+  mtTextAdd(in01((e.clientX - r.left) / r.width), in01((e.clientY - r.top) / r.height));
+}, true);
+
+// Новый текст серединой в точку (fx, fy) в долях кадра, целиком в кадре, если влезает. С текущего места, на верхней дорожке; если там занято, на новой.
+const mtTextAdd = (fx, fy) => dialog(async () => {
   const x = {...MT_TEXT_DEF, s: t('mt.textDefault')}, made = await mtTextMake(x);
   if (!made) return;
+  const put = (p, s) => s < 1 ? Math.min(Math.max(p - s / 2, 0), 1 - s) : p - s / 2;
   const at = tkAt, v = tkTracks.filter(tr => tr.kind === 'v'), top = v[v.length - 1];
   const busy = top.off || top.clips.some(c => c.at < at + TK_PHOTO && tkEnd(c) > at), alone = !tkCanvas && !tkClips().some(c => !c.text), dims = mvCanvasDims();
   tkDo(() => {
     if (alone) tkCanvas = {w: dims.w, h: dims.h};   // иначе холст взял бы размер самой надписи
     let row = top;
     if (busy) { row = {kind: 'v', thin: false, clips: []}; tkTracks.splice(v.length, 0, row); }
-    const c = {id: tkNext++, path: made.path, at, from: 0, len: TK_PHOTO, speed: 1, reverse: false, src: 0, text: x, nw: made.w, x: .5 - made.w / 2, y: .5 - made.h / 2, w: made.w, h: made.h};
+    const c = {id: tkNext++, path: made.path, at, from: 0, len: TK_PHOTO, speed: 1, reverse: false, src: 0, text: x, nw: made.w, x: put(fx, made.w), y: put(fy, made.h), w: made.w, h: made.h};
     row.clips.push(c);
     tkSel = new Set([c.id]);
   });

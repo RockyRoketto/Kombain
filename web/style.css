@@ -281,6 +281,12 @@
   .mv-frame.crop i[data-c="s"]{top:100%}
   .mv-frame.crop i[data-c="w"]{left:0}
   .mv-frame.crop i[data-c="e"]{left:100%}
+  .mv-frame.text i[data-c="n"],.mv-frame.text i[data-c="s"]{display:block;left:50%;cursor:ns-resize}
+  .mv-frame.text i[data-c="e"],.mv-frame.text i[data-c="w"]{display:block;top:50%;cursor:ew-resize}
+  .mv-frame.text i[data-c="n"]{top:0}
+  .mv-frame.text i[data-c="s"]{top:100%}
+  .mv-frame.text i[data-c="w"]{left:0}
+  .mv-frame.text i[data-c="e"]{left:100%}
   .mv-canvasbtn{flex:none;display:inline-flex;align-items:center;gap:5px;margin-left:4px;padding:2px 7px;font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
   .mv-canvasbtn b{font-weight:700;color:var(--acct)}
   .mv-canvasbtn.on{border-color:rgba(var(--acc-rgb),.6)}
@@ -435,7 +441,7 @@
   .tk-clip:hover .tk-edge,.tk-clip.sel .tk-edge{background:rgba(var(--acc-rgb),.5)}
   /* курсоры: чёрная обводка под белым, чтобы были видны на любом фоне. У ножниц точка реза в шарнире, на линии разреза */
   .tk-scroll.razor .tk-clip,.tk-scroll.razor .tk-edge{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='18' r='3'/%3E%3Cpath d='M4 4l11.9 11.9M14.5 9.5 20 4M8.1 15.9 12 12'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='18' cy='18' r='3'/%3E%3Cpath d='M4 4l11.9 11.9M14.5 9.5 20 4M8.1 15.9 12 12'/%3E%3C/g%3E%3C/svg%3E") 12 12,crosshair}
-  #mtText{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3C/svg%3E") 12 12,pointer}
+  .stage.mv-texting,.stage.mv-texting *{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M5 7V4h14v3M12 4v16M9 20h6'/%3E%3C/svg%3E") 12 12,text}
   .tk-line{position:absolute;top:0;bottom:0;left:0;width:1px;pointer-events:none}
   .tk-head{z-index:5;background:var(--acc)}
   .tk-grip{position:absolute;top:0;left:-6px;z-index:2;width:13px;height:13px;background:var(--acc);clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%);cursor:ew-resize}

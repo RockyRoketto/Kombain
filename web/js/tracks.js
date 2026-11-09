@@ -950,7 +950,7 @@ $('tkZoom').addEventListener('input', () => tkZoomTo(2 ** +$('tkZoom').value));
 // ---------- окно горячих клавиш. Клавиша с приставкой kh. переводится, остальные написаны как на клавиатуре ----------
 const TK_HELP = [
   ['kh.g.view', [[['kh.space'], 'kh.play'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
-  ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
+  ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['T'], 'kh.text'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
   ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
   ['kh.g.link', [[['Ctrl+L'], 'kh.unlink'], [['kh.altMouse'], 'kh.alt']]],
   ['kh.g.marks', [[['I', 'O'], 'kh.io'], [['Ctrl+Shift+X'], 'kh.ioOff'], [['M'], 'kh.marker'], [['kh.rightClick'], 'kh.markerOff']]],
@@ -976,6 +976,7 @@ const TK_KEYS = {
   Space: () => mvToggle(),
   KeyV: () => tkSetTool('select'),
   KeyC: () => tkSetTool('razor'),
+  KeyT: () => mtTextTool(!mtTextOn),
   KeyS: () => $('tkSnapBtn').click(),
   KeyI: () => tkMark('in'),
   KeyO: () => tkMark('out'),
@@ -993,7 +994,7 @@ const TK_KEYS = {
   ArrowDown: () => { mvPause(); tkEdge(1); },
   Home: () => $('mtStart').click(),
   End: () => $('mtEnd').click(),
-  Escape: () => { mvFileOff(); tkSel.clear(); mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); tkSelChanged(); },
+  Escape: () => { mvFileOff(); tkSel.clear(); mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); mtTextTool(false); tkSelChanged(); },
 };
 const TK_CTRL_KEYS = {
   KeyK: tkCutHere,

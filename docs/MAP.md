@@ -161,7 +161,7 @@
 | `js/vumeter.js` | индикатор громкости монтажа: `vuAttach`, `vuKick`, `vuStep`, `vuDraw` |
 | `js/chroma.js` | удаление фона и цветокоррекция в просмотре: `chromaLayer`, `chromaShow`, `chromaGraded`, `chromaSweep`; пипетка: `chromaPickToggle`, `chromaSample` |
 | `js/montage.js` | вкладка «Монтаж»: окно файлов `mtFiles`, `mtAdd`, `mtShow`, `mtRender`, `mtDragFile`; файлы из Проводника на дорожку `mtDropHover`, `mtAddAt` (вызов из `drop.js`, `dropAim`); панель клипа `mtPanel`, `mtInfo`, `mtCopies`, `mtTrimClosed`; проект `mtProjectSave`, `mtProjectOpen`; отправка `mtProject`, `mtSend` |
-| `js/textclip.js` | инструмент «Текст»: `mtTextDraw`, `mtTextMake`, `mtTextRedraw`, `mtTextRefresh`, `mtTextPatch`, `mtTextFill`; шрифты `mtFontsLoad`, `mtFontPut` |
+| `js/textclip.js` | инструмент «Текст»: `mtTextDraw`, `mtTextMake`, `mtTextRedraw`, `mtTextRefresh`, `mtTextPatch`, `mtTextFill`; режим `mtTextTool` (кнопка, T, щелчок в кадр → `mtTextAdd`); шрифты `mtFontsLoad`, `mtFontPut` |
 | `js/subedit.js` | правка субтитров: дорожка S и список реплик, см. таблицу задач |
 | `js/ctxmenu.js` | меню правой кнопки: `ctxOpen`, `ctxClose`, `ctxItems`, `ctxText`, `ctxCue`, `ctxClip` |
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |

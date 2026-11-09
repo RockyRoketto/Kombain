@@ -105,6 +105,7 @@ let chromaPick = false;
 const chromaPicking = () => chromaPick;
 function chromaPickToggle() {
   chromaPick = !chromaPick;
+  if (chromaPick) mtTextTool(false);
   mvStage.classList.toggle('mv-pick', chromaPick);
 }
 function chromaSample(src, u, v) {

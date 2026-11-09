@@ -729,6 +729,7 @@ function mvFrameDraw() {
   const b = mvBox(c), o = mvCropOf(c), W = mvCv.offsetWidth, H = mvCv.offsetHeight, bw = b.w * W, bh = b.h * H;
   const top = mvCv.offsetTop + b.y * H + o.t * bh;
   mvFrame.classList.toggle('crop', mv.crop === c.id);
+  mvFrame.classList.toggle('text', !!c.text && mv.crop !== c.id);   // у надписи ручки и на сторонах, как у субтитров
   mvFrame.classList.toggle('rotin', top < 26);   // ручке поворота нет места над кадром
   Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + o.l * bw + 'px', top: top + 'px', width: (1 - o.l - o.r) * bw + 'px', height: (1 - o.t - o.b) * bh + 'px',
     transformOrigin: `${(.5 - o.l) * bw}px ${(.5 - o.t) * bh}px`, transform: c.rot ? `rotate(${c.rot}deg)` : ''});
@@ -814,8 +815,10 @@ function mvFrameDrag(e, c, corner, pick) {
       const kx = v => (left ? -v : v) / seenW, ky = v => (up ? -v : v) / seenH;
       let sw, sh, gx = -1, gy = -1;
       if (ev.shiftKey || c.text) {   // свободно: каждая сторона сама по себе; у текста рамка всегда свободна
-        sw = kx(lxs); sh = ky(lys);
-        gx = sx.at; gy = sy.at;
+        // ручка на стороне (есть только у текста) меняет один размер, другой остаётся
+        const horz = corner.length > 1 || /[we]/.test(corner), vert = corner.length > 1 || /[ns]/.test(corner);
+        sw = horz ? kx(lxs) : 1; sh = vert ? ky(lys) : 1;
+        gx = horz ? sx.at : -1; gy = vert ? sy.at : -1;
       } else {   // пропорции те же, ведёт та сторона, что изменилась сильнее
         let s = Math.max(kx(lx), ky(ly));
         if (sx.at >= 0) { s = kx(lxs); gx = sx.at; }
