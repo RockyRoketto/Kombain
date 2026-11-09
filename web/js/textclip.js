@@ -175,7 +175,7 @@ const mtTextAdd = (fx, fy) => dialog(async () => {
     row.clips.push(c);
     tkSel = new Set([c.id]);
   });
-  mtTab = 'v';
+  mtTab = 'frame';
   mtTabs();
   document.querySelector('details[data-sec=text]').open = true;
   $('mtTextS').focus();

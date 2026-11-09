@@ -465,10 +465,31 @@
   .tk-ruler b.r{border-right:2px solid var(--acc)}
   .mt-view .ctl{position:relative;flex-wrap:wrap;justify-content:center;margin-top:6px;gap:2px}
   .mt-gap{flex:1}
-  .mt-panel{min-width:0;min-height:0;overflow:auto}
-  .mt-title{font-size:14px;font-weight:600;color:var(--tx);margin:0 0 8px}
-  .mt-clipname{font-size:13px;color:var(--tx);font-weight:600;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mt-group{margin:12px 0 3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .mt-panel{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+  .mt-panel input.mt-find{flex:none;width:100%;font-size:12px;margin-bottom:10px}
+  .mt-hits{flex:none;max-height:45%;overflow:auto;margin:-2px 0 8px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:10px}
+  .mt-hits .note{margin:4px 6px}
+  .mt-hit{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:7px;padding:4px 7px;font:inherit;font-size:12px;color:var(--tx);cursor:pointer}
+  .mt-hit small{margin-left:auto;font-size:11px;color:var(--dim);white-space:nowrap}
+  .mt-hit:hover:not(:disabled){background:var(--accbg)}
+  .mt-hit:disabled{opacity:.45;cursor:default}
+  /* вкладки как ярлычки папки: выбранная одного цвета с областью настроек и переходит в неё, вогнутые углы сверху и снизу */
+  .mt-body{flex:1;min-height:0;overflow:auto;display:flex;align-items:stretch}
+  .mt-main{flex:1;min-width:0;background:var(--s2);border-radius:12px;padding:8px 12px 10px}
+  .mt-tabs.mt-rail{flex:none;align-self:flex-start;flex-direction:column;gap:2px;position:sticky;top:0;padding:12px 0 0;background:none;border:0;border-radius:0}
+  .mt-rail .mt-tab{flex:none;position:relative;display:grid;place-items:center;width:36px;height:34px;padding:0 0 0 2px;border-radius:10px 0 0 10px;color:var(--dim)}
+  .mt-rail .mt-tab:hover:not(:disabled){color:var(--tx);background-color:rgba(127,127,127,.08)}
+  .mt-rail .mt-tab.on,.mt-rail .mt-tab.on:hover{background-color:var(--s2);color:var(--acct2);box-shadow:none}
+  .mt-rail .mt-tab.on::before,.mt-rail .mt-tab.on::after{content:"";position:absolute;right:0;width:10px;height:10px;pointer-events:none}
+  .mt-rail .mt-tab.on::before{top:-10px;background:radial-gradient(circle at 0 0,transparent 9.5px,var(--s2) 10px)}
+  .mt-rail .mt-tab.on::after{bottom:-10px;background:radial-gradient(circle at 0 100%,transparent 9.5px,var(--s2) 10px)}
+  .mt-rail svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .mt-rail svg .solid{fill:currentColor;stroke:none}
+  .mt-rail .mt-tab.mark{background-image:radial-gradient(circle at 29px 7px,var(--accs) 2.5px,transparent 3px)}
+  .mt-tabname{font-size:13px;font-weight:700;color:var(--tx);margin:4px 0 6px}
+  .mt-clipname{font-size:12px;color:var(--tx2);font-weight:600;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mt-flash{animation:mtFlash 1.6s ease-out}
+  @keyframes mtFlash{0%,35%{background:var(--accbg);box-shadow:0 0 0 3px var(--accbg)}100%{background:transparent;box-shadow:0 0 0 3px transparent}}
   .mt-tabs{display:flex;gap:2px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:11px}
   .mt-tab{flex:1;min-width:0;background:none;border:0;border-radius:8px;padding:4px 6px;font:inherit;font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer}
   .mt-tab:hover:not(:disabled){color:var(--tx)}

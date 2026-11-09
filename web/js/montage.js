@@ -311,34 +311,98 @@ $('mtClear').onclick = mtClear;
 const mtSum = (id, text) => { $(id).textContent = text; };
 const mtFadeSum = (a, b) => [a ? '↗' + a : '', b ? '↘' + b : ''].filter(Boolean).join(' ');
 let mtTrimIt = null;   // что открыто в окне обрезки
-// Вкладки панели: Видео, Аудио, Клип. Выбор запоминается; если у клипа такой части нет, видна первая из тех, что есть.
-// Точка на вкладке: внутри что-то изменено.
-let mtTab = 'v';
-try { mtTab = localStorage.getItem('konv9000.mtTab') || 'v'; } catch (err) {}
+// Вкладки инспектора: полоса значков слева. Выбор запоминается; если вкладке нечего показать (нет такого клипа), видна первая доступная.
+// Точка на значке: внутри что-то изменено. Раздел, который в вкладке один, всегда открыт.
+const MT_TAB_KEY = {frame: 'mt.tab.frame', anim: 'mt.tab.anim', color: 'mt.tab.color', fx: 'mt.tab.fx', sound: 'mt.tab.sound', clip: 'mt.tab.clip', subs: 'mt.tab.subs', out: 'mt.tab.out'};
+let mtTab = 'frame';
+try { mtTab = localStorage.getItem('konv9000.mtTab2') || 'frame'; } catch (err) {}
+function mtHas() {
+  const v = mtFrameClips().length > 0, any = tkSelected().length > 0;
+  return {frame: !!mtFrameOne(), anim: v, color: v, fx: v, sound: mtSoundClips().length > 0, clip: any, subs: true, out: true};
+}
 function mtTabs() {
-  const has = {v: mtFrameClips().length > 0, a: mtSoundClips().length > 0, c: true};
-  const show = has[mtTab] ? mtTab : has.v ? 'v' : has.a ? 'a' : 'c';
+  const has = mtHas(), show = has[mtTab] ? mtTab : Object.keys(has).find(k => has[k]);
   $('mtPanel').querySelectorAll('.mt-pane').forEach(p => {
     const id = p.dataset.tab, b = $('mtTabs').querySelector(`[data-tab="${id}"]`);
     p.classList.toggle('hide', id !== show);
     b.classList.toggle('on', id === show);
     b.disabled = !has[id];
-    b.classList.toggle('mark', has[id] && [...p.querySelectorAll('summary em')].some(e => e.textContent && !e.closest('#mtCatFrame.hide')));
+    b.classList.toggle('mark', has[id] && [...p.querySelectorAll('summary em')].some(e => e.textContent && !e.closest('.mt-one.hide')));
+    const secs = [...p.querySelectorAll('details[data-sec]')].filter(d => !d.closest('.hide:not(.mt-pane)'));
+    if (secs.length === 1) secs[0].open = true;
   });
+  $('mtTabName').textContent = t(MT_TAB_KEY[show]);
+  const clipTab = !['subs', 'out'].includes(show);
+  $('mtClipName').classList.toggle('hide', !clipTab || !tkSelected().length);
+}
+function mtTabGo(id) {
+  mtTab = id;
+  try { localStorage.setItem('konv9000.mtTab2', mtTab); } catch (err) {}
+  mtTabs();
 }
 $('mtTabs').addEventListener('click', e => {
   const b = e.target.closest('.mt-tab');
-  if (!b || b.disabled) return;
-  mtTab = b.dataset.tab;
-  try { localStorage.setItem('konv9000.mtTab', mtTab); } catch (err) {}
-  mtTabs();
+  if (b && !b.disabled) mtTabGo(b.dataset.tab);
+});
+// Поиск по настройкам: строка ищется в подписях на обоих языках и в ключевых словах раздела (mt.kw.раздел).
+// Щелчок по найденному открывает вкладку и раздел и подсвечивает строку.
+const mtNorm = s => s.toLowerCase().replace(/\u0451/g, '\u0435').replace(/<[^>]*>/g, ' ');
+const mtBoth = key => I18N.ru[key] && I18N.en[key] ? I18N.ru[key] + ' ' + I18N.en[key] : '';
+let mtIndex = null;
+function mtIndexBuild() {
+  mtIndex = [];
+  $('mtPanel').querySelectorAll('.mt-pane details[data-sec]').forEach(d => {
+    const tab = d.closest('.mt-pane').dataset.tab, sec = d.dataset.sec;
+    const name = d.querySelector('summary [data-i18n]').dataset.i18n;
+    const base = mtBoth(name) + ' ' + mtBoth('mt.kw.' + sec);
+    mtIndex.push({tab, d, el: null, key: name, hay: mtNorm(base + ' ' + mtBoth(MT_TAB_KEY[tab]))});   // раздел: по названию и ключевым словам
+    d.querySelectorAll('.mt-row, label.sw, .mt-btns > .btn').forEach(el => {
+      const lab = el.querySelector('[data-i18n]') || el;
+      if (!lab.dataset.i18n) return;
+      const keys = [lab.dataset.i18n, el.dataset.i18nTitle, lab.dataset.i18nTitle].filter(Boolean);
+      mtIndex.push({tab, d, el, key: lab.dataset.i18n, hay: mtNorm(keys.map(mtBoth).join(' '))});   // строка: только по своей подписи
+    });
+  });
+}
+function mtFind() {
+  const q = mtNorm($('mtFind').value).split(/\s+/).filter(Boolean), box = $('mtHits');
+  box.classList.toggle('hide', !q.length);
+  if (!q.length) return;
+  if (!mtIndex) mtIndexBuild();
+  const has = mtHas();
+  const hits = mtIndex.filter(x => q.every(w => x.hay.includes(w)) && !(x.el || x.d).closest('.hide:not(.mt-pane)'))
+    .sort((a, b) => !has[a.tab] - !has[b.tab]).slice(0, 12);
+  box.innerHTML = hits.length ? '' : `<div class="note">${esc(t('mt.findNone'))}</div>`;
+  hits.forEach(x => {
+    const b = document.createElement('button');
+    b.className = 'mt-hit';
+    b.disabled = !has[x.tab];
+    if (b.disabled) b.title = t('mt.noClip');
+    const where = [t(MT_TAB_KEY[x.tab]), x.el ? t(x.d.querySelector('summary [data-i18n]').dataset.i18n) : ''].filter(Boolean).join(' › ');
+    b.innerHTML = `${esc(t(x.key).replace(/<[^>]*>/g, ''))}<small>${esc(where)}</small>`;
+    b.onclick = () => {
+      mtTabGo(x.tab);
+      x.d.open = true;
+      const el = x.el || x.d;
+      el.scrollIntoView({block: 'center'});
+      el.classList.remove('mt-flash'); el.offsetWidth; el.classList.add('mt-flash');
+      $('mtFind').value = ''; box.classList.add('hide');
+      const f = el.matches('input,select') ? el : el.querySelector('input:not([type=range]),select,textarea');
+      if (f) f.focus({preventScroll: true});
+    };
+    box.append(b);
+  });
+}
+$('mtFind').addEventListener('input', mtFind);
+$('mtFind').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('mtFind').value = ''; mtFind(); $('mtFind').blur(); }
+  if (e.key === 'Enter') { const b = $('mtHits').querySelector('.mt-hit:not(:disabled)'); if (b) b.click(); }
 });
 function mtPanel() {
   mtSubsFill();
   const list = tkSelected(), one = tkOne();
   $('mtNoClip').classList.toggle('hide', list.length > 0);
-  $('mtClipBox').classList.toggle('hide', !list.length);
-  if (!list.length) return;
+  if (!list.length) { mtTabs(); return; }
   const clips = list.filter(c => !tkPhoto(c));
   $('mtClipName').textContent = one ? tkClipName(one) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
   $('mtClipName').title = one && !one.text ? one.path : '';
@@ -368,7 +432,7 @@ function mtFramePanel() { mtTextFill(); mtFrameFill(); mtTabs(); kfDiamonds(); k
 function mtSoundPanel() { mtSoundFill(); mtTabs(); }
 function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
-  $('mtCatFrame').classList.toggle('hide', !one);
+  $('mtPanel').querySelectorAll('.mt-one').forEach(e => e.classList.toggle('hide', !one));
   if (!clips.length) return;
   const keyOn = clips.every(c => c.key);
   $('mtKeyOn').checked = keyOn;

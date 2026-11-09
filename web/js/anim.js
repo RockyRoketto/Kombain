@@ -26,4 +26,4 @@ function glideTabs(box, sel) {
   jump();
 }
 glideTabs($('tabs'), '.tab');
-glideTabs($('mtTabs'), '.mt-tab');
+
