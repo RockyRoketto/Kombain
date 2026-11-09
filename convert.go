@@ -384,8 +384,13 @@ func (s *Server) finishBatch() {
 	if kept > 0 {
 		s.summary += tr("batch.summaryKept", kept)
 	}
+	done := make([]FileState, 0, len(s.files)) // копии: читать их будем уже без замка
+	for _, fs := range s.files {
+		done = append(done, *fs)
+	}
 	s.running = false
 	s.cancel = nil
 	s.mu.Unlock()
 	s.addLog("%s", s.summary)
+	statsAdd(done)
 }

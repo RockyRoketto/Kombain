@@ -116,6 +116,37 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"bytes": proxyUsage()})
 	}))
 
+	// окно настроек, раздел «Хранилище»: что сколько весит и статистика
+	mux.HandleFunc("/api/storage", s.api(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{"parts": storageParts(), "stats": readStats()})
+	}))
+
+	// очистка кэша: картинки надписей нужны рендеру монтажа, поэтому не во время конвертации
+	mux.HandleFunc("/api/storage-clear", s.api(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		run := s.running
+		s.mu.Unlock()
+		if run {
+			writeJSON(w, map[string]any{"error": tr("store.busy")})
+			return
+		}
+		cacheClear()
+		writeJSON(w, map[string]any{"parts": storageParts(), "stats": readStats()})
+	}))
+
+	// удалить модель распознавания; пустое имя — саму программу распознавания
+	mux.HandleFunc("/api/storage-remove", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"name"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if err := whisperRemove(body.Name); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"parts": storageParts(), "stats": readStats()})
+	}))
+
 	mux.HandleFunc("/api/snapshot-montage", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Project Project `json:"project"`

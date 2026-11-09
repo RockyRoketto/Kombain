@@ -710,14 +710,17 @@ async function mtCopies() {
   $('mtCopies').classList.toggle('hide', !(r.bytes > 0));
   if (r.bytes > 0) $('mtCopiesText').textContent = t('mt.copies', {size: fmtSize(r.bytes)});
 }
-$('mtCopiesClear').onclick = async () => {
+// окно отпускает копии, пока программа их стирает; call — proxy-clear или storage-clear из настроек
+async function mtFreeCache(call) {
   mvPause(); mvUnload();
   mv.state.clear();
   mvLowReset();
-  await api('proxy-clear');
+  const r = await api(call);
   await mtCopies();
   mvShow();
-};
+  return r;
+}
+$('mtCopiesClear').onclick = () => mtFreeCache('proxy-clear');
 $('mtSpeed').addEventListener('change', () => {
   const v = +$('mtSpeed').value;
   $('mtSpeed').blur();

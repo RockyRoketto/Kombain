@@ -184,11 +184,122 @@ document.querySelectorAll('.acc-h').forEach(h => h.addEventListener('click', () 
   });
   if (!was) { h.parentElement.classList.add('open'); h.setAttribute('aria-expanded', 'true'); }
 }));
-// панель настроек за шестерёнкой
+// панель настроек за шестерёнкой: слева разделы, открытый раздел помнится
+let setpPage = 'look';
+try { setpPage = localStorage.getItem('konv9000.setpPage') || 'look'; } catch (e) {}
+if (!document.querySelector(`.setp-page[data-p="${setpPage}"]`)) setpPage = 'look';
+function setpShow(p) {
+  setpPage = p;
+  document.querySelectorAll('.setp-tab').forEach(b => {
+    b.classList.toggle('on', b.dataset.p === p);
+    b.setAttribute('aria-selected', b.dataset.p === p);
+  });
+  document.querySelectorAll('.setp-page').forEach(s => s.classList.toggle('on', s.dataset.p === p));
+  try { localStorage.setItem('konv9000.setpPage', p); } catch (e) {}
+  if (p === 'store' || p === 'about') storeLoad();
+  if (p === 'about') aboutRender(snap);
+}
+$('setpNav').addEventListener('click', e => {
+  const b = e.target.closest('.setp-tab');
+  if (b) setpShow(b.dataset.p);
+});
 function setPanel(open) {
   $('setPanel').classList.toggle('hide', !open);
   $('gearBtn').setAttribute('aria-expanded', open);
+  if (open) setpShow(setpPage);
 }
+// ---------- раздел «Хранилище»: что сколько весит ----------
+let storeData = null;
+// части полосы: модели и их недокачанные хвосты одной частью, копии просмотра вместе с остальным кэшем
+const STORE_GROUP = {app: 'app', ffmpeg: 'ffmpeg', model: 'model', models: 'model', tools: 'tools', preview: 'cache', cache: 'cache', webview: 'webview', other: 'other'};
+const STORE_ORDER = ['model', 'cache', 'ffmpeg', 'app', 'tools', 'webview', 'other'];
+async function storeLoad() {
+  const r = await api('storage');
+  if (r.error) return;
+  storeData = r;
+  storeRender();
+  aboutRender(snap);
+}
+function storeRender() {
+  if (!storeData) return;
+  const parts = storeData.parts || [], sum = {};
+  parts.forEach(p => { const g = STORE_GROUP[p.kind] || 'other'; sum[g] = (sum[g] || 0) + p.bytes; });
+  const total = parts.reduce((a, p) => a + p.bytes, 0);
+  const groups = STORE_ORDER.filter(g => sum[g] > 0).sort((a, b) => sum[b] - sum[a]);   // цвет за частью закреплён, порядок по весу
+  $('stTotal').textContent = fmtSize(total) || '0';
+  $('stBar').innerHTML = groups.map(g =>
+    `<i style="width:${(sum[g] / total * 100).toFixed(2)}%;background:var(--st-${g})" title="${esc(t(`store.k.${g}`))} · ${fmtSize(sum[g])}"></i>`).join('');
+  $('stLegend').innerHTML = groups.map(g =>
+    `<li style="--c:var(--st-${g})"><span>${esc(t(`store.k.${g}`))}</span><b>${fmtSize(sum[g])}</b></li>`).join('');
+  $('stCache').textContent = t('store.cacheSize', {size: fmtSize(sum.cache) || t('store.empty')});
+  $('stClear').disabled = !sum.cache;
+  // модели по одной и сама программа распознавания, у каждой крестик
+  const rows = parts.filter(p => p.kind === 'model' || p.kind === 'tools').map(p => {
+    const name = p.kind === 'tools' ? t('store.k.tools') : t(`store.m.${p.name}`);
+    return `<div class="st-row"><div><span class="lb">${esc(name)}</span><span class="hint">${fmtSize(p.bytes)}</span></div>` +
+      `<button class="x" data-del="${esc(p.kind === 'tools' ? '' : p.name)}" title="${esc(t('store.del'))}" aria-label="${esc(t('store.del') + ': ' + name)}">✕</button></div>`;
+  });
+  $('stModels').innerHTML = rows.length ? rows.join('') : `<div class="st-empty">${esc(t('store.noModels'))}</div>`;
+}
+$('stModels').addEventListener('click', async e => {
+  const b = e.target.closest('[data-del]');
+  if (!b) return;
+  const name = b.dataset.del ? t(`store.m.${b.dataset.del}`) : t('store.k.tools');
+  if (!confirm(t('store.delAsk', {name}))) return;
+  const r = await api('storage-remove', {name: b.dataset.del});
+  if (r.error) { say('warn', t('store.del'), r.error); return; }
+  storeData = r; storeRender();
+});
+$('stClear').onclick = async () => {
+  if (snap.running) { say('warn', t('store.clear'), t('store.busyPage')); return; }
+  const r = await mtFreeCache('storage-clear');
+  if (r.error) { say('warn', t('store.clear'), r.error); return; }
+  mtTextRefresh();   // картинки надписей открытого проекта рисуются заново
+  storeData = r; storeRender(); aboutRender(snap);
+};
+// ---------- раздел «О программе»: версии и статистика ----------
+function aboutRender(s) {
+  if ($('setPanel').classList.contains('hide') || setpPage !== 'about') return;
+  const u = s.appUpd || {}, f = s.ffv || {}, run = !!s.running;
+  $('abApp').textContent = (s.app || {}).version || '';
+  let note = '', go = false;
+  if (u.active) note = t('app.downloading', {v: esc(u.latest), pct: Math.round(u.pct || 0)});
+  else if (u.update) { note = t('about.newer', {v: esc(u.latest)}); go = !!u.supported; }
+  else if (u.checkErr) note = t('about.checkFailed');
+  else if (u.checked) note = t('about.latest');
+  $('abAppNote').innerHTML = note;
+  $('abAppNote').classList.toggle('upd', !!u.update);
+  $('abAppGo').classList.toggle('hide', !go);
+  $('abAppGo').disabled = run;
+  $('abFF').textContent = f.local || f.localRaw || '';
+  note = ''; go = false;
+  if (s.dl && s.dl.active) note = t('about.ffLoading');
+  else if (!s.ffmpeg) { note = t('about.ffMissing'); go = true; }
+  else if (f.update) { note = t('about.newer', {v: esc(f.latest)}); go = true; }
+  else if (f.checking) note = t('about.checking');
+  else if (f.checkErr) note = t('about.checkFailed');
+  else if (f.checked && f.latest) note = t('about.latest');
+  $('abFFNote').innerHTML = note;
+  $('abFFNote').classList.toggle('upd', go);
+  $('abFFGo').textContent = s.ffmpeg ? t('btn.update') : t('about.download');
+  $('abFFGo').classList.toggle('hide', !go);
+  $('abFFGo').disabled = run;
+  const st = (storeData || {}).stats || {};
+  $('abFiles').textContent = (st.files || 0).toLocaleString(lang);
+  $('abSaved').textContent = fmtSize(st.saved) || '0';
+  const since = st.files && st.since ? new Date(st.since) : null;
+  $('abSince').textContent = since ? t('about.since', {date: since.toLocaleDateString(lang)}) : t('about.noStats');
+}
+$('abAppGo').onclick = async () => {
+  const r = await api('app-update');
+  if (r.error) say('err', t('app.updateTitle'), r.error);
+  pollSoon();
+};
+$('abFFGo').onclick = async () => {
+  const r = await api('download-ffmpeg');
+  if (r.error) say('err', 'ffmpeg', r.error);
+  pollSoon();
+};
 $('gearBtn').addEventListener('click', () => setPanel($('setPanel').classList.contains('hide')));
 document.addEventListener('pointerdown', e => {
   if (!e.target.closest('#setPanel, #gearBtn')) setPanel(false);

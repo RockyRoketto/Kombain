@@ -45,68 +45,98 @@ __CSS__
       </button>
     </div>
 
-    <!-- панель настроек: новая группа — ещё один .setp-group -->
+    <!-- панель настроек: слева разделы, справа страница раздела. Новый раздел — кнопка в .setp-nav и .setp-page с тем же data-p -->
     <div class="setp hide" id="setPanel" role="dialog" data-i18n-aria="settings">
-      <section class="setp-group">
-        <h2 data-i18n="setp.look"></h2>
-        <div class="seg seg3" id="themeSeg">
-          <button class="segb" data-v="dark"><b data-i18n="theme.dark"></b></button>
-          <button class="segb" data-v="light"><b data-i18n="theme.light"></b></button>
-          <button class="segb" data-v="system" data-i18n-title="theme.systemTitle"><b data-i18n="theme.system"></b></button>
-        </div>
-      </section>
-      <section class="setp-group">
-        <h2 data-i18n="setp.lang"></h2>
-        <!-- названия языков не переводятся: каждый записан на своём языке -->
-        <div class="seg seg2" id="langSeg">
-          <button class="segb" data-v="ru" lang="ru"><b>Русский</b></button>
-          <button class="segb" data-v="en" lang="en"><b>English</b></button>
-        </div>
-      </section>
-      <section class="setp-group">
-        <h2 data-i18n="setp.conv"></h2>
-        <div class="field">
-          <div><span class="lb" data-i18n="setp.jobs"></span><span class="hint" data-i18n="setp.jobsHint"></span></div>
-          <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
-        </div>
-        <details class="setp-adv" id="extraBox">
-          <summary data-i18n="setp.adv"></summary>
-          <div class="stack">
-            <span class="lb" data-i18n="setp.extra"></span>
-            <input type="text" id="extra" data-i18n-ph="setp.extraPh">
-            <div class="note" data-i18n="setp.extraHint"></div>
+      <nav class="setp-nav" id="setpNav" role="tablist">
+        <button class="setp-tab" role="tab" data-p="look"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/></svg><span data-i18n="setp.look"></span></button>
+        <button class="setp-tab" role="tab" data-p="conv"><svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg><span data-i18n="setp.conv"></span></button>
+        <button class="setp-tab" role="tab" data-p="sounds"><svg viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg><span data-i18n="setp.sounds"></span></button>
+        <button class="setp-tab" role="tab" data-p="store"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/></svg><span data-i18n="setp.store"></span></button>
+        <button class="setp-tab" role="tab" data-p="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/></svg><span data-i18n="setp.about"></span></button>
+        <!-- в своём окне программу закрывает крестик, эта кнопка только для браузера -->
+        <button class="btn sm setp-exit" id="exitBtn" data-i18n-title="exit.btn" data-i18n="exit.btn"></button>
+      </nav>
+      <div class="setp-body">
+        <section class="setp-page" data-p="look" role="tabpanel">
+          <h2 data-i18n="setp.theme"></h2>
+          <div class="seg seg3" id="themeSeg">
+            <button class="segb" data-v="dark"><b data-i18n="theme.dark"></b></button>
+            <button class="segb" data-v="light"><b data-i18n="theme.light"></b></button>
+            <button class="segb" data-v="system" data-i18n-title="theme.systemTitle"><b data-i18n="theme.system"></b></button>
           </div>
-        </details>
-      </section>
-      <section class="setp-group">
-        <h2 data-i18n="setp.sounds"></h2>
-        <div class="field">
-          <span class="lb" data-i18n="sound.done"></span>
-          <div class="soundc">
-            <select id="soundDone" data-i18n-aria="sound.done"></select>
-            <button class="btn sm" id="soundDoneTest" data-i18n-title="sound.test" data-i18n-aria="sound.test">▶</button>
+          <h2 data-i18n="setp.lang"></h2>
+          <!-- названия языков не переводятся: каждый записан на своём языке -->
+          <div class="seg seg2" id="langSeg">
+            <button class="segb" data-v="ru" lang="ru"><b>Русский</b></button>
+            <button class="segb" data-v="en" lang="en"><b>English</b></button>
           </div>
-        </div>
-        <div class="field">
-          <span class="lb" data-i18n="sound.error"></span>
-          <div class="soundc">
-            <select id="soundError" data-i18n-aria="sound.error"></select>
-            <button class="btn sm" id="soundErrorTest" data-i18n-title="sound.test" data-i18n-aria="sound.test">▶</button>
+        </section>
+        <section class="setp-page" data-p="conv" role="tabpanel">
+          <h2 data-i18n="setp.conv"></h2>
+          <div class="field">
+            <div><span class="lb" data-i18n="setp.jobs"></span><span class="hint" data-i18n="setp.jobsHint"></span></div>
+            <select id="jobs"><option>1</option><option>2</option><option>3</option><option>4</option></select>
           </div>
-        </div>
-        <div class="note" data-i18n="sound.note"></div>
-      </section>
-      <section class="setp-group">
-        <h2 data-i18n="setp.app"></h2>
-        <div class="setp-btns">
-          <button class="btn sm" id="openData" data-i18n="setp.openData" data-i18n-title="setp.openDataTitle"></button>
-          <button class="btn sm" id="resetAll" data-i18n="setp.reset"></button>
-        </div>
-      </section>
-      <!-- в своём окне программу закрывает крестик, эта кнопка только для браузера -->
-      <section class="setp-group exit">
-        <button class="btn sm" id="exitBtn" data-i18n-title="exit.btn" data-i18n="exit.btn"></button>
-      </section>
+          <details class="setp-adv" id="extraBox">
+            <summary data-i18n="setp.adv"></summary>
+            <div class="stack">
+              <span class="lb" data-i18n="setp.extra"></span>
+              <input type="text" id="extra" data-i18n-ph="setp.extraPh">
+              <div class="note" data-i18n="setp.extraHint"></div>
+            </div>
+          </details>
+        </section>
+        <section class="setp-page" data-p="sounds" role="tabpanel">
+          <h2 data-i18n="setp.sounds"></h2>
+          <div class="field">
+            <span class="lb" data-i18n="sound.done"></span>
+            <div class="soundc">
+              <select id="soundDone" data-i18n-aria="sound.done"></select>
+              <button class="btn sm" id="soundDoneTest" data-i18n-title="sound.test" data-i18n-aria="sound.test">▶</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lb" data-i18n="sound.error"></span>
+            <div class="soundc">
+              <select id="soundError" data-i18n-aria="sound.error"></select>
+              <button class="btn sm" id="soundErrorTest" data-i18n-title="sound.test" data-i18n-aria="sound.test">▶</button>
+            </div>
+          </div>
+          <div class="note" data-i18n="sound.note"></div>
+        </section>
+        <!-- части полосы и строки рисует storeRender в settings.js -->
+        <section class="setp-page" data-p="store" role="tabpanel">
+          <h2 data-i18n="setp.store"></h2>
+          <div class="st-total"><b id="stTotal">…</b><span data-i18n="store.total"></span></div>
+          <div class="st-bar" id="stBar"></div>
+          <ul class="st-legend" id="stLegend"></ul>
+          <h2 data-i18n="store.cache"></h2>
+          <div class="st-row">
+            <div><span class="lb" id="stCache"></span><span class="hint" data-i18n="store.cacheHint"></span></div>
+            <button class="btn sm" id="stClear" data-i18n="store.clear"></button>
+          </div>
+          <h2 data-i18n="store.speech"></h2>
+          <div id="stModels"></div>
+          <div class="setp-btns">
+            <button class="btn sm" id="openData" data-i18n="setp.openData" data-i18n-title="setp.openDataTitle"></button>
+          </div>
+        </section>
+        <section class="setp-page" data-p="about" role="tabpanel">
+          <h2 data-i18n="about.versions"></h2>
+          <div class="st-row"><div><span class="lb">Kombain <b id="abApp"></b></span><span class="hint" id="abAppNote"></span></div><button class="btn sm hide" id="abAppGo" data-i18n="btn.update"></button></div>
+          <div class="st-row"><div><span class="lb">ffmpeg <b id="abFF"></b></span><span class="hint" id="abFFNote"></span></div><button class="btn sm hide" id="abFFGo" data-i18n="btn.update"></button></div>
+          <h2 data-i18n="about.stats"></h2>
+          <div class="ab-tiles">
+            <div class="ab-tile"><b id="abFiles">0</b><span data-i18n="about.files"></span></div>
+            <div class="ab-tile"><b id="abSaved">0</b><span data-i18n="about.saved"></span></div>
+          </div>
+          <div class="note" id="abSince"></div>
+          <h2 data-i18n="setp.app"></h2>
+          <div class="setp-btns">
+            <button class="btn sm" id="resetAll" data-i18n="setp.reset"></button>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 </header>

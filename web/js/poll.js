@@ -44,7 +44,7 @@ async function poll() {
     if (!dl.active) hadFF = !!s.ffmpeg;
     ffWasActive = !!dl.active;
     if (setupState === 'auto' && inst.supported && inst.offer && !(s.app || {}).setupSeen) openSetup();
-    newsBanner(s); appBanner(s); ffBanner(s); renderSetup(s); renderInstallBtn(s);
+    newsBanner(s); appBanner(s); ffBanner(s); renderSetup(s); renderInstallBtn(s); aboutRender(s);
     renderOut();
     const fl = s.files || [];
     const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;

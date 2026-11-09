@@ -42,6 +42,7 @@
 | Субтитры из файла .srt | чтение, вжигание, дорожка: `subtitles.go` (`subsRead`, `subsASS`, `subsPlan`, `Project.Subs`); просмотр: `web/js/viewport.js` (`mvSubsDraw`, `mvSubLine`: высота строки шрифта); панель: `web/js/montage.js` (`mtSubsFill`, `mtCues`), значение `tkSubs` в `web/js/tracks.js`. Размеры в `subsASS` и `mvSubsDraw` должны совпадать. Проверка: `subtitles_test.go` |
 | Где лежат данные программы, новая модель или докачиваемая программа | `files.go`: `ffDir`, `cacheDir`, `modelDir`, `toolDir`, перенос из старой раскладки `migrateData` (зовёт `startServer`) |
 | Автоочистка кэша | `cache.go`: `cacheTidy` при запуске, `textPrune` (срок и предел `textKeepAge`, `textKeepSize`); копии отдельно: `proxyPrune` |
+| Окно настроек: «Хранилище» и «О программе» | Go: `storage.go` (`storageParts` — части полосы, `cacheClear`, `whisperRemove`, статистика `statsAdd` из `finishBatch` в `convert.go`, файл `stats.json`), запросы `storage`, `storage-clear`, `storage-remove` в `api.go`; страница: `web/js/settings.js` (`setpShow`, `storeRender`, `aboutRender`, группы и цвета частей `STORE_GROUP`, `--st-*` в `web/style.css`), очистка с отпуском копий: `mtFreeCache` в `web/js/montage.js` |
 | Панель эффектов: вкладки Видео, Аудио, Клип, внутри категории и разделы. Новый раздел: `details.mt-sec` с `data-sec` в `.mt-pane` под подписью `.mt-group`, свёрнутость запоминается сама | `web/js/montage.js` (`mtTabs`: вкладки и точка об изменениях, `mtFramePanel`, `mtFrameFill`, `mtSoundPanel`, `mtSoundFill`, `mtSum`: значение в заголовке раздела, `mtRow`: ползунок, число и Alt с мышью, `mtBoxRow`, `mtFadeRow`), разметка в `web/index.html` (`mtTabs`, `.mt-pane`, `mtCatFrame`); просмотр: `web/js/viewport.js` (`mvPlace`, `mvFadeAt`, `mvLevel`, `mvGain`, `mvLook`, `mvRotDrag`, `mvCropDrag`, `mvHandleDrag`); рендер: `timeline.go` (`tlBoxChain`, `tlFitBox`, `tlFades`, `Clip.Rot`, `CropL`, `Vol`, `FadeIn`). Проверка: `timeline_layer_test.go` |
 | Размер холста | кнопка и меню `web/js/viewport.js` (`mvCanvasBtn`, `mvCanvasMenu`, `MV_SIZES`, `mvSetCanvas`), значение `tkCanvas` в `web/js/tracks.js`, рендер: `Project.W`, `H` в `timeline.go` |
 | Логотип | `web/js/montage.js` (`mtLogo`, `MT_LOGO_W`), кнопка в `web/index.html` (`#mtLogo`) |
@@ -70,7 +71,7 @@
 | Имя и папка результата | `files.go` (`outPath`) |
 | Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
-| Панель настроек за шестерёнкой | `web/index.html` (`setPanel`, группы `.setp-group`), `web/js/settings.js` (`setPanel`, сброс `resetAll` и что он оставляет `RESET_KEEP`, в Go: поле `reset` в `/api/settings`) |
+| Панель настроек за шестерёнкой | `web/index.html` (`setPanel`: разделы `.setp-tab` и страницы `.setp-page` с одним `data-p`), `web/js/settings.js` (`setPanel`, `setpShow`, сброс `resetAll` и что он оставляет `RESET_KEEP`, в Go: поле `reset` в `/api/settings`) |
 | Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
 | Настройка, которую должен знать Go | `update.go` (`Settings`), `api.go` (`/api/settings`) |
 | Тексты и язык | страница: `web/i18n.json`, в разметке метки `data-i18n`, в коде `t()` и `tn()` из `web/js/i18n.js`; Go: `i18n_strings.go`, `tr()`, `errT()`, `logT()` из `i18n.go`; переключатель: `web/js/settings.js` (`renderLang`) |
@@ -104,6 +105,7 @@
 | `subtitles.go` | картинка клипа «Текст» `saveTextPNG`; субтитры монтажа: `Subs`, `subsDecode`, `subsParse`, `subsRead`, `subsRange`, `subsASS`, `subsSRT`, `subsTemp`, `subsFilterPath`, `subsTrackCodec`, `subsPlan` |
 | `files.go` | `dataDir`, `ffDir`, `cacheDir`, `modelDir`, `toolDir`, `migrateData`, `dropDir`, `ffPath`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `cache.go` | чистка кэша: `cacheTidy`, `textDir`, `textPrune` |
+| `storage.go` | что занимает программа, очистка кэша, удаление моделей, статистика: `dirSize`, `storageParts`, `cacheClear`, `whisperRemove`, `Stats`, `statsAdd`, `readStats` |
 | `ffargs.go` | `probe`, `gifFilter`, `planRate`, `rateArgs`, `fitCodecLimits`, `isStandardFPS`, `buildArgs`, `num`, `mbStr` |
 | `convert.go` | `run`, `finishBatch`, `convert`, `encodeTarget`, `runFF`, `set`, `kept` |
 | `fferrors.go` | `friendlyErr` (для человека), `errSummary` (для лога) |
@@ -182,7 +184,7 @@
 | Звуки | `sounds`, `pick-sound` |
 | Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
-| Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit` |
+| Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit`, `storage`, `storage-clear`, `storage-remove` |
 
 Вне `/api`: `/` (страница), `/favicon.png`, `/thumb`, `/wave` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.
 
