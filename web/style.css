@@ -455,7 +455,7 @@
   .tk-ruler em{bottom:0}
   .tk-mk{top:0}
   .tk-mks{position:absolute;inset:0;pointer-events:none}
-  .tk-kfs{position:absolute;inset:0;pointer-events:none}
+  .tk-kfs{position:absolute;inset:0;pointer-events:none;z-index:2}
   .tk-kf{position:absolute;bottom:0;width:16px;height:16px;margin-left:-8px;display:grid;place-items:center;cursor:ew-resize;pointer-events:auto}
   .tk-kf::before{content:"";width:8px;height:8px;background:var(--acc);transform:rotate(45deg);border-radius:1px;box-shadow:0 0 0 1px rgba(0,0,0,.55);transition:transform .1s}
   .tk-kf:hover::before{transform:rotate(45deg) scale(1.3)}

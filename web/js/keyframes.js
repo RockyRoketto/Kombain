@@ -199,7 +199,7 @@ function kfPaintClip(el, c) {
   if (!box) { box = document.createElement('div'); box.className = 'tk-kfs'; el.appendChild(box); }
   const tip = t('kf.clipTip');
   const pick = kfPick && kfPick.id === c.id ? kfPick.t : null;
-  const html = kfClipTimes(c).map(k => `<em class="tk-kf${pick !== null && Math.abs(pick - k.t) < kfHalf() ? ' sel' : ''}" data-t="${k.t}" title="${esc(tip)}" style="left:${k.t * tkPps}px"></em>`).join('');
+  const html = kfClipTimes(c).map(k => `<em class="tk-kf${pick !== null && Math.abs(pick - k.t) < kfHalf() ? ' sel' : ''}" data-t="${k.t}" title="${esc(tip)}" style="left:${Math.min(Math.max(k.t * tkPps, 8), Math.max(tkLen(c) * tkPps - 8, 8))}px"></em>`).join('');
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
 // выбранный ромбик на клипе: {id, t}. Delete удаляет ключи этого места (tkDeleteSel), щелчок мимо снимает выбор
