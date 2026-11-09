@@ -4,8 +4,10 @@ package main
 // (разрешение, длительность, кодеки) для окна просмотра.
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -82,12 +84,51 @@ type mediaCache struct {
 	mu    sync.Mutex
 	info  map[string]MediaInfo
 	thumb map[string][]byte
+	fail  map[string]time.Time // неудачи помним недолго: вдруг файл ещё копировался или ffmpeg не успел
 }
 
+const failTTL = 30 * time.Second
+
 var (
-	mcache   = &mediaCache{info: map[string]MediaInfo{}, thumb: map[string][]byte{}}
+	mcache   = &mediaCache{info: map[string]MediaInfo{}, thumb: map[string][]byte{}, fail: map[string]time.Time{}}
 	thumbSem = make(chan struct{}, 2) // не больше двух ffmpeg на превью одновременно
+	waveSem  = make(chan struct{}, 2) // волны долгие, у них своя очередь, чтобы не задерживать превью
 )
+
+// failedRecently: по этому ключу недавно не вышло, пока не пробуем снова
+func (c *mediaCache) failedRecently(key string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	at, ok := c.fail[key]
+	if ok && time.Since(at) > failTTL {
+		delete(c.fail, key)
+		return false
+	}
+	return ok
+}
+
+func (c *mediaCache) markFailed(key string) {
+	c.mu.Lock()
+	if len(c.fail) > 2000 {
+		c.fail = map[string]time.Time{}
+	}
+	c.fail[key] = time.Now()
+	c.mu.Unlock()
+}
+
+// putThumb: удачное превью или волна в кэш, неудача — на failTTL
+func (c *mediaCache) putThumb(key string, b []byte) {
+	if len(b) == 0 {
+		c.markFailed(key)
+		return
+	}
+	c.mu.Lock()
+	if len(c.thumb) > 600 {
+		c.thumb = map[string][]byte{}
+	}
+	c.thumb[key] = b
+	c.mu.Unlock()
+}
 
 func fileKey(p string) (string, bool) {
 	st, err := os.Stat(p)
@@ -102,11 +143,11 @@ func runQuiet(ffm string, timeout time.Duration, args ...string) ([]byte, []byte
 	defer cancel()
 	cmd := exec.CommandContext(ctx, ffm, args...)
 	hide(cmd)
-	var out, errb strings.Builder
+	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
 	cmd.Run()
-	return []byte(out.String()), []byte(errb.String())
+	return out.Bytes(), errb.Bytes()
 }
 
 func getMediaInfo(ffm, p string) MediaInfo {
@@ -120,9 +161,16 @@ func getMediaInfo(ffm, p string) MediaInfo {
 	if hit {
 		return withMediaError(mi)
 	}
+	if mcache.failedRecently(key) {
+		return withMediaError(MediaInfo{Size: fileSize(p)})
+	}
 	_, e := runQuiet(ffm, 20*time.Second, "-hide_banner", "-i", p)
 	mi = parseMediaInfo(string(e))
 	mi.Size = fileSize(p)
+	if mi.VCodec == "" && mi.ACodec == "" {
+		mcache.markFailed(key)
+		return withMediaError(mi)
+	}
 	mcache.mu.Lock()
 	if len(mcache.info) > 2000 {
 		mcache.info = map[string]MediaInfo{}
@@ -153,6 +201,9 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 	mcache.mu.Unlock()
 	if hit {
 		return b
+	}
+	if mcache.failedRecently(key) {
+		return nil
 	}
 
 	mi := getMediaInfo(ffm, p)
@@ -189,35 +240,51 @@ func makeThumb(ffm, p string, at float64, w int) []byte {
 			"-filter_complex", fmt.Sprintf("[0:a:0]showwavespic=s=%[1]dx%[2]d:colors=0xe9b872[w];color=c=0x151518:s=%[1]dx%[2]d[bg];[bg][w]overlay=shortest=1:format=auto,format=yuvj420p", w, h),
 			"-frames:v", "1", "-c:v", "mjpeg", "-q:v", "4", "-f", "image2pipe", "-")
 	}
-	mcache.mu.Lock()
-	if len(mcache.thumb) > 600 {
-		mcache.thumb = map[string][]byte{}
-	}
-	mcache.thumb[key] = b
-	mcache.mu.Unlock()
+	mcache.putThumb(key, b)
 	return b
 }
 
 // wavePeaks: из звука s16le, 8000 Гц, моно делает по байту на каждые 10 мс: самая громкая точка отрезка, 255 — самая громкая в файле.
 func wavePeaks(pcm []byte) []byte {
+	return wavePeaksFrom(bytes.NewReader(pcm))
+}
+
+// wavePeaksFrom: то же, но читает звук по ходу, не держа его целиком в памяти (час звука — 57 МБ)
+func wavePeaksFrom(r io.Reader) []byte {
 	const bin = 80 // отсчётов на значение: 8000 / 100
-	n := len(pcm) / 2
-	if n == 0 {
-		return nil
-	}
-	peaks := make([]int, (n+bin-1)/bin)
-	top := 1
-	for i := 0; i < n; i++ {
-		v := int(int16(uint16(pcm[2*i]) | uint16(pcm[2*i+1])<<8))
-		if v < 0 {
-			v = -v
+	var peaks []int
+	top, cur, k := 1, 0, 0 // cur — пик текущего отрезка, k — отсчётов в нём
+	buf := make([]byte, 64<<10)
+	var odd []byte // байт от отсчёта, разрезанного между чтениями
+	for {
+		n, err := r.Read(buf)
+		chunk := buf[:n]
+		if len(odd) > 0 && n > 0 {
+			chunk = append(odd, chunk...)
+			odd = nil
 		}
-		if v > peaks[i/bin] {
-			peaks[i/bin] = v
-			if v > top {
-				top = v
+		for i := 0; i+1 < len(chunk); i += 2 {
+			v := int(int16(uint16(chunk[i]) | uint16(chunk[i+1])<<8))
+			if v < 0 {
+				v = -v
+			}
+			cur = max(cur, v)
+			if k++; k == bin {
+				peaks, top, cur, k = append(peaks, cur), max(top, cur), 0, 0
 			}
 		}
+		if len(chunk)%2 == 1 {
+			odd = []byte{chunk[len(chunk)-1]}
+		}
+		if err != nil {
+			break
+		}
+	}
+	if k > 0 {
+		peaks, top = append(peaks, cur), max(top, cur)
+	}
+	if len(peaks) == 0 {
+		return nil
 	}
 	out := make([]byte, len(peaks))
 	for i, v := range peaks {
@@ -239,17 +306,24 @@ func makeWave(ffm, p string) []byte {
 	if hit {
 		return b
 	}
-	thumbSem <- struct{}{}
-	defer func() { <-thumbSem }()
-	pcm, _ := runQuiet(ffm, 3*time.Minute, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", p,
-		"-map", "0:a:0", "-ac", "1", "-ar", "8000", "-c:a", "pcm_s16le", "-f", "s16le", "-")
-	b = wavePeaks(pcm)
-	mcache.mu.Lock()
-	if len(mcache.thumb) > 600 {
-		mcache.thumb = map[string][]byte{}
+	if mcache.failedRecently(key) {
+		return nil
 	}
-	mcache.thumb[key] = b
-	mcache.mu.Unlock()
+	waveSem <- struct{}{}
+	defer func() { <-waveSem }()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, ffm, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", p,
+		"-map", "0:a:0", "-ac", "1", "-ar", "8000", "-c:a", "pcm_s16le", "-f", "s16le", "-")
+	hide(cmd)
+	if out, err := cmd.StdoutPipe(); err == nil && cmd.Start() == nil {
+		b = wavePeaksFrom(out)
+		cmd.Wait()
+	}
+	if ctx.Err() != nil { // не успели — неполная волна не нужна
+		b = nil
+	}
+	mcache.putThumb(key, b)
 	return b
 }
 

@@ -112,6 +112,52 @@ func TestConvertCanceledKeepsResult(t *testing.T) {
 	}
 }
 
+// «перезаписать» и ошибка ffmpeg: прошлый результат цел, временного файла не осталось
+func TestConvertFailedOverwriteKeepsResult(t *testing.T) {
+	dir := t.TempDir()
+	src, dst := filepath.Join(dir, "a.mov"), filepath.Join(dir, "a.mp4")
+	os.WriteFile(src, []byte("not a video"), 0o644)
+	if err := os.WriteFile(dst, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{files: []*FileState{{Path: src, Dst: dst, Status: "pending", f: formats["mp4"]}}}
+	s.convert(context.Background(), 0, StartReq{Format: "mp4", Overwrite: true}, filepath.Join(dir, "нет-ffmpeg.exe"))
+	if s.files[0].Status != "error" {
+		t.Errorf("статус %q", s.files[0].Status)
+	}
+	if b, _ := os.ReadFile(dst); string(b) != "old" {
+		t.Errorf("прошлый результат испорчен: %q", b)
+	}
+	if fileExists(partPath(dst)) {
+		t.Error("остался временный файл")
+	}
+}
+
+// «перезаписать» с настоящим ffmpeg: новый результат встаёт на место старого
+func TestConvertOverwriteReplaces(t *testing.T) {
+	ffm, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg не найден")
+	}
+	dir := t.TempDir()
+	src, dst := filepath.Join(dir, "a.wav"), filepath.Join(dir, "a.mp3")
+	if out, err := exec.Command(ffm, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=d=2", src).CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	os.WriteFile(dst, []byte("old"), 0o644)
+	s := &Server{}
+	s.run(StartReq{Files: []string{src}, Format: "mp3", ABR: 128, SameDir: true, Overwrite: true, Jobs: 1}, ffm)
+	if fs := s.files[0]; fs.Status != "ok" {
+		t.Fatalf("%s %s", fs.Status, fs.Hint)
+	}
+	if d := getMediaInfo(ffm, dst).Dur; d < 1.5 {
+		t.Errorf("результат не заменён, длительность %.2f", d)
+	}
+	if fileExists(partPath(dst)) {
+		t.Error("остался временный файл")
+	}
+}
+
 // из одновременных запусков проходит ровно один
 func TestBeginOnlyOnce(t *testing.T) {
 	s := &Server{ffmpeg: "ffmpeg", files: []*FileState{{Status: "ok"}}}

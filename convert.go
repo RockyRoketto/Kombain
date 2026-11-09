@@ -112,6 +112,13 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 			return
 		}
 	}
+	// перезапись: пишем рядом во временный файл, старый результат заменяем только после удачи
+	out := dst
+	if f.Kind != "seq" && hasResult(dst) {
+		out = partPath(dst)
+		os.Remove(out) // огрызок от прошлого сбоя
+		defer os.Remove(out)
+	}
 	// монтаж сравнивать с исходниками незачем: он нужен в любом случае
 	small := req.Format == "small" && project == nil
 	expect := srcSize // сколько весит то, что кодируем
@@ -144,21 +151,21 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	}
 	encode := func(req StartReq, safe bool) (string, error) {
 		if twoPass {
-			return s.encodeTarget(ctx, i, ffm, f, req, src, dst, si, safe, r, target)
+			return s.encodeTarget(ctx, i, ffm, f, req, src, out, si, safe, r, target)
 		}
-		return s.runFF(ctx, i, ffm, buildArgs(f, req, src, dst, si, safe, nil), si.dur, "", 0, 1)
+		return s.runFF(ctx, i, ffm, buildArgs(f, req, src, out, si, safe, nil), si.dur, "", 0, 1)
 	}
 
 	stderr, err := encode(req, false)
 	if err != nil && ctx.Err() == nil && (f.moving() || f.Kind == "gif") && !strings.Contains(stderr, "Error opening input") {
-		os.Remove(dst)
+		os.Remove(out)
 		s.logT("log.retry", name, errSummary(stderr, err, 6))
 		s.set(i, func(fs *FileState) { fs.Pct = 0; fs.Msg = tr("conv.retry") })
 		rq := req
 		rq.Overwrite = true // файл от первой попытки уже удалён
 		stderr, err = encode(rq, true)
 	}
-	if err == nil && ctx.Err() == nil && target > 0 && !twoPass && fileSize(dst) > target {
+	if err == nil && ctx.Err() == nil && target > 0 && !twoPass && fileSize(out) > target {
 		s.set(i, func(fs *FileState) {
 			fs.Pct = 0
 			fs.Msg = tr("conv.refit")
@@ -170,12 +177,12 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 	}
 
 	if ctx.Err() != nil {
-		removeResult(f, src, dst)
+		removeResult(f, src, out)
 		s.set(i, func(fs *FileState) { fs.Status = "canceled"; fs.Msg = "" })
 		return
 	}
 	if err != nil {
-		removeResult(f, src, dst)
+		removeResult(f, src, out)
 		short, hint := errSummary(stderr, err, 2), friendlyErr(stderr, err)
 		s.set(i, func(fs *FileState) { fs.Status = "error"; fs.Msg = short; fs.Hint = hint })
 		s.logT("log.errorLong", name, errSummary(stderr, err, 8))
@@ -198,11 +205,18 @@ func (s *Server) convert(ctx context.Context, i int, req StartReq, ffm string) {
 		s.addLog("[ok] %s", filepath.Base(dst))
 		return
 	}
-	size := fileSize(dst)
+	size := fileSize(out)
 	if small && !trimmed && size >= srcSize { // обрезанный кусок нужен, даже если не стал легче
-		os.Remove(dst)
+		os.Remove(out)
+		os.Remove(dst) // как и раньше: при перезаписи прошлый результат тоже убираем
 		s.kept(i, tr("conv.noGain"))
 		return
+	}
+	if out != dst {
+		if err := os.Rename(out, dst); err != nil { // например, старый файл открыт в другой программе
+			fail(err)
+			return
+		}
 	}
 	msg := ""
 	if twoPass && r.height != "" && r.height != num(req.Height) {

@@ -27,7 +27,7 @@ async function startBatch(paths, base, over) {
   const r = await api('start', lastReq);
   startSent = false;
   if (r.error) say('err', t('start.failed'), r.error);
-  else { snap.running = true; joined = r.joined || {}; }   // точное состояние придёт со следующим опросом
+  else { snap.running = true; joined = r.joined || {}; pollSoon(); }   // точное состояние придёт со следующим опросом
 }
 // повтор из всплывашки знает только первый кадр видео: возвращаем остальные
 function withFrames(paths) {
@@ -49,7 +49,7 @@ $('openOut').onclick = async () => { const r = await api('open-output'); if (r.e
 $('ffDl').onclick = async () => {
   ffDismissed = null;
   const r = await api('download-ffmpeg');
-  if (r.error) alert(r.error);
+  if (r.error) alert(r.error); else pollSoon();
 };
 const ffDismiss = () => { ffDismissed = (snap.ffv || {}).latest || ''; ffBanner(snap); };
 $('ffLater').onclick = ffDismiss;

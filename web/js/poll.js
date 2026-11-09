@@ -61,6 +61,12 @@ async function poll() {
     if (bottom) log.scrollTop = log.scrollHeight;
     updateButtons(); render(); bRender(); mtRender();
   }
-  setTimeout(poll, 700);
+  // в простое опрашиваем реже, в свёрнутом окне ещё реже; после действий pollSoon() спрашивает сразу
+  const active = snap.running || pending > 0 || !!(snap.dl && snap.dl.active);
+  clearTimeout(pollTimer);   // если опросов шло два (pollSoon во время ответа), цепочка остаётся одна
+  pollTimer = setTimeout(poll, active ? 700 : document.hidden ? 3000 : 1500);
 }
+let pollTimer = 0;
+function pollSoon() { clearTimeout(pollTimer); pollTimer = setTimeout(poll, 50); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollSoon(); });
 

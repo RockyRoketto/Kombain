@@ -62,6 +62,11 @@ func removeResult(f Format, src, dst string) {
 	os.Remove(dst)
 }
 
+// partPath: временный файл рядом с результатом при перезаписи. Расширение то же, по нему ffmpeg выбирает формат.
+func partPath(dst string) string {
+	return filepath.Join(filepath.Dir(dst), "~"+filepath.Base(dst))
+}
+
 // hasResult: результат уже есть. Для файла это непустой файл, для папки кадров — непустая папка.
 func hasResult(p string) bool {
 	st, err := os.Stat(p)

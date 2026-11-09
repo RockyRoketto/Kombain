@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+	"testing/iotest"
+)
 
 func TestWavePeaks(t *testing.T) {
 	if got := wavePeaks(nil); got != nil {
@@ -14,5 +18,9 @@ func TestWavePeaks(t *testing.T) {
 	got := wavePeaks(pcm)
 	if len(got) != 3 || got[0] != 0 || got[1] != 255 || got[2] != 127 {
 		t.Errorf("пики: %v", got)
+	}
+	// звук приходит из ffmpeg кусками, отсчёт может разрезаться между чтениями
+	if byOne := wavePeaksFrom(iotest.OneByteReader(bytes.NewReader(pcm))); !bytes.Equal(byOne, got) {
+		t.Errorf("по байту: %v, целиком: %v", byOne, got)
 	}
 }

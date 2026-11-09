@@ -133,7 +133,7 @@ $('bStart').onclick = async () => {
   const r = await api('banners', {files: bFiles.map(f => f.path), jpgDir, webpDir, autoDirs});
   startSent = false;
   if (r.error) say('err', t('start.failed'), r.error);
-  else { bOut = {jpg: r.jpgDir, webp: r.webpDir}; snap.running = true; }
+  else { bOut = {jpg: r.jpgDir, webp: r.webpDir}; snap.running = true; pollSoon(); }
 };
 async function bDone(s) {
   bSyncDirs();   // папки могли появиться

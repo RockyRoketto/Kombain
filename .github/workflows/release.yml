@@ -38,7 +38,7 @@ jobs:
 
       - name: Ресурсы exe (иконка, версия, манифест)
         run: |
-          go install github.com/tc-hib/go-winres@latest
+          go install github.com/tc-hib/go-winres@v0.3.3
           "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --out rsrc
 
       - name: Сборка
