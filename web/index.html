@@ -317,6 +317,16 @@ __CSS__
             <button class="btn sm" id="mtFrameReset" data-i18n="mt.frameReset" data-i18n-title="mt.frameResetTip"></button>
           </div>
         </details>
+        <details class="mt-sec" data-sec="anim">
+          <summary><span data-i18n="mt.secAnim"></span><em id="mtSumAnim"></em></summary>
+          <div class="mt-tabs mt-anim-sides" id="mtAnimSides">
+            <button class="mt-tab" data-side="i" data-i18n="anim.in"></button>
+            <button class="mt-tab" data-side="o" data-i18n="anim.out"></button>
+          </div>
+          <div class="mt-anim-tiles" id="mtAnimTiles"></div>
+          <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="anim.dur"></span><input type="range" class="vol" id="mtAnimDR" min="0.1" max="5" step="0.05" data-i18n-aria="anim.dur"><input type="number" id="mtAnimD" min="0.1" max="5" step="0.05" data-i18n-aria="anim.dur"></div>
+          <label class="mt-row"><span data-i18n="anim.ease"></span><select id="mtAnimE"></select></label>
+        </details>
         <details class="mt-sec" data-sec="crop">
           <summary><span data-i18n="mt.secCrop"></span><em id="mtSumCrop"></em></summary>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.cropL"></span><input type="range" class="vol" id="mtCropLR" min="0" max="98" step="1" data-i18n-aria="mt.cropL"><input type="number" id="mtCropL" min="0" max="98" step="1" data-i18n-aria="mt.cropL"></div>

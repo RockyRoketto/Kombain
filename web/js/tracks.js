@@ -58,7 +58,7 @@ function fmtTc(x) {
 }
 
 // ---------- отмена и сохранение ----------
-const tkState = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
+const tkState = () => JSON.stringify({tracks: kfTracks(), in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size}))});
 // связь из одного клипа ничего не значит: второй удалён или разрезан отдельно
 function tkTidyLinks() {
   const n = new Map();
@@ -96,10 +96,10 @@ function tkApply(o) {
   tkNext = tkClips().reduce((a, c) => Math.max(a, c.id + 1, (c.link || 0) + 1), tkNext);
   mtSetFiles(o.files || []);
 }
-const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
+const tkFile = () => ({app: 'konvertor9000', v: 1, tracks: kfTracks(), in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => ({path: f.path, size: f.size})), at: tkAt, pps: tkPps, snap: tkSnapOn});
 function tkAutosave() { storeSet(TK_SAVE_KEY, JSON.stringify(Object.assign(tkFile(), {path: tkPath, dirty: tkDirty()}))); }
 // Есть ли несохранённые изменения. Размер файла не считается: он приходит позже, когда файл прочитан.
-const tkWork = () => JSON.stringify({tracks: tkTracks, in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => f.path)});
+const tkWork = () => JSON.stringify({tracks: kfTracks(), in: tkIn, out: tkOut, markers: tkMarkers, canvas: tkCanvas, subs: tkSubs, guides: tkGuides, files: mtFiles.map(f => f.path)});
 let tkSavedWork = '';
 function tkMarkSaved() { tkSavedWork = tkWork(); }
 const tkDirty = () => !!(tkClips().length || mtFiles.length || tkSubs) && tkWork() !== tkSavedWork;
@@ -133,6 +133,7 @@ function tkLoad(o, path) {
       ...(c.part === 'v' || c.part === 'a' ? {part: c.part} : {}),
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),
+      ...kfLoad(c.kf), ...kfAnimLoad(c.anim),
       ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text}, ...more(c, 'nw')} : {}),
     }))}));
   if (!tracks.some(x => x.kind === 'v')) tracks.unshift({kind: 'v', thin: false, clips: []});
@@ -186,6 +187,7 @@ function tkPaint(el, c, tr) {
   const sig = [c.path, c.from, c.len, c.speed, c.reverse, first, last, wave, wave ? tkPps + '/' + tkRowH(tr) : 0].join('|');
   if (el.dataset.sig !== sig) tkPaintBody(el, c, sig, first, last, wave);
   tkPaintMarks(el, c);
+  if (c.kf || el.querySelector('.tk-kfs')) kfPaintClip(el, c);
 }
 function tkPaintBody(el, c, sig, first, last, wave) {
   el.dataset.sig = sig;
@@ -527,7 +529,7 @@ function tkPlace(it, tr, at) {
 // Отделить звук клипа в свой клип на звуковой дорожке. link: номер связи, 0 — без связи.
 function tkAddSound(c, link) {
   const a = Object.assign({}, c, {id: tkNext++, part: 'a'});
-  ['marks', 'x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb'].forEach(key => delete a[key]);
+  ['marks', 'x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete a[key]);
   c.part = 'v';
   if (link) c.link = a.link = link;
   let row = tkTracks.find(x => x.kind === 'a' && tkSpot([{c: a, tr: x}], 0) === 0);
@@ -562,6 +564,8 @@ function tkSplit(c, x, tr) {
   const setMarks = (o, list) => { if (list.length) o.marks = list; else delete o.marks; };
   setMarks(c, c.reverse ? late : early);
   setMarks(right, tkPhoto(c) ? late.map(m => +(m - cut).toFixed(3)) : c.reverse ? early : late);
+  kfSplit(right, cut);
+  if (c.anim) { const {i, o} = c.anim; if (i) c.anim = {i}; else delete c.anim; if (o) right.anim = {o}; else delete right.anim; }   // появление у левой части, исчезание у правой
   delete c.fadeOut; delete right.fadeIn;   // на месте разреза плавности нет: появление остаётся у начала, исчезание у конца
   tr.clips.splice(tr.clips.indexOf(c) + 1, 0, right);
   return right;
@@ -594,6 +598,7 @@ function tkRemove(ripple) {
 }
 // Delete: всё, что выбрано, и клипы, и реплики, одним шагом отмены
 function tkDeleteSel() {
+  if (kfPickDrop()) return;   // выбран ромбик ключа: удаляются ключи в этом месте, а не клип
   if (!tkSel.size && mtCueSel === null && !mtCueMany.size) return;
   const cues = mtCueSel !== null || mtCueMany.size;   // без выбранной реплики нельзя: mtCueDrop взял бы ту, что под линией кадра
   tkDo(() => { tkDrop(false); if (cues) mtCueDrop(); });
@@ -861,6 +866,7 @@ $('tkScroll').addEventListener('pointerdown', e => {
     tkDrag(e, ev => tkSeek(tkTimeAt(ev)), () => {});
     return;
   }
+  if (kfPick && !e.target.closest('.tk-kf')) kfPickSet(null);   // выбранный ромбик снимается щелчком мимо
   if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (mtCueSel !== null || mtCueMany.size)) { mtCueNone(); mtCueLane(); mtCuesFill(); }
   const el = e.target.closest('.tk-clip');
   if (tkTool === 'razor') {
@@ -879,6 +885,12 @@ $('tkScroll').addEventListener('pointerdown', e => {
   if (!c) return;
   const mk = e.target.closest('.tk-mk');
   if (mk) { tkClipMarkDrag(e, c, +mk.dataset.s); return; }
+  const kd = e.target.closest('.tk-kf');
+  if (kd) {
+    if (!tkSel.has(c.id)) { tkSel = new Set(tkIds(c)); tkSelChanged(); }
+    kfClipDrag(e, c, +kd.dataset.t);
+    return;
+  }
   const ids = e.altKey ? [c.id] : tkIds(c);   // Alt берёт один клип из связанной пары
   if (e.ctrlKey || e.metaKey || e.shiftKey) {
     const off = tkSel.has(c.id);

@@ -374,6 +374,7 @@ function mvSetCanvas(next) {
     for (const c of tkClips()) {
       if (!(c.w > 0)) continue;
       const cx = (c.x || 0) + c.w / 2, cy = (c.y || 0) + c.h / 2, w = c.w * a.w * f / b.w, h = c.h * a.h * f / b.h;
+      if (kfOn(c, 'w')) kfSet(c, 'w', c.kf.w.map(k => ({...k, v: +(k.v * a.w * f / b.w).toFixed(6)})));   // ключи ширины вместе с рамкой
       mvSetBox(c, cx - w / 2, cy - h / 2, w, h);
     }
   });
@@ -494,6 +495,7 @@ function mvShow() {
   if (tab !== 'mont' || trs.it) return;
   if (mv.file) return;
   const all = tkClips(), now = performance.now(), x = tkAt;
+  kfPoseAll(x);   // слои с ключами в позу этого момента (keyframes.js)
   mvStage.classList.toggle('canplay', all.length > 0);
   $('mtCtl').classList.toggle('off', !all.length);
   $('mtShot').disabled = !all.length;
@@ -658,6 +660,7 @@ function mvTick(now) {
     else { tkAt = end; mvPause(); return; }
   } else if (now - mv.shownAt > 250 || mvActiveSig(tkAt) !== mv.sig) mvShow();
   else for (const {c, e} of mv.live) mvSync(e, c, now);
+  for (const tr of tkTracks) if (tr.kind === 'v' && !tr.off) for (const c of tr.clips) if (c.kf && mvUnder(c, tkAt)) { kfPose(c, tkAt); mvPlaceClip(c); }   // ключи на каждом кадре
   mvLook();
   tkDrawHead(true);
 }

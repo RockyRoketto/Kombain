@@ -79,6 +79,8 @@ type Clip struct {
 	ShadowY float64 `json:"shY,omitempty"`
 	ShadowB float64 `json:"shB,omitempty"` // мягкость
 	ShadowC string  `json:"shC,omitempty"` // цвет
+	// Ключевые кадры рамки (keyframes.go). Свойство с ключами берёт значение из них, а не из X, Y, W и Rot.
+	Keys *Keys `json:"kf,omitempty"`
 }
 
 func (c Clip) volume() float64 {
@@ -161,6 +163,12 @@ func (p *Project) fit() {
 			}
 			for _, v := range []*float64{&c.ColBri, &c.ColCon, &c.ColMid, &c.ColSat, &c.ColTemp, &c.ColTint} {
 				*v = min(max(*v, -1), 1)
+			}
+			if c.Keys != nil {
+				c.Keys.fit()
+				if !c.Keys.any() {
+					c.Keys = nil
+				}
 			}
 		}
 	}
@@ -718,20 +726,30 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
 	box := c.Clip
-	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped() || fx) && cw > 0 && ch > 0 {
+	anim := c.Keys.any()
+	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped() || fx || anim) && cw > 0 && ch > 0 {
 		box.X, box.Y, box.W, box.H = tlFitBox(cw, ch, w, h)
 	}
-	if box.W > 0 {
+	anim = anim && box.W > 0
+	var layer kfLayer
+	if anim { // место на кадре ставится позже, на каждом кадре клипа
+		var prep []string
+		prep, layer = kfPrep(box, w, h, boxBg)
+		chain = append(chain, prep...)
+	} else if box.W > 0 {
 		chain = append(chain, tlBoxChain(box, w, h, boxBg)...)
 	} else if cw, ch := c.size(); cw != w || ch != h {
 		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, boxBg))
 	}
-	if fx {
+	effects := func() {
 		chain = append(chain, tlFxChain(c, w, h, work)...)
 		if bg == "black" { // под слоем ничего нет: прозрачное становится чёрным
 			chain = append(chain, "premultiply=inplace=1")
 		}
 		chain = append(chain, "format="+pix)
+	}
+	if fx && !anim {
+		effects()
 	}
 	rate := rateStr(fps)
 	chain = append(chain, "setsar=1", "fps="+rate)
@@ -745,6 +763,13 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 		"tpad=stop_mode=clone:stop_duration="+secs(float64(c.frames()+1)/fps),
 		fmt.Sprintf("trim=end_frame=%d", c.frames()),
 		"setpts=PTS-STARTPTS")
+	if anim {
+		box.Keys = c.Keys
+		chain = append(chain, kfPlace(tlClip{Clip: box, montClip: c.montClip, head: c.head}, layer, w, h, fps)...)
+		if fx {
+			effects()
+		}
+	}
 	// у нижней дорожки под клипом чёрный фон, у верхней слой уходит в прозрачность
 	chain = append(chain, tlFades(c, fps, "fade", "setpts", bg != "black")...)
 	return strings.Join(chain, ",")

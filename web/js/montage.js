@@ -364,7 +364,7 @@ const mtSame = (list, get) => { const v = get(list[0]); return list.every(c => g
 const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
 const MT_COLOR = [['mtColBri', 'cBri'], ['mtColCon', 'cCon'], ['mtColMid', 'cMid'], ['mtColSat', 'cSat'], ['mtColTemp', 'cTemp'], ['mtColTint', 'cTint']];
-function mtFramePanel() { mtTextFill(); mtFrameFill(); mtTabs(); }
+function mtFramePanel() { mtTextFill(); mtFrameFill(); mtTabs(); kfDiamonds(); kfAnimFill(); }
 function mtSoundPanel() { mtSoundFill(); mtTabs(); }
 function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
@@ -510,7 +510,7 @@ $('mtCropMouse').onclick = () => {
 };
 $('mtFrameReset').onclick = () => {
   const c = mtFrameOne();
-  if (c) tkDo(() => ['x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb'].forEach(key => delete c[key]));
+  if (c) tkDo(() => ['x', 'y', 'w', 'h', 'rot', 'cl', 'ct', 'cr', 'cb', 'kf', 'anim'].forEach(key => delete c[key]));
 };
 const mtFadeRow = (id, key, list) => mtRow(id, .02, v => list().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, 0), tkLen(c)), 2), 0)));
 mtFadeRow('mtFadeIn', 'fadeIn', mtFrameClips);
@@ -799,7 +799,7 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
-  ...Object.fromEntries(['rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
+  ...Object.fromEntries(['kf', 'rot', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };
