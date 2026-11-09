@@ -1054,6 +1054,7 @@ const TK_CTRL_KEYS = {
     tkSel = new Set(tkClips().map(c => c.id)); tkSelChanged();
   },
   KeyS: () => mtProjectSave(false),
+  KeyF: () => { $('mtFind').focus(); $('mtFind').select(); },   // поиск по настройкам инспектора
 };
 document.addEventListener('keydown', e => {
   if (tab !== 'mont' || document.querySelector('.modal:not(.hide)') || tkTyping(e.target) || e.altKey) return;

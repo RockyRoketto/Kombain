@@ -105,9 +105,7 @@ function mtCueDown(e, el) {
   }, () => {
     if (moved) tkCommit(before);
     else {
-      if (inGroup) mtCueSelect(i, false);
-      if (mv.playing) mvPause();
-      tkSeek(c.a + 1e-3);
+      if (inGroup) mtCueSelect(i, false);   // курсор не двигаем, как и при выборе видеокуска
     }
     mtCuesFill();
   });

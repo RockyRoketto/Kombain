@@ -366,13 +366,21 @@ function mtIndexBuild() {
     });
   });
 }
+// Строка внутри скрытого тела, которое открывает тумблер перед ним (тень выключена): находится, щелчок подсвечивает тумблер.
+// Любое другое скрытие (нет нужного клипа, другой вид слоя) по-прежнему прячет строку из поиска.
+function mtHiddenBy(el) {
+  const h = el.closest('.hide:not(.mt-pane)');
+  if (!h) return null;
+  const sw = h.previousElementSibling;
+  return sw && sw.matches('label.sw') && !sw.closest('.hide:not(.mt-pane)') ? sw : false;
+}
 function mtFind() {
   const q = mtNorm($('mtFind').value).split(/\s+/).filter(Boolean), box = $('mtHits');
   box.classList.toggle('hide', !q.length);
   if (!q.length) return;
   if (!mtIndex) mtIndexBuild();
   const has = mtHas();
-  const hits = mtIndex.filter(x => q.every(w => x.hay.includes(w)) && !(x.el || x.d).closest('.hide:not(.mt-pane)'))
+  const hits = mtIndex.filter(x => q.every(w => x.hay.includes(w)) && mtHiddenBy(x.el || x.d) !== false)
     .sort((a, b) => !has[a.tab] - !has[b.tab]).slice(0, 12);
   box.innerHTML = hits.length ? '' : `<div class="note">${esc(t('mt.findNone'))}</div>`;
   hits.forEach(x => {
@@ -385,7 +393,7 @@ function mtFind() {
     b.onclick = () => {
       mtTabGo(x.tab);
       x.d.open = true;
-      const el = x.el || x.d;
+      const el = mtHiddenBy(x.el || x.d) || x.el || x.d;
       el.scrollIntoView({block: 'center'});
       el.classList.remove('mt-flash'); el.offsetWidth; el.classList.add('mt-flash');
       $('mtFind').value = ''; box.classList.add('hide');

@@ -94,8 +94,8 @@ func TestKeysCombos(t *testing.T) {
 	fx := Clip{Path: white, X: 0.25, Y: 0.25, W: 0.5, H: 0.5, Blur: 0.01, ShadowA: 0.5, ShadowX: 0.02, Keys: move}
 	m.render(tracks([]Clip{{Path: black}}, []Clip{fx}), "mp4")
 	m.render(tracks([]Clip{fx}), "webm")
-	if a := m.alphaAt(m.render(tracks([]Clip{{Path: white, X: 0.25, Y: 0.25, W: 0.5, H: 0.5, Keys: move}}), "png"), 0); a != 255 {
-		t.Errorf("PNG: середина непрозрачна, а прозрачность %d", a)
+	if a := m.alphaAt(m.render(tracks([]Clip{{Path: white, X: 0.25, Y: 0.25, W: 0.5, H: 0.5, Keys: move}}), "prores4444"), 0); a != 255 {
+		t.Errorf("prores4444: середина непрозрачна, а прозрачность %d", a)
 	}
 }
 
