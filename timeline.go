@@ -81,6 +81,9 @@ type Clip struct {
 	ShadowC string  `json:"shC,omitempty"` // цвет
 	// Ключевые кадры рамки (keyframes.go). Свойство с ключами берёт значение из них, а не из X, Y, W и Rot.
 	Keys *Keys `json:"kf,omitempty"`
+	// Переходы на краях (transitions.go): TrIn — из соседа слева или из пустоты, TrOut — в пустоту
+	TrIn  *Trans `json:"trIn,omitempty"`
+	TrOut *Trans `json:"trOut,omitempty"`
 }
 
 func (c Clip) volume() float64 {
@@ -170,6 +173,7 @@ func (p *Project) fit() {
 					c.Keys = nil
 				}
 			}
+			c.TrIn, c.TrOut = c.TrIn.fit(), c.TrOut.fit()
 		}
 	}
 }
@@ -211,10 +215,12 @@ type tlClip struct {
 	Clip
 	montClip
 	photo      bool
-	start, end int // границы на дорожке, в кадрах
-	whole      int // длина клипа в кадрах до меток вывода: плавность считается от неё
-	head       int // сколько кадров клипа срезала метка начала
-	input      int // номер входа ffmpeg
+	start, end int    // границы на дорожке, в кадрах
+	whole      int    // длина клипа в кадрах до меток вывода: плавность считается от неё
+	head       int    // сколько кадров клипа срезала метка начала
+	input      int    // номер входа ffmpeg
+	tin, tout  tlEdge // переходы на краях, см. tlTransitions
+	pad        int    // сколько кадров стоп-кадра в начале: на стык не хватило файла
 }
 
 func (c tlClip) frames() int { return c.end - c.start }
@@ -422,6 +428,7 @@ func tlPlan(tracks [][]tlClip, p Project, f Format) (srcInfo, error) {
 	if err != nil {
 		return srcInfo{}, err
 	}
+	tlTransitions(tracks, fps)
 	var anyAudio, anyVideo, alpha, deep bool
 	keep := tlKeepsAlpha(f)
 	var first string
@@ -565,16 +572,27 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 			}
 		}
 		var join []string
-		gap := func(n int) {
-			label := fmt.Sprintf("[g%d_%d]", l, len(join))
+		seq := 0
+		name := func(s string) string {
+			seq++
+			return fmt.Sprintf("[%s%d_%d]", s, l, seq)
+		}
+		empty := func(n int) string { // пустой кусок: фон дорожки
+			label := name("g")
 			chain := []string{fmt.Sprintf("color=c=%s:s=%dx%d:r=%s", bg, w, h, rateStr(fps))}
 			if pix != "" {
 				chain = append(chain, "format="+pix)
 			}
 			graph = append(graph, strings.Join(append(chain, fmt.Sprintf("trim=end_frame=%d", n)), ",")+label)
-			join = append(join, label)
+			return label
 		}
-		pos, first := 0, 0
+		xfade := func(a, b, kind string, d, off int) string {
+			label := name("x")
+			graph = append(graph, fmt.Sprintf("%s%sxfade=transition=%s:duration=%s:offset=%s%s", a, b, kind, secs(float64(d)/fps), secs(float64(off)/fps), label))
+			return label
+		}
+		// run: длина последнего куска склейки в кадрах; клипы со стыком-переходом сливаются в один кусок
+		pos, first, run := 0, 0, 0
 		for _, c := range layer {
 			if !c.si.video {
 				continue
@@ -583,15 +601,30 @@ func tlVideoGraph(tracks [][]tlClip, w, h int, fps float64, total int, alpha, de
 				pos, first = c.start, c.start
 			}
 			if c.start > pos {
-				gap(c.start - pos)
+				join = append(join, empty(c.start-pos))
 			}
-			label := fmt.Sprintf("[c%d_%d]", l, len(join))
+			label := name("c")
 			graph = append(graph, fmt.Sprintf("[%d:v:0]%s%s", c.input, tlClipChain(c, w, h, fps, pix, bg, bottom && !keep), label))
-			join = append(join, label)
+			n := c.shown()
+			if c.tin.n > 0 && !c.tin.cut {
+				label = xfade(empty(c.tin.n), label, c.tin.kind, c.tin.n, 0)
+			}
+			if last := len(join) - 1; c.tin.cut && last >= 0 {
+				d := c.tin.span()
+				join[last] = xfade(join[last], label, c.tin.kind, d, run-d)
+				run += n - d
+			} else {
+				join = append(join, label)
+				run = n
+			}
+			if c.tout.n > 0 && !c.tout.cut {
+				last := len(join) - 1
+				join[last] = xfade(join[last], empty(c.tout.n), c.tout.kind, c.tout.n, run-c.tout.n)
+			}
 			pos = c.end
 		}
 		if (bottom || blend != "") && pos < total { // blend ждёт кадры обоих входов, поэтому слой с режимом идёт всю длину монтажа
-			gap(total - pos)
+			join = append(join, empty(total-pos))
 		}
 		out := fmt.Sprintf("[t%d]", l)
 		if len(layers) == 1 {
@@ -759,13 +792,17 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	if c.Speed != 1 {
 		chain = append(chain, "setpts=PTS/"+strconv.FormatFloat(c.Speed, 'f', -1, 64), "fps="+rate)
 	}
+	pad := ""
+	if c.pad > 0 { // начало стыка, на которое не хватило файла
+		pad = "start_mode=clone:start_duration=" + secs(float64(c.pad)/fps) + ":"
+	}
 	chain = append(chain,
-		"tpad=stop_mode=clone:stop_duration="+secs(float64(c.frames()+1)/fps),
-		fmt.Sprintf("trim=end_frame=%d", c.frames()),
+		"tpad="+pad+"stop_mode=clone:stop_duration="+secs(float64(c.shown()+1)/fps),
+		fmt.Sprintf("trim=end_frame=%d", c.shown()),
 		"setpts=PTS-STARTPTS")
 	if anim {
 		box.Keys = c.Keys
-		chain = append(chain, kfPlace(tlClip{Clip: box, montClip: c.montClip, head: c.head}, layer, w, h, fps)...)
+		chain = append(chain, kfPlace(tlClip{Clip: box, montClip: c.montClip, head: c.head - c.tin.ext()}, layer, w, h, fps)...)
 		if fx {
 			effects()
 		}
@@ -875,6 +912,13 @@ func tlFades(c tlClip, fps float64, fade, setpts string, alpha bool) []string {
 	head := float64(c.head) / fps
 	shownTo := head + float64(c.frames())/fps
 	in, out := min(c.FadeIn, whole), min(c.FadeOut, whole)
+	if c.tin.n > 0 { // край с переходом: плавность заменяет он
+		in = 0
+	}
+	if c.tout.n > 0 {
+		out = 0
+	}
+	shift := float64(c.head-c.tin.ext()) / fps // у стыка клип начинается раньше своего места
 	wantIn, wantOut := in > head, out > 0 && whole-out < shownTo
 	if !wantIn && !wantOut {
 		return nil
@@ -884,8 +928,8 @@ func tlFades(c tlClip, fps float64, fade, setpts string, alpha bool) []string {
 		tail = ":alpha=1"
 	}
 	var chain []string
-	if head > 0 {
-		chain = append(chain, fmt.Sprintf("%s=PTS+%s/TB", setpts, secs(head)))
+	if shift != 0 {
+		chain = append(chain, fmt.Sprintf("%s=PTS+(%s)/TB", setpts, secs(shift)))
 	}
 	if wantIn {
 		chain = append(chain, fmt.Sprintf("%s=t=in:st=0:d=%s%s", fade, secs(in), tail))
@@ -893,7 +937,7 @@ func tlFades(c tlClip, fps float64, fade, setpts string, alpha bool) []string {
 	if wantOut {
 		chain = append(chain, fmt.Sprintf("%s=t=out:st=%s:d=%s%s", fade, secs(whole-out), secs(out), tail))
 	}
-	if head > 0 {
+	if shift != 0 {
 		chain = append(chain, setpts+"=PTS-STARTPTS")
 	}
 	return chain
@@ -971,13 +1015,17 @@ func tlAudioGraph(tracks [][]tlClip, fps float64, total int) []string {
 			}
 			chain = append(chain, atempoChain(c.Speed)...)
 			chain = append(chain,
-				fmt.Sprintf("atrim=end_sample=%d", samples(c.frames())),
+				fmt.Sprintf("atrim=end_sample=%d", samples(c.shown()-c.pad)),
 				"asetpts=PTS-STARTPTS")
+			if c.pad > 0 { // начало стыка, на которое не хватило файла: тишина
+				chain = append(chain, fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.pad)))
+			}
 			if v := c.volume(); v != 1 {
 				chain = append(chain, "volume="+strconv.FormatFloat(v, 'f', 4, 64))
 			}
 			chain = append(chain, tlFades(c, fps, "afade", "asetpts", false)...)
-			chain = append(chain, fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.start)))
+			chain = append(chain, tlTransFades(c, fps)...)
+			chain = append(chain, fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.start-c.tin.ext())))
 			label := fmt.Sprintf("[s%d]", len(mix))
 			graph = append(graph, fmt.Sprintf("[%d:a:0]%s%s", c.input, strings.Join(chain, ","), label))
 			mix = append(mix, label)
@@ -999,7 +1047,7 @@ func tlAudioGraph(tracks [][]tlClip, fps float64, total int) []string {
 func tlSoundsMeet(list []tlClip) bool {
 	for i, a := range list {
 		for _, b := range list[i+1:] {
-			if a.start < b.end && b.start < a.end {
+			if a.start-a.tin.ext() < b.end+b.tout.ext() && b.start-b.tin.ext() < a.end+a.tout.ext() { // со стыками-переходами
 				return true
 			}
 		}
