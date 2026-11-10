@@ -180,7 +180,7 @@ function fvPaint() {
   if (L) {
     const out = {
       tab: fvDraw(L, 32, fvBrOpt(false)), tabDark: fvDraw(D || L, 32, fvBrOpt(true)),
-      serp: fvDraw(L, 96, fvBrOpt(false)),
+      serp: fvDraw(L, 96, fvBrOpt(false)), serpDark: fvDraw(D || L, 96, fvBrOpt(true)),
       ios: fvDraw(L, 180, fvIosOpt()), and: fvDraw(L, 192, fvAndOpt()), splash: fvDraw(L, 512, fvAndOpt()),
     };
     fvOut = out;
