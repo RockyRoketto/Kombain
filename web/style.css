@@ -697,10 +697,12 @@
   #mtShapeMenu button{width:32px;height:30px;padding:0;justify-content:center}
   #mtShapeMenu svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   /* два инструмента рисования — вкладки одного сегмента: «Фигуры и перо» и «Правка вектора» */
-  .mt-seg{display:flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line2);border-radius:9px}
-  .mt-tab{display:flex;align-items:center;border-radius:7px}
-  .mt-tab.on{background:rgba(var(--acc-rgb),.14);box-shadow:inset 0 0 0 1px rgba(var(--acc-rgb),.45)}
-  .mt-tab+.mt-tab{margin-left:2px}
+  #mtPenMenu{display:flex;gap:2px;min-width:0}
+  #mtPenMenu button{width:32px;height:30px;padding:0;justify-content:center}
+  #mtPenMenu svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #mtPenMenu .on{color:var(--acct)}
+  /* Градиент: курсор «двигать» (крестик со стрелками) на ручках, поверх курсора любого инструмента */
+  #mtStage .mv-gh,#mtStage .mv-gh *{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='3' d='M8 1v14M1 8h14M6 3l2-2 2 2M6 13l2 2 2-2M3 6L1 8l2 2M13 6l2 2-2 2'/%3E%3Cpath stroke='%23fff' stroke-width='1.2' d='M8 1v14M1 8h14M6 3l2-2 2 2M6 13l2 2 2-2M3 6L1 8l2 2M13 6l2 2-2 2'/%3E%3C/svg%3E") 8 8,move}
   .ctl-b.mt-more{width:16px;margin-left:-4px}
   .ctl-b.mt-more svg{width:12px;height:12px}
   #mtShapeMenu .on{color:var(--acct)}

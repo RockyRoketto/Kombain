@@ -430,7 +430,7 @@ function tkMarkDrag(e, which) {
   });
 }
 function tkBar() {
-  $('tkToolV').classList.toggle('on', tkTool === 'select');
+  $('tkToolV').classList.toggle('on', tkTool === 'select' && !(typeof mtToolBusy === 'function' && mtToolBusy()));
   $('tkToolC').classList.toggle('on', tkTool === 'razor');
   $('tkSnapBtn').classList.toggle('on', tkSnapOn);
   const sel = tkSelected(), linked = sel.some(c => c.link), tip = t(linked || !tkCanLink(sel) ? 'tk.unlink' : 'tk.link');

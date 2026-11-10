@@ -20,8 +20,19 @@ function mtGradUv(c, p) {
   const {d, b, a, cx, cy} = mtGradAxis(c), [x, y] = mtRotP(p[0], p[1], -a, cx, cy);
   return [(x / d.w - b.x) / b.w, (y / d.h - b.y) / b.h];
 }
+// Пока ручки на кадре, «Градиент» — выбранный инструмент в панели вместо «Выбор»
+var mtGradOn = false;
+function mtGradTool(on) {
+  if (on === mtGradOn) return;
+  mtGradOn = on;
+  $('mtGradTool').classList.toggle('hide', !on);
+  $('mtGradTool').classList.toggle('on', on);
+  mvStage.classList.toggle('mv-grading', on);
+  tkBar();
+}
 function mtGradDraw() {
   const g = mtGradClip();
+  mtGradTool(!!g);
   if (!g) { if (mvGrad.innerHTML) mvGrad.innerHTML = ''; return; }
   Object.assign(mvGrad.style, {left: mvCv.offsetLeft + 'px', top: mvCv.offsetTop + 'px', width: mvCv.offsetWidth + 'px', height: mvCv.offsetHeight + 'px'});
   mvGrad.setAttribute('viewBox', `0 0 ${mvCv.offsetWidth} ${mvCv.offsetHeight}`);

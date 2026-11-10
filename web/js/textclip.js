@@ -152,6 +152,7 @@ function mtTextTool(on) {
   if (on) { mtShapeTool(false); mtPenTool(false); mtPtsTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
   mvStage.classList.toggle('mv-texting', on);
   $('mtText').classList.toggle('on', on);
+  tkBar();
 }
 $('mtText').onclick = () => mtTextTool(!mtTextOn);
 // перехват раньше обработчиков вьюпорта: нажатие не выбирает и не двигает слой

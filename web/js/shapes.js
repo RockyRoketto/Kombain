@@ -530,23 +530,59 @@ function mtShapeFitWorld(c, x, world) {
 }
 
 let mtPenOn = false, mtPen = null;   // mtPen: {pts, hover} — путь, который сейчас рисуют
+// Кнопка «Перо» — выбор из двух инструментов: перо и правка вектора; показывает последний выбранный
+let mtPenMode = 'pen';
+try { if (localStorage.getItem('kb.penMode') === 'edit') mtPenMode = 'edit'; } catch (e) {}
+const MT_PEN_ICONS = {
+  pen: '<path d="M12 3l6 8-6 10-6-10zM12 3v8"/><circle cx="12" cy="13" r="1.6"/>',
+  edit: '<path d="M6 3v13.5l3.6-3.4 2.5 5.6 2.4-1.1-2.5-5.4H17.5z"/><rect x="16.5" y="16.5" width="4" height="4" rx=".6"/>',
+};
 function mtPenTool(on) {
   if (on === mtPenOn) return;
   mtPenOn = on;
-  if (on) { mtTextTool(false); mtShapeTool(false); mtPtsTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
+  if (on) { mtPenMode = 'pen'; mtTextTool(false); mtShapeTool(false); mtPtsTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
   else mtPenEnd(false);
   mvStage.classList.toggle('mv-pen', on);
-  $('mtPen').classList.toggle('on', on);
   mtSegSync();
   mtPtsCls();
   mtPtsDraw();
 }
-// Рисование («Фигуры и перо») и «Правка вектора» — две вкладки одного сегмента; подсвечена та, чей инструмент включён
-function mtSegSync() {
-  $('mtTabDraw').classList.toggle('on', mtShapeOn || mtPenOn);
-  $('mtTabEdit').classList.toggle('on', mtPtsOn);
+// Подсветка кнопок рисования и «Выбор» в панели: включён ровно один инструмент
+function mtSegSync(init) {
+  const edit = mtPenMode === 'edit';
+  $('mtPenIcon').innerHTML = MT_PEN_ICONS[mtPenMode];
+  $('mtPen').classList.toggle('on', edit ? mtPtsOn : mtPenOn);
+  document.querySelectorAll('#mtPenMenu [data-pen]').forEach(b => {
+    b.classList.toggle('on', b.dataset.pen === mtPenMode);
+    const s = b.querySelector('svg');
+    if (s && !s.innerHTML) s.innerHTML = MT_PEN_ICONS[b.dataset.pen];
+  });
+  if (!init) tkBar();
 }
-$('mtPen').onclick = () => mtPenTool(!mtPenOn);
+// «Выбор» подсвечен, только когда не включён никакой другой инструмент (рисование, текст, правка точек, градиент)
+const mtToolBusy = () => mtShapeOn || mtPenOn || mtPtsOn || (typeof mtTextOn !== 'undefined' && mtTextOn) || mtGradOn;
+const mtPenGo = on => mtPenMode === 'edit' ? mtPtsTool(on) : mtPenTool(on);
+$('mtPen').onclick = () => mtPenGo(mtPenMode === 'edit' ? !mtPtsOn : !mtPenOn);
+const mtPenMenuShow = on => $('mtPenMenu').classList.toggle('hide', !on);
+$('mtPenMore').onclick = e => {
+  e.stopPropagation();
+  const m = $('mtPenMenu'), open = m.classList.contains('hide');
+  mtPenMenuShow(open);
+  if (!open) return;
+  const r = $('mtPenMore').getBoundingClientRect();
+  Object.assign(m.style, {left: Math.max(Math.min(r.left, innerWidth - m.offsetWidth - 8), 8) + 'px', top: Math.max(r.top - m.offsetHeight - 4, 8) + 'px'});
+};
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#mtPenMenu,#mtPenMore')) mtPenMenuShow(false); });
+$('mtPenMenu').addEventListener('click', e => {
+  const b = e.target.closest('[data-pen]');
+  if (!b) return;
+  mtPenMenuShow(false);
+  const mode = b.dataset.pen;
+  mtPenOn && mtPenTool(false); mtPtsOn && mtPtsTool(false);   // старый инструмент выключен, новый включается
+  mtPenMode = mode;
+  try { localStorage.setItem('kb.penMode', mode); } catch (e) {}
+  mtPenGo(true);
+});
 const mvPx = e => { const d = mvCanvasDims(), [u, v] = mvAt(e); return [u * d.w, v * d.h]; };
 const mvScreenK = () => mvCv.offsetWidth / mvCanvasDims().w;   // пикселей экрана на пиксель холста
 // Путь готов: замкнутый с заливкой, открытый — линия. Меньше двух точек — ничего.
@@ -637,15 +673,14 @@ function mtPtsCls() { mvStage.classList.toggle('mv-ptsel', mtPtsMode()); }
 function mtPtsTool(on) {
   if (on === mtPtsOn) return;
   mtPtsOn = on;
-  if (on) { mtTextTool(false); mtShapeTool(false); mtPenTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
-  $('mtPts').classList.toggle('on', on);
+  if (on) { mtPenMode = 'edit'; mtTextTool(false); mtShapeTool(false); mtPenTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
   $('mtShapeEdit').classList.toggle('on', on);
   mtSegSync();
   mtPtsCls();
   mvFrameDraw();   // рамка прячется или возвращается, точки рисует mtPtsDraw
 }
-$('mtPts').onclick = () => mtPtsTool(!mtPtsOn);
 $('mtShapeEdit').onclick = () => mtPtsTool(!mtPtsOn);
+mtSegSync(true);   // значок и подсветка кнопки пера при загрузке (mtPtsOn уже объявлен)
 // Alt в пере: пока зажат, точки тянутся, а не ставятся
 function mtAltSet(on) {
   if (mtAlt === on) return;
