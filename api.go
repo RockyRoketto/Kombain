@@ -487,11 +487,11 @@ func (s *Server) routes() *http.ServeMux {
 	// фавиконы: спросить, куда сохранить, и записать ZIP (картинки уже нарисовала страница)
 	mux.HandleFunc("/api/favicon-save", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Files  []favFile `json:"files"`
-			Ico    [][]byte  `json:"ico"`
-			Mode   string    `json:"mode"`   // zip или folder
-			Dir    string    `json:"dir"`    // куда класть (папка оригинала); пусто — спросить
-			Name   string    `json:"name"`   // основа имени архива и папки
+			Files []favFile `json:"files"`
+			Ico   [][]byte  `json:"ico"`
+			Mode  string    `json:"mode"` // zip или folder
+			Dir   string    `json:"dir"`  // куда класть (папка оригинала); пусто — спросить
+			Name  string    `json:"name"` // основа имени архива и папки
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<20)).Decode(&body); err != nil {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
