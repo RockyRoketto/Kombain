@@ -3,6 +3,11 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 2.5
+
+- The montage toolbar is clearer: no frames, and the pen button has a list with Pen and Vector editing.
+- Only one tool is selected at a time. While you edit a gradient on the frame, the toolbar shows Gradient and the cursor over its points is a move cross.
+
 ## 2.4
 
 - The montage toolbar is clearer: no frames, and the pen button has a list with Pen and Vector editing.
