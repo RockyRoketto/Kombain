@@ -73,6 +73,13 @@ type SubFx struct {
 	// «по слову»: Dur — сколько секунд слово появляется, Bounce — насколько оно вырастает больше 100%, прежде чем вернуться (0–0,3)
 	Dur    float64 `json:"dur,omitempty"`
 	Bounce float64 `json:"bounce,omitempty"`
+	// «караоке» (subs_karaoke.go): M — "grow", "jump" или "fill"; Pill — цвет плашки или заливки; On — цвет слова на плашке;
+	// R — скругление плашки, доля половины высоты (0 — прямые углы); Smooth — плавно в такт речи (grow и fill), иначе по словам рывком
+	M      string  `json:"m,omitempty"`
+	Pill   string  `json:"pill,omitempty"`
+	On     string  `json:"on,omitempty"`
+	R      float64 `json:"r,omitempty"`
+	Smooth bool    `json:"smooth,omitempty"`
 }
 
 const (
@@ -513,6 +520,19 @@ func (s Subs) fit() Subs {
 			s.Fx.Dur = subsFxDur
 		}
 		s.Fx.Dur = min(max(s.Fx.Dur, 0.1), 0.6) // появление всегда быстрое
+	case "kar":
+		f := s.Fx
+		s.Fx = SubFx{K: "kar", M: f.M, Pill: f.Pill, On: f.On, R: min(max(f.R, 0), 1), Smooth: f.Smooth}
+		if !slices.Contains([]string{"grow", "jump", "fill"}, s.Fx.M) {
+			s.Fx.M = "jump"
+		}
+		s.Fx.Smooth = s.Fx.Smooth && s.Fx.M != "jump"
+		if !subsHex.MatchString(s.Fx.Pill) {
+			s.Fx.Pill = subsKarPillC
+		}
+		if !subsHex.MatchString(s.Fx.On) {
+			s.Fx.On = subsKarOnC
+		}
 	default:
 		s.Fx = SubFx{}
 	}
@@ -566,6 +586,10 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		}
 		if s.Fx.K == "word" && c.End > c.Start {
 			sb.WriteString(subsFxWord(c, text, s, h, place, esc))
+			continue
+		}
+		if s.Fx.K == "kar" && c.End > c.Start {
+			sb.WriteString(subsFxKar(c, text, s, w, h, place, esc))
 			continue
 		}
 		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))

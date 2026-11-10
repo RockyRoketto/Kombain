@@ -516,6 +516,19 @@ __CSS__
               <button type="button" class="mt-anim-t" data-fx=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5 17.5 6.5"/></svg><span data-i18n="mt.fxNone"></span></button>
               <button type="button" class="mt-anim-t" data-fx="type" data-i18n-title="mt.fxType"><svg viewBox="0 0 24 24"><path d="M3 8h9M3 12h6M3 16h3M15 5v14"/></svg><span data-i18n="mt.fxType"></span></button>
               <button type="button" class="mt-anim-t" data-fx="word" data-i18n-title="mt.fxWord"><svg viewBox="0 0 24 24"><path d="M3 16h5M10 16h5M17 16h4M19 12V6M17 8l2-2 2 2"/></svg><span data-i18n="mt.fxWord"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="kar" data-i18n-title="mt.fxKar"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="12" height="10" rx="5"/><path d="M17 12h5"/></svg><span data-i18n="mt.fxKar"></span></button>
+            </div>
+            <div class="hide" id="mtSubsFxKar">
+              <label class="mt-row"><span data-i18n="mt.karMode"></span>
+                <select id="mtSubsKarM"><option value="grow" data-i18n="mt.karGrow"></option><option value="jump" data-i18n="mt.karJump"></option><option value="fill" data-i18n="mt.karFill"></option></select>
+              </label>
+              <label class="sw mt-each" id="mtSubsKarSmoothRow" data-i18n-title="mt.karSmoothTip"><span data-i18n="mt.karSmooth"></span><input type="checkbox" id="mtSubsKarSmooth"><i></i></label>
+              <div class="mt-row go"><span data-i18n="mt.karPill"></span><input type="color" id="mtSubsKarPill" data-i18n-aria="mt.karPill"></div>
+              <div id="mtSubsKarBox">
+                <div class="mt-row go"><span data-i18n="mt.karOn"></span><input type="color" id="mtSubsKarOn" data-i18n-aria="mt.karOn"></div>
+                <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.karR"></span><input type="range" class="vol" id="mtSubsKarRR" data-origin="50" min="0" max="100" step="1" data-i18n-aria="mt.karR"><input type="number" id="mtSubsKarR" min="0" max="100" step="1" data-i18n-aria="mt.karR"></div>
+              </div>
+              <div class="note" data-i18n="mt.fxKarNote"></div>
             </div>
             <div class="hide" id="mtSubsFxWord">
               <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fxWDur"></span><input type="range" class="vol" id="mtSubsWDurR" data-origin="0.3" min="0.1" max="0.6" step="0.01" data-i18n-aria="mt.fxWDur"><input type="number" id="mtSubsWDur" min="0.1" max="0.6" step="0.01" data-i18n-aria="mt.fxWDur"></div>

@@ -102,7 +102,10 @@ function mvSubsDraw() {
   if (!span) { const box = document.createElement('div'); box.className = 'mv-subs-t'; span = document.createElement('span'); box.append(span); el.prepend(box); }
   // эффект (subfx.js): span по частям, перерисовка только при смене букв или курсора
   const fx = s.fx && s.fx.k === 'type' ? s.fx : null, parts = fx && cues.map(c => subFxParts(fx, c, line(c), tkAt)), key = fx ? JSON.stringify([parts, fx.cur]) : text;
-  if (s.fx && s.fx.k === 'word') subFxWordPaint(span, cues, line, s.fx, tkAt);
+  const kar = !!(s.fx && s.fx.k === 'kar');
+  if (!kar) span.classList.remove('mv-subs-kar');
+  if (kar) subFxKarPaint(span, cues, line, s.fx, tkAt, s);
+  else if (s.fx && s.fx.k === 'word') subFxWordPaint(span, cues, line, s.fx, tkAt);
   else if (span.dataset.k !== key) { span.dataset.k = key; if (fx) subFxPaint(span, parts, fx); else span.textContent = text; }
   if (tkSel.size) mvSubsSel = false;
   el.classList.toggle('sel', mvSubsSel && !mv.playing);
