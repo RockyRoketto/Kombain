@@ -79,4 +79,3 @@ func shapeSeqInput(pattern string) string {
 	head := strings.TrimSuffix(pattern, "%04d.png")
 	return strings.ReplaceAll(head, "%", "%%") + "%04d.png"
 }
-
