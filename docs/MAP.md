@@ -105,6 +105,7 @@
 | `whisper_words.go` | полный JSON whisper.cpp в реплики: `whisperWords`, `whisperGroup`, `whisperClean`, `whisperNoise` |
 | `whisper_align.go` | границы реплик по звуку: `speechSpans`, `pcmLevels`, `spansOfLevels`, `whisperRepair`, `whisperAlign` |
 | `fonts_windows.go`, `fonts_other.go` | `systemFonts`: список шрифтов Windows |
+| `shapes.go` | прорисовка линии: `saveShapeSeq` (кадры `seq-<сумма>-%04d.png`), `shapeSeqOK`, `shapeSeqInput`; поля клипа `Clip.Seq`/`SeqN`/`SeqFps` идут в `tlInput` (`timeline.go`), на странице `seq`/`seqN`/`seqFps` (`mtClipOut`); тест `shapes_test.go` |
 | `subtitles.go` | картинка клипа «Текст» `saveTextPNG`; субтитры монтажа: `Subs`, `subsDecode`, `subsParse`, `subsRead`, `subsRange`, `subsASS`, `subsSRT`, `subsTemp`, `subsFilterPath`, `subsTrackCodec`, `subsPlan` |
 | `subs_karaoke.go` | эффект субтитров «Караоке»: плашка растёт, прыгает или заливка букв, см. таблицу задач |
 | `subs_active.go` | эффект субтитров «Активное слово»: слово цветом и крупнее, соседи расступаются, см. таблицу задач |
@@ -161,6 +162,9 @@
 | `js/toasts.js` | `toast`, `say`, `batchEvents`, `batchDone` |
 | `js/anim.js` | переезд выделения вкладки `glideTabs` (`#tabs`, `#mtTabs`); остальные анимации в разделе «лёгкие анимации» в `web/style.css` |
 | `js/sliders.js` | риска исходного значения и магнит у ползунков с `data-origin`: `slPlace`, `slEnd` |
+| `js/shapes.js` | фигуры и перо: прямоугольник, эллипс, линия, стрелка (заливка, обводка, пунктир, скругление, наконечники), перо с кривыми Безье и замыканием, правка вектора (точки и ручки, `mtPtsOn`, `mtShapePathOf` переводит фигуру в путь), прорисовка линии (`mtShapeTick`, кадры на `/api/shape-seq`), курсоры и вкладки инструментов (`mtSegSync`); рисует PNG слоя `mtShapeDraw`, поле клипа `shape`, загрузка `tkShapeLoad`; клавиши U, P, A; захват мышью `mvHits`; панель «Фигура» в «Кадре» |
+| `js/colorpick.js` | своё окно выбора цвета вместо `<input type="color">`: поле `.cp-sw` (`cpField`, те же `value` и `disabled`), окно (квадрат, оттенок, альфа, HEX, пипетка EyeDropper, недавние в `k9000.cpRecent`), `cpOpen`/`cpClose(ok)`; `cpParse`/`cpHex`/`cpValid` (`#rrggbb` и `#rrggbbaa`). Градиенты у полей с `grad` (заливка и обводка фигур, цвет и обводка текста): значение `{g: 'lin' или 'rad', stops: [{at, c}], p: [x0, y0, x1, y1]}` (точки в долях рамки слоя), вид `cpKind` (`.cp-kinds`), полоса с точками `.cp-gbar`, угол `.cp-ang`, `cpDelStop`; для рисования `cpStyle` (CanvasGradient), `cpSee`, образец `cpCss`, загрузка `cpValidG`; для ручек `cpGradEdit`, `cpGradP`, `cpHook`. В монтаже поле подключает `mtColor` (montage.js): просмотр без шага отмены, «ОК» — `tkCommit`, «Отмена» — `tkRestore` |
+| `js/gradhandles.js` | ручки градиента поверх кадра (`#mvGrad`), пока открыто окно цвета с градиентом у выбранного слоя: `mtGradDraw` (зовёт `mvFrameDraw` и `cpHook`), `mtGradPx`/`mtGradUv` (доли рамки ↔ пиксели холста с поворотом), тяга на `pointerdown` окна, Shift — 45° |
 | `js/kinetic.js` | перетаскивание с инерцией и наклоном, ничего не знает про вкладки: `kinFollow` (элемент на пружине, `still` без неё: так идут клипы на таймлайне), `kinSort` (порядок в списке, соседи расступаются; `busy` и `flip`), `kinCalm` (настройка «меньше движения»), настройки `KIN` |
 | `js/player.js` | общее для плеера и обрезки: `mediaUrl`, `attachMedia` (файл или копия для просмотра), `videoSeek`, `keepSeeking`, `trackFrame`, `frameTime`, `saveShot`, `bindVolume`, `thumbUrl`, `fmtDur`, `makePlayer` (плеер на элементах с приставкой `pv` или `pl`) |
 | `js/preview.js` | окно плеера: `openPreview`, `outLine` |
@@ -197,6 +201,7 @@
 | Звуки | `sounds`, `pick-sound` |
 | Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
+| Фигуры | `shape-seq` (кадры прорисовки линии: страница шлёт PNG, Go кладёт `seq-<сумма>-%04d.png` в кэш текста, `shapes.go`) |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit`, `storage`, `storage-clear`, `storage-remove` |
 
 Вне `/api`: `/` (страница), `/favicon.png`, `/thumb`, `/wave` и `/media` (токен в параметре `t`). Адреса картинок в `index.html` содержат метку `__VER__`, её подставляет `routes`: иначе после обновления окно показывает старые из кэша.

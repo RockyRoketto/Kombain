@@ -568,7 +568,7 @@ function mvShow() {
     const el = mvPicFor(c, z);
     el.classList.remove('hide');
     keepPics.add(c.id);
-    if (tkPhoto(c)) mvPicSrc(el, mediaUrl(c.path), thumbUrl(c.path, 0, 1280));
+    if (tkPhoto(c)) mvPicSrc(el, (c.seq && mtShapesReady && mtShapeFrameUrl(c, x)) || mediaUrl(c.path), thumbUrl(c.path, 0, 1280));   // прорисовка фигуры: shapes.js
     else if (!mv.playing || !el.dataset.url) mvPicSrc(el, thumbUrl(c.path, c.src ? Math.min(Math.max(mvSrc(c, x) / c.src, 0), 1).toFixed(3) : 0, 1280));
   }
   for (const a of soon) {
@@ -692,6 +692,7 @@ function mvTick(now) {
   } else if (now - mv.shownAt > 250 || mvActiveSig(tkAt) !== mv.sig) mvShow();
   else for (const {c, e} of mv.live) mvSync(e, c, now);
   for (const tr of tkTracks) if (tr.kind === 'v' && !tr.off) for (const c of tr.clips) if (c.kf && mvShown(c, tkAt)) { kfPose(c, tkAt); mvPlaceClip(c); }   // ключи на каждом кадре
+  mtShapeTick(tkAt);   // прорисовка фигур (shapes.js)
   mvLook();
   tkDrawHead(true);
 }
@@ -760,12 +761,14 @@ function mvFrameDraw() {
   const c = mvFrameClip();
   mvFrame.classList.toggle('hide', !c);
   mvStage.classList.toggle('framed', !!c);
+  if (mtShapesReady) mtPtsDraw();   // точки и ручки выбранного пути (shapes.js, тот выполняется позже)
+  if (mtGradReady) mtGradDraw();   // ручки градиента, пока открыто окно цвета (gradhandles.js)
   if (!c) { mvOffDraw(null); return; }
   // рамка обводит то, что осталось после кадрирования, и поворачивается вокруг середины всего слоя
   const b = mvBox(c), o = mvCropOf(c), W = mvCv.offsetWidth, H = mvCv.offsetHeight, bw = b.w * W, bh = b.h * H;
   const top = mvCv.offsetTop + b.y * H + o.t * bh;
   mvFrame.classList.toggle('crop', mv.crop === c.id);
-  mvFrame.classList.toggle('text', !!c.text && mv.crop !== c.id);   // у надписи ручки и на сторонах, как у субтитров
+  mvFrame.classList.toggle('text', !!(c.text || c.shape) && mv.crop !== c.id);   // у надписи и фигуры ручки и на сторонах, как у субтитров
   mvFrame.classList.toggle('rotin', top < 26);   // ручке поворота нет места над кадром
   Object.assign(mvFrame.style, {left: mvCv.offsetLeft + b.x * W + o.l * bw + 'px', top: top + 'px', width: (1 - o.l - o.r) * bw + 'px', height: (1 - o.t - o.b) * bh + 'px',
     transformOrigin: `${(.5 - o.l) * bw}px ${(.5 - o.t) * bh}px`, transform: c.rot ? `rotate(${c.rot}deg)` : ''});
@@ -799,6 +802,7 @@ function mvSetBox(c, x, y, w, h) {
   const resized = c.w !== w || c.h !== h;
   c.w = w; c.h = h;
   if (resized && c.text && c.text.box) mtTextBoxMove(c);
+  if (resized && c.shape) mtShapeBoxMove(c);
   c.x = Math.min(Math.max(x, -MV_FAR - w), 1 + MV_FAR);
   c.y = Math.min(Math.max(y, -MV_FAR - h), 1 + MV_FAR);
 }
@@ -852,8 +856,9 @@ function mvFrameDrag(e, c, corner, pick) {
       const [lx, ly] = local(mx, my), [lxs, lys] = local(mx + sx.d * W, my + sy.d * H);
       const kx = v => (left ? -v : v) / seenW, ky = v => (up ? -v : v) / seenH;
       let sw, sh, gx = -1, gy = -1;
-      if (ev.shiftKey || c.text) {   // свободно: каждая сторона сама по себе; у текста рамка всегда свободна
-        // ручка на стороне (есть только у текста) меняет один размер, другой остаётся
+      // свободно: каждая сторона сама по себе; у текста рамка всегда свободна, у фигуры свободна без Shift
+      if (ev.shiftKey !== !!c.shape || c.text || corner.length < 2) {
+        // ручка на стороне (есть только у текста и фигуры) меняет один размер, другой остаётся
         const horz = corner.length > 1 || /[we]/.test(corner), vert = corner.length > 1 || /[ns]/.test(corner);
         sw = horz ? kx(lxs) : 1; sh = vert ? ky(lys) : 1;
         gx = horz ? sx.at : -1; gy = vert ? sy.at : -1;

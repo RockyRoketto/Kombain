@@ -391,14 +391,14 @@ $('mtSubsFx').addEventListener('click', e => {
   else if (k === 'act' && !('hi' in fx)) subFxSet({k, ...SUBFX_ACT, soft: true});
   else subFxSet({k});
 });
-$('mtSubsActHi').addEventListener('change', () => subFxSet({hi: $('mtSubsActHi').value}));
+mtColor('mtSubsActHi', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), hi: v}}));
 mtRow('mtSubsActBig', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), big: Math.round(Math.min(Math.max(v, 0), 30)) / 100}}));
 $('mtSubsActKeep').addEventListener('change', () => { $('mtSubsActKeep').blur(); subFxSet({keep: $('mtSubsActKeep').checked}); });
 $('mtSubsActSoft').addEventListener('change', () => { $('mtSubsActSoft').blur(); subFxSet({soft: $('mtSubsActSoft').checked}); });
 mtRow('mtSubsWDur', .005, v => mtSubsLive({fx: {...(tkSubs.fx || {}), dur: Math.round(Math.min(Math.max(v, .1), .6) * 100) / 100}}));
 mtRow('mtSubsBounce', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), bounce: Math.round(Math.min(Math.max(v, 0), 30)) / 100}}));
 $('mtSubsCurOn').addEventListener('change', () => { $('mtSubsCurOn').blur(); subFxSet({cur: $('mtSubsCurOn').checked ? $('mtSubsCur').value : ''}); });
-$('mtSubsCur').addEventListener('change', () => subFxSet({cur: $('mtSubsCur').value}));
+mtColor('mtSubsCur', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), cur: v}}));
 $('mtSubsBlink').addEventListener('change', () => subFxSet({blink: $('mtSubsBlink').checked}));
 mtRow('mtSubsCps', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), cps: Math.round(Math.min(Math.max(v, 1), 100))}}));
 $('mtSubsChunk').addEventListener('change', () => {
@@ -408,6 +408,6 @@ $('mtSubsChunk').addEventListener('change', () => {
 });
 $('mtSubsKarM').addEventListener('change', () => { $('mtSubsKarM').blur(); subFxSet({m: $('mtSubsKarM').value}); });
 $('mtSubsKarSmooth').addEventListener('change', () => { $('mtSubsKarSmooth').blur(); subFxSet({smooth: $('mtSubsKarSmooth').checked}); });
-$('mtSubsKarPill').addEventListener('change', () => subFxSet({pill: $('mtSubsKarPill').value}));
-$('mtSubsKarOn').addEventListener('change', () => subFxSet({on: $('mtSubsKarOn').value}));
+mtColor('mtSubsKarPill', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), pill: v}}));
+mtColor('mtSubsKarOn', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), on: v}}));
 mtRow('mtSubsKarR', .5, v => mtSubsLive({fx: {...(tkSubs.fx || {}), r: Math.round(Math.min(Math.max(v, 0), 100)) / 100}}));

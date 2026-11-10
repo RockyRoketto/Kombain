@@ -86,6 +86,10 @@ type Clip struct {
 	TrOut *Trans `json:"trOut,omitempty"`
 	// Непрозрачность слоя, 0…1, без значения 1. Указатель, потому что 0 это невидимый слой. Ключи: Keys.O
 	Op *float64 `json:"op,omitempty"`
+	// Прорисовка фигуры (shapes.go): кадры seq-…-%04d.png, их число и частота. Path — готовая фигура целиком.
+	Seq    string  `json:"seq,omitempty"`
+	SeqN   int     `json:"seqN,omitempty"`
+	SeqFps float64 `json:"seqFps,omitempty"`
 }
 
 // opacity: непрозрачность без ключей
@@ -551,6 +555,10 @@ func tlInput(c tlClip, fps float64) []string {
 	var a []string
 	if c.si.decoder != "" {
 		a = append(a, "-c:v", c.si.decoder)
+	}
+	// прорисовка: кадры с метки начала вывода (номером кадра, без поиска), последний держит tpad в цепочке клипа
+	if skip := int(float64(c.head)/fps*c.SeqFps + 1e-6); c.photo && c.Seq != "" && c.SeqFps > 0 && skip < c.SeqN && shapeSeqOK(c.Seq, c.SeqN) {
+		return append(a, "-framerate", rateStr(c.SeqFps), "-start_number", strconv.Itoa(skip), "-t", secs(c.cut), "-i", shapeSeqInput(c.Seq))
 	}
 	if c.photo {
 		return append(a, "-loop", "1", "-framerate", rateStr(fps), "-t", secs(c.cut), "-i", c.path)

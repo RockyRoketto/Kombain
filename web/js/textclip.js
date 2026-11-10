@@ -18,7 +18,7 @@ function mtTextWrap(g, para, width) {
 // box — область текста в пикселях холста: картинка получает её размер, строки переносятся по ширине, текст стоит по центру высоты.
 // Без box картинка по размеру текста, строки только из Enter.
 function mtTextDraw(x, H, box) {
-  const cv = document.createElement('canvas'), k = MT_TEXT_SCALE, px = x.size * H * k, sw = x.stroke * px;
+  const cv = document.createElement('canvas'), k = MT_TEXT_SCALE, px = x.size * H * k, sw = x.stroke * px, see = cpSee(x.color);
   const font = `${x.italic ? 'italic ' : ''}${x.bold ? 'bold ' : ''}${px}px "${x.font}"`;
   let g = cv.getContext('2d');
   g.font = font;
@@ -37,8 +37,12 @@ function mtTextDraw(x, H, box) {
     g.direction = rtl ? 'rtl' : 'ltr';
     g.textAlign = x.align;
     const at = x.align === 'left' ? pad : x.align === 'right' ? cv.width - pad : cv.width / 2;
-    if (sw > 0) { g.strokeStyle = x.strokeColor; g.lineWidth = sw * 2; g.strokeText(l, at, y); }
-    g.fillStyle = x.color;
+    if (sw > 0) {
+      g.strokeStyle = cpStyle(g, x.strokeColor, cv.width, cv.height); g.lineWidth = sw * 2; g.strokeText(l, at, y);
+      // полупрозрачная заливка: под ней обводки нет, видно то, что под текстом
+      if (see) { g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000'; g.fillText(l, at, y); g.globalCompositeOperation = 'source-over'; }
+    }
+    g.fillStyle = cpStyle(g, x.color, cv.width, cv.height);   // градиент в долях всей картинки (рамки слоя)
     g.fillText(l, at, y);
   });
   return {cv, w: cv.width / k, h: cv.height / k};
@@ -93,7 +97,7 @@ function mtTextBoxMove(c) {
   mtTextBoxTimer = setTimeout(() => { mtTextBoxTimer = 0; const now = tkById(c.id); if (now && now.text) mtTextRedraw(now); }, 100);
 }
 // после открытия проекта и отмены файлов может не быть, а значения клипа могли стать другими
-function mtTextRefresh() { tkClips().filter(c => c.text).forEach(mtTextRedraw); }
+function mtTextRefresh() { tkClips().filter(c => c.text).forEach(mtTextRedraw); if (mtShapesReady) mtShapeRefresh(); }   // фигуры так же (shapes.js)
 
 function mtTextPatch(patch) {
   const c = tkOne();
@@ -132,8 +136,8 @@ $('mtTextS').addEventListener('blur', () => {
 const mtTextDo = patch => tkDo(() => mtTextPatch(patch));
 $('mtTextFont').addEventListener('change', () => { $('mtTextFont').blur(); mtTextDo({font: $('mtTextFont').value}); });
 $('mtTextAlign').addEventListener('change', () => { $('mtTextAlign').blur(); mtTextDo({align: $('mtTextAlign').value}); });
-$('mtTextColor').addEventListener('change', () => mtTextDo({color: $('mtTextColor').value}));
-$('mtTextStrokeColor').addEventListener('change', () => mtTextDo({strokeColor: $('mtTextStrokeColor').value}));
+mtColor('mtTextColor', v => mtTextPatch({color: v}), true, true);
+mtColor('mtTextStrokeColor', v => mtTextPatch({strokeColor: v}), true, true);
 $('mtTextBold').onclick = () => { const c = tkOne(); if (c && c.text) mtTextDo({bold: !c.text.bold}); };
 $('mtTextItalic').onclick = () => { const c = tkOne(); if (c && c.text) mtTextDo({italic: !c.text.italic}); };
 mtRow('mtTextSize', .1, v => mtTextPatch({size: mtRnd(Math.min(Math.max(v, 1), 50) / 100, 4)}));
@@ -145,7 +149,7 @@ let mtTextOn = false;
 function mtTextTool(on) {
   if (on === mtTextOn) return;
   mtTextOn = on;
-  if (on) { mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
+  if (on) { mtShapeTool(false); mtPenTool(false); mtPtsTool(false); mvFileOff(); if (chromaPicking()) { chromaPickToggle(); mtFramePanel(); } }
   mvStage.classList.toggle('mv-texting', on);
   $('mtText').classList.toggle('on', on);
 }

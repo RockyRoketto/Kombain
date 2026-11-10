@@ -415,7 +415,7 @@ function mtPanel() {
   if (!list.length) { mtTabs(); return; }
   const clips = list.filter(c => !tkPhoto(c));
   $('mtClipName').textContent = one ? tkClipName(one) : t('mt.clipsN', {clips: tn(list.length, 'n.clips')});
-  $('mtClipName').title = one && !one.text ? one.path : '';
+  $('mtClipName').title = one && !one.text && !one.shape ? one.path : '';
   const same = clips.length && clips.every(c => c.speed === clips[0].speed);
   $('mtSpeed').value = same ? String(clips[0].speed) : '';
   $('mtSpeed').disabled = $('mtReverse').disabled = !clips.length;
@@ -438,7 +438,7 @@ const mtSame = (list, get) => { const v = get(list[0]); return list.every(c => g
 const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
 const MT_COLOR = [['mtColBri', 'cBri'], ['mtColCon', 'cCon'], ['mtColMid', 'cMid'], ['mtColSat', 'cSat'], ['mtColTemp', 'cTemp'], ['mtColTint', 'cTint']];
-function mtFramePanel() { mtTextFill(); mtFrameFill(); mtTabs(); kfDiamonds(); kfAnimFill(); }
+function mtFramePanel() { mtTextFill(); mtShapeFill(); mtFrameFill(); mtTabs(); kfDiamonds(); kfAnimFill(); }
 function mtSoundPanel() { mtSoundFill(); mtTabs(); }
 function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
@@ -535,6 +535,14 @@ function mtRow(id, k, set) {
     before = null;
   });
 }
+// Поле цвета (colorpick.js): set меняет клипы без отмены, пока окно открыто цвет виден сразу;
+// «ОК» — один шаг отмены, «Отмена» и Esc возвращают всё как было. alpha — можно с прозрачностью (#rrggbbaa).
+// grad — можно градиент (поле рисует сама страница); его ручки видны во вьюпорте у выбранного слоя (gradhandles.js).
+function mtColor(id, set, alpha, grad) {
+  let before = null;
+  cpField($(id), {alpha, grad, layer: grad ? tkOne : null, live: v => { if (before === null) before = tkState(); set(v); mtLive(); },
+    done: ok => { const b = before; before = null; if (b !== null) ok ? tkCommit(b) : tkRestore(b); }});
+}
 $('mtPanel').addEventListener('pointermove', e => $('mtPanel').classList.toggle('alt', e.altKey));
 $('mtPanel').addEventListener('mousedown', e => { if (e.altKey && e.target.closest('.mt-row[data-n]')) e.preventDefault(); }, true);
 $('mtPanel').addEventListener('pointerdown', e => {
@@ -606,7 +614,7 @@ $('mtKeyOn').addEventListener('change', e => {
     else { delete c.key; delete c.keySim; delete c.keyBlend; delete c.keySpill; }
   }));
 });
-$('mtKeyColor').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => { if (c.key) c.key = v; })); });
+mtColor('mtKeyColor', v => mtFrameClips().forEach(c => { if (c.key) c.key = v; }));
 $('mtKeyPick').addEventListener('click', () => { chromaPickToggle(); mtFramePanel(); });
 // цветокоррекция: в панели от -100 до 100, в клипе доли
 MT_COLOR.forEach(([id, key]) => mtRow(id, .5, v => mtFrameClips().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, -100), 100) / 100, 3), 0))));
@@ -626,7 +634,7 @@ $('mtShOn').addEventListener('change', e => {
     else ['shA', 'shX', 'shY', 'shB', 'shC'].forEach(key => delete c[key]);
   }));
 });
-$('mtShC').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => { if (c.shA) c.shC = v; })); });
+mtColor('mtShC', v => mtFrameClips().forEach(c => { if (c.shA) c.shC = v; }));
 mtRow('mtVolume', .5,v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
 
 // ---------- логотип: картинка на новой верхней дорожке, на весь монтаж, в правом верхнем углу ----------
@@ -771,8 +779,8 @@ $('mtAutoStop').onclick = () => api('whisper-cancel');
   if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, [key]: v}; if (key === 'pos') { delete tkSubs.x; delete tkSubs.y; delete tkSubs.h; } });
 }));
 $('mtSubsJoin').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, join: $('mtSubsJoin').checked}; }); });
-$('mtSubsColor').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, color: $('mtSubsColor').value}; }); });
-$('mtSubsBack').addEventListener('change', () => { if (tkSubs) tkDo(() => { tkSubs = {...tkSubs, back: $('mtSubsBack').value}; }); });
+mtColor('mtSubsColor', v => mtSubsLive({color: v}));
+mtColor('mtSubsBack', v => mtSubsLive({back: v}));
 $('mtSubsBackOn').addEventListener('change', () => {
   $('mtSubsBackOn').blur();
   if (tkSubs) tkDo(() => { tkSubs = {...tkSubs}; if ($('mtSubsBackOn').checked) tkSubs.back = $('mtSubsBack').value; else delete tkSubs.back; });
@@ -891,7 +899,7 @@ $('mtSaveProject').onclick = () => dialog(() => mtProjectSave(false));
 
 // ---------- в конвертер ----------
 const mtClipOut = (c, at) => ({path: c.path, at, from: c.from, len: c.len, speed: c.speed, reverse: c.reverse, ...(c.part ? {part: c.part} : {}), ...(c.w > 0 ? {x: c.x || 0, y: c.y || 0, w: c.w, h: c.h} : {}),
-  ...Object.fromEntries(['kf', 'rot', 'op', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'trIn', 'trOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
+  ...Object.fromEntries(['kf', 'rot', 'op', 'cl', 'ct', 'cr', 'cb', 'vol', 'fadeIn', 'fadeOut', 'trIn', 'trOut', 'key', 'keySim', 'keyBlend', 'keySpill', 'blend', 'blur', 'shA', 'shX', 'shY', 'shB', 'shC', 'seq', 'seqN', 'seqFps', ...MT_COLOR.map(x => x[1])].filter(key => c[key] !== undefined).map(key => [key, c[key]]))});
 // область вывода: от метки до метки, без меток весь монтаж
 const mtRange = () => { const end = tkLive().reduce((a, c) => Math.max(a, tkEnd(c)), 0), a = tkIn !== null ? Math.min(tkIn, end) : 0; return [a, tkOut !== null ? Math.min(tkOut, end) : end]; };
 const mtInRange = c => { const [a, b] = mtRange(); return c.at < b - 1e-4 && tkEnd(c) > a + 1e-4; };

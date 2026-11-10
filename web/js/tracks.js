@@ -31,7 +31,18 @@ const tkById = id => tkClips().find(c => c.id === id);
 const tkTrackOf = c => tkTracks.find(x => x.clips.includes(c));
 const MT_TEXT_DEF = {s: '', font: 'Arial', size: .08, color: '#ffffff', bold: false, italic: false, align: 'center', stroke: 0, strokeColor: '#000000'};   // клип «Текст», textclip.js; нужно уже при загрузке проекта
 const tkPhoto = c => !c.src;
-const tkClipName = c => c.text ? c.text.s.replace(/\s+/g, ' ') : base(c.path);   // у клипа «Текст» в пути только служебное имя
+// у клипов «Текст» и «Фигура» в пути только служебное имя
+const tkClipName = c => c.text ? c.text.s.replace(/\s+/g, ' ') : c.shape ? tkShapeName(c.shape) : base(c.path);
+const tkShapeName = x => t(x.k === 'rect' ? 'mt.shape.rect' : x.k === 'ell' ? 'mt.shape.ell' : x.pts.length > 2 || x.closed ? 'mt.shape.path' : x.a0 || x.a1 ? 'mt.shape.arrow' : 'mt.shape.line');
+// Фигура из файла: клип «Фигура», shapes.js. Нужно уже при загрузке проекта.
+function tkShapeLoad(x) {
+  if (!x || !['rect', 'ell', 'path'].includes(x.k)) return null;
+  const col = cpValidG, n = (v, hi) => Number.isFinite(v) ? Math.min(Math.max(v, 0), hi) : 0;
+  const pts = x.k === 'path' && Array.isArray(x.pts) ? x.pts.filter(p => Array.isArray(p) && p.length === 6 && p.every(Number.isFinite)).map(p => p.map(v => Math.min(Math.max(v, -1e3), 1e3))) : null;
+  if (x.k === 'path' && !(pts && pts.length >= 2)) return null;
+  const on = x.on && x.on.d > 0 && Number.isFinite(x.on.d) ? {on: {d: Math.min(x.on.d, 60), e: ['', 'in', 'out', 'inout'].includes(x.on.e) ? x.on.e : 'inout'}} : {};
+  return {k: x.k, fill: col(x.fill, '#ffffff'), fillOn: !!x.fillOn, stroke: col(x.stroke, '#ffffff'), sw: n(x.sw, .2), r: n(x.r, 1), pts, closed: x.k === 'path' && !!x.closed, a0: !!x.a0, a1: !!x.a1, dash: !!x.dash, ...on};
+}
 const tkShown = () => [...tkTracks.filter(x => x.kind === 'v').reverse(), ...tkTracks.filter(x => x.kind === 'a')];
 const tkRowH = tr => tr.thin ? TK_ROW_MIN : tr.h || 58;
 const tkSmall = tr => tkRowH(tr) < 32;   // в низкой дорожке кадров и волны не разобрать
@@ -94,6 +105,13 @@ function tkBack(from, to) {
   tkChanged();
   mtTextRefresh();
 }
+// вернуть состояние без шага отмены (окно цвета, «Отмена»)
+function tkRestore(s) {
+  if (s === tkState()) return;
+  tkApply(JSON.parse(s));
+  tkChanged();
+  mtTextRefresh();
+}
 function tkApply(o) {
   tkTracks = o.tracks;
   tkIn = o.in; tkOut = o.out; tkMarkers = o.markers || []; tkCanvas = o.canvas || null; tkSubs = o.subs || null; tkGuides = o.guides || {x: [], y: []};
@@ -140,12 +158,13 @@ function tkLoad(o, path) {
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),
       ...kfLoad(c.kf), ...kfAnimLoad(c.anim),
-      ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text}, ...more(c, 'nw')} : {}),
+      ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text, color: cpValidG(c.text.color, MT_TEXT_DEF.color), strokeColor: cpValidG(c.text.strokeColor, MT_TEXT_DEF.strokeColor)}, ...more(c, 'nw')} : {}),
+      ...(tkShapeLoad(c.shape) ? {shape: tkShapeLoad(c.shape), ...(typeof c.seq === 'string' && c.seqN > 0 && c.seqFps > 0 ? {seq: c.seq, seqN: c.seqN, seqFps: c.seqFps} : {})} : {}),
     }))}));
   if (!tracks.some(x => x.kind === 'v')) tracks.unshift({kind: 'v', thin: false, clips: []});
   if (!tracks.some(x => x.kind === 'a')) tracks.push({kind: 'a', thin: false, clips: []});
   tracks.sort((a, b) => (a.kind === 'v' ? 0 : 1) - (b.kind === 'v' ? 0 : 1));
-  const paths = tracks.flatMap(x => x.clips).filter(c => !c.text).map(c => ({path: c.path}));   // картинка текста в окно файлов не встаёт
+  const paths = tracks.flatMap(x => x.clips).filter(c => !c.text && !c.shape).map(c => ({path: c.path}));   // картинка текста и фигуры в окно файлов не встаёт
   const files = (Array.isArray(o.files) ? o.files : []).filter(f => f && typeof f.path === 'string').concat(paths);
   tkTracks = tracks;
   mtSetFiles(files);
@@ -991,7 +1010,7 @@ $('tkZoom').addEventListener('input', () => tkZoomTo(2 ** +$('tkZoom').value));
 // ---------- окно горячих клавиш. Клавиша с приставкой kh. переводится, остальные написаны как на клавиатуре ----------
 const TK_HELP = [
   ['kh.g.view', [[['kh.space'], 'kh.play'], [['kh.spaceDrag', 'kh.wheelDrag'], 'kh.pan'], [['F'], 'kh.showLayer'], [['←', '→'], 'kh.frame'], [['Shift+←', 'Shift+→'], 'kh.second'], [['↑', '↓'], 'kh.edge'], [['Home', 'End'], 'kh.ends']]],
-  ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['T'], 'kh.text'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
+  ['kh.g.tools', [[['V'], 'kh.select'], [['C'], 'kh.razor'], [['T'], 'kh.text'], [['U'], 'kh.shape'], [['P'], 'kh.pen'], [['A'], 'kh.pts'], [['S'], 'kh.snap'], [['Esc'], 'kh.esc']]],
   ['kh.g.edit', [[['Ctrl+Z'], 'kh.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'kh.redo'], [['Ctrl+K'], 'kh.cut'], [['Delete'], 'kh.del'], [['Shift+Delete'], 'kh.ripple'], [['Ctrl+C', 'Ctrl+X', 'Ctrl+V'], 'kh.clip'], [['Ctrl+D'], 'kh.dup'], [['D'], 'kh.trans'], [['Ctrl+A'], 'kh.all'], [['Ctrl+A'], 'kh.cueAll']]],
   ['kh.g.link', [[['Ctrl+L'], 'kh.unlink'], [['kh.altMouse'], 'kh.alt']]],
   ['kh.g.marks', [[['I', 'O'], 'kh.io'], [['Ctrl+Shift+X'], 'kh.ioOff'], [['M'], 'kh.marker'], [['kh.rightClick'], 'kh.markerOff']]],
@@ -1021,6 +1040,9 @@ const TK_KEYS = {
   KeyV: () => tkSetTool('select'),
   KeyC: () => tkSetTool('razor'),
   KeyT: () => mtTextTool(!mtTextOn),
+  KeyU: () => mtShapeTool(!mtShapeOn),   // фигура и перо: shapes.js
+  KeyP: () => mtPenTool(!mtPenOn),
+  KeyA: () => mtPtsTool(!mtPtsOn),   // правка точек фигуры
   KeyF: () => mvShowLayer(),
   KeyS: () => $('tkSnapBtn').click(),
   KeyI: () => tkMark('in'),
@@ -1040,7 +1062,7 @@ const TK_KEYS = {
   ArrowDown: () => { mvPause(); tkEdge(1); },
   Home: () => $('mtStart').click(),
   End: () => $('mtEnd').click(),
-  Escape: () => { mvFileOff(); tkSel.clear(); tkTrSel = null; mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); mtTextTool(false); tkSelChanged(); },
+  Escape: () => { mvFileOff(); tkSel.clear(); tkTrSel = null; mtCueNone(); mtCueLane(); mtCuesFill(); tkSetTool('select'); mtTextTool(false); mtShapeTool(false); tkSelChanged(); },
 };
 const TK_CTRL_KEYS = {
   KeyK: tkCutHere,

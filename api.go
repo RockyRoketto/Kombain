@@ -532,6 +532,21 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"path": path, "fresh": fresh})
 	}))
 
+	// Прорисовка фигуры: кадры от страницы, в ответ список для движка (shapes.go)
+	mux.HandleFunc("/api/shape-seq", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Frames []string `json:"frames"`
+			Fps    float64  `json:"fps"`
+		}
+		json.NewDecoder(http.MaxBytesReader(w, r.Body, 512<<20)).Decode(&body)
+		path, fresh, err := saveShapeSeq(body.Frames, body.Fps)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path, "fresh": fresh})
+	}))
+
 	mux.HandleFunc("/api/subs-pick", s.api(func(w http.ResponseWriter, r *http.Request) {
 		path, err := pickSubs()
 		if err != nil {
