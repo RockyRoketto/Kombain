@@ -73,6 +73,7 @@
 | Текст ошибок ffmpeg | `fferrors.go` |
 | Имя и папка результата | `files.go` (`outPath`) |
 | Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
+| Вкладка «Утилиты»: фавиконы | `web/js/favicon.js` (картинки рисует canvas), `favicon.go` (ICO и ZIP), разметка `#utilView` в `web/index.html`, стили: раздел «вкладка «Утилиты»» в конце `web/style.css`. Проверка: `TestBuildICO`, `TestWriteFavZip` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
 | Панель настроек за шестерёнкой | `web/index.html` (`setPanel`: разделы `.setp-tab` и страницы `.setp-page` с одним `data-p`), `web/js/settings.js` (`setPanel`, `setpShow`, сброс `resetAll` и что он оставляет `RESET_KEEP`, в Go: поле `reset` в `/api/settings`) |
 | Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
@@ -119,6 +120,7 @@
 | `ffdownload.go` | `download` (общее скачивание, защита от зависания), `downloadFFmpeg`, `tryDownload`, проверка sha256 архива: `fetchFFSum`, `parseSum`. Проверка: `ffdownload_test.go` |
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
+| `favicon.go` | `buildICO` (favicon.ico из PNG), `writeFavZip` (архив; имена только простые), `pngSize`; ручка `favicon-save`, диалог `pickZipSave` в `ui_windows.go` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
 | `media.go` | `parseMediaInfo`, `getMediaInfo`, `makeThumb`, `thumbHandler`, `mediaHandler`, волна на таймлайне: `wavePeaks`, `makeWave`, `waveHandler` (рисует `tkWaveDraw` в `web/js/tracks.js`) |
 | `proxy.go` | копии для просмотра: `proxyDir`, `proxyStem`, `proxyPath`, `proxyPiecePath`, `proxyArgs`, `proxyStatus`, `encodeReverse`, `proxyStop`, `proxyPrune`, `proxyUsage`, `proxyClear`, `proxyCleanup` |
@@ -188,6 +190,7 @@
 | `js/updates.js` | `ffBanner` (плашка ffmpeg), `appBanner` и `newsBanner` (окна поверх программы «Вышел Kombain» и «Что нового»), `notesHtml` (список из CHANGELOG) |
 | `js/sounds.js` | звуки: `batchSound`, `playSound`, `beep` (запасной сигнал), `renderSounds`; выбор в `localStorage` |
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, кнопки «Закрыть программу» (только в браузере) и «лог» |
+| `js/favicon.js` | вкладка «Утилиты», фавиконы: состояние `fv` (`FV_DEF`), иконки `fvImg` (светлая и тёмная), приём файла `fvTake` и `fvDrop` (из `drop.js`), рисование `fvDraw`, `fvSvg` (обёртка со сменой темы), `fvManifest`, `fvHtml`, отрисовка вкладки `fvPaint`, сохранение по `#fvSave`; память в localStorage `konv9000.fav`, `konv9000.favImg` |
 | `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
@@ -199,7 +202,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `favicon-save`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Фигуры | `shape-seq` (кадры прорисовки линии: страница шлёт PNG, Go кладёт `seq-<сумма>-%04d.png` в кэш текста, `shapes.go`) |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit`, `storage`, `storage-clear`, `storage-remove` |

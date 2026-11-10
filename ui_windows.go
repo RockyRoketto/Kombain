@@ -826,8 +826,20 @@ func pickProjectSave() (string, error) {
 	return p[0], nil
 }
 
+// pickZipSave: куда сохранить ZIP с фавиконами
+func pickZipSave() (string, error) {
+	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
+		return showSaveDialog(owner, tr("dlg.saveFavicons"), tr("dlg.zipFiles"), "*.zip", "zip", "favicons.zip")
+	})
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
 // showSaveDialog: те же номера методов IFileDialog, что у showDialog. Спросить про замену файла просит сам диалог.
-func showSaveDialog(owner uintptr, title, typeName, typePattern, ext string) ([]string, error) {
+// name — имя файла, которое диалог предложит сразу (необязательно).
+func showSaveDialog(owner uintptr, title, typeName, typePattern, ext string, name ...string) ([]string, error) {
 	var dlg unsafe.Pointer
 	hr, _, _ := pCoCreateInstance.Call(uintptr(unsafe.Pointer(&clsidFileSaveDialog)), 0, 1,
 		uintptr(unsafe.Pointer(&iidFileSaveDialog)), uintptr(unsafe.Pointer(&dlg)))
@@ -844,6 +856,9 @@ func showSaveDialog(owner uintptr, title, typeName, typePattern, ext string) ([]
 	comCall(dlg, 4, uintptr(len(specs)), uintptr(unsafe.Pointer(&specs[0]))) // SetFileTypes
 	runtime.KeepAlive(specs)
 	comCall(dlg, 22, uintptr(unsafe.Pointer(u16(ext)))) // SetDefaultExtension
+	if len(name) > 0 && name[0] != "" {
+		comCall(dlg, 15, uintptr(unsafe.Pointer(u16(name[0])))) // SetFileName
+	}
 
 	hr = comCall(dlg, 3, owner) // Show
 	if uint32(hr) == hrCancelled {

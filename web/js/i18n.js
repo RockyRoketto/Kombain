@@ -24,6 +24,6 @@ function applyLang() {
   buildFormats(); applyKind(); renderOut(); renderSounds();
   newsBanner(snap); appBanner(snap); ffBanner(snap); renderSetup(snap); renderInstallBtn(snap);
   render(); bLast = ''; bRender(); updateButtons(); renderSummary(snap);
-  storeRender(); aboutRender(snap);
+  storeRender(); aboutRender(snap); fvRender();
 }
 

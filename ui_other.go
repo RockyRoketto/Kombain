@@ -50,3 +50,7 @@ func pickProjectOpen() (string, error) {
 func pickProjectSave() (string, error) {
 	return "", errT("dlg.onlyWindows")
 }
+
+func pickZipSave() (string, error) {
+	return "", errT("dlg.onlyWindows")
+}

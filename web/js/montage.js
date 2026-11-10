@@ -106,7 +106,7 @@ function mtRender() {
 }
 function mtButtons() {
   $('mtSend').disabled = $('start').disabled;
-  $('dock').classList.toggle('hide', (tab === 'mont' || tab === 'play') && !snap.running);
+  $('dock').classList.toggle('hide', (tab === 'mont' || tab === 'play' || tab === 'util') && !snap.running);
 }
 function mtTabChanged() {
   if (tab !== 'mont') { mvPause(); mvUnload(); return; }

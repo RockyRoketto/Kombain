@@ -484,6 +484,32 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"path": path})
 	}))
 
+	// фавиконы: спросить, куда сохранить, и записать ZIP (картинки уже нарисовала страница)
+	mux.HandleFunc("/api/favicon-save", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Files []favFile `json:"files"`
+			Ico   [][]byte  `json:"ico"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<20)).Decode(&body); err != nil {
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		path, err := pickZipSave()
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		if path == "" {
+			writeJSON(w, map[string]any{})
+			return
+		}
+		if err := writeFavZip(path, body.Files, body.Ico); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
 	mux.HandleFunc("/api/whisper-info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, whisperInstalled())
 	}))
