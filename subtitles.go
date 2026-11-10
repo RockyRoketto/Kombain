@@ -59,6 +59,8 @@ type Subs struct {
 	H float64 `json:"h,omitempty"`
 	// Join: разрывы строк внутри реплик не учитываются при вжигании, текст переносится только по ширине рамки
 	Join bool `json:"join,omitempty"`
+	// Chunk: «Слов на экране» (subs_chunks.go). 0 — реплика целиком, 1–3 — куски не длиннее стольких слов, -1 — авто
+	Chunk int `json:"chunk,omitempty"`
 	// Эффект сразу на все реплики. Просмотр считает те же моменты: subFxState в web/js/subfx.js
 	Fx SubFx `json:"fx"`
 }
@@ -80,6 +82,12 @@ type SubFx struct {
 	On     string  `json:"on,omitempty"`
 	R      float64 `json:"r,omitempty"`
 	Smooth bool    `json:"smooth,omitempty"`
+	// «активное слово» (subs_active.go): Hi — цвет произносимого слова; Big — насколько оно крупнее, 0–0,3;
+	// Keep — сказанные слова остаются цвета Hi; Soft — смена слова плавным переходом subsActSlide, иначе мгновенно
+	Hi   string  `json:"hi,omitempty"`
+	Big  float64 `json:"big,omitempty"`
+	Keep bool    `json:"keep,omitempty"`
+	Soft bool    `json:"soft,omitempty"`
 }
 
 const (
@@ -504,6 +512,9 @@ func (s Subs) fit() Subs {
 		s.H = min(max(s.H, 0.02), 1)
 		s.Y = max(s.Y, s.H) // рамка целиком в кадре
 	}
+	if s.Chunk < subsChunkAuto || s.Chunk > subsChunkWords {
+		s.Chunk = 0
+	}
 	switch s.Fx.K {
 	case "type":
 		s.Fx = SubFx{K: "type", Cps: s.Fx.Cps, Cur: s.Fx.Cur, Blink: s.Fx.Blink}
@@ -532,6 +543,12 @@ func (s Subs) fit() Subs {
 		}
 		if !subsHex.MatchString(s.Fx.On) {
 			s.Fx.On = subsKarOnC
+		}
+	case "act":
+		f := s.Fx
+		s.Fx = SubFx{K: "act", Hi: f.Hi, Big: min(max(f.Big, 0), 0.3), Keep: f.Keep, Soft: f.Soft}
+		if !subsHex.MatchString(s.Fx.Hi) {
+			s.Fx.Hi = subsActHiC
 		}
 	default:
 		s.Fx = SubFx{}
@@ -590,6 +607,10 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		}
 		if s.Fx.K == "kar" && c.End > c.Start {
 			sb.WriteString(subsFxKar(c, text, s, w, h, place, esc))
+			continue
+		}
+		if s.Fx.K == "act" && c.End > c.Start {
+			sb.WriteString(subsFxAct(c, text, s, w, h, place, esc))
 			continue
 		}
 		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
@@ -708,7 +729,7 @@ func subsPlan(si *srcInfo, sub Subs, f Format, offset float64, inputs int) error
 			return err
 		}
 	}
-	cues := subsRange(all, offset, si.dur)
+	cues := subsChunks(subsRange(all, offset, si.dur), sub.Chunk) // куски и для дорожки в файле: там они так же сменяются
 	if len(cues) == 0 {
 		return nil
 	}

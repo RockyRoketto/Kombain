@@ -251,55 +251,13 @@ func subsFxKar(c SubCue, text string, s Subs, w, h int, place string, esc *strin
 		return subsKarFill(c, text, ch, s, place, esc, cs)
 	}
 	size := s.Size * float64(h)
-	// перенос: каждая строка текста отдельно, по ширине рамки
-	sp := textWidth(s.Font, size, "a b") - textWidth(s.Font, size, "ab")
-	line := 0
-	var lines [][2]int // куски строки на экране: с какого по какой
-	for i := 0; i < len(ch); {
-		j := i
-		for j < len(ch) && ch[j].para == ch[i].para {
-			j++
-		}
-		ws := make([]float64, j-i)
-		for k := range ws {
-			ws[k] = textWidth(s.Font, size, ch[i+k].text)
-		}
-		starts := append(subsKarBreak(ws, sp, s.W*float64(w)), j-i)
-		for n := 0; n+1 < len(starts); n++ {
-			x := 0.0
-			for k := i + starts[n]; k < i+starts[n+1]; k++ {
-				ch[k].line, ch[k].x0 = line, x
-				x += ws[k-i]
-				ch[k].x1 = x
-				x += sp
-			}
-			lines = append(lines, [2]int{i + starts[n], i + starts[n+1]})
-			line++
-		}
-		i = j
-	}
-	cx, top := subsKarTop(s, w, h, len(lines))
-	for _, l := range lines {
-		lw := ch[l[1]-1].x1
-		for k := l[0]; k < l[1]; k++ {
-			ch[k].x0 += cx - lw/2
-			ch[k].x1 += cx - lw/2
-		}
-	}
-	lineTop := func(n int) float64 { return top + float64(n)*size }
+	lines, lineTop := subsKarLayout(ch, s, w, h)
 	start, end := cs(c.Start), cs(c.End)
 	var sb strings.Builder
 	pre := ""
 	if s.Back != "" {
 		// подложка слоем 0 построчно, буквы слоем 2 без неё (\3a), плашка между ними
-		for n, l := range lines {
-			parts := make([]string, 0, l[1]-l[0])
-			for k := l[0]; k < l[1]; k++ {
-				parts = append(parts, ch[k].text)
-			}
-			fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,{\\an1\\q2\\pos(%.1f,%.1f)\\1a&HFF&}%s\n", subsAssClock(c.Start), subsAssClock(c.End),
-				ch[l[0]].x0, lineTop(n)+size, esc.Replace(strings.Join(parts, " ")))
-		}
+		subsKarBack(&sb, c, ch, lines, lineTop, size, esc)
 		pre = `\3a&HFF&`
 	}
 	// плашка: пока движется — событие на каждый шаг subsKarFrame, между рывками одно
@@ -360,6 +318,59 @@ func subsFxKar(c SubCue, text string, s Subs, w, h int, place string, esc *strin
 			k.x0, lineTop(k.line)+size, pre, tags, esc.Replace(k.text))
 	}
 	return sb.String()
+}
+
+// subsKarLayout: перенос кусков по ширине рамки программой (каждая строка текста отдельно) и места кусков ch[k].line, x0, x1
+// в пикселях кадра. Возвращает куски каждой строки экрана (с какого по какой) и верх строки n; высота строки у libass — размер шрифта.
+// Общая для караоке и «Активного слова». Зеркало: subFxKarLay в web/js/subfx.js.
+func subsKarLayout(ch []subsKChunk, s Subs, w, h int) (lines [][2]int, lineTop func(int) float64) {
+	size := s.Size * float64(h)
+	sp := textWidth(s.Font, size, "a b") - textWidth(s.Font, size, "ab")
+	line := 0
+	for i := 0; i < len(ch); {
+		j := i
+		for j < len(ch) && ch[j].para == ch[i].para {
+			j++
+		}
+		ws := make([]float64, j-i)
+		for k := range ws {
+			ws[k] = textWidth(s.Font, size, ch[i+k].text)
+		}
+		starts := append(subsKarBreak(ws, sp, s.W*float64(w)), j-i)
+		for n := 0; n+1 < len(starts); n++ {
+			x := 0.0
+			for k := i + starts[n]; k < i+starts[n+1]; k++ {
+				ch[k].line, ch[k].x0 = line, x
+				x += ws[k-i]
+				ch[k].x1 = x
+				x += sp
+			}
+			lines = append(lines, [2]int{i + starts[n], i + starts[n+1]})
+			line++
+		}
+		i = j
+	}
+	cx, top := subsKarTop(s, w, h, len(lines))
+	for _, l := range lines {
+		lw := ch[l[1]-1].x1
+		for k := l[0]; k < l[1]; k++ {
+			ch[k].x0 += cx - lw/2
+			ch[k].x1 += cx - lw/2
+		}
+	}
+	return lines, func(n int) float64 { return top + float64(n)*size }
+}
+
+// subsKarBack: подложка слоем 0 построчно: текст строки прозрачный (\1a), видна только плашка BorderStyle 3
+func subsKarBack(sb *strings.Builder, c SubCue, ch []subsKChunk, lines [][2]int, lineTop func(int) float64, size float64, esc *strings.Replacer) {
+	for n, l := range lines {
+		parts := make([]string, 0, l[1]-l[0])
+		for k := l[0]; k < l[1]; k++ {
+			parts = append(parts, ch[k].text)
+		}
+		fmt.Fprintf(sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,{\\an1\\q2\\pos(%.1f,%.1f)\\1a&HFF&}%s\n", subsAssClock(c.Start), subsAssClock(c.End),
+			ch[l[0]].x0, lineTop(n)+size, esc.Replace(strings.Join(parts, " ")))
+	}
 }
 
 // subsKarFill: заливка букв — одно событие, перенос как у обычной реплики. \kf красит от \2c (цвет текста) к \1c (цвет заливки).

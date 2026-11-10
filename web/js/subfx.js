@@ -5,11 +5,57 @@
 const SUBFX_CPS = 20, SUBFX_BLINK = .5, SUBFX_END = .85, SUBFX_CUR_W = .06;   // ширина курсора от высоты строки, как subsFxCurW
 const SUBFX_DUR = .3, SUBFX_BOUNCE = .15, SUBFX_PEAK = .6;   // как subsFxDur, subsFxPeak; отскок по умолчанию при первом выборе
 function subFxLoad(f) {
-  return {k: ['type', 'word', 'kar'].includes(f.k) ? f.k : '', ...(f.cps >= 1 && f.cps <= 100 ? {cps: f.cps} : {}),
+  return {k: ['type', 'word', 'kar', 'act'].includes(f.k) ? f.k : '', ...(f.cps >= 1 && f.cps <= 100 ? {cps: f.cps} : {}),
+    ...(/^#[0-9a-f]{6}$/i.test(f.hi) ? {hi: f.hi} : {}), ...(f.big >= 0 && f.big <= .3 ? {big: f.big} : {}), keep: f.keep === true, soft: f.soft === true,
     cur: /^#[0-9a-f]{6}$/i.test(f.cur) ? f.cur : '', blink: f.blink === true,
     ...(f.dur >= .1 && f.dur <= .6 ? {dur: f.dur} : {}), ...(f.bounce >= 0 && f.bounce <= .3 ? {bounce: f.bounce} : {}),
     ...(['grow', 'jump', 'fill'].includes(f.m) ? {m: f.m} : {}), ...(/^#[0-9a-f]{6}$/i.test(f.pill) ? {pill: f.pill} : {}),
     ...(/^#[0-9a-f]{6}$/i.test(f.on) ? {on: f.on} : {}), ...(f.r >= 0 && f.r <= 1 ? {r: f.r} : {}), smooth: f.smooth === true};
+}
+// ---------- куски («Слов на экране») ----------
+// Зеркало subs_chunks.go: реплики режутся на короткие куски, каждый — своя реплика {a, b, t, w}, эффект работает на нём как обычно.
+// chunk: 0 — целиком, 1–3 — не больше стольких слов, -1 — авто (паузы, знаки, длина). Числа и правила менять в обоих местах.
+const SUBCH = {words: 3, chars: 16, pause: .3, letter: .07, long: .6, end: '.!?…', soft: ',;:'};
+function subChunkTimes(c, words) {
+  const n = words.length, dur = c.b - c.a, own = Array.isArray(c.w) && c.w.length === n, total = words.reduce((s, w) => s + [...w].length, 0), out = [];
+  let before = 0;
+  words.forEach((w, i) => {
+    let v = own ? c.w[i] - c.a : total ? dur * before / total : 0;
+    before += [...w].length;
+    v = Math.min(Math.max(v, 0), dur);
+    out.push(i ? Math.max(v, out[i - 1]) : v);
+  });
+  return out;
+}
+const subEndsWith = (w, set) => set.includes([...w].pop());
+function subChunks(cues, mode) {
+  if (!mode) return cues;
+  const limit = mode < 0 ? SUBCH.words : mode, out = [];
+  for (const c of cues) {
+    const words = c.t.split(/\s+/).filter(Boolean);
+    if (!words.length || c.b <= c.a) { out.push(c); continue; }
+    const at = subChunkTimes(c, words), heads = subFxWordHeads(words), own = Array.isArray(c.w) && c.w.length === words.length, ps = [];
+    for (let i = 0; i < words.length;) {
+      let j = i + 1;
+      while (j < words.length && heads[j] === heads[i]) j++;
+      if (j - i > Math.max(limit, 2)) j = i + 2 - (j - i) % 2;   // длинная цепочка коротких слов — парами с конца
+      const p = ps[ps.length - 1];
+      if (p) {
+        const last = words[p.to - 1];
+        let cut = p.to - p.from + j - i > limit || subEndsWith(last, SUBCH.end);
+        if (mode < 0 && !cut) {
+          const sound = Math.min(SUBCH.letter * [...last].length, SUBCH.long);
+          cut = [...words.slice(p.from, j).join(' ')].length > SUBCH.chars || subEndsWith(last, SUBCH.soft) || own && at[i] - at[p.to - 1] - sound >= SUBCH.pause;
+        }
+        if (!cut || at[i] <= at[p.from]) { p.to = j; i = j; continue; }
+      }
+      ps.push({from: i, to: j});
+      i = j;
+    }
+    ps.forEach((p, k) => out.push({a: k ? c.a + at[p.from] : c.a, b: k + 1 < ps.length ? c.a + at[ps[k + 1].from] : c.b,
+      t: words.slice(p.from, p.to).join(' '), ...(own ? {w: c.w.slice(p.from, p.to)} : {})}));
+  }
+  return out;
 }
 // отскок «по слову», если он включён: на него строки стоят дальше друг от друга (распорки в subsFxWord)
 const subFxBounce = s => s && s.fx && s.fx.k === 'word' ? s.fx.bounce || 0 : 0;
@@ -156,6 +202,30 @@ const subFxKarMeasure = font => {
   g.font = `${100 / mvSubLine(font)}px "${font}"`;
   return s => g.measureText(s).width / 100;   // в высотах строки, как textWidth / size
 };
+const subFxKarEl = (k, cls) => { const b = document.createElement('b'); b.className = cls; b.textContent = b.dataset.t = k.text; k.el = b; return b; };
+// куски реплик в span, строки переносит программа (white-space: pre), как subsKarLayout: каждая строка текста отдельно по ширине рамки.
+// Кусок — <b class=cls>, k.el и k.line. В span._kar — [{c, ch}]. Общая для караоке и «Активного слова».
+function subFxKarLay(span, cues, line, s, smooth, cls) {
+  const measure = subFxKarMeasure(s.font), sp = measure('a b') - measure('ab'), limit = (s.w || .9) * mvCv.clientWidth / (s.size * mvCv.clientHeight);
+  span._kar = [];
+  cues.forEach((c, n) => {
+    if (n) span.append('\n');
+    const ch = subFxKarChunks(c, line(c), smooth);
+    span._kar.push({c, ch});
+    let ln = 0;
+    for (let i = 0; i < ch.length;) {
+      let j = i;
+      while (j < ch.length && ch[j].para === ch[i].para) j++;
+      const starts = [...subFxKarBreak(ch.slice(i, j).map(k => measure(k.text)), sp, limit), j - i];
+      for (let r = 0; r + 1 < starts.length; r++) {
+        if (ln) span.append('\n');
+        for (let q = i + starts[r]; q < i + starts[r + 1]; q++) { if (q > i + starts[r]) span.append(' '); ch[q].line = ln; span.append(subFxKarEl(ch[q], cls)); }
+        ln++;
+      }
+      i = j;
+    }
+  });
+}
 // span караоке: куски — <b class="mv-subs-k">. Плашки в слое <u> под текстом (span — свой слой, z-index), строки переносит сама программа
 // (white-space: pre), как subsFxKar. Заливка: перенос обычный, буквы красит ::after с обрезкой --kp.
 function subFxKarPaint(span, cues, line, fx, at, s) {
@@ -165,32 +235,18 @@ function subFxKarPaint(span, cues, line, fx, at, s) {
     span.dataset.k = key;
     span.textContent = '';
     span.classList.toggle('mv-subs-kar', m !== 'fill');
-    const measure = subFxKarMeasure(s.font), sp = measure('a b') - measure('ab'), limit = (s.w || .9) * cw / (s.size * chh);
-    span._kar = [];
-    if (m !== 'fill') { const u = document.createElement('u'); u.className = 'mv-subs-pl'; span.append(u); }
-    cues.forEach((c, n) => {
-      if (n) span.append('\n');
-      const text = line(c), ch = subFxKarChunks(c, text, smooth), mk = k => { const b = document.createElement('b'); b.className = 'mv-subs-k'; b.textContent = b.dataset.t = k.text; k.el = b; return b; };
-      span._kar.push({c, ch});
-      if (m === 'fill') {
+    if (m !== 'fill') { const u = document.createElement('u'); u.className = 'mv-subs-pl'; span.append(u); subFxKarLay(span, cues, line, s, smooth, 'mv-subs-k'); }
+    else {
+      span._kar = [];
+      cues.forEach((c, n) => {
+        if (n) span.append('\n');
+        const text = line(c), ch = subFxKarChunks(c, text, smooth);
+        span._kar.push({c, ch});
         let from = 0;
-        ch.forEach(k => { span.append(text.slice(from, k.from), mk(k)); from = k.to; });
+        ch.forEach(k => { span.append(text.slice(from, k.from), subFxKarEl(k, 'mv-subs-k')); from = k.to; });
         span.append(text.slice(from));
-        return;
-      }
-      let ln = 0;
-      for (let i = 0; i < ch.length;) {
-        let j = i;
-        while (j < ch.length && ch[j].para === ch[i].para) j++;
-        const starts = [...subFxKarBreak(ch.slice(i, j).map(k => measure(k.text)), sp, limit), j - i];
-        for (let r = 0; r + 1 < starts.length; r++) {
-          if (ln) span.append('\n');
-          for (let q = i + starts[r]; q < i + starts[r + 1]; q++) { if (q > i + starts[r]) span.append(' '); ch[q].line = ln; span.append(mk(ch[q])); }
-          ln++;
-        }
-        i = j;
-      }
-    });
+      });
+    }
   }
   const size = s.size * chh, layer = span.querySelector('.mv-subs-pl');
   const o = layer && layer.getBoundingClientRect(), html = [];
@@ -221,6 +277,50 @@ function subFxKarPaint(span, cues, line, fx, at, s) {
   }
   if (layer) { const v = html.join(''); if (layer._v !== v) { layer._v = v; layer.innerHTML = v; } }
   span.style.setProperty('--kc', m === 'fill' ? fx.pill || SUBFX_KAR.pill : fx.on || SUBFX_KAR.on);
+}
+// ---------- активное слово ----------
+// Зеркало subs_active.go: произносимый кусок цвета hi и крупнее на big, соседи по строке расступаются на половину прироста,
+// строка по центру. Переходы линейные: soft — за SUBFX_ACT_SLIDE, иначе скачком.
+const SUBFX_ACT = {hi: '#ffe000', big: .15}, SUBFX_ACT_SLIDE = .12;
+// когда кусок активен: {on, off (-1 — до конца реплики), dOn, dOff}, как subsActTimes
+function subFxActTimes(ch, dur, soft) {
+  const next = i => { for (let j = i + 1; j < ch.length; j++) if (ch[j].t > ch[i].t) return [j, ch[j].t]; return [-1, dur]; };
+  const slide = i => soft ? Math.min(SUBFX_ACT_SLIDE, next(i)[1] - ch[i].t) : 0;
+  return ch.map((k, i) => { const [j, e] = next(i); return {on: k.t, off: j >= 0 ? e : -1, dOn: slide(i), dOff: j >= 0 ? slide(j) : 0}; });
+}
+const subFxActRamp = (u, a, d) => d <= 0 ? (u >= a ? 1 : 0) : Math.min(Math.max((u - a) / d, 0), 1);
+// [размер, цвет]: насколько кусок активен и насколько окрашен в момент u, как subsActLevel
+function subFxActLevel(t, u, keep) {
+  const on = subFxActRamp(u, t.on, t.dOn), size = t.off >= 0 ? on - subFxActRamp(u, t.off, t.dOff) : on;
+  return [size, keep ? on : size];
+}
+// цвет между a и b (#rrggbb), как subsActMix: каналы округляются
+const subFxActMix = (a, b, k) => '#' + [1, 3, 5].map(i => { const x = parseInt(a.slice(i, i + 2), 16), y = parseInt(b.slice(i, i + 2), 16); return Math.round(x + (y - x) * k).toString(16).padStart(2, '0'); }).join('');
+// span «Активного слова»: строки как у караоке (subFxKarLay), кусок — inline-block <b class="mv-subs-a">: scale от середины не двигает строку,
+// а поля по big·W/2 с каждой стороны раздвигают соседей ровно на прирост — браузер сам держит строку по центру, подложка растёт с ней.
+// Обводка у libass от \fscx не толстеет, поэтому её толщина делится на масштаб.
+function subFxActPaint(span, cues, line, fx, at, s) {
+  const key = 'a' + JSON.stringify([cues.map(c => [c.a, c.b, line(c), c.w]), s.font, s.w, s.size, Math.round(mvCv.clientWidth / mvCv.clientHeight * 1000)]);
+  if (span.dataset.k !== key) {
+    span.dataset.k = key;
+    span.textContent = '';
+    span.classList.add('mv-subs-kar');
+    subFxKarLay(span, cues, line, s, false, 'mv-subs-a');
+  }
+  const big = fx.big || 0, hi = fx.hi || SUBFX_ACT.hi, col = s.color || '#ffffff', stroke = s.back ? 0 : s.size * mvCv.clientHeight * .12;
+  const items = [];
+  for (const {c, ch} of span._kar || []) {
+    const ts = subFxActTimes(ch, c.b - c.a, !!fx.soft);
+    // ширина без масштаба: offsetWidth округляет до пикселя, поэтому рамка, делённая на прошлый масштаб
+    ch.forEach((k, i) => items.push([k.el, k.el.getBoundingClientRect().width / (k.el._sc || 1), subFxActLevel(ts[i], at - c.a, !!fx.keep)]));
+  }
+  for (const [el, w, [sz, cl]] of items) {
+    const sc = el._sc = 1 + big * sz;
+    el.style.transform = sc === 1 ? '' : `scale(${sc})`;
+    el.style.margin = sz ? `0 ${big * sz * w / 2}px` : '';
+    el.style.color = cl ? subFxActMix(col, hi, cl) : '';
+    el.style.webkitTextStrokeWidth = sc !== 1 && stroke ? stroke / sc + 'px' : '';
+  }
 }
 // время на одну букву: не успевает к SUBFX_END длины реплики — печатает быстрее
 function subFxStep(fx, n, dur) { return n > 0 ? Math.min(1 / (fx.cps || SUBFX_CPS), SUBFX_END * dur / n) : dur; }
@@ -253,10 +353,16 @@ function subFxFill() {
   if (!s) return;
   const fx = s.fx || {};
   for (const b of $('mtSubsFx').children) b.classList.toggle('on', b.dataset.fx === (fx.k || ''));
-  mtSum('mtSumSubsFx', {type: t('mt.fxType'), word: t('mt.fxWord'), kar: t('mt.fxKar')}[fx.k] || '');
+  mtSum('mtSumSubsFx', {type: t('mt.fxType'), word: t('mt.fxWord'), kar: t('mt.fxKar'), act: t('mt.fxAct')}[fx.k] || '');
+  $('mtSubsFxAct').classList.toggle('hide', fx.k !== 'act');
+  $('mtSubsActHi').value = fx.hi || SUBFX_ACT.hi;
+  mtVal('mtSubsActBig', Math.round((fx.big ?? SUBFX_ACT.big) * 100));
+  $('mtSubsActKeep').checked = !!fx.keep;
+  $('mtSubsActSoft').checked = !!fx.soft;
   $('mtSubsFxType').classList.toggle('hide', fx.k !== 'type');
   $('mtSubsFxWord').classList.toggle('hide', fx.k !== 'word');
   $('mtSubsFxKar').classList.toggle('hide', fx.k !== 'kar');
+  $('mtSubsChunk').value = String(s.chunk || 0);
   const km = fx.m || 'jump';
   $('mtSubsKarM').value = km;
   $('mtSubsKarSmoothRow').classList.toggle('hide', km === 'jump');
@@ -282,14 +388,24 @@ $('mtSubsFx').addEventListener('click', e => {
   if (k === 'type' && !('cps' in fx)) subFxSet({k, cps: SUBFX_CPS, cur: tkSubs.color || '#ffffff', blink: true});
   else if (k === 'word' && !('bounce' in fx)) subFxSet({k, dur: fx.dur || SUBFX_DUR, bounce: SUBFX_BOUNCE});
   else if (k === 'kar' && !('m' in fx)) subFxSet({k, m: 'jump', ...SUBFX_KAR});
+  else if (k === 'act' && !('hi' in fx)) subFxSet({k, ...SUBFX_ACT, soft: true});
   else subFxSet({k});
 });
+$('mtSubsActHi').addEventListener('change', () => subFxSet({hi: $('mtSubsActHi').value}));
+mtRow('mtSubsActBig', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), big: Math.round(Math.min(Math.max(v, 0), 30)) / 100}}));
+$('mtSubsActKeep').addEventListener('change', () => { $('mtSubsActKeep').blur(); subFxSet({keep: $('mtSubsActKeep').checked}); });
+$('mtSubsActSoft').addEventListener('change', () => { $('mtSubsActSoft').blur(); subFxSet({soft: $('mtSubsActSoft').checked}); });
 mtRow('mtSubsWDur', .005, v => mtSubsLive({fx: {...(tkSubs.fx || {}), dur: Math.round(Math.min(Math.max(v, .1), .6) * 100) / 100}}));
 mtRow('mtSubsBounce', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), bounce: Math.round(Math.min(Math.max(v, 0), 30)) / 100}}));
 $('mtSubsCurOn').addEventListener('change', () => { $('mtSubsCurOn').blur(); subFxSet({cur: $('mtSubsCurOn').checked ? $('mtSubsCur').value : ''}); });
 $('mtSubsCur').addEventListener('change', () => subFxSet({cur: $('mtSubsCur').value}));
 $('mtSubsBlink').addEventListener('change', () => subFxSet({blink: $('mtSubsBlink').checked}));
 mtRow('mtSubsCps', .25, v => mtSubsLive({fx: {...(tkSubs.fx || {}), cps: Math.round(Math.min(Math.max(v, 1), 100))}}));
+$('mtSubsChunk').addEventListener('change', () => {
+  $('mtSubsChunk').blur();
+  const v = +$('mtSubsChunk').value;
+  if (tkSubs) tkDo(() => { const {chunk, ...rest} = tkSubs; tkSubs = v ? {...rest, chunk: v} : rest; });
+});
 $('mtSubsKarM').addEventListener('change', () => { $('mtSubsKarM').blur(); subFxSet({m: $('mtSubsKarM').value}); });
 $('mtSubsKarSmooth').addEventListener('change', () => { $('mtSubsKarSmooth').blur(); subFxSet({smooth: $('mtSubsKarSmooth').checked}); });
 $('mtSubsKarPill').addEventListener('change', () => subFxSet({pill: $('mtSubsKarPill').value}));

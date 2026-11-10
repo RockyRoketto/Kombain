@@ -171,6 +171,7 @@ function tkLoad(o, path) {
     ...(sub.y > 0 && sub.y <= 1 ? {y: sub.y} : {}),
     ...(sub.h > 0 && sub.h <= 1 ? {h: sub.h} : {}),
     ...(sub.join === true ? {join: true} : {}),
+    ...([-1, 1, 2, 3].includes(sub.chunk) ? {chunk: sub.chunk} : {}),
     ...(sub.fx && typeof sub.fx === 'object' ? {fx: subFxLoad(sub.fx)} : {}),
     ...(sub.off === true ? {off: true} : {})} : null;
   tkTidyLinks();

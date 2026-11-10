@@ -93,7 +93,8 @@ function mvSubAsc(font) { mvSubLine(font); return mvSubLines.get('asc:' + font);
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
   mtCueNow();
-  const cues = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b) : [], line = c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t;
+  // куски (subChunks в subfx.js) режутся только из реплик, что видны сейчас: дёшево на каждый кадр
+  const now = c => tkAt >= c.a && tkAt < c.b, cues = s && !s.off ? subChunks(mtCueList().filter(now), s.chunk || 0).filter(now) : [], line = c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t;
   const text = cues.map(line).join('\n').trim();
   el.classList.toggle('hide', !text);
   if (!text) return;
@@ -102,9 +103,10 @@ function mvSubsDraw() {
   if (!span) { const box = document.createElement('div'); box.className = 'mv-subs-t'; span = document.createElement('span'); box.append(span); el.prepend(box); }
   // эффект (subfx.js): span по частям, перерисовка только при смене букв или курсора
   const fx = s.fx && s.fx.k === 'type' ? s.fx : null, parts = fx && cues.map(c => subFxParts(fx, c, line(c), tkAt)), key = fx ? JSON.stringify([parts, fx.cur]) : text;
-  const kar = !!(s.fx && s.fx.k === 'kar');
-  if (!kar) span.classList.remove('mv-subs-kar');
+  const kar = !!(s.fx && s.fx.k === 'kar'), act = !!(s.fx && s.fx.k === 'act');
+  if (!kar && !act) span.classList.remove('mv-subs-kar');
   if (kar) subFxKarPaint(span, cues, line, s.fx, tkAt, s);
+  else if (act) subFxActPaint(span, cues, line, s.fx, tkAt, s);
   else if (s.fx && s.fx.k === 'word') subFxWordPaint(span, cues, line, s.fx, tkAt);
   else if (span.dataset.k !== key) { span.dataset.k = key; if (fx) subFxPaint(span, parts, fx); else span.textContent = text; }
   if (tkSel.size) mvSubsSel = false;

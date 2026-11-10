@@ -295,6 +295,7 @@
   .mv-subs-pl{position:absolute;left:0;top:0;width:0;height:0;z-index:-1;text-decoration:none}
   .mv-subs-pl div{position:absolute}
   .mv-subs-k{position:relative;white-space:nowrap}
+  .mv-subs-a{display:inline-block;white-space:nowrap}   /* активное слово: scale от середины, поля раздвигают соседей (subFxActPaint) */
   .mv-subs-k::after{content:attr(data-t);position:absolute;left:0;top:0;color:var(--kc);-webkit-text-stroke:0;clip-path:inset(0 calc(100% - var(--kp,0%)) 0 0)}
   .mv-subs-cur{border-left:var(--curw,2px) solid;margin-right:calc(-1 * var(--curw,2px));-webkit-text-stroke:0}
   .mv-subs.sel{pointer-events:auto;cursor:move}
