@@ -14,7 +14,26 @@ const subFxBounce = s => s && s.fx && s.fx.k === 'word' ? s.fx.bounce || 0 : 0;
 // ---------- по слову ----------
 // слова как \S+ в Go (RE2): пробелом считаются только эти пять знаков
 const SUBFX_WORD = /[^\t\n\f\r ]+/g;
-// начала слов в секундах от начала реплики: время whisper (c.w), если слов столько же, иначе равномерно по буквам
+// Зеркало subsFxWordHeads в subtitles.go: какие слова появляются одним толчком. Для каждого слова — номер первого слова его группы.
+// Слово только из знаков (тире тоже) липнет к предыдущему; короткое служебное (1–2 буквы или из SUBFX_GLUE,
+// без знака после букв) — к следующему. Правила менять в обоих местах.
+// SUBFX_GLUE: для без над под при про или the and for with (кириллица кодами: в js её вне словаря тест не пускает)
+const SUBFX_GLUE = ['\u0434\u043b\u044f', '\u0431\u0435\u0437', '\u043d\u0430\u0434', '\u043f\u043e\u0434', '\u043f\u0440\u0438', '\u043f\u0440\u043e', '\u0438\u043b\u0438', 'the', 'and', 'for', 'with'];
+function subFxWordHeads(words) {
+  const heads = [];
+  let forward = false;   // предыдущее слово просит следующее в свою группу
+  words.forEach((w, i) => {
+    const punct = /^[\p{P}\p{S}]+$/u.test(w);
+    heads.push(i > 0 && (punct || forward) ? heads[i - 1] : i);
+    if (!punct || i === 0) {
+      const core = w.replace(/^[^\p{L}\p{N}]+/u, '');
+      forward = punct || (/^[\p{P}\p{S}]*[\p{L}\p{N}]+$/u.test(w) && ([...core].length <= 2 || SUBFX_GLUE.includes(core.toLowerCase())));
+    }
+  });
+  return heads;
+}
+// начала слов в секундах от начала реплики: время whisper (c.w), если слов столько же, иначе равномерно по буквам.
+// Слова группы (subFxWordHeads) берут время её первого слова
 function subFxWordTimes(c, words) {
   const dur = c.b - c.a, letters = words.map(w => [...w].length), total = letters.reduce((s, n) => s + n, 0), own = Array.isArray(c.w) && c.w.length === words.length;
   let before = 0;
@@ -25,7 +44,7 @@ function subFxWordTimes(c, words) {
     v = Math.min(Math.max(v, 0), SUBFX_END * dur);
     out.push(i ? Math.max(v, out[i - 1]) : v);
   });
-  return out;
+  return subFxWordHeads(words).map(h => out[h]);
 }
 // масштаб слова через u секунд от его начала; до начала null — слова не видно, но место держит.
 // Рост до 1+bounce за SUBFX_PEAK долю времени, потом обратно к 1; без отскока сразу до 1. Ускорение как subsFxAccel: k = доля^0,5

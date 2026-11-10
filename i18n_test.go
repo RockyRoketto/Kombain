@@ -175,6 +175,7 @@ func TestNoStrayRussian(t *testing.T) {
 		"`[×хХ]`":              true, // banner.go: русская х в именах файлов
 		`"Конвертор 9000.lnk"`: true, // install_windows.go: старые имена ярлыка, их ищем на диске
 		`"Конвертер 9000.lnk"`: true,
+		`"для без над под при про или the and for with"`: true, // subtitles.go: служебные слова эффекта «по слову»
 	}
 	for name, f := range files {
 		if name == "i18n_strings.go" {

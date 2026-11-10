@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -91,12 +92,16 @@ var subsWord = regexp.MustCompile(`\S+`)
 
 // subsFxWordTimes: когда начинается каждое слово, секунды от начала реплики. Времена whisper, если слов столько же,
 // иначе равномерно по буквам до subsFxTypeEnd длины. Не раньше предыдущего слова и не позже subsFxTypeEnd длины.
-func subsFxWordTimes(c SubCue, n int, letters []int) []float64 {
+// Слова группы (subsFxWordHeads) получают время первого слова группы: время самих слов (SubCue.W) не меняется.
+func subsFxWordTimes(c SubCue, words []string) []float64 {
+	n := len(words)
 	dur := c.End - c.Start
 	out := make([]float64, n)
+	letters := make([]int, n)
 	total := 0
-	for _, l := range letters {
-		total += l
+	for i, w := range words {
+		letters[i] = utf8.RuneCountInString(w)
+		total += letters[i]
 	}
 	before := 0
 	for i := range out {
@@ -111,7 +116,39 @@ func subsFxWordTimes(c SubCue, n int, letters []int) []float64 {
 			out[i] = max(out[i], out[i-1])
 		}
 	}
+	for i, h := range subsFxWordHeads(words) {
+		out[i] = out[h]
+	}
 	return out
+}
+
+var (
+	subsPunctOnly = regexp.MustCompile(`^[\p{P}\p{S}]+$`)
+	subsShortWord = regexp.MustCompile(`^[\p{P}\p{S}]*[\p{L}\p{N}]+$`) // слово без знака после букв: «в», но не «в,»
+	// служебные слова длиннее двух букв (короткие подклеиваются и так). Зеркало: SUBFX_GLUE в web/js/subfx.js
+	subsGlueWords = strings.Fields("для без над под при про или the and for with")
+)
+
+// subsFxWordHeads: какие слова появляются одним толчком. Для каждого слова — номер первого слова его группы.
+// Слово только из знаков (тире тоже) липнет к предыдущему; короткое служебное (1–2 буквы или из subsGlueWords,
+// без знака после букв) — к следующему. Зеркало: subFxWordHeads в web/js/subfx.js, правила менять в обоих местах.
+func subsFxWordHeads(words []string) []int {
+	heads := make([]int, len(words))
+	forward := false // предыдущее слово просит следующее в свою группу
+	for i, w := range words {
+		punct := subsPunctOnly.MatchString(w)
+		switch {
+		case i > 0 && (punct || forward):
+			heads[i] = heads[i-1]
+		default:
+			heads[i] = i
+		}
+		if !punct || i == 0 {
+			core := strings.TrimLeftFunc(w, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsNumber(r) })
+			forward = punct || (subsShortWord.MatchString(w) && (utf8.RuneCountInString(core) <= 2 || slices.Contains(subsGlueWords, strings.ToLower(core))))
+		}
+	}
+	return heads
 }
 
 // subsFxWord: по слову — одно событие на реплику, у каждого слова свои \t от начала события.
@@ -122,11 +159,11 @@ func subsFxWordTimes(c SubCue, n int, letters []int) []float64 {
 // по высоте от базовой линии.
 func subsFxWord(c SubCue, text string, s Subs, h int, place string, esc *strings.Replacer) string {
 	idx := subsWord.FindAllStringIndex(text, -1)
-	letters := make([]int, len(idx))
+	words := make([]string, len(idx))
 	for i, m := range idx {
-		letters[i] = utf8.RuneCountInString(text[m[0]:m[1]])
+		words[i] = text[m[0]:m[1]]
 	}
-	at := subsFxWordTimes(c, len(idx), letters)
+	at := subsFxWordTimes(c, words)
 	size := s.Size * float64(h)
 	// Распорка — невидимый неразрывный пробел (по нему строка не переносится) с \fsp минус его ширина:
 	// в покое места не занимает. \fsp у libass умножается на \fscx, поэтому распорка по ширине не сжимается, меняется только \fsp.

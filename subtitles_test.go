@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -424,9 +425,9 @@ func TestSubsFxWord(t *testing.T) {
 	// слов в тексте не столько, сколько времён (текст правили): равномерно по буквам.
 	// С подложкой: слой 0 — весь текст высотой распорок, слой 1 — буквы, прозрачность только у них (\1a)
 	s = Subs{Back: "#000000", Fx: SubFx{K: "word", Dur: 0.4, Bounce: 0.2}}.fit()
-	out = subsASS([]SubCue{{Start: 1, End: 2, Text: "аа б", W: []float64{1}}}, s, 640, 360)
-	for _, w := range []string{`Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\1a&HFF&\fscy120}аа б` + "\n",
-		`Dialogue: 1,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\3a&HFF&}{\fscx100`, `{\1a&HFF&\t(0,1,\1a&H00&`, `{\1a&HFF&\t(567,567,\1a&H00&`} {
+	out = subsASS([]SubCue{{Start: 1, End: 2, Text: "ааа бббб", W: []float64{1}}}, s, 640, 360)
+	for _, w := range []string{`Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\1a&HFF&\fscy120}ааа бббб` + "\n",
+		`Dialogue: 1,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\3a&HFF&}{\fscx100`, `{\1a&HFF&\t(0,1,\1a&H00&`, `{\1a&HFF&\t(364,364,\1a&H00&`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("нет %q в\n%s", w, out)
 		}
@@ -441,6 +442,26 @@ func TestSubsFxWord(t *testing.T) {
 	// обрезка по метке In сдвигает и начала слов
 	if r := subsRange([]SubCue{{Start: 3, End: 5, Text: "а б", W: []float64{3, 4}}}, 2, 10); !reflect.DeepEqual(r[0].W, []float64{1, 2}) {
 		t.Errorf("%+v", r)
+	}
+}
+
+// предлог появляется вместе со следующим словом, тире — вместе с предыдущим; время whisper при этом не меняется
+func TestSubsFxWordGroups(t *testing.T) {
+	words := []string{"на", "неё", "—", "и", "эффективнее", "-", "a", "the", "end,", "в,", "дом"}
+	want := []int{0, 0, 0, 3, 3, 3, 6, 6, 6, 9, 10}
+	if got := subsFxWordHeads(words); !reflect.DeepEqual(got, want) {
+		t.Errorf("%v, ждали %v", got, want)
+	}
+	w := []string{"на", "неё", "—", "и", "эффективнее"}
+	c := SubCue{Start: 20, End: 40, W: []float64{21.69, 21.72, 21.8, 30.65, 30.74}}
+	got := subsFxWordTimes(c, w)
+	for i, want := range []float64{1.69, 1.69, 1.69, 10.65, 10.65} {
+		if math.Abs(got[i]-want) > 1e-9 {
+			t.Errorf("%v, ждали начала %v у слова %d", got, want, i)
+		}
+	}
+	if !reflect.DeepEqual(c.W, []float64{21.69, 21.72, 21.8, 30.65, 30.74}) {
+		t.Error("W изменён")
 	}
 }
 
