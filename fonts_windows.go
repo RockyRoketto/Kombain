@@ -39,3 +39,34 @@ var systemFonts = sync.OnceValue(func() []string {
 	slices.Sort(names)
 	return names
 })
+
+// textWidth: ширина строки шрифтом font высотой строки px (как Fontsize в ASS: высота ячейки, ascent + descent).
+// GDI без кернинга, libass с ним: расхождение в пиксель-другой. Эффект «по слову» умножает его на малую долю, глазу не видно.
+// Не вышло — грубая оценка textWidthGuess.
+var gdi = windows.NewLazySystemDLL("gdi32.dll")
+
+func textWidth(font string, px float64, s string) float64 {
+	const big = 1000 // мерить крупно: у мелкого шрифта GDI округляет ширины букв до пикселя
+	name, err := windows.UTF16PtrFromString(font)
+	text := windows.StringToUTF16(s)
+	if err != nil || len(text) < 2 {
+		return textWidthGuess(px, s)
+	}
+	dc, _, _ := gdi.NewProc("CreateCompatibleDC").Call(0)
+	if dc == 0 {
+		return textWidthGuess(px, s)
+	}
+	defer gdi.NewProc("DeleteDC").Call(dc)
+	// высота > 0 — высота ячейки; 1 — DEFAULT_CHARSET, 4 — OUT_TT_PRECIS
+	f, _, _ := gdi.NewProc("CreateFontW").Call(big, 0, 0, 0, 400, 0, 0, 0, 1, 4, 0, 0, 0, uintptr(unsafe.Pointer(name)))
+	if f == 0 {
+		return textWidthGuess(px, s)
+	}
+	defer gdi.NewProc("DeleteObject").Call(f)
+	gdi.NewProc("SelectObject").Call(dc, f)
+	var size struct{ CX, CY int32 }
+	if ok, _, _ := gdi.NewProc("GetTextExtentPoint32W").Call(dc, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)-1), uintptr(unsafe.Pointer(&size))); ok == 0 {
+		return textWidthGuess(px, s)
+	}
+	return float64(size.CX) * px / big
+}

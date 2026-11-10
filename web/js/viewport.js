@@ -84,9 +84,12 @@ function mvSubLine(font) {
     g.font = `100px "${font}"`;
     const m = g.measureText('Ag');
     mvSubLines.set(font, (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) / 100 || 1.15);
+    mvSubLines.set('asc:' + font, m.fontBoundingBoxAscent / (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent) || .8);
   }
   return mvSubLines.get(font);
 }
+// доля ascent в высоте строки шрифта
+function mvSubAsc(font) { mvSubLine(font); return mvSubLines.get('asc:' + font); }
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
   mtCueNow();
@@ -99,18 +102,23 @@ function mvSubsDraw() {
   if (!span) { const box = document.createElement('div'); box.className = 'mv-subs-t'; span = document.createElement('span'); box.append(span); el.prepend(box); }
   // эффект (subfx.js): span по частям, перерисовка только при смене букв или курсора
   const fx = s.fx && s.fx.k === 'type' ? s.fx : null, parts = fx && cues.map(c => subFxParts(fx, c, line(c), tkAt)), key = fx ? JSON.stringify([parts, fx.cur]) : text;
-  if (span.dataset.k !== key) { span.dataset.k = key; if (fx) subFxPaint(span, parts, fx); else span.textContent = text; }
+  if (s.fx && s.fx.k === 'word') subFxWordPaint(span, cues, line, s.fx, tkAt);
+  else if (span.dataset.k !== key) { span.dataset.k = key; if (fx) subFxPaint(span, parts, fx); else span.textContent = text; }
   if (tkSel.size) mvSubsSel = false;
   el.classList.toggle('sel', mvSubsSel && !mv.playing);
   const size = s.size * mvCv.clientHeight, w = s.w || .9, x = s.x || .5, pad = size * .12;
   el.style.setProperty('--curw', Math.max(1, SUBFX_CUR_W * size) + 'px');
   el.dataset.pos = s.y > 0 ? 'free' : s.pos;
+  // Отскок «по слову»: при вжигании строки выше на долю b (распорки в subsFxWord), и лишнее делится как у libass:
+  // сверху b·ascent, снизу b·descent. Браузер делит поровну, поэтому текст сдвинут вниз на разницу, а подложка добирает отступами.
+  const b = subFxBounce(s), up = b * size * mvSubAsc(s.font), down = b * size - up;
   Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '', height: s.y > 0 && s.h > 0 ? s.h * 100 + '%' : '',
-    fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size + 'px', color: s.color || '#fff'});
+    fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size * (1 + b) + 'px', color: s.color || '#fff'});
   const a = s.backA > 0 ? s.backA : .6, hex = s.back || '#000000';
   Object.assign(span.style, s.back
-    ? {webkitTextStroke: '', backgroundColor: `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`, padding: `${pad}px`}
+    ? {webkitTextStroke: '', backgroundColor: `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`, padding: `${pad + up}px ${pad}px ${pad + down}px`}
     : {webkitTextStroke: `${pad}px #000`, backgroundColor: '', padding: ''});
+  Object.assign(span.style, b ? {position: 'relative', top: (up - down) / 2 + 'px'} : {position: '', top: ''});
 }
 // Субтитры и их ручки под мышью. Смотрим по точке, а не по e.target: рамка выбранного слоя лежит выше холста и забирает нажатие.
 function mvSubsAt(e) {

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -91,7 +92,7 @@ func TestWhisperPlace(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", os.Getenv("LOCALAPPDATA"))
 	dir := t.TempDir()
 	lead := filepath.Join(dir, "ролик.mp4")
-	cues := []SubCue{{0, 1, "Привет"}}
+	cues := []SubCue{{0, 1, "Привет", nil}}
 	first, err := whisperPlace(cues, lead)
 	if err != nil || filepath.Base(first) != "ролик.srt" {
 		t.Fatalf("%s %v", first, err)
@@ -186,8 +187,8 @@ func TestWhisperWords(t *testing.T) {
 func TestWhisperGroup(t *testing.T) {
 	w := func(a float64, s string) whisperWord { return whisperWord{a, a + 0.3, s} }
 	got := whisperGroup([]whisperWord{w(20, "Есть"), w(20.4, "идея?"), w(21, "Мы"), w(21.4, "запускаем"), w(25, "конкурс")})
-	want := []SubCue{{20, 20.7, "Есть идея?"}, {21, 21.7, "Мы запускаем"}, {25, 25.7, "конкурс"}}
-	if !slices.Equal(got, want) {
+	want := []SubCue{{20, 20.7, "Есть идея?", []float64{20, 20.4}}, {21, 21.7, "Мы запускаем", []float64{21, 21.4}}, {25, 25.7, "конкурс", []float64{25}}}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%+v", got)
 	}
 	var long []whisperWord

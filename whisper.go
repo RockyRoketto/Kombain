@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,12 +47,13 @@ const whisperModelURL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/ma
 
 // WhisperJob: что видит страница. Stage: tool, model, audio, speech; пусто — не работает.
 type WhisperJob struct {
-	Active bool    `json:"active"`
-	Stage  string  `json:"stage"`
-	Pct    float64 `json:"pct"`
-	Err    string  `json:"err"`
-	Path   string  `json:"path"` // готовый файл .srt
-	Seq    int     `json:"seq"`  // номер запуска: страница так узнаёт конец своего
+	Active bool     `json:"active"`
+	Stage  string   `json:"stage"`
+	Pct    float64  `json:"pct"`
+	Err    string   `json:"err"`
+	Path   string   `json:"path"`           // готовый файл .srt
+	Cues   []SubCue `json:"cues,omitempty"` // те же реплики с началами слов (в .srt их нет)
+	Seq    int      `json:"seq"`            // номер запуска: страница так узнаёт конец своего
 }
 
 var (
@@ -313,30 +315,30 @@ func whisperPlace(cues []SubCue, lead string) (string, error) {
 	return p, nil
 }
 
-func whisperRun(ctx context.Context, ffm string, p Project, model, lang string) (string, error) {
+func whisperRun(ctx context.Context, ffm string, p Project, model, lang string) (string, []SubCue, error) {
 	if !whisperToolReady() {
 		whisperSet("tool", 0)
 		if err := whisperInstall(ctx); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	mp := whisperModelPath(model)
 	if !fileExists(mp) {
 		whisperSet("model", 0)
 		if err := whisperFetch(ctx, whisperModels[model], mp, func(v float64) { whisperSet("model", v) }); err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	work := filepath.Join(cacheDir(), "whisper")
 	os.RemoveAll(work)
 	if err := os.MkdirAll(work, 0o755); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer os.RemoveAll(work)
 	whisperSet("audio", 0)
 	wav := filepath.Join(work, "audio.wav")
 	if err := whisperAudio(ctx, ffm, p, wav); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	whisperSet("speech", 0)
 	out := filepath.Join(work, "out")
@@ -346,7 +348,7 @@ func whisperRun(ctx context.Context, ffm string, p Project, model, lang string) 
 		err = whisperSpeech(ctx, mp, wav, out, lang, "")
 	}
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	var cues []SubCue
 	if b, err := os.ReadFile(out + ".json"); err == nil {
@@ -361,9 +363,27 @@ func whisperRun(ctx context.Context, ffm string, p Project, model, lang string) 
 		}
 	}
 	if spans, err := speechSpans(ctx, ffm, wav); err == nil { // не вышло: остаются времена whisper
+		was := slices.Clone(cues)
 		cues = whisperAlign(cues, spans)
+		for i := range cues {
+			cues[i].W = cueWordsMove(cues[i].W, was[i], cues[i])
+		}
 	}
-	return whisperPlace(cues, p.lead())
+	path, err := whisperPlace(cues, p.lead())
+	return path, cues, err
+}
+
+// cueWordsMove: реплику сдвинули или растянули — начала слов переносятся в те же доли её длины
+func cueWordsMove(w []float64, from, to SubCue) []float64 {
+	if len(w) == 0 || from.End <= from.Start {
+		return w
+	}
+	k := (to.End - to.Start) / (from.End - from.Start)
+	out := make([]float64, len(w))
+	for i, v := range w {
+		out[i] = to.Start + (v-from.Start)*k
+	}
+	return out
 }
 
 var whisperLang = regexp.MustCompile(`^(auto|[a-z]{2,3})$`)
@@ -397,10 +417,10 @@ func whisperStart(ffm string, p Project, model, lang string) error {
 	whisperMu.Unlock()
 	go func() {
 		defer cancel()
-		path, err := whisperRun(ctx, ffm, p, model, lang)
+		path, cues, err := whisperRun(ctx, ffm, p, model, lang)
 		whisperMu.Lock()
 		defer whisperMu.Unlock()
-		whisperNow.Active, whisperNow.Stage, whisperNow.Path, whisperCancel = false, "", path, nil
+		whisperNow.Active, whisperNow.Stage, whisperNow.Path, whisperNow.Cues, whisperCancel = false, "", path, cues, nil
 		if err != nil && ctx.Err() == nil {
 			whisperNow.Err = err.Error()
 		}

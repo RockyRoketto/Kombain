@@ -287,9 +287,10 @@
   #mtStage.hand,#mtStage.hand *{cursor:grab!important}
   #mtStage.panning,#mtStage.panning *{cursor:grabbing!important}
   .mv-subs{position:absolute;z-index:999;display:flex;align-items:center;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
-  .mv-subs-t{flex:1;min-width:0}
+  .mv-subs-t{flex:1;min-width:0;text-wrap:balance}   /* как WrapStyle 0 в libass: строки выравниваются по длине, верхняя не набивается до края */
   .mv-subs b,.mv-subs em{font:inherit}
   .mv-subs-hid{visibility:hidden}
+  .mv-subs-w{display:inline-block;transform-origin:50% 80%}   /* рост от базовой линии посередине слова, как при вжигании */
   .mv-subs-cur{border-left:var(--curw,2px) solid;margin-right:calc(-1 * var(--curw,2px));-webkit-text-stroke:0}
   .mv-subs.sel{pointer-events:auto;cursor:move}
   .mv-subs span{pointer-events:auto;cursor:move;-webkit-box-decoration-break:clone;box-decoration-break:clone}

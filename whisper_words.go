@@ -114,13 +114,14 @@ func whisperWords(b []byte) ([]whisperWord, error) {
 func whisperGroup(words []whisperWord) []SubCue {
 	var cues []SubCue
 	var cur []string
+	var at []float64 // начала слов: на каждое слово текста реплики (strings.Fields) по одному, для эффекта «по слову»
 	var start, end float64
 	chars := 0
 	flush := func() {
 		if len(cur) > 0 {
-			cues = append(cues, SubCue{Start: start, End: end, Text: strings.Join(cur, " ")})
+			cues = append(cues, SubCue{Start: start, End: end, Text: strings.Join(cur, " "), W: at})
 		}
-		cur, chars = nil, 0
+		cur, at, chars = nil, nil, 0
 	}
 	for i, w := range words {
 		n := utf8.RuneCountInString(w.Text)
@@ -131,6 +132,9 @@ func whisperGroup(words []whisperWord) []SubCue {
 			start = w.Start
 		}
 		cur = append(cur, w.Text)
+		for range strings.Fields(w.Text) {
+			at = append(at, w.Start)
+		}
 		chars += n + 1
 		end = w.End
 		tail, _ := utf8.DecodeLastRuneInString(w.Text)

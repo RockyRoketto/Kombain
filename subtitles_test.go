@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"slices"
@@ -35,16 +36,16 @@ func TestSubsParse(t *testing.T) {
 		"2\n00:00:03.5 --> 00:00:04.000 X1:0\n{\\an8}вторая\n\n" +
 		"3\n00:00:05,000 --> 00:00:05,000\nнулевая длина\n\n" +
 		"мусор\n\n4\n01:00:00,000 --> 01:00:01,000\nбез пустой строки в конце")
-	want := []SubCue{{1.5, 2, "первая\nстрока"}, {3.5, 4, "вторая"}, {3600, 3601, "без пустой строки в конце"}}
-	if !slices.Equal(got, want) {
+	want := []SubCue{{1.5, 2, "первая\nстрока", nil}, {3.5, 4, "вторая", nil}, {3600, 3601, "без пустой строки в конце", nil}}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%+v", got)
 	}
 }
 
 func TestSubsRange(t *testing.T) {
-	got := subsRange([]SubCue{{0, 1, "до"}, {1.5, 2.5, "край"}, {3, 4, "внутри"}, {6, 8, "конец"}, {9, 10, "после"}}, 2, 5)
-	want := []SubCue{{0, 0.5, "край"}, {1, 2, "внутри"}, {4, 5, "конец"}}
-	if !slices.Equal(got, want) {
+	got := subsRange([]SubCue{{0, 1, "до", nil}, {1.5, 2.5, "край", nil}, {3, 4, "внутри", nil}, {6, 8, "конец", nil}, {9, 10, "после", nil}}, 2, 5)
+	want := []SubCue{{0, 0.5, "край", nil}, {1, 2, "внутри", nil}, {4, 5, "конец", nil}}
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%+v", got)
 	}
 }
@@ -388,5 +389,64 @@ func TestSubsFxType(t *testing.T) {
 	// неизвестный эффект сбрасывается
 	if (Subs{Fx: SubFx{K: "x", Cps: 5}}).fit().Fx != (SubFx{}) {
 		t.Error("неизвестный эффект не сброшен")
+	}
+}
+
+func TestSubsFxWord(t *testing.T) {
+	size := 0.05 * 360
+	nb := textWidth(subsFont, size, " ")
+	f2 := func(v float64) string { return fmt.Sprintf("%.2f", v) }
+	// распорка: невидимый неразрывный пробел высотой 1+Bounce, \fsp минус его ширина — в покое места не занимает
+	strut := func(tall, anim string) string {
+		return `{\fscx100\fscy` + tall + `\alpha&HFF&\fsp` + f2(-nb) + anim + "} {\\fscy100\\fsp0}"
+	}
+	// с отскоком 20%: рост до 120% за 60% времени, возврат к 100%; распорки по (1−s)·W/2, на вершине меньше нуля
+	s := Subs{Fx: SubFx{K: "word", Dur: 0.4, Bounce: 0.2}}.fit()
+	out := subsASS([]SubCue{{Start: 1, End: 3, Text: "раз два\nтри", W: []float64{1.2, 1.6, 2.9}}}, s, 640, 360)
+	half := textWidth(subsFont, size, "раз") / 2
+	sp := `\t(200,200,\fsp` + f2(half-nb) + `)\t(200,440,0.5,\fsp` + f2(-0.2*half-nb) + `)\t(440,600,0.5,\fsp` + f2(-nb) + `)`
+	word := strut("120", sp) + `{\alpha&HFF&\t(200,200,\alpha&H00&\fscx0\fscy0)\t(200,440,0.5,\fscx120\fscy120)\t(440,600,0.5,\fscx100\fscy100)}раз` + strut("120", sp)
+	if !strings.Contains(out, "Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,"+word+" ") {
+		t.Errorf("нет\n%s\nв\n%s", word, out)
+	}
+	// позднее слово не позже 85% реплики
+	if !strings.Contains(out, `{\alpha&HFF&\t(1700,1700,\alpha&H00&`) {
+		t.Errorf("три не в 1,7 с:\n%s", out)
+	}
+	// без отскока одна фаза; слово в самом начале реплики меняется за 0..1 мс: \t(0,0) libass растянул бы на всё событие
+	s = Subs{Fx: SubFx{K: "word", Dur: 0.4}}.fit()
+	out = subsASS([]SubCue{{Start: 1, End: 3, Text: "раз"}}, s, 640, 360)
+	sp = `\t(0,1,\fsp` + f2(half-nb) + `)\t(0,400,0.5,\fsp` + f2(-nb) + `)`
+	word = strut("100", sp) + `{\alpha&HFF&\t(0,1,\alpha&H00&\fscx0\fscy0)\t(0,400,0.5,\fscx100\fscy100)}раз` + strut("100", sp)
+	if !strings.Contains(out, word+"\n") {
+		t.Errorf("нет\n%s\nв\n%s", word, out)
+	}
+	// слов в тексте не столько, сколько времён (текст правили): равномерно по буквам.
+	// С подложкой: слой 0 — весь текст высотой распорок, слой 1 — буквы, прозрачность только у них (\1a)
+	s = Subs{Back: "#000000", Fx: SubFx{K: "word", Dur: 0.4, Bounce: 0.2}}.fit()
+	out = subsASS([]SubCue{{Start: 1, End: 2, Text: "аа б", W: []float64{1}}}, s, 640, 360)
+	for _, w := range []string{`Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\1a&HFF&\fscy120}аа б` + "\n",
+		`Dialogue: 1,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\3a&HFF&}{\fscx100`, `{\1a&HFF&\t(0,1,\1a&H00&`, `{\1a&HFF&\t(567,567,\1a&H00&`} {
+		if !strings.Contains(out, w) {
+			t.Errorf("нет %q в\n%s", w, out)
+		}
+	}
+	// пределы настроек; чужие поля другого эффекта не остаются
+	if f := (Subs{Fx: SubFx{K: "word", Dur: 9, Bounce: 2, Cps: 5}}).fit().Fx; f != (SubFx{K: "word", Dur: 0.6, Bounce: 0.3}) {
+		t.Errorf("%+v", f)
+	}
+	if f := (Subs{Fx: SubFx{K: "word", Bounce: -1}}).fit().Fx; f.Dur != subsFxDur || f.Bounce != 0 {
+		t.Errorf("%+v", f)
+	}
+	// обрезка по метке In сдвигает и начала слов
+	if r := subsRange([]SubCue{{Start: 3, End: 5, Text: "а б", W: []float64{3, 4}}}, 2, 10); !reflect.DeepEqual(r[0].W, []float64{1, 2}) {
+		t.Errorf("%+v", r)
+	}
+}
+
+func TestCueWordsMove(t *testing.T) {
+	got := cueWordsMove([]float64{10, 11}, SubCue{Start: 10, End: 12}, SubCue{Start: 20, End: 21})
+	if !reflect.DeepEqual(got, []float64{20, 20.5}) {
+		t.Errorf("%v", got)
 	}
 }

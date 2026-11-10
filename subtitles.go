@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -61,12 +62,16 @@ type Subs struct {
 	Fx SubFx `json:"fx"`
 }
 
-// SubFx: эффект субтитров. K: "" — без эффекта, "type" — печатная машинка (буквы по одной, курсор |)
+// SubFx: эффект субтитров. K: "" — без эффекта, "type" — печатная машинка (буквы по одной, курсор |),
+// "word" — по слову (слова копятся, каждое появляется с отскоком)
 type SubFx struct {
 	K     string  `json:"k,omitempty"`
 	Cps   float64 `json:"cps,omitempty"`   // букв в секунду; не успевает — печатает быстрее, чтобы закончить к subsFxTypeEnd длины реплики
 	Cur   string  `json:"cur,omitempty"`   // цвет курсора #rrggbb, пусто — без курсора
 	Blink bool    `json:"blink,omitempty"` // курсор мигает: subsFxBlink виден, столько же нет
+	// «по слову»: Dur — сколько секунд слово появляется, Bounce — насколько оно вырастает больше 100%, прежде чем вернуться (0–0,3)
+	Dur    float64 `json:"dur,omitempty"`
+	Bounce float64 `json:"bounce,omitempty"`
 }
 
 const (
@@ -75,7 +80,109 @@ const (
 	subsFxTypeEnd = 0.85
 	subsFxCurW    = 0.06 // ширина курсора от высоты строки
 	subsFxCurDown = 0.2  // сколько курсор уходит ниже базовой линии, от высоты строки
+	subsFxDur     = 0.3
+	// Рост слова: от 0 до 1+Bounce за subsFxPeak долю Dur, потом обратно к 1. Ускорение \t в ASS: k = доля^accel,
+	// меньше 1 — быстро, к концу плавно. Просмотр: subFxWordAt в web/js/subfx.js
+	subsFxPeak  = 0.6
+	subsFxAccel = 0.5
 )
+
+var subsWord = regexp.MustCompile(`\S+`)
+
+// subsFxWordTimes: когда начинается каждое слово, секунды от начала реплики. Времена whisper, если слов столько же,
+// иначе равномерно по буквам до subsFxTypeEnd длины. Не раньше предыдущего слова и не позже subsFxTypeEnd длины.
+func subsFxWordTimes(c SubCue, n int, letters []int) []float64 {
+	dur := c.End - c.Start
+	out := make([]float64, n)
+	total := 0
+	for _, l := range letters {
+		total += l
+	}
+	before := 0
+	for i := range out {
+		if len(c.W) == n {
+			out[i] = c.W[i] - c.Start
+		} else if total > 0 {
+			out[i] = subsFxTypeEnd * dur * float64(before) / float64(total)
+		}
+		before += letters[i]
+		out[i] = min(max(out[i], 0), subsFxTypeEnd*dur)
+		if i > 0 {
+			out[i] = max(out[i], out[i-1])
+		}
+	}
+	return out
+}
+
+// subsFxWord: по слову — одно событие на реплику, у каждого слова свои \t от начала события.
+// До своего времени слово прозрачное, но полного размера и держит место. Потом растёт по ширине и высоте от 0 до 1+Bounce
+// и возвращается к 1. Растущее слово libass раздвигало бы строку, поэтому по бокам слова две распорки (см. strut),
+// у которых \fsp меняется теми же \t: (1−s)·W/2 каждая, при s > 1 меньше нуля. Ширина места s·W + (1−s)·W
+// постоянна. W меряет textWidth; его ошибка умножается на (1−s) и на глаз не видна. Слово растёт от своей середины,
+// по высоте от базовой линии.
+func subsFxWord(c SubCue, text string, s Subs, h int, place string, esc *strings.Replacer) string {
+	idx := subsWord.FindAllStringIndex(text, -1)
+	letters := make([]int, len(idx))
+	for i, m := range idx {
+		letters[i] = utf8.RuneCountInString(text[m[0]:m[1]])
+	}
+	at := subsFxWordTimes(c, len(idx), letters)
+	size := s.Size * float64(h)
+	// Распорка — невидимый неразрывный пробел (по нему строка не переносится) с \fsp минус его ширина:
+	// в покое места не занимает. \fsp у libass умножается на \fscx, поэтому распорка по ширине не сжимается, меняется только \fsp.
+	// На рисунок \fsp не действует — потому буква, а не полоска.
+	// Высотой распорка 1+Bounce: libass считает высоту строки по растянутым буквам, и без неё строки над выросшим словом
+	// подскакивали бы. Так строка заранее рассчитана на вершину отскока: с отскоком строки чуть дальше друг от друга,
+	// просмотр (subFxWordPaint) ставит такой же межстрочный.
+	b := s.Fx.Bounce
+	const nbsp = " "
+	nb := textWidth(s.Font, size, nbsp)
+	tall := fmt.Sprintf(`%g`, math.Round(1000+1000*b)/10)
+	strut := func(anim string) string {
+		return fmt.Sprintf(`{\fscx100\fscy%s\alpha&HFF&\fsp%.2f%s}`+nbsp+`{\fscy100\fsp0}`, tall, -nb, anim)
+	}
+	alpha := `\alpha` // с подложкой прозрачность только у букв: обводка слоя 1 должна остаться невидимой
+	var sb strings.Builder
+	layer, pre := 0, ""
+	if s.Back != "" {
+		// подложка слоем 0: весь текст той же высоты, что распорки (\fscy ширину не меняет) — строки стоят как в слое 1,
+		// а подложка ровная и чуть выше. Распорки в этом слое дали бы под каждой свою плашку.
+		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s{\\1a&HFF&\\fscy%s}%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, tall, esc.Replace(text))
+		layer, pre, alpha = 1, `{\3a&HFF&}`, `\1a`
+	}
+	base := int(c.Start*100+0.5) * 10 // начало события в мс, как его округлит файл
+	var body strings.Builder
+	body.WriteString(place + pre)
+	from := 0
+	for i, m := range idx {
+		body.WriteString(esc.Replace(text[from:m[0]]))
+		t0 := int((c.Start+at[i])*1000+0.5) - base
+		t1 := t0 + int(s.Fx.Dur*1000+0.5)
+		tm := t1 // вершина: без отскока рост сразу до 100%
+		if b > 0 {
+			tm = t0 + int(subsFxPeak*s.Fx.Dur*1000+0.5)
+		}
+		raw := text[m[0]:m[1]]
+		word := esc.Replace(raw)
+		jump := t0 // мгновенная смена \t(t0,t0); но \t(0,0) libass понимает как «на всё событие», поэтому у начала 0..1 мс
+		if t0 == 0 {
+			jump = 1
+		}
+		half := textWidth(s.Font, size, raw) / 2
+		sp := fmt.Sprintf(`\t(%d,%d,\fsp%.2f)\t(%d,%d,%g,\fsp%.2f)`, t0, jump, half-nb, t0, tm, subsFxAccel, -b*half-nb)
+		peak := fmt.Sprintf(`%g`, math.Round(1000+1000*b)/10)
+		grow := fmt.Sprintf(`{%s&HFF&\t(%d,%d,%s&H00&\fscx0\fscy0)\t(%d,%d,%g,\fscx%s\fscy%s)`, alpha, t0, jump, alpha, t0, tm, subsFxAccel, peak, peak)
+		if b > 0 {
+			sp += fmt.Sprintf(`\t(%d,%d,%g,\fsp%.2f)`, tm, t1, subsFxAccel, -nb)
+			grow += fmt.Sprintf(`\t(%d,%d,%g,\fscx100\fscy100)`, tm, t1, subsFxAccel)
+		}
+		body.WriteString(strut(sp) + grow + "}" + word + strut(sp))
+		from = m[1]
+	}
+	body.WriteString(esc.Replace(text[from:]))
+	fmt.Fprintf(&sb, "Dialogue: %d,%s,%s,Default,,0,0,0,,%s\n", layer, subsAssClock(c.Start), subsAssClock(c.End), body.String())
+	return sb.String()
+}
 
 // subsFxStep: время на одну букву реплики из n букв длиной dur
 func subsFxStep(fx SubFx, n int, dur float64) float64 {
@@ -183,6 +290,9 @@ type SubCue struct {
 	Start float64 `json:"a"`
 	End   float64 `json:"b"`
 	Text  string  `json:"t"`
+	// W: начала слов в секундах монтажа из whisper, по одному на слово текста (strings.Fields).
+	// Число слов разошлось с текстом (правка, .srt) — эффект «по слову» раскладывает время равномерно по буквам.
+	W []float64 `json:"w,omitempty"`
 }
 
 var (
@@ -305,7 +415,11 @@ func subsRange(cues []SubCue, offset, dur float64) []SubCue {
 	for _, c := range cues {
 		a, b := max(c.Start-offset, 0), min(c.End-offset, dur)
 		if text := strings.TrimSpace(c.Text); b > a && text != "" {
-			out = append(out, SubCue{a, b, text})
+			var w []float64
+			for _, v := range c.W {
+				w = append(w, v-offset)
+			}
+			out = append(out, SubCue{a, b, text, w})
 		}
 	}
 	return out
@@ -346,9 +460,9 @@ func (s Subs) fit() Subs {
 		s.H = min(max(s.H, 0.02), 1)
 		s.Y = max(s.Y, s.H) // рамка целиком в кадре
 	}
-	if s.Fx.K != "type" {
-		s.Fx = SubFx{}
-	} else {
+	switch s.Fx.K {
+	case "type":
+		s.Fx = SubFx{K: "type", Cps: s.Fx.Cps, Cur: s.Fx.Cur, Blink: s.Fx.Blink}
 		if s.Fx.Cps <= 0 {
 			s.Fx.Cps = subsFxCps
 		}
@@ -356,6 +470,14 @@ func (s Subs) fit() Subs {
 		if !subsHex.MatchString(s.Fx.Cur) {
 			s.Fx.Cur = ""
 		}
+	case "word":
+		s.Fx = SubFx{K: "word", Dur: s.Fx.Dur, Bounce: min(max(s.Fx.Bounce, 0), 0.3)}
+		if s.Fx.Dur <= 0 {
+			s.Fx.Dur = subsFxDur
+		}
+		s.Fx.Dur = min(max(s.Fx.Dur, 0.1), 0.6) // появление всегда быстрое
+	default:
+		s.Fx = SubFx{}
 	}
 	return s
 }
@@ -403,6 +525,10 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		}
 		if s.Fx.K == "type" && c.End > c.Start {
 			sb.WriteString(subsFxType(c, text, s, h, place, esc))
+			continue
+		}
+		if s.Fx.K == "word" && c.End > c.Start {
+			sb.WriteString(subsFxWord(c, text, s, h, place, esc))
 			continue
 		}
 		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
@@ -547,4 +673,9 @@ func subsPlan(si *srcInfo, sub Subs, f Format, offset float64, inputs int) error
 	// [v] в графе всего один: это конец видео. Метка меняется на промежуточную, субтитры встают последним шагом.
 	si.graph = strings.Replace(si.graph, "[v]", "[vb]", 1) + ";[vb]ass=filename=" + subsFilterPath(name) + "[v]"
 	return nil
+}
+
+// textWidthGuess: ширина строки без шрифта — средняя буква в половину высоты строки
+func textWidthGuess(px float64, s string) float64 {
+	return 0.5 * px * float64(utf8.RuneCountInString(s))
 }

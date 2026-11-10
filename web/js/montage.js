@@ -740,7 +740,8 @@ async function mtAutoWatch() {
   if (job.active) { setTimeout(mtAutoWatch, 400); return; }
   if (job.err) { say('err', t('mt.auto.title'), job.err); return; }
   if (!job.path) return;   // отменили
-  const c = await api('subs-read', {path: job.path});
+  // реплики из программы несут начала слов (эффект «по слову»); в файле .srt их нет
+  const c = job.cues && job.cues.length ? {cues: job.cues} : await api('subs-read', {path: job.path});
   if (c.error) { say('warn', t('mt.auto.title'), c.error); return; }
   mtSubsSrc = false;
   tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || [], off: false}; mtCueNone(); });

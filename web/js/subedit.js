@@ -81,7 +81,7 @@ function mtCueDown(e, el) {
   const side = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : '';
   const before = tkState(), x0 = e.clientX, a0 = c.a, b0 = c.b;
   // вся группа едет вместе и упирается в ближайшую невыбранную реплику
-  const group = [...(inGroup ? mtCueMany : [i])].map(n => ({c: list[n], a: list[n].a, b: list[n].b}));
+  const group = [...(inGroup ? mtCueMany : [i])].map(n => ({c: list[n], a: list[n].a, b: list[n].b, w: list[n].w}));
   let min = -Infinity, max = Infinity;
   list.forEach((q, n) => {
     if (!mtCuePicked(n)) return;
@@ -98,7 +98,8 @@ function mtCueDown(e, el) {
     else if (side === 'r') c.b = mtCueSec(Math.max(Math.min(b0 + dx, hi), a0 + MT_CUE_MIN));
     else {
       const d = Math.min(Math.max(dx, min), max);
-      for (const g of group) { g.c.a = mtCueSec(g.a + d); g.c.b = mtCueSec(g.b + d); }
+      // начала слов (эффект «по слову») едут вместе с репликой; края тянут — слова стоят, где были
+      for (const g of group) { g.c.a = mtCueSec(g.a + d); g.c.b = mtCueSec(g.b + d); if (Array.isArray(g.w)) g.c.w = g.w.map(v => v + d); }
     }
     mtCueLane();
     mvSubsDraw();
@@ -204,9 +205,12 @@ function mtCueSplit() {
   at = mtCueSec(Math.min(Math.max(at, c.a + MT_CUE_MIN), c.b - MT_CUE_MIN));
   if (at <= c.a || at >= c.b) return;
   tkDo(() => {
-    list.splice(i + 1, 0, {a: at, b: c.b, t: c.t.slice(pos).trim()});
+    // начала слов делятся между половинами; разрезали посреди слова — число не сойдётся, и эффект разложит время сам
+    const n = (c.t.slice(0, pos).match(SUBFX_WORD) || []).length, w = Array.isArray(c.w) ? c.w : null;
+    list.splice(i + 1, 0, {a: at, b: c.b, t: c.t.slice(pos).trim(), ...(w ? {w: w.slice(n)} : {})});
     c.b = at;
     c.t = c.t.slice(0, pos).trim();
+    if (w) c.w = w.slice(0, n);
     mtCueSel = i + 1;
   });
   mtCaret = null;
@@ -215,8 +219,12 @@ function mtCueMerge() {
   const list = mtCueList(), i = mtCueCur();
   if (i === null || i + 1 >= list.length) return;
   tkDo(() => {
+    const words = c => (c.t.match(SUBFX_WORD) || []).length, own = c => Array.isArray(c.w) && c.w.length === words(c);
+    // начала слов склеиваются, только если у обеих реплик они настоящие
+    const w = own(list[i]) && own(list[i + 1]) ? [...list[i].w, ...list[i + 1].w] : null;
     list[i].t = `${list[i].t} ${list[i + 1].t}`.trim();
     list[i].b = list[i + 1].b;
+    if (w) list[i].w = w; else delete list[i].w;
     list.splice(i + 1, 1);
     mtCueSel = i;
   });
