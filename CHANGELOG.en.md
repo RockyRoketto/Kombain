@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 3.0
+
+- New Favicons tab: one icon makes the whole site set (favicon.ico, SVG, PNG for iPhone and Android, manifest and head code) with previews in a browser tab, Google, iPhone and Android.
+- You can add a dark version of the icon. iPhone and Android icons are full-bleed by default, with no white border.
+- Save next to the original or to a place you choose, as a ZIP archive or a folder of files.
+- All settings fit in one window, and while dragging, the cell where the icon will land is highlighted.
+
 ## 2.5
 
 - The montage toolbar is clearer: no frames, and the pen button has a list with Pen and Vector editing.
