@@ -487,27 +487,76 @@ func (s *Server) routes() *http.ServeMux {
 	// фавиконы: спросить, куда сохранить, и записать ZIP (картинки уже нарисовала страница)
 	mux.HandleFunc("/api/favicon-save", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Files []favFile `json:"files"`
-			Ico   [][]byte  `json:"ico"`
+			Files  []favFile `json:"files"`
+			Ico    [][]byte  `json:"ico"`
+			Mode   string    `json:"mode"`   // zip или folder
+			Dir    string    `json:"dir"`    // куда класть (папка оригинала); пусто — спросить
+			Name   string    `json:"name"`   // основа имени архива и папки
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<20)).Decode(&body); err != nil {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
-		path, err := pickZipSave()
+		base := safeName(body.Name) + "-favicons"
+		if st, err := os.Stat(body.Dir); body.Dir != "" && (err != nil || !st.IsDir()) {
+			body.Dir = "" // папка пропала: спросим
+		}
+		var path string
+		var err error
+		if body.Mode == "folder" {
+			dir := body.Dir
+			if dir == "" {
+				if dir, err = pickFolder(); err != nil {
+					writeJSON(w, map[string]any{"error": err.Error()})
+					return
+				}
+				if dir == "" {
+					writeJSON(w, map[string]any{}) // передумали
+					return
+				}
+			}
+			path = favFreePath(dir, base, "")
+			err = writeFavFolder(path, body.Files, body.Ico)
+		} else {
+			if body.Dir != "" {
+				path = favFreePath(body.Dir, base, ".zip")
+			} else if path, err = pickZipSave(); err != nil {
+				writeJSON(w, map[string]any{"error": err.Error()})
+				return
+			} else if path == "" {
+				writeJSON(w, map[string]any{}) // передумали
+				return
+			}
+			err = writeFavZip(path, body.Files, body.Ico)
+		}
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		if path == "" {
-			writeJSON(w, map[string]any{})
+		writeJSON(w, map[string]any{"path": path, "folder": body.Mode == "folder"})
+	}))
+
+	// фавиконы: прочитать выбранную в окне картинку (путь нужен, чтобы сохранять рядом с ней)
+	mux.HandleFunc("/api/fav-read", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		ext := strings.ToLower(filepath.Ext(body.Path))
+		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp" && ext != ".svg" {
+			writeJSON(w, map[string]any{"error": tr("err.favType")})
 			return
 		}
-		if err := writeFavZip(path, body.Files, body.Ico); err != nil {
+		if st, err := os.Stat(body.Path); err != nil || st.Size() > 40<<20 {
+			writeJSON(w, map[string]any{"error": tr("err.favType")})
+			return
+		}
+		b, err := os.ReadFile(body.Path)
+		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, map[string]any{"path": path})
+		writeJSON(w, map[string]any{"name": filepath.Base(body.Path), "dir": filepath.Dir(body.Path), "data": b})
 	}))
 
 	mux.HandleFunc("/api/whisper-info", s.api(func(w http.ResponseWriter, r *http.Request) {

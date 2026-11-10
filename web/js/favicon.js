@@ -2,12 +2,12 @@
 // Все размеры рисует canvas прямо здесь (SVG тоже), Go только собирает favicon.ico и ZIP (favicon.go).
 // Предпросмотры показывают те же картинки, что уйдут в архив.
 // Настройки и сами иконки помнит localStorage: konv9000.fav и konv9000.favImg.
-const FV_KEY = 'konv9000.fav', FV_IMG_KEY = 'konv9000.favImg';
+const FV_KEY = 'konv9000.fav2', FV_IMG_KEY = 'konv9000.favImg';   // fav2: новые умолчания (старые настройки с отступами не подхватываем)
 const FV_DEF = {
   br: {on: false, color: '#ffffff', colorDark: '#1f1f23', radius: 22, pad: 8},   // вкладка браузера, Google, favicon.ico и .svg
-  ios: {color: '#ffffff', pad: 10, name: ''},                                     // apple-touch-icon: iOS заливает прозрачное чёрным
-  and: {on: true, color: '#ffffff', pad: 12, theme: '#ffffff', name: '', short: ''},   // манифест; с подложкой иконка «maskable»
-  path: '/',
+  ios: {color: '#ffffff', pad: 0, name: ''},                                      // как в магазине: во весь квадрат, углы скругляет сам iPhone
+  and: {on: false, color: '#ffffff', pad: 0, theme: '#ffffff', name: '', short: ''},   // без подложки иконка как есть; с подложкой — «maskable»
+  path: '/', where: 'orig', kind: 'zip',   // куда и как сохранять
 };
 let fv = JSON.parse(JSON.stringify(FV_DEF));
 const fvImg = {light: null, dark: null};   // {name, src (data URL), svg (текст или ''), img, w, h}
@@ -20,12 +20,14 @@ function fvLoadState() {
       for (const [f, d] of Object.entries(FV_DEF[k])) if (typeof o[k][f] === typeof d) fv[k][f] = o[k][f];
     }
     if (typeof o.path === 'string') fv.path = o.path;
+    if (o.where === 'orig' || o.where === 'ask') fv.where = o.where;
+    if (o.kind === 'zip' || o.kind === 'folder') fv.kind = o.kind;
   } catch (e) {}
 }
 const fvSaveState = () => { try { localStorage.setItem(FV_KEY, JSON.stringify(fv)); } catch (e) {} };
 function fvSaveImgs() {
   const o = {};
-  for (const k of ['light', 'dark']) if (fvImg[k]) o[k] = {name: fvImg[k].name, src: fvImg[k].src, svg: fvImg[k].svg};
+  for (const k of ['light', 'dark']) if (fvImg[k]) o[k] = {name: fvImg[k].name, src: fvImg[k].src, svg: fvImg[k].svg, dir: fvImg[k].dir || ''};
   try { localStorage.setItem(FV_IMG_KEY, JSON.stringify(o)); }
   catch (e) { try { localStorage.removeItem(FV_IMG_KEY); } catch (e2) {} }   // не влезло: просто не запомним
 }
@@ -47,8 +49,8 @@ function fvSvgSized(text) {
 const fvB64 = s => btoa(unescape(encodeURIComponent(s)));
 const fvImgLoad = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 
-// принять файл: kind — 'light' или 'dark'
-async function fvTake(file, kind) {
+// принять файл: kind — 'light' или 'dark'; dir — папка оригинала (известна, только если выбрали кнопкой)
+async function fvTake(file, kind, dir = '') {
   if (!file) return;
   const isSvg = /\.svg$/i.test(file.name) || file.type === 'image/svg+xml';
   if (!isSvg && !/^image\/(png|jpeg|webp|gif|bmp)$/.test(file.type) && !/\.(png|jpe?g|webp)$/i.test(file.name)) {
@@ -63,7 +65,7 @@ async function fvTake(file, kind) {
     } else {
       src = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
     }
-    await fvSet(kind, {name: file.name, src, svg});
+    await fvSet(kind, {name: file.name, src, svg, dir});
     fvSaveImgs();
   } catch (e) { toast({type: 'warn', title: t('drop.notSuitableTitle'), text: t('fv.badFile', {name: esc(file.name)}), ttl: 7000}); }
 }
@@ -200,6 +202,7 @@ const fvLight = hex => { const c = cpParse(hex) || {r: 255, g: 255, b: 255}; ret
 
 // поля → состояние
 function fvFields() {
+  fvSegSync();
   $('fvBrOn').checked = fv.br.on; $('fvAndOn').checked = fv.and.on;
   $('fvBrRadius').value = fv.br.radius; $('fvBrPad').value = fv.br.pad; $('fvIosPad').value = fv.ios.pad; $('fvAndPad').value = fv.and.pad;
   $('fvIosName').value = fv.ios.name; $('fvAndName').value = fv.and.name; $('fvAndShort').value = fv.and.short; $('fvPath').value = fv.path;
@@ -225,8 +228,22 @@ for (const [id, o, k] of [['fvIosName', () => fv.ios, 'name'], ['fvAndName', () 
 }
 
 // выбор файла: щелчок по ячейке или кнопка «Выбрать иконку»
+// Выбираем окном Windows: так известен путь и можно сохранить рядом с оригиналом. В браузере (без окна) — обычный выбор файла.
 let fvPickKind = 'light';
-const fvPick = kind => { fvPickKind = kind; $('fvFile').value = ''; $('fvFile').click(); };
+const fvPick = kind => dialog(async () => {
+  fvPickKind = kind;
+  const r = await api('pick-files');
+  if (r.error) { say('warn', t('warn.title'), r.error); return; }
+  const p = r.files && r.files[0] && r.files[0].path;
+  if (!p) return;
+  const x = await api('fav-read', {path: p});
+  if (x.error) { say('warn', t('drop.notSuitableTitle'), x.error); return; }
+  const bin = atob(x.data), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const ext = x.name.split('.').pop().toLowerCase();
+  const type = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  await fvTake(new File([u8], x.name, {type}), kind, x.dir);
+});
 $('fvFile').addEventListener('change', () => fvTake($('fvFile').files[0], fvPickKind));
 $('fvPick').onclick = () => fvPick('light');
 for (const id of ['fvSlotLight', 'fvSlotDark']) {
@@ -236,6 +253,14 @@ for (const id of ['fvSlotLight', 'fvSlotDark']) {
     fvPick(kind);
   });
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fvPick(kind); } });
+}
+// подсветка при перетаскивании (вызывает drop.js): светится ячейка, куда файл ляжет; вне ячеек — основная (и тёмная, если файлов два)
+function fvDropHover(e) {
+  const L = $('fvSlotLight'), D = $('fvSlotDark');
+  if (!e) { L.classList.remove('over'); D.classList.remove('over'); return; }
+  const onDark = e.target.closest && e.target.closest('#fvSlotDark'), two = (e.dataTransfer.items || []).length > 1;
+  L.classList.toggle('over', !onDark);
+  D.classList.toggle('over', !!onDark || two);
 }
 // перетаскивание (вызывает drop.js): на ячейку тёмной — в неё; два файла — светлая и тёмная
 function fvDrop(e) {
@@ -267,12 +292,18 @@ $('fvSave').onclick = () => dialog(async () => {
     {name: 'head.html', data: fvText(fvHtml() + '\n')},
   ];
   const ico = [16, 32, 48].map(n => fvPng(fvDraw(L, n, fvBrOpt(false))));
-  const r = await api('favicon-save', {files, ico});
+  const dir = fv.where === 'orig' ? L.dir || '' : '';   // путь оригинала неизвестен — Go спросит сам
+  const r = await api('favicon-save', {files, ico, mode: fv.kind, dir, name: L.name.replace(/\.[^.]+$/, '')});
   if (r.error) { say('err', t('fv.saveFail'), r.error); return; }
   if (!r.path) return;   // передумали
+  const open = r.folder ? r.path : dirOf(r.path);
   toast({id: 'done', type: 'ok', title: t('fv.saved'), text: esc(r.path), ttl: 12000,
-    actions: [{t: t('fv.openDir'), primary: true, keep: true, fn: async () => { const x = await api('open-dir', {path: dirOf(r.path)}); if (x.error) say('warn', t('folder.title'), x.error); }}]});
+    actions: [{t: t('fv.openDir'), primary: true, keep: true, fn: async () => { const x = await api('open-dir', {path: open}); if (x.error) say('warn', t('folder.title'), x.error); }}]});
 });
+// куда и как сохранять
+const FV_SEGS = [["fvWhere", "where"], ["fvKind", "kind"]];
+const fvSegSync = () => { for (const [id, key] of FV_SEGS) $(id).querySelectorAll(".segb").forEach(b => b.classList.toggle("on", b.dataset.v === fv[key])); };
+for (const [id, key] of FV_SEGS) $(id).addEventListener("click", e => { const b = e.target.closest(".segb"); if (b) { fv[key] = b.dataset.v; fvSaveState(); fvSegSync(); } });
 
 // ---------- запуск ----------
 fvLoadState();
@@ -281,7 +312,7 @@ fvFields();
   try {
     const o = JSON.parse(localStorage.getItem(FV_IMG_KEY) || '{}');
     for (const k of ['light', 'dark']) if (o[k] && typeof o[k].src === 'string' && o[k].src.startsWith('data:image/')) {
-      try { await fvSet(k, {name: String(o[k].name || 'icon'), src: o[k].src, svg: typeof o[k].svg === 'string' ? o[k].svg : ''}); } catch (e) {}
+      try { await fvSet(k, {name: String(o[k].name || 'icon'), src: o[k].src, svg: typeof o[k].svg === 'string' ? o[k].svg : '', dir: typeof o[k].dir === 'string' ? o[k].dir : ''}); } catch (e) {}
     }
   } catch (e) {}
   fvRender();

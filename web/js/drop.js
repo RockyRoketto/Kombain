@@ -13,22 +13,23 @@ let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
 const dropEl = () => $(tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' :tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; dropEl().classList.add('over'); });
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  if (tab === 'util') fvDropHover(e);   // подсвечивается ячейка иконки, а не всё окно
   if (tab === 'mont') dropEl().classList.toggle('over', !mtDropHover(e));   // над дорожкой файл встанет на неё, окно файлов не подсвечивается
 });
 window.addEventListener('dragleave', e => {
   if (!hasFiles(e)) return;
   dragDepth = Math.max(0, dragDepth - 1);
   if (dragDepth) return;
-  dropEl().classList.remove('over');
+  dropEl().classList.remove('over'); fvDropHover(null);
   if (tab === 'mont') mtDropHide();
 });
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
-  e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over');
+  e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over'); fvDropHover(null);
   const aim = tab === 'mont' ? mtDropHover(e) : null;
   if (tab === 'mont') mtDropHide();
   if (tab === 'util') { fvDrop(e); return; }   // фавиконам нужен сам файл в окне, путь на диске не нужен

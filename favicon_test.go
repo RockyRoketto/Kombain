@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"image"
 	"image/png"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -74,5 +75,24 @@ func TestWriteFavZip(t *testing.T) {
 	}
 	if err := writeFavZip(path, []favFile{{"a.png", nil}, {"a.png", nil}}, nil); err == nil {
 		t.Error("повтор имени должен давать ошибку")
+	}
+}
+
+func TestWriteFavFolderAndFreePath(t *testing.T) {
+	dir := t.TempDir()
+	p := favFreePath(dir, "logo-favicons", "")
+	if err := writeFavFolder(p, []favFile{{Name: "head.html", Data: []byte("x")}}, [][]byte{testPNG(t, 16)}); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"head.html", "favicon.ico"} {
+		if _, err := os.Stat(filepath.Join(p, n)); err != nil {
+			t.Fatalf("нет файла %s: %v", n, err)
+		}
+	}
+	if p2 := favFreePath(dir, "logo-favicons", ""); p2 == p {
+		t.Fatalf("занятое имя вернулось снова: %s", p2)
+	}
+	if err := writeFavFolder(p, []favFile{{Name: "../x", Data: nil}}, nil); err == nil {
+		t.Fatal("имя с папкой должно отклоняться")
 	}
 }

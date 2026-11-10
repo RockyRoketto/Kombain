@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"time"
 )
@@ -60,39 +62,75 @@ func buildICO(pngs [][]byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// writeFavZip: архив с файлами; ico — PNG для favicon.ico (пусто — без него).
-// Пишет во временный файл рядом и подменяет: наполовину записанного архива не будет.
-func writeFavZip(path string, files []favFile, ico [][]byte) error {
+// favBundle: проверенный список файлов; к ним добавляется favicon.ico, если есть ico (PNG разных размеров)
+func favBundle(files []favFile, ico [][]byte) ([]favFile, error) {
 	if len(files) == 0 && len(ico) == 0 {
-		return errT("err.favEmpty")
-	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	now := time.Now()
-	add := func(name string, data []byte) error {
-		w, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate, Modified: now})
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(data)
-		return err
+		return nil, errT("err.favEmpty")
 	}
 	seen := map[string]bool{}
+	out := make([]favFile, 0, len(files)+1)
 	for _, f := range files {
 		if !favNameRe.MatchString(f.Name) || seen[f.Name] {
-			return errors.New("bad file name: " + f.Name)
+			return nil, errors.New("bad file name: " + f.Name)
 		}
 		seen[f.Name] = true
-		if err := add(f.Name, f.Data); err != nil {
-			return err
-		}
+		out = append(out, f)
 	}
 	if len(ico) > 0 {
 		b, err := buildICO(ico)
 		if err != nil {
+			return nil, err
+		}
+		out = append(out, favFile{Name: "favicon.ico", Data: b})
+	}
+	return out, nil
+}
+
+// favFreePath: путь, которого ещё нет: «имя», «имя (2)», «имя (3)»… ext — расширение с точкой или пусто
+func favFreePath(dir, base, ext string) string {
+	p := filepath.Join(dir, base+ext)
+	for i := 2; i < 1000; i++ {
+		if _, err := os.Stat(p); err != nil {
+			break
+		}
+		p = filepath.Join(dir, fmt.Sprintf("%s (%d)%s", base, i, ext))
+	}
+	return p
+}
+
+// writeFavFolder: файлы прямо в папку dir (создаётся); свободное имя папки подбирает favFreePath
+func writeFavFolder(dir string, files []favFile, ico [][]byte) error {
+	list, err := favBundle(files, ico)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	for _, f := range list {
+		if err := os.WriteFile(filepath.Join(dir, f.Name), f.Data, 0o644); err != nil {
 			return err
 		}
-		if err := add("favicon.ico", b); err != nil {
+	}
+	return nil
+}
+
+// writeFavZip: архив с файлами; ico — PNG для favicon.ico (пусто — без него).
+// Пишет во временный файл рядом и подменяет: наполовину записанного архива не будет.
+func writeFavZip(path string, files []favFile, ico [][]byte) error {
+	list, err := favBundle(files, ico)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	now := time.Now()
+	for _, f := range list {
+		w, err := zw.CreateHeader(&zip.FileHeader{Name: f.Name, Method: zip.Deflate, Modified: now})
+		if err != nil {
+			return err
+		}
+		if _, err := w.Write(f.Data); err != nil {
 			return err
 		}
 	}

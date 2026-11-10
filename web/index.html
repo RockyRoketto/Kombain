@@ -723,11 +723,10 @@ __CSS__
     </div>
   </div>
 
-  <!-- вкладка «Утилиты»: сверху выбор инструмента (пока один — фавиконы), web/js/favicon.js -->
+  <!-- вкладка «Фавиконы» (раньше «Утилиты»), web/js/favicon.js -->
   <div class="main hide" id="utilView">
     <section class="drop fv-stage" id="fvDrop">
       <div class="drop-head">
-        <nav class="fv-tools"><button class="chip on" data-i18n="fv.tool"></button></nav>
         <button class="btn sm" id="fvPick" data-i18n="fv.pick"></button>
         <span class="cnt" id="fvInfo"></span>
       </div>
@@ -779,62 +778,73 @@ __CSS__
       </div>
     </section>
 
-    <div class="col">
+    <div class="col fv-col">
       <section class="card">
         <h2 data-i18n="fv.icons"></h2>
         <div class="fv-slots">
           <div class="fv-slot" id="fvSlotLight" data-slot="light" tabindex="0" role="button" data-i18n-aria="fv.light">
             <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
-            <b data-i18n="fv.light"></b><span data-i18n="fv.lightSub"></span>
+            <div class="fv-sl"><b data-i18n="fv.light"></b><span data-i18n="fv.lightSub"></span></div>
             <button class="x hide" data-i18n-title="fv.remove">✕</button>
           </div>
           <div class="fv-slot" id="fvSlotDark" data-slot="dark" tabindex="0" role="button" data-i18n-aria="fv.dark">
             <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
-            <b data-i18n="fv.dark"></b><span data-i18n="fv.darkSub"></span>
+            <div class="fv-sl"><b data-i18n="fv.dark"></b><span data-i18n="fv.darkSub"></span></div>
             <button class="x hide" data-i18n-title="fv.remove">✕</button>
           </div>
         </div>
         <div class="note fv-warn hide" id="fvWarn"></div>
       </section>
 
-      <section class="card">
+      <section class="card fv-set">
         <h2 data-i18n="fv.browser"></h2>
         <label class="sw"><span data-i18n="fv.bgOn"></span><input type="checkbox" id="fvBrOn"><i></i></label>
         <div class="fv-opts" id="fvBrOpts">
-          <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvBrColor" data-i18n-aria="fv.bg"></button></div>
-          <div class="fv-row" id="fvBrDarkRow"><span data-i18n="fv.bgDark"></span><button type="button" class="cp-sw" id="fvBrColorDark" data-i18n-aria="fv.bgDark"></button></div>
-          <div class="fv-row"><span data-i18n="fv.radius"></span><input type="range" id="fvBrRadius" min="0" max="50" step="1"><output id="fvBrRadiusV"></output></div>
-          <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvBrPad" min="0" max="30" step="1"><output id="fvBrPadV"></output></div>
+          <div class="fv-grid2">
+            <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvBrColor" data-i18n-aria="fv.bg"></button></div>
+            <div class="fv-row" id="fvBrDarkRow"><span data-i18n="fv.bgDark"></span><button type="button" class="cp-sw" id="fvBrColorDark" data-i18n-aria="fv.bgDark"></button></div>
+            <div class="fv-row"><span data-i18n="fv.radius"></span><input type="range" id="fvBrRadius" min="0" max="50" step="1"><output id="fvBrRadiusV"></output></div>
+            <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvBrPad" min="0" max="30" step="1"><output id="fvBrPadV"></output></div>
+          </div>
         </div>
       </section>
 
-      <section class="card">
+      <section class="card fv-set">
         <h2>iPhone</h2>
-        <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvIosColor" data-i18n-aria="fv.bg"></button></div>
-        <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvIosPad" min="0" max="30" step="1"><output id="fvIosPadV"></output></div>
+        <div class="fv-grid2">
+          <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvIosColor" data-i18n-aria="fv.bg"></button></div>
+          <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvIosPad" min="0" max="30" step="1"><output id="fvIosPadV"></output></div>
+        </div>
         <div class="stack"><span class="lb" data-i18n="fv.appName"></span><input type="text" id="fvIosName" maxlength="40" data-i18n-ph="fv.namePh"></div>
-        <div class="note" data-i18n="fv.iosNote"></div>
       </section>
 
-      <section class="card">
+      <section class="card fv-set">
         <h2>Android</h2>
         <label class="sw"><span data-i18n="fv.andOn"></span><input type="checkbox" id="fvAndOn"><i></i></label>
         <div class="fv-opts" id="fvAndOpts">
-          <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvAndColor" data-i18n-aria="fv.bg"></button></div>
-          <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvAndPad" min="0" max="30" step="1"><output id="fvAndPadV"></output></div>
+          <div class="fv-grid2">
+            <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvAndColor" data-i18n-aria="fv.bg"></button></div>
+            <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvAndPad" min="0" max="30" step="1"><output id="fvAndPadV"></output></div>
+          </div>
         </div>
         <div class="fv-row"><span data-i18n="fv.theme"></span><button type="button" class="cp-sw" id="fvAndTheme" data-i18n-aria="fv.theme"></button></div>
-        <div class="fv-two">
+        <div class="fv-grid2">
           <div class="stack"><span class="lb" data-i18n="fv.name"></span><input type="text" id="fvAndName" maxlength="60" data-i18n-ph="fv.namePh"></div>
           <div class="stack"><span class="lb" data-i18n="fv.short"></span><input type="text" id="fvAndShort" maxlength="20" data-i18n-ph="fv.namePh"></div>
         </div>
-        <div class="note" data-i18n="fv.andNote"></div>
       </section>
 
-      <section class="card">
+      <section class="card fv-set">
         <h2 data-i18n="fv.out"></h2>
-        <div class="stack" style="border-top:0;padding-top:0"><span class="lb" data-i18n="fv.path"></span><input type="text" id="fvPath" spellcheck="false" placeholder="/"></div>
-        <div class="note" data-i18n="fv.pathNote"></div>
+        <div class="seg seg2" id="fvWhere">
+          <button class="segb on" data-v="orig" data-i18n-title="fv.whereOrigTip"><b data-i18n="fv.whereOrig"></b></button>
+          <button class="segb" data-v="ask"><b data-i18n="fv.whereAsk"></b></button>
+        </div>
+        <div class="seg seg2" id="fvKind">
+          <button class="segb on" data-v="zip"><b data-i18n="fv.kindZip"></b></button>
+          <button class="segb" data-v="folder"><b data-i18n="fv.kindFolder"></b></button>
+        </div>
+        <div class="stack"><span class="lb" data-i18n="fv.path"></span><input type="text" id="fvPath" spellcheck="false" placeholder="/" data-i18n-title="fv.pathNote"></div>
         <div class="fv-go"><button class="btn primary" id="fvSave" data-i18n="fv.save"></button></div>
       </section>
     </div>

@@ -1027,12 +1027,14 @@
   }
 
   /* ----- вкладка «Утилиты»: фавиконы (web/js/favicon.js). Мокапы рисуют чужие платформы, поэтому их цвета не из темы ----- */
-  .fv-tools{display:flex;gap:6px;padding-right:10px;border-right:1px solid var(--line)}
-  .fv-mocks{flex:1;min-height:0;overflow:hidden auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;align-content:start}
+  .fv-mocks{flex:1;min-height:0;overflow:hidden auto;display:grid;gap:10px;align-content:start;
+    grid-template-columns:auto minmax(0,1fr);grid-template-areas:"tabs tabs" "serp serp" "ios and" "code code"}
+  .fv-m-tabs{grid-area:tabs}.fv-m-serp{grid-area:serp}.fv-m-ios{grid-area:ios}.fv-m-and{grid-area:and}
+  @media (min-width:1500px){.fv-mocks{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"tabs ios and" "serp ios and" "code code code"}}
   .fv-m{margin:0;padding:12px 14px 14px;background:var(--s2);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
   .fv-m figcaption{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
   .fv-m figcaption .btn{letter-spacing:0;text-transform:none}
-  .fv-m-code{grid-column:1/-1}
+  .fv-m-code{grid-area:code}
   .fv-code{margin:0;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;font:12px/1.7 ui-monospace,Consolas,monospace;color:var(--tx2);white-space:pre;overflow:auto;user-select:text}
 
   /* вкладка браузера */
@@ -1091,28 +1093,36 @@
 
   /* правая колонка */
   .fv-slots{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .fv-slot{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:12px 10px 10px;background:var(--s2);border:1.5px dashed var(--line2);border-radius:12px;cursor:pointer;text-align:center;transition:.15s;outline:none}
+  .fv-slot{position:relative;display:flex;align-items:center;gap:10px;padding:8px 30px 8px 8px;background:var(--s2);border:1.5px dashed var(--line2);border-radius:12px;cursor:pointer;text-align:left;transition:.15s;outline:none;min-width:0}
   .fv-slot:hover,.fv-slot:focus-visible{border-color:var(--accs)}
   .fv-slot.has{border-style:solid;border-color:var(--line)}
+  .fv-slot.over,.fv-slot.over:hover{border-style:solid;border-color:var(--accs);background:var(--accbg);box-shadow:0 0 0 5px rgba(var(--acc-rgb),.12)}
   .fv-slot.has:hover{border-color:var(--accs)}
-  .fv-th{width:76px;height:76px;border-radius:14px;display:grid;place-items:center;margin-bottom:8px;
+  .fv-th{flex:none;width:48px;height:48px;border-radius:10px;display:grid;place-items:center;
     background:conic-gradient(#fff 25%,#e8e8eb 0 50%,#fff 0 75%,#e8e8eb 0) 0 0/12px 12px}
   #fvSlotDark .fv-th{background:conic-gradient(#1b1b1f 25%,#26262b 0 50%,#1b1b1f 0 75%,#26262b 0) 0 0/12px 12px}
-  .fv-th img{max-width:64px;max-height:64px;display:none}
-  .fv-th svg{width:26px;height:26px;fill:none;stroke:#8d8d96;stroke-width:1.8;stroke-linecap:round}
+  .fv-th img{max-width:40px;max-height:40px;display:none}
+  .fv-th svg{width:20px;height:20px;fill:none;stroke:#8d8d96;stroke-width:1.8;stroke-linecap:round}
   .fv-slot.has .fv-th img{display:block}
   .fv-slot.has .fv-th svg{display:none}
+  .fv-sl{display:flex;flex-direction:column;min-width:0}
   .fv-slot b{font-size:13px;font-weight:600;color:var(--tx)}
   .fv-slot span{font-size:11.5px;color:var(--dim)}
-  .fv-slot .x{position:absolute;top:4px;right:4px;width:24px;height:24px;font-size:11px}
+  .fv-slot .x{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:24px;height:24px;font-size:11px}
   .fv-slot .x:hover{color:var(--err)}
   .fv-warn b{color:var(--acct2)}
-  .fv-row{display:flex;align-items:center;gap:12px;padding:7px 0;color:var(--tx2)}
+  .fv-row{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--tx2);font-size:13px}
   .fv-row>span:first-child{flex:1;min-width:0}
-  .fv-row .cp-sw{width:72px;flex:none}
-  .fv-row input[type=range]{width:140px;flex:none}
-  .fv-row output{min-width:38px;text-align:right;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .fv-row .cp-sw{width:56px;flex:none}
+  .fv-row input[type=range]{width:84px;flex:none}
+  .fv-row output{min-width:34px;text-align:right;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
   .fv-opts.off{display:none}
-  .fv-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .fv-go{margin-top:12px;display:flex}
+  .fv-grid2{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}
+  .fv-set .stack{border-top:0;padding-top:2px}
+  .fv-set .sw{padding:4px 0}
+  .fv-col .seg{margin-bottom:6px}
+  .fv-col{gap:6px}
+  .fv-col .card{padding:9px 12px}
+  .fv-col .card h2{margin-bottom:5px}
+  .fv-go{margin-top:8px;display:flex}
   .fv-go .btn{flex:1}
