@@ -101,7 +101,8 @@ function fvDraw(it, size, o = {}) {
   return c;
 }
 
-const fvBrOpt = dark => fv.br.on ? {bg: dark ? fv.br.colorDark : fv.br.color, radius: fv.br.radius, pad: fv.br.pad} : {};
+// без скругления: вкладку и значок скругляет сам браузер
+const fvBrOpt = dark => fv.br.on ? {bg: dark ? fv.br.colorDark : fv.br.color, radius: 0, pad: fv.br.pad} : {};
 const fvIosOpt = () => ({bg: fv.ios.color, pad: fv.ios.pad});
 const fvAndOpt = () => fv.and.on ? {bg: fv.and.color, pad: fv.and.pad} : {};
 const fvPath = () => { let p = (fv.path || '/').trim().replace(/\\/g, '/'); if (!p.startsWith('/') && !/^https?:/i.test(p)) p = '/' + p; return p.endsWith('/') ? p : p + '/'; };
@@ -160,10 +161,8 @@ function fvPaint() {
     el.querySelector('img').src = it ? it.src : '';
     el.querySelector('.x').classList.toggle('hide', !it);
   }
-  $('fvEmpty').classList.toggle('hide', !!L);
-  $('fvMocks').classList.toggle('hide', !L);
+  $('fvMocks').classList.toggle('nofile', !L);   // пока файла нет, макеты пустые (иконка — пунктирная заглушка)
   $('fvSave').disabled = !L;
-  $('fvInfo').textContent = L ? `${L.name} · ${L.svg ? 'SVG' : L.w + '×' + L.h}` : '';
   // предупреждения: мелкая или не квадратная картинка
   const warn = [];
   for (const it of [L, D]) if (it) {
@@ -176,16 +175,20 @@ function fvPaint() {
   $('fvBrOpts').classList.toggle('off', !fv.br.on);
   $('fvBrDarkRow').classList.toggle('hide', !D);
   $('fvAndOpts').classList.toggle('off', !fv.and.on);
-  for (const [id, v] of [['fvBrRadius', fv.br.radius], ['fvBrPad', fv.br.pad], ['fvIosPad', fv.ios.pad], ['fvAndPad', fv.and.pad]]) $(id + 'V').textContent = v + ' %';
-  if (!L) { fvOut = null; return; }
+  for (const [id, v] of [['fvBrPad', fv.br.pad], ['fvIosPad', fv.ios.pad], ['fvAndPad', fv.and.pad]]) $(id + 'V').textContent = v + ' %';
   // картинки
-  const out = {
-    tab: fvDraw(L, 32, fvBrOpt(false)), tabDark: fvDraw(D || L, 32, fvBrOpt(true)),
-    serp: fvDraw(L, 96, fvBrOpt(false)),
-    ios: fvDraw(L, 180, fvIosOpt()), and: fvDraw(L, 192, fvAndOpt()), splash: fvDraw(L, 512, fvAndOpt()),
-  };
-  fvOut = out;
-  document.querySelectorAll('#fvMocks img[data-fv]').forEach(im => { im.src = out[im.dataset.fv].toDataURL(); });
+  if (L) {
+    const out = {
+      tab: fvDraw(L, 32, fvBrOpt(false)), tabDark: fvDraw(D || L, 32, fvBrOpt(true)),
+      serp: fvDraw(L, 96, fvBrOpt(false)),
+      ios: fvDraw(L, 180, fvIosOpt()), and: fvDraw(L, 192, fvAndOpt()), splash: fvDraw(L, 512, fvAndOpt()),
+    };
+    fvOut = out;
+    document.querySelectorAll('#fvMocks img[data-fv]').forEach(im => { im.src = out[im.dataset.fv].toDataURL(); });
+  } else {
+    fvOut = null;
+    document.querySelectorAll('#fvMocks img[data-fv]').forEach(im => im.removeAttribute('src'));
+  }
   $('fvMocks').querySelector('.fv-m-and .me').classList.toggle('mask', fv.and.on);
   $('fvSplash').style.background = fv.and.on ? fv.and.color : '#ffffff';
   $('fvSplash').style.color = fvLight(fv.and.on ? fv.and.color : '#ffffff') ? '#1d1c1a' : '#f3f3f4';
@@ -204,7 +207,7 @@ const fvLight = hex => { const c = cpParse(hex) || {r: 255, g: 255, b: 255}; ret
 function fvFields() {
   fvSegSync();
   $('fvBrOn').checked = fv.br.on; $('fvAndOn').checked = fv.and.on;
-  $('fvBrRadius').value = fv.br.radius; $('fvBrPad').value = fv.br.pad; $('fvIosPad').value = fv.ios.pad; $('fvAndPad').value = fv.and.pad;
+  $('fvBrPad').value = fv.br.pad; $('fvIosPad').value = fv.ios.pad; $('fvAndPad').value = fv.and.pad;
   $('fvIosName').value = fv.ios.name; $('fvAndName').value = fv.and.name; $('fvAndShort').value = fv.and.short; $('fvPath').value = fv.path;
   for (const [id, o, k] of FV_COLORS) $(id).value = o()[k];
 }
@@ -219,7 +222,7 @@ for (const [id, o, k] of FV_COLORS) {
   });
 }
 for (const [id, o, k] of [['fvBrOn', () => fv.br, 'on'], ['fvAndOn', () => fv.and, 'on']]) $(id).addEventListener('change', () => { o()[k] = $(id).checked; fvChanged(); });
-for (const [id, o, k] of [['fvBrRadius', () => fv.br, 'radius'], ['fvBrPad', () => fv.br, 'pad'], ['fvIosPad', () => fv.ios, 'pad'], ['fvAndPad', () => fv.and, 'pad']]) {
+for (const [id, o, k] of [['fvBrPad', () => fv.br, 'pad'], ['fvIosPad', () => fv.ios, 'pad'], ['fvAndPad', () => fv.and, 'pad']]) {
   $(id).addEventListener('input', () => { o()[k] = +$(id).value; fvRender(); });
   $(id).addEventListener('change', fvSaveState);
 }
@@ -245,7 +248,6 @@ const fvPick = kind => dialog(async () => {
   await fvTake(new File([u8], x.name, {type}), kind, x.dir);
 });
 $('fvFile').addEventListener('change', () => fvTake($('fvFile').files[0], fvPickKind));
-$('fvPick').onclick = () => fvPick('light');
 for (const id of ['fvSlotLight', 'fvSlotDark']) {
   const el = $(id), kind = el.dataset.slot;
   el.addEventListener('click', e => {

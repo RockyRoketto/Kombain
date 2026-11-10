@@ -726,18 +726,7 @@ __CSS__
   <!-- вкладка «Фавиконы» (раньше «Утилиты»), web/js/favicon.js -->
   <div class="main hide" id="utilView">
     <section class="drop fv-stage" id="fvDrop">
-      <div class="drop-head">
-        <button class="btn sm" id="fvPick" data-i18n="fv.pick"></button>
-        <span class="cnt" id="fvInfo"></span>
-      </div>
-      <div class="empty" id="fvEmpty">
-        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="30" height="30" rx="8"/><path d="M24 17v14M17 24h14"/>
-        </svg>
-        <b data-i18n="fv.dropTitle"></b>
-        <span data-i18n="fv.dropSub"></span>
-      </div>
-      <div class="fv-mocks hide" id="fvMocks">
+      <div class="fv-mocks nofile" id="fvMocks">
         <figure class="fv-m fv-m-tabs">
           <figcaption data-i18n="fv.mTabs"></figcaption>
           <div class="fv-tabs light"><div class="fv-tab"><img data-fv="tab" alt=""><span class="fv-ttl" data-fv-name></span><i>✕</i></div><div class="fv-tab off"><b></b><span class="fv-sk"></span></div></div>
@@ -793,6 +782,7 @@ __CSS__
             <button class="x hide" data-i18n-title="fv.remove">✕</button>
           </div>
         </div>
+        <div class="note" data-i18n="fv.dropSub"></div>
         <div class="note fv-warn hide" id="fvWarn"></div>
       </section>
 
@@ -803,7 +793,6 @@ __CSS__
           <div class="fv-grid2">
             <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvBrColor" data-i18n-aria="fv.bg"></button></div>
             <div class="fv-row" id="fvBrDarkRow"><span data-i18n="fv.bgDark"></span><button type="button" class="cp-sw" id="fvBrColorDark" data-i18n-aria="fv.bgDark"></button></div>
-            <div class="fv-row"><span data-i18n="fv.radius"></span><input type="range" id="fvBrRadius" min="0" max="50" step="1"><output id="fvBrRadiusV"></output></div>
             <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvBrPad" min="0" max="30" step="1"><output id="fvBrPadV"></output></div>
           </div>
         </div>
