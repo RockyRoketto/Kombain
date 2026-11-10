@@ -300,7 +300,7 @@ $('mtClear').onclick = mtClear;
   let open = {};
   try { open = JSON.parse(localStorage.getItem(key)) || {}; } catch (err) {}
   $('mtPanel').querySelectorAll('details[data-sec]').forEach(d => {
-    d.open = !!open[d.dataset.sec];
+    d.open = open[d.dataset.sec] ?? d.open;   // пока не трогали, как в разметке (атрибут open)
     d.addEventListener('toggle', () => {
       open[d.dataset.sec] = d.open;
       try { localStorage.setItem(key, JSON.stringify(open)); } catch (err) {}
@@ -656,6 +656,8 @@ $('mtLogo').onclick = () => dialog(async () => {
 
 // ---------- субтитры из файла: они на весь монтаж, поэтому раздел виден и без выбранного клипа ----------
 var mtSubsWait = '', mtSubsErr = '';   // var: mtPanel может позвать раньше, чем дойдёт до этой строки
+// Раздел «Распознать» нужен, пока субтитров нет. Потом он прячется, вернуть его можно кнопкой «Заменить» в шапке вкладки.
+var mtSubsSrc = false, mtAutoOn = false;
 // проект старой сборки хранит только путь: реплики прочитать из файла, дальше они живут в проекте
 async function mtSubsLoad(path) {
   mtSubsWait = path;
@@ -669,8 +671,14 @@ async function mtSubsLoad(path) {
 }
 function mtSubsFill() {
   const s = tkSubs;
-  $('mtSubsBody').classList.toggle('hide', !s);
-  $('mtSubsOff').classList.toggle('hide', !s);
+  if (!s) mtSubsSrc = false;
+  const src = document.querySelector('details[data-sec=subsSrc]'), srcWas = !src.classList.contains('hide');
+  src.classList.toggle('hide', !!s && !mtSubsSrc && !mtAutoOn);
+  if (!srcWas && !src.classList.contains('hide')) src.open = true;   // открыли «Заменить» или идёт распознавание
+  $('mtSubsKeep').classList.toggle('hide', !s || mtAutoOn);
+  $('mtSubsRedo').classList.toggle('hide', !src.classList.contains('hide'));
+  $('mtSubsHead').classList.toggle('hide', !s);
+  document.querySelectorAll('.mt-subsec').forEach(d => d.classList.toggle('hide', !s));
   mtSum('mtSumSubs', s ? t({track: 'mt.subsTrack', both: 'mt.subsBoth'}[s.mode] || 'mt.subsBurn') : '');
   $('mtSubsName').textContent = s ? base(s.path) : '';
   $('mtSubsName').title = s ? s.path : '';
@@ -695,6 +703,7 @@ function mtSubsFill() {
   mtVal('mtSubsW', Math.round((s.w || .9) * 100));
   $('mtSubsJoin').checked = !!s.join;
   $('mtSubsNote').classList.toggle('hide', s.mode === 'burn');
+  subFxFill();
 }
 $('mtSubsPick').onclick = () => dialog(async () => {
   const r = await api('subs-pick');
@@ -702,9 +711,12 @@ $('mtSubsPick').onclick = () => dialog(async () => {
   if (!r.path) return;
   const c = await api('subs-read', {path: r.path});
   if (c.error) { say('warn', t('mt.secSubs'), c.error); return; }
+  mtSubsSrc = false;
   tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: r.path, cues: c.cues || [], off: false}; mtCueNone(); });
 });
 $('mtSubsOff').onclick = () => tkDo(() => { tkSubs = null; });
+$('mtSubsRedo').onclick = () => { mtSubsSrc = true; mtSubsFill(); mtTabs(); };
+$('mtSubsKeep').onclick = () => { mtSubsSrc = false; mtSubsFill(); mtTabs(); };
 // Автосубтитры: выбор модели и языка запоминается, сама работа идёт в программе (whisper.go), страница только следит за ходом
 const mtAutoSizes = {tiny: 77691713, base: 147951465, small: 487601967};
 ['mtAutoModel', 'mtAutoLang'].forEach(id => {
@@ -713,6 +725,7 @@ const mtAutoSizes = {tiny: 77691713, base: 147951465, small: 487601967};
   $(id).addEventListener('change', () => { storeSet('konv9000.' + id, $(id).value); $(id).blur(); });
 });
 function mtAutoShow(job) {
+  if (mtAutoOn !== !!job.active) { mtAutoOn = !!job.active; mtSubsFill(); mtTabs(); }
   $('mtAutoGo').classList.toggle('hide', job.active);
   $('mtAutoRun').classList.toggle('hide', !job.active);
   if (job.active) {
@@ -729,8 +742,9 @@ async function mtAutoWatch() {
   if (!job.path) return;   // отменили
   const c = await api('subs-read', {path: job.path});
   if (c.error) { say('warn', t('mt.auto.title'), c.error); return; }
+  mtSubsSrc = false;
   tkDo(() => { tkSubs = {mode: 'burn', font: 'Arial', size: .05, pos: 'bottom', ...(tkSubs || {}), path: job.path, cues: c.cues || [], off: false}; mtCueNone(); });
-  document.querySelector('details[data-sec=subs]').open = true;
+  document.querySelector('details[data-sec=subsText]').open = true;
   toast({id: 'auto', type: 'ok', title: t('mt.auto.done'), text: esc(base(job.path)), ttl: 6000});
 }
 $('mtAutoGo').onclick = () => dialog(async () => {

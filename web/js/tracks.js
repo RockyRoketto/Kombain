@@ -171,6 +171,7 @@ function tkLoad(o, path) {
     ...(sub.y > 0 && sub.y <= 1 ? {y: sub.y} : {}),
     ...(sub.h > 0 && sub.h <= 1 ? {h: sub.h} : {}),
     ...(sub.join === true ? {join: true} : {}),
+    ...(sub.fx && typeof sub.fx === 'object' ? {fx: subFxLoad(sub.fx)} : {}),
     ...(sub.off === true ? {off: true} : {})} : null;
   tkTidyLinks();
   if (o.pps > 0) tkPps = Math.min(Math.max(o.pps, TK_MIN_PPS), TK_MAX_PPS);

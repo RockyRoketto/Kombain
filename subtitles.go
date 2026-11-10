@@ -57,6 +57,117 @@ type Subs struct {
 	H float64 `json:"h,omitempty"`
 	// Join: разрывы строк внутри реплик не учитываются при вжигании, текст переносится только по ширине рамки
 	Join bool `json:"join,omitempty"`
+	// Эффект сразу на все реплики. Просмотр считает те же моменты: subFxState в web/js/subfx.js
+	Fx SubFx `json:"fx"`
+}
+
+// SubFx: эффект субтитров. K: "" — без эффекта, "type" — печатная машинка (буквы по одной, курсор |)
+type SubFx struct {
+	K     string  `json:"k,omitempty"`
+	Cps   float64 `json:"cps,omitempty"`   // букв в секунду; не успевает — печатает быстрее, чтобы закончить к subsFxTypeEnd длины реплики
+	Cur   string  `json:"cur,omitempty"`   // цвет курсора #rrggbb, пусто — без курсора
+	Blink bool    `json:"blink,omitempty"` // курсор мигает: subsFxBlink виден, столько же нет
+}
+
+const (
+	subsFxCps     = 20
+	subsFxBlink   = 0.5
+	subsFxTypeEnd = 0.85
+	subsFxCurW    = 0.06 // ширина курсора от высоты строки
+	subsFxCurDown = 0.2  // сколько курсор уходит ниже базовой линии, от высоты строки
+)
+
+// subsFxStep: время на одну букву реплики из n букв длиной dur
+func subsFxStep(fx SubFx, n int, dur float64) float64 {
+	if n <= 0 {
+		return dur
+	}
+	return min(1/fx.Cps, subsFxTypeEnd*dur/float64(n))
+}
+
+// subsFxState: сколько букв видно в момент t от начала реплики и виден ли курсор. Первая буква сразу.
+func subsFxState(fx SubFx, n int, dur, t float64) (int, bool) {
+	k := min(n, int(t/subsFxStep(fx, n, dur)+1e-9)+1) // 1e-9: ровно на границе буквы деление дробей даёт 13,999…
+	cur := fx.Cur != "" && (!fx.Blink || int(t/subsFxBlink+1e-9)%2 == 0)
+	return k, cur
+}
+
+// subsFxType: печатная машинка — реплика делится на события, в каждом вся строка, ненапечатанное прозрачно,
+// поэтому строка не прыгает. Подложка стоит сразу во всю строку, как в просмотре.
+func subsFxType(c SubCue, text string, s Subs, h int, place string, esc *strings.Replacer) string {
+	runes := []rune(text)
+	n := 0
+	for _, r := range runes {
+		if r != '\n' {
+			n++
+		}
+	}
+	dur := c.End - c.Start
+	hide := `{\alpha&HFF&}`
+	// границы событий в сотых секунды, как в файле ASS
+	cs := func(v float64) int { return int(v*100 + 0.5) }
+	cuts := map[int]bool{cs(c.Start): true, cs(c.End): true}
+	step := subsFxStep(s.Fx, n, dur)
+	for i := 1; i < n; i++ {
+		cuts[cs(c.Start+float64(i)*step)] = true
+	}
+	if s.Fx.Cur != "" && s.Fx.Blink {
+		for t := subsFxBlink; t < dur; t += subsFxBlink {
+			cuts[cs(c.Start+t)] = true
+		}
+	}
+	keys := make([]int, 0, len(cuts))
+	for k := range cuts {
+		if k >= cs(c.Start) && k <= cs(c.End) {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	// курсор — полоска-рисунок нулевой ширины: \fsp вычитает её ширину, поэтому строки переносятся как у готовой реплики
+	// и не прыгают, пока курсор идёт по тексту. Высота — строка, низ на нижнем краю строки (\pbo — доля под базовой линией).
+	cur := ""
+	if s.Fx.Cur != "" {
+		size := s.Size * float64(h)
+		w, ht := max(1, int(subsFxCurW*size+0.5)), int(size+0.5)
+		cur = fmt.Sprintf(`{\p1\fsp-%d\bord0\shad0\1a&H00&\1c&H%s%s%s&\pbo%d}m 0 0 l %d 0 %d %d 0 %d{\p0\fsp0}`, w,
+			strings.ToUpper(s.Fx.Cur[5:7]), strings.ToUpper(s.Fx.Cur[3:5]), strings.ToUpper(s.Fx.Cur[1:3]), int(subsFxCurDown*size+0.5), w, w, ht, ht)
+	}
+	var sb strings.Builder
+	layer, pre := 0, ""
+	if s.Back != "" {
+		// подложка: libass рисует её под каждым куском с другой прозрачностью отдельно, и края кусков темнеют.
+		// Поэтому вся подложка — слой 0 на всю реплику, а буквы — слой 1 без подложки; текст в слоях один, раскладка совпадает.
+		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s{\\1a&HFF&}%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
+		layer, pre = 1, `{\3a&HFF&}`
+	}
+	line, from := "", 0
+	flush := func(to int) {
+		if line != "" && to > from {
+			fmt.Fprintf(&sb, "Dialogue: %d,%s,%s,Default,,0,0,0,,%s%s%s\n", layer, subsAssClock(float64(from)/100), subsAssClock(float64(to)/100), place, pre, line)
+		}
+	}
+	for i := 0; i+1 < len(keys); i++ {
+		k, on := subsFxState(s.Fx, n, dur, (float64(keys[i]+keys[i+1])/200)-c.Start)
+		cut := 0
+		for seen := 0; cut < len(runes) && seen < k; cut++ {
+			if runes[cut] != '\n' {
+				seen++
+			}
+		}
+		body := esc.Replace(string(runes[:cut]))
+		if on {
+			body += cur
+		}
+		if cut < len(runes) {
+			body += hide + esc.Replace(string(runes[cut:]))
+		}
+		if body != line {
+			flush(keys[i])
+			line, from = body, keys[i]
+		}
+	}
+	flush(keys[len(keys)-1])
+	return sb.String()
 }
 
 var subsBreak = regexp.MustCompile(`\s*\n\s*`)
@@ -235,6 +346,17 @@ func (s Subs) fit() Subs {
 		s.H = min(max(s.H, 0.02), 1)
 		s.Y = max(s.Y, s.H) // рамка целиком в кадре
 	}
+	if s.Fx.K != "type" {
+		s.Fx = SubFx{}
+	} else {
+		if s.Fx.Cps <= 0 {
+			s.Fx.Cps = subsFxCps
+		}
+		s.Fx.Cps = min(max(s.Fx.Cps, 1), 100)
+		if !subsHex.MatchString(s.Fx.Cur) {
+			s.Fx.Cur = ""
+		}
+	}
 	return s
 }
 
@@ -278,6 +400,10 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		text := c.Text
 		if s.Join {
 			text = subsBreak.ReplaceAllString(text, " ")
+		}
+		if s.Fx.K == "type" && c.End > c.Start {
+			sb.WriteString(subsFxType(c, text, s, h, place, esc))
+			continue
 		}
 		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
 	}

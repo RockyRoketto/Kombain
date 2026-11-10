@@ -355,3 +355,38 @@ func TestTimelineSubsLook(t *testing.T) {
 		t.Errorf("подложка: красный %d, зелёный %d", r, g)
 	}
 }
+
+// Печатная машинка: буквы появляются по одной, строка целиком в каждом событии (не прыгает), курсор мигает.
+func TestSubsFxType(t *testing.T) {
+	s := Subs{Fx: SubFx{K: "type", Cps: 10, Cur: "#ff0000", Blink: true}}.fit()
+	out := subsASS([]SubCue{{Start: 1, End: 2, Text: "абв"}}, s, 640, 360)
+	// курсор — полоска нулевой ширины (\fsp минус её ширина): строки переносятся как у готовой реплики
+	c := `{\p1\fsp-1\bord0\shad0\1a&H00&\1c&H0000FF&\pbo4}m 0 0 l 1 0 1 18 0 18{\p0\fsp0}`
+	want := []string{
+		`Dialogue: 0,0:00:01.00,0:00:01.10,Default,,0,0,0,,а` + c + `{\alpha&HFF&}бв`,
+		`Dialogue: 0,0:00:01.10,0:00:01.20,Default,,0,0,0,,аб` + c + `{\alpha&HFF&}в`,
+		`Dialogue: 0,0:00:01.20,0:00:01.50,Default,,0,0,0,,абв` + c,
+		`Dialogue: 0,0:00:01.50,0:00:02.00,Default,,0,0,0,,абв`,
+	}
+	for _, w := range want {
+		if !strings.Contains(out, w+"\n") {
+			t.Errorf("нет строки %s в\n%s", w, out)
+		}
+	}
+	if n := strings.Count(out, "Dialogue:"); n != len(want) {
+		t.Errorf("событий %d, ждали %d", n, len(want))
+	}
+	// без курсора, с подложкой и короткой репликой: подложка слоем 0 на всю реплику, буквы слоем 1 без неё; печать ускоряется до 85% длины
+	s = Subs{Back: "#000000", Fx: SubFx{K: "type", Cps: 1}}.fit()
+	out = subsASS([]SubCue{{Start: 0, End: 1, Text: "аб\nв"}}, s, 640, 360)
+	for _, w := range []string{"Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\1a&HFF&}аб\\Nв\n", `Dialogue: 1,0:00:00.00,0:00:00.28,Default,,0,0,0,,{\3a&HFF&}а{\alpha&HFF&}б\Nв`,
+		`0:00:00.28,0:00:00.57,Default,,0,0,0,,{\3a&HFF&}аб{\alpha&HFF&}\Nв`, `,,{\3a&HFF&}аб\Nв` + "\n"} {
+		if !strings.Contains(out, w) {
+			t.Errorf("нет %q в\n%s", w, out)
+		}
+	}
+	// неизвестный эффект сбрасывается
+	if (Subs{Fx: SubFx{K: "x", Cps: 5}}).fit().Fx != (SubFx{}) {
+		t.Error("неизвестный эффект не сброшен")
+	}
+}

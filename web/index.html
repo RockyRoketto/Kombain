@@ -447,8 +447,14 @@ __CSS__
         </details>
         </div>
         <div class="mt-pane" data-tab="subs">
-      <details class="mt-sec" data-sec="subs">
-        <summary><span data-i18n="mt.secSubs"></span><em id="mtSumSubs"></em></summary>
+      <div class="mt-subshead hide" id="mtSubsHead">
+        <span class="mt-clipname" id="mtSubsName"></span>
+        <button class="btn sm" id="mtSubsRedo" data-i18n="mt.subsRedo" data-i18n-title="mt.subsRedoTip"></button>
+        <button class="btn sm" id="mtSubsOff" data-i18n="mt.subsOff"></button>
+      </div>
+      <div class="note warn hide" id="mtSubsErr"></div>
+      <details class="mt-sec" data-sec="subsSrc">
+        <summary><span data-i18n="mt.secSubsSrc"></span></summary>
         <div class="note" data-i18n="mt.auto.note"></div>
         <label class="mt-row"><span data-i18n="mt.auto.lang"></span>
           <select id="mtAutoLang"><option value="auto" data-i18n="mt.auto.langAuto"></option><option value="ru" data-i18n="mt.auto.lRu"></option><option value="en">English</option><option value="ar">العربية</option><option value="uk" data-i18n="mt.auto.lUk"></option><option value="es">Español</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="tr">Türkçe</option><option value="zh">中文</option></select>
@@ -465,11 +471,12 @@ __CSS__
         </div>
         <div class="mt-btns">
           <button class="btn sm" id="mtSubsPick" data-i18n="mt.subsPick"></button>
-          <button class="btn sm hide" id="mtSubsOff" data-i18n="mt.subsOff"></button>
+          <button class="btn sm hide" id="mtSubsKeep" data-i18n="mt.subsKeep"></button>
         </div>
-        <div class="mt-clipname" id="mtSubsName"></div>
-        <div class="note warn hide" id="mtSubsErr"></div>
-        <div class="hide" id="mtCueWrap">
+      </details>
+      <details class="mt-sec hide" data-sec="subsText" id="mtCueWrap" open>
+        <summary><span data-i18n="mt.secSubsText"></span></summary>
+        <div>
           <div class="mt-line"><span id="mtCueCount"></span><button class="btn sm" id="mtCueSave" data-i18n="mt.cue.save" data-i18n-title="mt.cue.saveTip"></button></div>
           <div class="note" data-i18n="mt.cue.note"></div>
           <div class="mt-cues" id="mtCueList"></div>
@@ -480,11 +487,10 @@ __CSS__
             <button class="btn sm" id="mtCueDel" data-i18n="mt.cue.del"></button>
           </div>
         </div>
-        <div class="hide" id="mtSubsBody">
-          <label class="sw mt-each"><span data-i18n="mt.subsBurn"></span><input type="checkbox" id="mtSubsBurn"><i></i></label>
-          <label class="sw mt-each"><span data-i18n="mt.subsTrack"></span><input type="checkbox" id="mtSubsTrk"><i></i></label>
-          <div class="note hide" id="mtSubsNote" data-i18n="mt.subsTrackNote"></div>
-          <div id="mtSubsLook">
+      </details>
+      <details class="mt-sec hide mt-subsec" data-sec="subsLook">
+        <summary><span data-i18n="mt.secSubsLook"></span></summary>
+          <div>
             <label class="mt-row"><span data-i18n="mt.subsFont"></span>
               <select id="mtSubsFont"></select>
             </label>
@@ -502,7 +508,30 @@ __CSS__
               <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsBackA"></span><input type="range" class="vol" id="mtSubsBackAR" data-origin="60" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"><input type="number" id="mtSubsBackA" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"></div>
             </div>
           </div>
-        </div>
+      </details>
+      <details class="mt-sec hide mt-subsec" data-sec="subsFx">
+        <summary><span data-i18n="mt.secSubsFx"></span><em id="mtSumSubsFx"></em></summary>
+          <div>
+            <div class="mt-anim-tiles" id="mtSubsFx">
+              <button type="button" class="mt-anim-t" data-fx=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5 17.5 6.5"/></svg><span data-i18n="mt.fxNone"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="type" data-i18n-title="mt.fxType"><svg viewBox="0 0 24 24"><path d="M3 8h9M3 12h6M3 16h3M15 5v14"/></svg><span data-i18n="mt.fxType"></span></button>
+            </div>
+            <div class="hide" id="mtSubsFxType">
+              <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.fxCps"></span><input type="range" class="vol" id="mtSubsCpsR" data-origin="20" min="1" max="100" step="1" data-i18n-aria="mt.fxCps"><input type="number" id="mtSubsCps" min="1" max="100" step="1" data-i18n-aria="mt.fxCps"></div>
+              <label class="sw mt-each"><span data-i18n="mt.fxCur"></span><input type="checkbox" id="mtSubsCurOn"><i></i></label>
+              <div class="hide" id="mtSubsCurBody">
+                <div class="mt-row go"><span data-i18n="mt.fxCurColor"></span><input type="color" id="mtSubsCur" data-i18n-aria="mt.fxCurColor"></div>
+                <label class="sw mt-each"><span data-i18n="mt.fxBlink"></span><input type="checkbox" id="mtSubsBlink"><i></i></label>
+              </div>
+              <div class="note" data-i18n="mt.fxTypeNote"></div>
+            </div>
+          </div>
+      </details>
+      <details class="mt-sec hide mt-subsec" data-sec="subsOut">
+        <summary><span data-i18n="mt.secSubsOut"></span><em id="mtSumSubs"></em></summary>
+        <label class="sw mt-each"><span data-i18n="mt.subsBurn"></span><input type="checkbox" id="mtSubsBurn"><i></i></label>
+        <label class="sw mt-each"><span data-i18n="mt.subsTrack"></span><input type="checkbox" id="mtSubsTrk"><i></i></label>
+        <div class="note hide" id="mtSubsNote" data-i18n="mt.subsTrackNote"></div>
       </details>
         </div>
         <div class="mt-pane" data-tab="out">

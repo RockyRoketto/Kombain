@@ -90,16 +90,20 @@ function mvSubLine(font) {
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
   mtCueNow();
-  const text = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b).map(c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t).join('\n').trim() : '';
+  const cues = s && !s.off ? mtCueList().filter(c => tkAt >= c.a && tkAt < c.b) : [], line = c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t;
+  const text = cues.map(line).join('\n').trim();
   el.classList.toggle('hide', !text);
   if (!text) return;
   // обёртка держит текст по центру рамки, а сам span остаётся строчным: подложка рисуется на каждую строку
   let span = el.querySelector('span');
   if (!span) { const box = document.createElement('div'); box.className = 'mv-subs-t'; span = document.createElement('span'); box.append(span); el.prepend(box); }
-  if (span.textContent !== text) span.textContent = text;
+  // эффект (subfx.js): span по частям, перерисовка только при смене букв или курсора
+  const fx = s.fx && s.fx.k === 'type' ? s.fx : null, parts = fx && cues.map(c => subFxParts(fx, c, line(c), tkAt)), key = fx ? JSON.stringify([parts, fx.cur]) : text;
+  if (span.dataset.k !== key) { span.dataset.k = key; if (fx) subFxPaint(span, parts, fx); else span.textContent = text; }
   if (tkSel.size) mvSubsSel = false;
   el.classList.toggle('sel', mvSubsSel && !mv.playing);
   const size = s.size * mvCv.clientHeight, w = s.w || .9, x = s.x || .5, pad = size * .12;
+  el.style.setProperty('--curw', Math.max(1, SUBFX_CUR_W * size) + 'px');
   el.dataset.pos = s.y > 0 ? 'free' : s.pos;
   Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '', height: s.y > 0 && s.h > 0 ? s.h * 100 + '%' : '',
     fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size + 'px', color: s.color || '#fff'});

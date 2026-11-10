@@ -288,6 +288,9 @@
   #mtStage.panning,#mtStage.panning *{cursor:grabbing!important}
   .mv-subs{position:absolute;z-index:999;display:flex;align-items:center;text-align:center;white-space:pre-line;unicode-bidi:plaintext;paint-order:stroke fill;pointer-events:none}
   .mv-subs-t{flex:1;min-width:0}
+  .mv-subs b,.mv-subs em{font:inherit}
+  .mv-subs-hid{visibility:hidden}
+  .mv-subs-cur{border-left:var(--curw,2px) solid;margin-right:calc(-1 * var(--curw,2px));-webkit-text-stroke:0}
   .mv-subs.sel{pointer-events:auto;cursor:move}
   .mv-subs span{pointer-events:auto;cursor:move;-webkit-box-decoration-break:clone;box-decoration-break:clone}
   .mv-subs.sel{outline:1px solid var(--acc)}
@@ -494,6 +497,8 @@
   .mt-rail .mt-tab.mark{background-image:radial-gradient(circle at 23px 7px,var(--accs) 2.5px,transparent 3px)}
   .mt-tabname{font-size:13px;font-weight:700;color:var(--tx);margin:4px 0 6px}
   .mt-clipname{font-size:12px;color:var(--tx2);font-weight:600;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mt-subshead{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+  .mt-subshead .mt-clipname{flex:1;min-width:0;margin:0}
   .mt-flash{animation:mtFlash 1.6s ease-out}
   @keyframes mtFlash{0%,35%{background:var(--accbg);box-shadow:0 0 0 3px var(--accbg)}100%{background:transparent;box-shadow:0 0 0 3px transparent}}
   .mt-tabs{display:flex;gap:2px;padding:3px;background:var(--s2);border:1px solid var(--line);border-radius:11px}

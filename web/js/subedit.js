@@ -115,7 +115,7 @@ $('tkSubLane').addEventListener('dblclick', e => {
   if (el) mtCueFocus(+el.dataset.i);
 });
 function mtCueFocus(i) {
-  document.querySelector('details[data-sec=subs]').open = true;
+  document.querySelector('details[data-sec=subsText]').open = true;
   const row = $('mtCueList').children[i];
   if (row) { mtCueReveal(row); row.querySelector('textarea').focus(); }
 }
