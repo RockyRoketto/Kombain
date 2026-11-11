@@ -680,10 +680,10 @@ __CSS__
       <h2 data-i18n="cl.grpMake"></h2>
       <button type="button" class="cl-tool" data-tool="grad" data-i18n-title="cl.tGrad"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 15.5l12-12M8.5 20.5l12-12"/></svg><span data-i18n="cl.tGrad"></span></button>
       <button type="button" class="cl-tool" data-tool="pal" data-i18n-title="cs.tPal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M9.2 5.5v13M14.8 5.5v13"/></svg><span data-i18n="cs.tPal"></span></button>
-      <button type="button" class="cl-tool" data-tool="photo" data-i18n-title="cs.tPhoto"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l4.5-4 3 2.5 3.5-3 5 4.5"/></svg><span data-i18n="cs.tPhoto"></span></button>
-      <h2 data-i18n="cl.grpTools"></h2>
-      <button type="button" class="cl-tool" data-tool="pick" data-i18n-title="cl.tPick"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5M17 7l-9.5 9.5L5 19l2.5-2.5M12 4.5l7.5 7.5M15.8 3.2a2.1 2.1 0 0 1 3 0l2 2a2.1 2.1 0 0 1 0 3l-2 2-5-5z"/></svg><span data-i18n="cl.tPick"></span></button>
       <button type="button" class="cl-tool" data-tool="shade" data-i18n-title="cs.tShade"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.2h17M3.5 14.8h17"/></svg><span data-i18n="cs.tShade"></span></button>
+      <h2 data-i18n="cl.grpTake"></h2>
+      <button type="button" class="cl-tool" data-tool="pick" data-i18n-title="cl.tPick"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5M17 7l-9.5 9.5L5 19l2.5-2.5M12 4.5l7.5 7.5M15.8 3.2a2.1 2.1 0 0 1 3 0l2 2a2.1 2.1 0 0 1 0 3l-2 2-5-5z"/></svg><span data-i18n="cl.tPick"></span></button>
+      <button type="button" class="cl-tool" data-tool="photo" data-i18n-title="cs.tPhoto"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l4.5-4 3 2.5 3.5-3 5 4.5"/></svg><span data-i18n="cs.tPhoto"></span></button>
     </nav>
 
     <section class="card cl-work" id="clGrad">
@@ -691,7 +691,6 @@ __CSS__
       <div class="cl-bar" id="clBar" data-i18n-title="cl.barTip"><b></b></div>
       <div class="cl-hint" data-i18n="cl.hint"></div>
       <div class="cl-srow"><div class="cl-stops" id="clStops"></div><button type="button" class="btn sm cl-add" id="clAdd" data-i18n="cl.add"></button></div>
-      <div class="cl-row cl-send"></div>
       <div class="cl-row">
         <div class="cl-seg" id="clKind"><button type="button" data-v="lin" data-i18n="cl.kLin"></button><button type="button" data-v="rad" data-i18n="cl.kRad"></button><button type="button" data-v="conic" data-i18n="cl.kConic"></button></div>
         <label class="cl-num" id="clAngWrap" data-i18n-title="cl.angle"><input type="number" id="clAng" min="-360" max="360" step="1">°</label>
@@ -712,6 +711,7 @@ __CSS__
         </select>
         <span class="cl-own hide" id="clOwn"><input type="number" id="clW" min="16" max="8192" step="1"><i>×</i><input type="number" id="clH" min="16" max="8192" step="1"></span>
         <span class="cl-sp"></span>
+        <div class="cl-send cl-up"></div>
         <button type="button" class="btn sm" id="clCss" data-i18n="cl.css"></button>
         <button type="button" class="btn sm" id="clSvg">SVG</button>
         <button type="button" class="btn sm primary" id="clPng">PNG</button>
@@ -720,16 +720,16 @@ __CSS__
 
     <section class="card cl-work hide" id="clPick">
       <div class="cl-pk">
-        <div class="cl-big" id="clBig"></div>
+        <div class="cl-big" id="clBig" role="button" tabindex="0" data-i18n-title="cl.bigTip"><div class="cl-ctr" id="clCtr" data-i18n-title="cl.ctrTip"></div></div>
         <div class="cl-pkr">
           <div class="cl-row">
             <button type="button" class="cp-sw" id="clPickSw" data-i18n-aria="cl.color"></button>
             <button type="button" class="btn sm primary" id="clEye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg><span data-i18n="cl.eye"></span></button>
+            <div class="cl-send cl-up"></div>
           </div>
           <div class="note hide" id="clEyeNo" data-i18n="cl.eyeNo"></div>
           <div class="cl-fmts" id="clFmts"></div>
           <div class="note" data-i18n="cl.cmykNote"></div>
-          <div class="cl-row cl-send"></div>
         </div>
       </div>
     </section>
@@ -752,13 +752,13 @@ __CSS__
         </div>
       </div>
       <div class="cs-pane hide" id="csShade">
+        <div class="cs-steps" id="csSteps"></div>
+        <div class="cl-hint" data-i18n="cs.shadeHint"></div>
         <div class="cl-row">
           <button type="button" class="cp-sw" id="csBaseSw" data-i18n-aria="cs.base"></button>
           <input type="text" class="cl-hex" id="csBaseHex" spellcheck="false" maxlength="7" aria-label="HEX">
           <label class="cs-name"><span data-i18n="cs.name"></span><input type="text" id="csName" spellcheck="false" maxlength="24" data-i18n-title="cs.nameTip"></label>
         </div>
-        <div class="cs-steps" id="csSteps"></div>
-        <div class="cl-hint" data-i18n="cs.shadeHint"></div>
       </div>
       <div class="cs-pane hide" id="csPhoto">
         <div class="cl-view cs-drop" id="csPhView">
@@ -774,9 +774,9 @@ __CSS__
           <button type="button" class="btn sm" id="csPhClear" data-i18n="btn.clear"></button>
         </div>
       </div>
-      <div class="cl-row cl-send"></div>
       <div class="cl-row cl-out">
         <span class="cl-sp"></span>
+        <div class="cl-send cl-up"></div>
         <button type="button" class="btn sm" id="csCss" data-i18n="cl.css"></button>
         <button type="button" class="btn sm" id="csJson" data-i18n="cs.json"></button>
         <button type="button" class="btn sm" id="csAse" data-i18n-title="cs.aseTip">ASE</button>

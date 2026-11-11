@@ -242,9 +242,29 @@ function csKmeans(px, k, pos, pw) {
     return {i: bi, cnt};
   }).filter(x => x.cnt).sort((a, b) => b.cnt - a.cnt);
 }
+// Из k пятен по площади заметный, но небольшой цвет (жёлтая плашка на 9% кадра) проигрывает оттенкам большого фона.
+// Поэтому пятен берём больше и выбираем жадно: первое самое большое, дальше то, у кого больше
+// «расстояние до уже взятых × √доля площади». Совсем мелкие пятна (меньше 1%) идут только на добор.
+function csPhChoose(px, k, list) {
+  const total = list.reduce((s, x) => s + x.cnt, 0) || 1;
+  const col = x => [px[x.i * 3], px[x.i * 3 + 1], px[x.i * 3 + 2]];
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const big = list.filter(x => x.cnt / total >= .01), out = [];
+  while (out.length < k && big.length) {
+    let bj = 0, bs = -1;
+    big.forEach((x, j) => {
+      const d = out.length ? Math.min(...out.map(o => dist(col(o), col(x)))) : 1;
+      const s = d * Math.sqrt(x.cnt / total);
+      if (s > bs) { bs = s; bj = j; }
+    });
+    out.push(big.splice(bj, 1)[0]);
+  }
+  for (const x of list) if (out.length < k && !out.includes(x)) out.push(x);
+  return out.sort((a, b) => b.cnt - a.cnt);
+}
 function csPhPick() {
-  const p = csPh;
-  p.pts = csKmeans(p.px, cs.photo.n, p.at, p.pw).map(x => {
+  const p = csPh, k = cs.photo.n;
+  p.pts = csPhChoose(p.px, k, csKmeans(p.px, Math.min(k * 2 + 2, 18), p.at, p.pw)).map(x => {
     const at = p.at[x.i], u = (at % p.pw + .5) / p.pw, v = (Math.floor(at / p.pw) + .5) / p.ph;
     return {u, v, c: csPhAt(u, v)};
   });
@@ -263,6 +283,7 @@ function csPhDraw() {
   $('csPh').classList.toggle('hide', !has);
   $('csPhNone').classList.toggle('hide', has);
   $('csPhClear').disabled = !has;
+  $('csPhPick').classList.toggle('hide', !has);   // без фото кнопка уже есть посередине поля
   $('csPhHint').classList.toggle('hide', !has);
   if (document.activeElement !== $('csPhN')) $('csPhN').value = cs.photo.n;
   if (!has) { $('csStrip').innerHTML = ''; return; }
@@ -314,7 +335,7 @@ $('csPh').addEventListener('pointercancel', csMkEnd);
 $('csStrip').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) { clCopy(clUp(b.dataset.c)); clRecentAdd(b.dataset.c); clLibDraw(); } });
 $('csPhN').addEventListener('change', () => { cs.photo.n = +$('csPhN').value; if (csPh) csPhPick(); csSave(); csRender(); });
 // «Очистить»: убрать фото, чтобы положить другое (Ctrl+Z вернёт)
-$('csPhClear').onclick = () => { csPh = null; csRender(); clMark(); };
+$('csPhClear').onclick = () => { csPh = null; clRender(); clMark(); };
 const csPhOpen = () => dialog(async () => {
   const r = await api('pick-files');
   if (r.error) { say('warn', t('warn.title'), r.error); return; }
@@ -413,6 +434,8 @@ function csRender() {
   if (tool === 'pal') { $('csRule').value = cs.pal.rule; csColsDraw(); }
   else if (tool === 'shade') csShadeDraw();
   else if (tool === 'photo') csPhDraw();
+  const none = !csList().length;   // пустое «Из фото»: выгрузка тусклая, по нажатию скажет, что цветов нет
+  for (const id of ['csCss', 'csJson', 'csAse', 'csSvg', 'csPng']) $(id).classList.toggle('cl-no', none);
 }
 function csRelang() { csColsSig = ''; clSendSig = ''; }
 

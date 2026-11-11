@@ -634,11 +634,24 @@ function clPickDraw() {
   $('clBig').style.background = hex;
   const sw = $('clPickSw');
   if (sw.value !== hex && !(cp && cp.el === sw)) sw.value = hex;
+  $('clCtr').innerHTML = [['#ffffff', 'cl.ctrW'], ['#000000', 'cl.ctrB']].map(([fg, k]) => {
+    const r = clContrast(hex, fg), mark = r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : r >= 3 ? t('cl.ctrBig') : t('cl.ctrNo');
+    return `<div class="cl-ctrs" style="color:${fg}"><b>Aa</b><span>${esc(t(k))}</span><em>${r.toFixed(1).replace(/\.0$/, '')}:1 · ${esc(mark)}</em></div>`;
+  }).join('');
   $('clFmts').innerHTML = clFormats(hex).map(([k, v]) => `<div class="cl-fmt"><span>${k}</span><code>${esc(v)}</code>
     <button type="button" class="cl-mini" data-v="${esc(v)}" title="${esc(t('cl.copy'))}" aria-label="${esc(t('cl.copy'))} ${k}">${CL_ICO.copy}</button></div>`).join('');
 }
 $('clFmts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { clCopy(b.dataset.v); clRecentAdd(cl.pick); clLibDraw(); } });
 cpField($('clPickSw'), {live: v => { cl.pick = v; clPickDraw(); }, done: () => { clSave(); clLibDraw(); }});
+// контраст двух цветов по WCAG 2: (L1 + 0.05) / (L2 + 0.05), L — относительная яркость sRGB
+function clContrast(a, b) {
+  const lum = hex => { const c = cpParse(hex), f = v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(c.r) + .7152 * f(c.g) + .0722 * f(c.b); };
+  const x = lum(a), y = lum(b);
+  return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
+}
+// большая плашка: щелчок открывает выбор цвета, как образец рядом с кнопкой
+$('clBig').addEventListener('click', () => $('clPickSw').click());
+$('clBig').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('clPickSw').click(); } });
 $('clEye').onclick = async () => {
   toast({type: 'ok', title: t('cl.eyeGo'), ttl: 2500});
   const hex = await screenColor();   // null — Esc, передумали
@@ -675,6 +688,7 @@ function clLibDraw() {
   }).join('');
   $('clSavedNone').classList.toggle('hide', lib.length > 0);
   $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' ? 'cl.keepColor' : cl.tool === 'grad' ? 'cl.keep' : 'cs.keep');
+  $('clKeep').classList.toggle('cl-no', CS_TOOLS.includes(cl.tool) && cl.tool !== 'shade' && csList().length < CS_MIN);
   $('clRecent').innerHTML = cpRecent().map(v => `<button type="button" class="cl-rc" data-c="${esc(v)}" style="background:${esc(v)}" title="${esc(clUp(v))}" aria-label="${esc(clUp(v))}"></button>`).join('');
 }
 // цвет из библиотеки или недавних: в пипетке — текущий цвет, в градиенте — выбранная точка
@@ -690,11 +704,14 @@ $('clSaved').addEventListener('click', e => {
   const lib = clLib(), x = lib[+it.dataset.i];
   if (e.target.closest('.cl-x')) { lib.splice(+it.dataset.i, 1); clLibSet(lib); clLibDraw(); return; }
   if (typeof x === 'string') { clUse(x); return; }
-  if (x.p) { csPalLoad(x.p); return; }
+  // градиент или палитра заменяют текущую работу и могут сменить инструмент: говорим, где открылось и как вернуть
+  const said = to => toast({type: 'ok', title: t('cl.libOpened', {s: t(CL_TOOL_NAME[to])}), ttl: 3500});
+  if (x.p) { csPalLoad(x.p); said('pal'); return; }
   const g = clValidG(x);
   if (!g) return;
   cl.g = g; cl.tool = 'grad'; clSel = clSorted(g)[0];
   clRender(); clSave();
+  said('grad');
 });
 $('clSaved').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.cl-item')) { e.preventDefault(); e.target.click(); } });
 $('clRecent').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) clUse(b.dataset.c); });
@@ -811,8 +828,7 @@ function clRender() {
     if (document.activeElement !== $('clW')) $('clW').value = cl.w;
     if (document.activeElement !== $('clH')) $('clH').value = cl.h;
     const [W, H] = clWH();
-    $('clSvg').title = clNoOutText('svg', W, H) || '';
-    $('clCss').title = clNoOutText('css') || '';
+    for (const [id, no] of [['clSvg', clNoOutText('svg', W, H)], ['clCss', clNoOutText('css')]]) { $(id).title = no || ''; $(id).classList.toggle('cl-no', !!no); }
     clFxDraw(); clBarDraw(); clChips(); clDraw();
   } else if (cl.tool === 'pick') clPickDraw();
   else csRender();
