@@ -696,24 +696,32 @@ __CSS__
       <button type="button" class="cl-tool" data-tool="photo" data-i18n-title="cs.tPhoto"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l4.5-4 3 2.5 3.5-3 5 4.5"/></svg><span data-i18n="cs.tPhoto"></span></button>
     </nav>
 
-    <section class="card cl-work" id="clGrad">
+    <section class="cl-work" id="clGrad">
+      <div class="card cl-vcard">
       <div class="cl-view" id="clView"><canvas id="clCanvas"></canvas><span class="cl-size" id="clSizeTag"></span></div>
       <div class="cl-bar" id="clBar" data-i18n-title="cl.barTip"><b></b></div>
-      <div class="cl-hint" data-i18n="cl.hint"></div>
-      <div class="cl-srow"><div class="cl-stops" id="clStops"></div><button type="button" class="btn sm cl-add" id="clAdd" data-i18n="cl.add"></button></div>
-      <div class="cl-row">
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cl.hint"></span></button></h3>
+        <div class="cl-srow"><div class="cl-stops" id="clStops"></div><button type="button" class="btn sm cl-add" id="clAdd" data-i18n="cl.add"></button></div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bShape"></h3>
+        <div class="cl-row">
         <div class="cl-seg" id="clKind"><button type="button" data-v="lin" data-i18n="cl.kLin"></button><button type="button" data-v="rad" data-i18n="cl.kRad"></button><button type="button" data-v="conic" data-i18n="cl.kConic"></button></div>
         <label class="cl-num" id="clAngWrap" data-i18n-title="cl.angle"><input type="number" id="clAng" min="-360" max="360" step="1">°</label>
         <button type="button" class="btn sm cl-ico" id="clRot" data-i18n-title="cl.rot90" data-i18n-aria="cl.rot90"><svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2v3h-3"/></svg></button>
         <button type="button" class="btn sm cl-ico" id="clFlip" data-i18n-title="cl.flip" data-i18n-aria="cl.flip"><svg viewBox="0 0 16 16"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg></button>
         <div class="cl-seg" id="clMix" data-i18n-title="cl.mixTip"><button type="button" data-v="oklch">OKLCH</button><button type="button" data-v="rgb">RGB</button></div>
         <button type="button" class="btn sm" id="clRand" data-i18n-title="cl.randTip"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M12 9.5l2 2-2 2M2 11.5h2.5c1.2 0 2-1 2.6-2.2M9 6.7c.6-1.2 1.4-2.2 2.5-2.2H14M12 2.5l2 2-2 2"/></svg><span data-i18n="cl.rand"></span></button>
+        </div>
       </div>
-      <div class="cl-row cl-fxrow">
+      <div class="card cl-blk cl-fxb">
+        <h3 class="cl-cap" data-i18n="cl.bStyle"></h3>
         <div class="cl-seg" id="clFx" data-i18n-title="cl.fxTip"><button type="button" data-v="none" data-i18n="cl.fx_none"></button><button type="button" data-v="noise" data-i18n="cl.fx_noise"></button><button type="button" data-v="dots" data-i18n="cl.fx_dots"></button><button type="button" data-v="lines" data-i18n="cl.fx_lines"></button><button type="button" data-v="steps" data-i18n="cl.fx_steps"></button><button type="button" data-v="pixel" data-i18n="cl.fx_pixel"></button></div>
-        <div class="cl-fxo hide" id="clFxOpt"></div>
+        <div class="cl-fxo" id="clFxOpt"></div>
       </div>
-      <div class="cl-row cl-out">
+      <div class="card cl-row cl-out">
         <select id="clSize" data-i18n-title="cl.size">
           <option value="1920x1080">1920 × 1080</option><option value="3840x2160">3840 × 2160 (4K)</option>
           <option value="1080x1080">1080 × 1080</option><option value="1080x1350">1080 × 1350</option>
@@ -729,10 +737,13 @@ __CSS__
     </section>
 
     <!-- Меш-градиент (web/js/colormesh.js): сетка точек с цветами, точки тянутся мышью -->
-    <section class="card cl-work hide" id="meshWork">
+    <section class="cl-work hide" id="meshWork">
+      <div class="card cl-vcard">
       <div class="cl-view" id="meshView"><canvas id="meshCanvas"></canvas><span class="cl-size" id="meshSizeTag"></span></div>
-      <div class="cl-hint" data-i18n="mesh.hint"></div>
-      <div class="cl-row">
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="mesh.hint"></span></button></h3>
+        <div class="cl-row">
         <span class="ctr-lbl" data-i18n="mesh.point"></span>
         <button type="button" class="cp-sw" id="meshSw" data-i18n-aria="mesh.point"></button>
         <input type="text" class="cl-hex" id="meshHex" spellcheck="false" maxlength="7" aria-label="HEX">
@@ -742,18 +753,23 @@ __CSS__
         <div class="cl-seg" id="meshCols" data-i18n-title="mesh.cols"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
         <span class="ctr-lbl">×</span>
         <div class="cl-seg" id="meshRows" data-i18n-title="mesh.rows"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
+        </div>
       </div>
-      <div class="cl-row">
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bShape"></h3>
+        <div class="cl-row">
         <div class="cl-seg" id="meshMix" data-i18n-title="mesh.mixTip"><button type="button" data-v="oklch">OKLab</button><button type="button" data-v="rgb">RGB</button></div>
         <button type="button" class="btn sm mesh-tg" id="meshLines" data-i18n="mesh.lines" data-i18n-title="mesh.linesTip"></button>
         <button type="button" class="btn sm" id="meshEvenB" data-i18n="mesh.even" data-i18n-title="mesh.evenTip"></button>
         <button type="button" class="btn sm" id="meshRand" data-i18n-title="mesh.randTip"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M12 9.5l2 2-2 2M2 11.5h2.5c1.2 0 2-1 2.6-2.2M9 6.7c.6-1.2 1.4-2.2 2.5-2.2H14M12 2.5l2 2-2 2"/></svg><span data-i18n="cl.rand"></span></button>
+        </div>
       </div>
-      <div class="cl-row cl-fxrow">
+      <div class="card cl-blk cl-fxb">
+        <h3 class="cl-cap" data-i18n="cl.bStyle"></h3>
         <div class="cl-seg" id="meshFx" data-i18n-title="cl.fxTip"><button type="button" data-v="none" data-i18n="cl.fx_none"></button><button type="button" data-v="noise" data-i18n="cl.fx_noise"></button><button type="button" data-v="dots" data-i18n="cl.fx_dots"></button><button type="button" data-v="lines" data-i18n="cl.fx_lines"></button><button type="button" data-v="steps" data-i18n="cl.fx_steps"></button><button type="button" data-v="pixel" data-i18n="cl.fx_pixel"></button></div>
-        <div class="cl-fxo hide" id="meshFxOpt"></div>
+        <div class="cl-fxo" id="meshFxOpt"></div>
       </div>
-      <div class="cl-row cl-out">
+      <div class="card cl-row cl-out">
         <select id="meshSize" data-i18n-title="cl.size">
           <option value="1920x1080">1920 × 1080</option><option value="3840x2160">3840 × 2160 (4K)</option>
           <option value="1080x1080">1080 × 1080</option><option value="1080x1350">1080 × 1350</option>
@@ -767,88 +783,102 @@ __CSS__
       </div>
     </section>
 
-    <section class="card cl-work hide" id="clPick">
-      <div class="cl-pk">
-        <div class="cl-big" id="clBig" role="button" tabindex="0" data-i18n-title="cl.bigTip"><div class="cl-ctr" id="clCtr" data-i18n-title="cl.ctrTip"></div></div>
-        <div class="cl-pkr">
-          <div class="cl-row">
-            <button type="button" class="cp-sw" id="clPickSw" data-i18n-aria="cl.color"></button>
-            <button type="button" class="btn sm primary" id="clEye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg><span data-i18n="cl.eye"></span></button>
-            <div class="cl-send cl-up"></div>
-          </div>
-          <div class="note hide" id="clEyeNo" data-i18n="cl.eyeNo"></div>
-          <div class="cl-fmts" id="clFmts"></div>
-          <div class="note" data-i18n="cl.cmykNote"></div>
+    <section class="cl-work hide" id="clPick">
+      <div class="card cl-vcard">
+      <div class="cl-big" id="clBig" role="button" tabindex="0" data-i18n-title="cl.bigTip"><div class="cl-ctr" id="clCtr" data-i18n-title="cl.ctrTip"></div></div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cl.cmykNote"></span></button></h3>
+        <div class="cl-row">
+          <button type="button" class="cp-sw cl-swl" id="clPickSw" data-i18n-aria="cl.color"></button>
+          <button type="button" class="btn sm primary" id="clEye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg><span data-i18n="cl.eye"></span></button>
+          <span class="note hide" id="clEyeNo" data-i18n="cl.eyeNo"></span>
         </div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bFormats"></h3>
+        <div class="cl-fmts" id="clFmts"></div>
+      </div>
+      <div class="card cl-row cl-out">
+        <span class="cl-sp"></span>
+        <div class="cl-send cl-up"></div>
       </div>
     </section>
 
     <!-- Контраст (web/js/colorctr.js): образец текста на фоне и подбор цвета текста -->
-    <section class="card cl-work hide" id="ctrWork">
-      <div class="cl-pk">
-        <div class="ctr-plate" id="ctrPlate" data-i18n-title="cl.ctrTip"></div>
-        <div class="cl-pkr">
-          <div class="cl-row">
-            <span class="ctr-lbl" data-i18n="cl.ctrFg"></span>
-            <button type="button" class="cp-sw" id="ctrFgSw" data-i18n-aria="cl.ctrFg"></button>
-            <button type="button" class="btn sm" id="ctrFgEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
-            <button type="button" class="btn sm cl-ico" id="ctrSwap" data-i18n-title="cl.ctrSwap" data-i18n-aria="cl.ctrSwap"><svg viewBox="0 0 16 16"><path d="M5 2v11M2 10l3 3 3-3M11 14V3M8 6l3-3 3 3"/></svg></button>
-            <span class="ctr-lbl" data-i18n="cl.ctrBg"></span>
-            <button type="button" class="cp-sw" id="ctrBgSw" data-i18n-aria="cl.ctrBg"></button>
-            <button type="button" class="btn sm" id="ctrBgEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
-          </div>
-          <div class="ctr-ratio" id="ctrRatio"></div>
-          <div class="cl-row">
-            <button type="button" class="btn sm primary" id="ctrFixAA" data-i18n="cl.ctrFixAA"></button>
-            <button type="button" class="btn sm" id="ctrFixAAA" data-i18n="cl.ctrFixAAA"></button>
-            <span class="cl-sp"></span>
-            <div class="cl-send cl-up"></div>
-          </div>
-          <div class="note" data-i18n="cl.ctrNote"></div>
+    <section class="cl-work hide" id="ctrWork">
+      <div class="card cl-vcard">
+      <div class="ctr-plate" id="ctrPlate" data-i18n-title="cl.ctrTip"></div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bColors"></h3>
+        <div class="cl-row">
+          <span class="ctr-lbl" data-i18n="cl.ctrFg"></span>
+          <button type="button" class="cp-sw cl-swl" id="ctrFgSw" data-i18n-aria="cl.ctrFg"></button>
+          <button type="button" class="btn sm" id="ctrFgEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
+          <button type="button" class="btn sm cl-ico" id="ctrSwap" data-i18n-title="cl.ctrSwap" data-i18n-aria="cl.ctrSwap"><svg viewBox="0 0 16 16"><path d="M5 2v11M2 10l3 3 3-3M11 14V3M8 6l3-3 3 3"/></svg></button>
+          <span class="ctr-lbl" data-i18n="cl.ctrBg"></span>
+          <button type="button" class="cp-sw cl-swl" id="ctrBgSw" data-i18n-aria="cl.ctrBg"></button>
+          <button type="button" class="btn sm" id="ctrBgEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
         </div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap"><span data-i18n="cl.bResult"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cl.ctrNote"></span></button></h3>
+        <div class="cl-row ctr-res"><div class="ctr-ratio" id="ctrRatio"></div>
+          <button type="button" class="btn sm primary" id="ctrFixAA" data-i18n="cl.ctrFixAA"></button>
+          <button type="button" class="btn sm" id="ctrFixAAA" data-i18n="cl.ctrFixAAA"></button>
+        </div>
+      </div>
+      <div class="card cl-row cl-out">
+        <span class="cl-sp"></span>
+        <div class="cl-send cl-up"></div>
       </div>
     </section>
 
     <!-- Смешать (web/js/colormix.js): два цвета, доля и ряд промежуточных шагов -->
-    <section class="card cl-work hide" id="mixWork">
-      <div class="cl-pk">
-        <div class="mix-big" id="mixBig" role="button" tabindex="0" data-i18n-title="cl.mixBigTip"></div>
-        <div class="cl-pkr">
-          <div class="cl-row">
-            <span class="ctr-lbl">A</span>
-            <button type="button" class="cp-sw" id="mixASw" aria-label="A"></button>
-            <button type="button" class="btn sm" id="mixAEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
-            <span class="ctr-lbl">B</span>
-            <button type="button" class="cp-sw" id="mixBSw" aria-label="B"></button>
-            <button type="button" class="btn sm" id="mixBEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
-          </div>
-          <div class="cl-row mix-k">
-            <span class="ctr-lbl" data-i18n="cl.mixShare"></span>
-            <input type="range" class="vol" id="mixK" min="0" max="100" step="1" data-i18n-aria="cl.mixShare">
-            <label class="cl-num"><input type="number" id="mixKn" min="0" max="100" step="1">%</label>
-          </div>
-          <div class="cl-row">
-            <div class="cl-seg" id="mixMode" data-i18n-title="cl.mixTip"><button type="button" data-v="oklch">OKLCH</button><button type="button" data-v="rgb">RGB</button></div>
-            <span class="ctr-lbl" data-i18n="cl.mixSteps"></span>
-            <div class="cl-seg" id="mixN"><button type="button" data-v="5">5</button><button type="button" data-v="7">7</button><button type="button" data-v="9">9</button></div>
-          </div>
-          <div class="mix-row" id="mixRow"></div>
-          <div class="cl-row">
-            <button type="button" class="btn sm primary" id="mixCopyRow" data-i18n="cl.mixCopyRow"></button>
-            <span class="cl-sp"></span>
-            <div class="cl-send cl-up"></div>
-          </div>
+    <section class="cl-work hide" id="mixWork">
+      <div class="card cl-vcard">
+      <div class="mix-big" id="mixBig" role="button" tabindex="0" data-i18n-title="cl.mixBigTip"></div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bColors"></h3>
+        <div class="cl-row mix-k">
+          <span class="ctr-lbl">A</span>
+          <button type="button" class="cp-sw cl-swl" id="mixASw" aria-label="A"></button>
+          <button type="button" class="btn sm" id="mixAEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
+          <span class="ctr-lbl">B</span>
+          <button type="button" class="cp-sw cl-swl" id="mixBSw" aria-label="B"></button>
+          <button type="button" class="btn sm" id="mixBEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
+          <span class="ctr-lbl" data-i18n="cl.mixShare"></span>
+          <input type="range" class="vol" id="mixK" min="0" max="100" step="1" data-i18n-aria="cl.mixShare">
+          <label class="cl-num"><input type="number" id="mixKn" min="0" max="100" step="1">%</label>
         </div>
+      </div>
+      <div class="card cl-blk">
+        <h3 class="cl-cap" data-i18n="cl.bRow"></h3>
+        <div class="cl-row">
+          <div class="cl-seg" id="mixMode" data-i18n-title="cl.mixTip"><button type="button" data-v="oklch">OKLCH</button><button type="button" data-v="rgb">RGB</button></div>
+          <span class="ctr-lbl" data-i18n="cl.mixSteps"></span>
+          <div class="cl-seg" id="mixN"><button type="button" data-v="5">5</button><button type="button" data-v="7">7</button><button type="button" data-v="9">9</button></div>
+        </div>
+        <div class="mix-row" id="mixRow"></div>
+      </div>
+      <div class="card cl-row cl-out">
+        <span class="cl-sp"></span>
+        <div class="cl-send cl-up"></div>
+        <button type="button" class="btn sm primary" id="mixCopyRow" data-i18n="cl.mixCopyRow"></button>
       </div>
     </section>
 
     <!-- Палитра, Оттенки, Из фото (web/js/colorset.js): своё поле у каждого, выгрузка общая -->
-    <section class="card cl-work hide" id="csWork">
+    <section class="cl-work hide" id="csWork">
       <div class="cs-pane hide" id="csPal">
+        <div class="card cl-vcard">
         <div class="cs-cols" id="csCols"></div>
-        <div class="cl-hint" data-i18n="cs.palHint"></div>
-        <div class="cs-read" id="csRead"></div>
-        <div class="cl-row">
+        </div>
+        <div class="card cl-blk">
+          <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cs.palHint"></span></button></h3>
+          <div class="cl-row">
           <select id="csRule" data-i18n-title="cs.rule">
             <option value="auto" data-i18n="cs.rAuto"></option><option value="analog" data-i18n="cs.rAnalog"></option>
             <option value="mono" data-i18n="cs.rMono"></option><option value="compl" data-i18n="cs.rCompl"></option>
@@ -857,33 +887,45 @@ __CSS__
           </select>
           <button type="button" class="btn sm" id="csRand" data-i18n-title="cs.randTip"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M12 9.5l2 2-2 2M2 11.5h2.5c1.2 0 2-1 2.6-2.2M9 6.7c.6-1.2 1.4-2.2 2.5-2.2H14M12 2.5l2 2-2 2"/></svg><span data-i18n="cl.rand"></span></button>
           <button type="button" class="btn sm" id="csAdd" data-i18n="cl.add"></button>
-          <span class="cl-sp"></span>
+          </div>
+        </div>
+        <div class="card cl-blk top cs-readb">
+          <h3 class="cl-cap"><span data-i18n="cs.rdTitle"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cs.rdInfo"></span></button></h3>
+          <div class="cs-read" id="csRead"></div>
         </div>
       </div>
       <div class="cs-pane hide" id="csShade">
+        <div class="card cl-vcard">
         <div class="cs-steps" id="csSteps"></div>
-        <div class="cl-hint" data-i18n="cs.shadeHint"></div>
-        <div class="cl-row">
-          <button type="button" class="cp-sw" id="csBaseSw" data-i18n-aria="cs.base"></button>
+        </div>
+        <div class="card cl-blk">
+          <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cs.shadeHint"></span></button></h3>
+          <div class="cl-row">
+          <button type="button" class="cp-sw cl-swl" id="csBaseSw" data-i18n-aria="cs.base"></button>
           <input type="text" class="cl-hex" id="csBaseHex" spellcheck="false" maxlength="7" aria-label="HEX">
           <label class="cs-name"><span data-i18n="cs.name"></span><input type="text" id="csName" spellcheck="false" maxlength="24" data-i18n-title="cs.nameTip"></label>
+          </div>
         </div>
       </div>
       <div class="cs-pane hide" id="csPhoto">
+        <div class="card cl-vcard">
         <div class="cl-view cs-drop" id="csPhView">
           <div class="cs-ph hide" id="csPh"><canvas id="csPhCv"></canvas></div>
           <div class="cs-phnone" id="csPhNone"><b data-i18n="cs.phTitle"></b><span data-i18n="cs.phSub"></span><button type="button" class="btn sm primary" id="csPhPick2" data-i18n="cs.phPick"></button></div>
         </div>
         <div class="cs-strip" id="csStrip"></div>
-        <div class="cl-hint" id="csPhHint" data-i18n="cs.phHint"></div>
-        <div class="cl-row">
+        </div>
+        <div class="card cl-blk">
+          <h3 class="cl-cap"><span data-i18n="cl.bColors"></span><button type="button" class="cl-q" id="csPhHint" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="cs.phHint"></span></button></h3>
+          <div class="cl-row">
           <button type="button" class="btn sm" id="csPhPick" data-i18n="cs.phPick"></button>
           <label class="cl-num"><span data-i18n="cs.phN"></span> <select id="csPhN"><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
           <span class="cl-sp"></span>
           <button type="button" class="btn sm" id="csPhClear" data-i18n="btn.clear"></button>
+          </div>
         </div>
       </div>
-      <div class="cl-row cl-out">
+      <div class="card cl-row cl-out">
         <span class="cl-sp"></span>
         <div class="cl-send cl-up"></div>
         <button type="button" class="btn sm" id="csCss" data-i18n="cl.css"></button>
@@ -930,7 +972,7 @@ __CSS__
         <div class="list" id="bList"></div>
       </section>
   
-      <div class="col">
+      <div class="col one">
         <section class="card">
           <h2><span data-i18n="b.need"></span> <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
           <div class="need" id="bNeed"></div>
@@ -1005,7 +1047,7 @@ __CSS__
         </div>
       </section>
 
-      <div class="col fv-col">
+      <div class="col one fv-col">
         <section class="card">
           <h2 data-i18n="fv.icons"></h2>
           <div class="fv-slots">

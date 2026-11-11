@@ -534,7 +534,7 @@ function clDel(s) {
 
 // ---------- точки списком: цвет, HEX, замок, копировать, удалить ----------
 const clStopsEl = $('clStops');
-let clChipsSig = '';
+let clChipsSig = '', clChipsSelShown = null;
 const CL_ICO = {
   lock: '<svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>',
   open: '<svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.8-1"/></svg>',
@@ -576,7 +576,19 @@ function clChips() {
     lk.setAttribute('aria-label', lk.title);
     ch.querySelector('.cl-x').classList.toggle('hide', !many);
   }
+  // цвета идут одной строкой с прокруткой вбок: выбранную точку (щелчок по полосе, новая точка) подвигаем в видимую часть
+  const selId = clSel ? clSel.id : null;
+  if (selId !== clChipsSelShown) {
+    clChipsSelShown = selId;
+    const ch = selId != null && clStopsEl.querySelector(`.cl-chip[data-id="${selId}"]`);
+    if (ch) ch.scrollIntoView({block: 'nearest', inline: 'nearest'});
+  }
 }
+// колесо над строкой цветов листает её вбок
+clStopsEl.addEventListener('wheel', e => {
+  if (clStopsEl.scrollWidth <= clStopsEl.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  e.preventDefault(); clStopsEl.scrollLeft += e.deltaY;
+}, {passive: false});
 // окно цвета у точки (оно уже открыто у неё — не закрывать: cpOpen по тому же полю закрыл бы его)
 function clChipOpen(id) { const sw = clStopsEl.querySelector(`.cl-chip[data-id="${id}"] .cp-sw`); if (sw && !(cp && cp.el === sw)) cpOpen(sw); }
 clStopsEl.addEventListener('click', e => {
@@ -685,6 +697,12 @@ cpField($('clPickSw'), {live: v => { cl.pick = v; clPickDraw(); }, done: () => {
 // контраст двух цветов по WCAG 2, общий расчёт в readable.js
 function clContrast(a, b) { return rdContrast(a, b); }
 // большая плашка: щелчок открывает выбор цвета, как образец рядом с кнопкой
+// «?» в углу поля или в подписи блока: подсказка видна при наведении, щелчок закрепляет её до щелчка мимо
+document.addEventListener('click', e => {
+  const q = e.target.closest('#colorView .cl-q');
+  document.querySelectorAll('#colorView .cl-q.open').forEach(x => { if (x !== q) x.classList.remove('open'); });
+  if (q) { q.classList.toggle('open'); e.stopPropagation(); }
+}, true);
 $('clBig').addEventListener('click', () => $('clPickSw').click());
 $('clBig').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('clPickSw').click(); } });
 $('clEye').onclick = async () => {
@@ -820,7 +838,7 @@ function clFxDraw() {
       if (!Array.isArray(v)) return `<span class="cl-fxp" title="${tip}"><span>${name}</span><button type="button" class="cp-sw" data-k="${k}" aria-label="${name}"></button></span>`;
       return `<label class="cl-fxp" title="${tip}"><span>${name}</span><input type="range" class="vol" data-k="${k}" data-origin="${v[2]}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">`
         + `<input type="number" data-k="${k}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">${clFxUnit[k] ? `<i>${clFxUnit[k]}</i>` : ''}</label>`;
-    }).join('');
+    }).join('') || `<span class="cl-fxn">${esc(t('cl.fxNoOpts'))}</span>`;
     box.querySelectorAll('input[type=range]').forEach(slPlace);
     box.querySelectorAll('.cp-sw').forEach(sw => {
       let was;
@@ -829,7 +847,7 @@ function clFxDraw() {
         done: ok => { const f = clFxHost().fx; if (f && !ok && was !== undefined) f[sw.dataset.k] = was; was = undefined; clRender(); clSave(); }});
     });
   }
-  box.classList.toggle('hide', ft === 'none');
+  // ряд настроек не прячется: место под него занято всегда, чтобы поле выше не меняло высоту
   if (ft === 'none') return;
   box.querySelectorAll('[data-k]').forEach(el => {
     const v = g.fx[el.dataset.k];

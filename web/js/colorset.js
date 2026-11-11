@@ -142,7 +142,8 @@ function csReadDraw() {
   const strong = all.filter(p => p.r >= 3), weak = !strong.length;
   // ни одна пара не дотягивает до 3:1: показываем лучшие из имеющихся с пометкой «Мало» и белый/чёрный текст на каждом цвете
   const pairs = weak ? all.slice(0, 3) : strong;
-  let h = `<div class="rd-head"><b>${esc(t('cs.rdTitle'))}</b><span>${esc(t('cs.rdInfo'))}</span></div>`;
+  // заголовок и пояснение стоят в подписи блока (#csWork .cs-readb), здесь только пары
+  let h = '';
   if (weak) h += `<div class="rd-none">${esc(t('cs.rdNone'))}</div>`;
   if (pairs.length) h += '<div class="rd-list">' + pairs.slice(0, CS_RD_MAX).map(p => {
     const f = cols[p.f].c, g = cols[p.b].c, cls = p.r >= 7 ? 'g' : p.r >= 4.5 ? 'a' : 'b', lbl = p.r >= 7 ? t('cs.rdBest') : p.r >= 4.5 ? t('cs.rdGood') : p.r >= 3 ? t('cs.rdBig') : t('cs.rdLow');

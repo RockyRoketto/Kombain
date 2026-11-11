@@ -130,6 +130,10 @@
   /* вся лишняя ширина уходит левой колонке: у настроек потолок, иначе их поля выглядят растянутыми */
   .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(388px,42vw,520px);grid-template-rows:minmax(0,1fr);gap:10px;margin-top:10px}
   .col{min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden auto}
+  /* колонка одной рамкой: рамка всегда в окне, прокручивается только содержимое; бывшие карточки внутри — разделы с линией между ними */
+  .col.one{gap:0;padding:0 14px;background:var(--s1);border:1px solid var(--line);border-radius:var(--r2);scrollbar-width:thin}
+  .col.one>.card{flex:none;padding:12px 0;background:none;border:0;border-radius:0}
+  .col.one>.card+.card{border-top:1px solid var(--line)}
   .card{flex:none;background:var(--s1);border:1px solid var(--line);border-radius:var(--r2);padding:12px 14px}
   .card h2{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600;
     display:flex;align-items:center;justify-content:space-between}
@@ -243,7 +247,7 @@
   #pvStage.audio{height:clamp(140px,30vh,260px)}
   #pvStage.audio img,#plStage.audio img{width:100%;height:100%;object-fit:contain}
   /* вкладка «Плеер»: экран занимает всё место, что осталось от кнопок и сведений */
-  #playView{grid-template-columns:minmax(0,1fr) clamp(280px,29vw,420px)}
+  #playView{grid-template-columns:minmax(0,1fr) clamp(280px,29vw,420px);margin-bottom:10px}
   .pl-body{flex:1;min-height:0;display:flex;flex-direction:column}
   .pl-body .phead{flex:none;flex-wrap:wrap}
   .pl-body .phead h3{flex:1 1 200px}
@@ -1134,10 +1138,10 @@
   .fv-go .btn{flex:1}
 
   /* ----- вкладка «Цвет» (web/js/color.js): слева инструменты, в середине рабочее поле, справа «Мои цвета» ----- */
-  .cl-main{grid-template-columns:172px minmax(0,1fr) 224px}
+  .cl-main{grid-template-columns:172px minmax(0,1fr) 224px;margin-bottom:10px}
   .cl-main>.card{min-height:0;overflow:hidden auto}
   /* ----- вкладка «Утилиты»: слева та же колонка инструментов, что у «Цвета» (.cl-tools), справа выбранный инструмент двумя колонками ----- */
-  .ut-main{grid-template-columns:172px minmax(0,1fr)}
+  .ut-main{grid-template-columns:172px minmax(0,1fr);margin-bottom:10px}
   .ut-main>.cl-tools{min-height:0;overflow:hidden auto}
   .ut-pane{min-width:0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,34vw,520px);grid-template-rows:minmax(0,1fr);gap:10px}
   .cl-tools{display:flex;flex-direction:column;gap:2px;padding:10px 8px}
@@ -1147,7 +1151,7 @@
   .cl-tool svg{flex:none;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   .cl-tool:hover{background:var(--s2)}
   .cl-tool.on{background:var(--accbg);color:var(--acct2);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.45)}
-  .cl-work{display:flex;flex-direction:column;gap:10px}
+  .cl-work{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden auto}
   .cl-work.hide{display:none}
   .cl-view{position:relative;flex:1;min-height:160px;display:grid;place-items:center;border-radius:12px;background:var(--th-bg);overflow:hidden}
   .cl-view canvas{display:block;border-radius:6px;cursor:crosshair;touch-action:none;
@@ -1177,24 +1181,55 @@
   .cl-seg button.on{background:var(--accbg);color:var(--acct2)}
   .cl-num{display:inline-flex;align-items:center;gap:3px;color:var(--dim);font-size:12.5px}
   .cl-num input[type=number]{width:64px;padding:4px 8px}
-  .cl-fxo{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
-  .cl-fxo.hide{display:none}
-  .cl-fxp{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:12.5px}
-  .cl-fxp input[type=range].vol{flex:none;width:92px}
-  .cl-fxp input[type=number]{width:56px;padding:3px 6px}
+  /* настройки стиля: две колонки и место на две строки всегда (у «Штриха» и «Растра» по 4 настройки), у «Чистого» место пустое: поле выше не прыгает */
+  .cl-fxo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:28px;align-content:start;gap:6px 14px;height:62px}
+  .cl-fxp{display:flex;align-items:center;gap:6px;min-width:0;color:var(--dim);font-size:12.5px}
+  .cl-fxp>span{flex:none}
+  .cl-fxp input[type=range].vol{flex:1;width:auto;min-width:36px}
+  .cl-fxp input[type=number]{flex:none;width:50px;padding:3px 6px}
   .cl-fxp i{font-style:normal;margin-left:-3px}
   .cl-fxp .cp-sw{width:34px;height:24px;flex:none}
   .cl-row .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
   .cl-row .btn svg+span{margin-left:6px}
   .btn.cl-ico{padding:6px 8px}
-  .cl-out{border-top:1px solid var(--line);padding-top:10px}
+  .card.cl-out{display:flex}
   .cl-out select{width:auto;padding:5px 8px}
   .cl-own{display:inline-flex;align-items:center;gap:4px;color:var(--dim)}
   .cl-own.hide{display:none}
   .cl-own input[type=number]{width:72px;padding:4px 8px}
   .cl-sp{flex:1}
-  .cl-pk{flex:1;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(160px,1fr) auto;gap:14px;min-height:0}
-  .cl-big{border-radius:14px;min-height:160px;box-shadow:inset 0 0 0 1px var(--line2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:16px}
+  /* каркас у всех инструментов «Цвета», как в других вкладках: отдельные рамки .card одна под другой — поле (растёт), блоки с подписью (высота постоянная), ряд выгрузки; рамок внутри рамок нет */
+  /* подпись слева от строки настроек (а не над ней): рамка в одну строку, без пустого места; .top — подпись сверху, для длинной */
+  .cl-blk{display:grid;grid-template-columns:78px minmax(0,1fr);gap:6px 10px;align-items:center;min-width:0}
+  .cl-blk>:not(.cl-cap){grid-column:2;min-width:0}
+  .cl-blk>.cl-cap{grid-column:1;grid-row:1}
+  .cl-blk>.cl-seg{justify-self:start}
+  .cl-blk .cl-seg button{padding:5px 9px}
+  .cl-blk .cl-num input[type=number]{width:56px}
+  .cl-blk.top{display:flex;flex-direction:column;align-items:stretch}
+  .cl-blk .cl-row{gap:6px;min-height:30px}
+  .ctr-res .ctr-ratio{flex:1;min-width:0}
+  .cl-fxn{grid-column:1/-1;align-self:center;color:var(--dim);font-size:12.5px}
+  .cl-cap{display:flex;align-items:center;gap:6px;min-height:18px;margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .cl-vcard{flex:1;min-height:90px;display:flex;flex-direction:column;gap:10px}
+  .cl-vcard>:not(.cl-bar):not(.cs-strip){flex:1;min-height:60px}
+  .cl-vcard>.cl-view:not(.cs-drop){background:none;border-radius:0}
+  .cp-sw.cl-swl{width:56px;height:30px;flex:none}
+  /* цвета градиента одной строкой: лишние листаются вбок, «+ Цвет» на месте */
+  .cl-blk .cl-srow{flex-wrap:nowrap}
+  .cl-blk .cl-srow .cl-stops{display:flex;flex:0 1 auto;flex-wrap:nowrap;min-width:0;overflow:auto hidden;scrollbar-width:thin;padding-bottom:2px}
+  .cl-blk .cl-chip,.cl-blk .cl-add{flex:none}
+  .cs-readb .cs-read{height:146px;overflow:hidden auto;scrollbar-width:thin}
+  .cl-blk .ctr-ratio{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+  .cl-blk .ctr-ratio small{display:block;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis}
+  .cl-blk .note{margin:0}
+  /* «?» справа в подписи блока: подсказка вместо строки текста под полем; видна при наведении, щелчок закрепляет (color.js); открывается вверх, над полем места хватает */
+  .cl-q{position:relative;z-index:3;display:grid;place-items:center;width:18px;height:18px;margin-left:auto;padding:0;border:0;border-radius:50%;background:var(--s3);color:var(--dim);font-size:11px;font-weight:700;letter-spacing:0;cursor:help}
+  .cl-q:hover,.cl-q.open{color:var(--tx)}
+  .cl-qt{position:absolute;bottom:calc(100% + 6px);right:0;width:max-content;max-width:300px;padding:8px 10px;border-radius:9px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 12px 30px -8px var(--sh);
+    color:var(--tx);font-size:12.5px;font-weight:400;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .12s,visibility .12s}
+  .cl-q:hover .cl-qt,.cl-q:focus-visible .cl-qt,.cl-q.open .cl-qt{opacity:1;visibility:visible}
+  .cl-big{position:relative;border-radius:14px;min-height:160px;box-shadow:inset 0 0 0 1px var(--line2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:16px}
   .cl-big:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   .cl-ctr{display:flex;flex-wrap:wrap;justify-content:center;gap:24px 48px}
   .cl-ctrs{display:grid;grid-template-columns:auto auto;column-gap:10px;align-items:center}
@@ -1223,11 +1258,6 @@
   .mix-t:hover span{opacity:1;text-decoration:underline}
   #meshWork .cp-sw{width:44px;height:28px;flex:none}
   .mesh-tg.on{border-color:rgba(var(--acc-rgb),.6);color:var(--acct)}
-  .cl-pkr{display:flex;flex-direction:column;gap:10px;min-width:0}
-  .cl-pkr .cl-row{flex-wrap:nowrap}
-  .cl-pkr .cp-sw{width:64px;height:32px;flex:none}
-  .cl-pkr .btn.primary{flex:none}
-  .cl-pkr .note{margin-top:0}
   .cl-fmts{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));column-gap:20px;overflow:hidden;background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:0 10px}
   /* коды в несколько колонок; черта сверху у каждого, у верхнего ряда она уходит под край рамки */
   .cl-fmt{display:flex;align-items:center;gap:8px;padding:7px 4px;border-top:1px solid var(--line);margin-top:-1px}
@@ -1256,9 +1286,7 @@
     .cl-tool{justify-content:center;padding:9px 0}
     .cl-tool span{display:none}
   }
-  .cl-hint{flex:none;margin:-4px 10px 0;font-size:12px;color:var(--dim)}
   .cl-srow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:none}
-  .cl-srow .cl-stops{display:contents}
   .cl-chip{cursor:pointer}
   .btn.cl-add{padding:6px 12px}
   /* ----- «Цвет»: Палитра, Оттенки, Из фото (web/js/colorset.js) ----- */
@@ -1283,8 +1311,6 @@
   .cs-col .cl-mini:hover,.cs-col .cl-mini.on{background:var(--inkbg);color:var(--ink)}
   /* читаемость палитры: список лучших пар текст на фоне */
   .cs-read{flex:none;min-width:0}
-  .rd-head{display:flex;flex-direction:column;gap:2px;margin-bottom:6px;font-size:12px;color:var(--dim)}
-  .rd-head b{color:var(--ink);font-size:13px}
   .rd-none{padding:8px 10px;margin-bottom:6px;border-radius:8px;background:var(--inkbg);color:var(--dim);font-size:12.5px}
   .rd-wb{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
   .rd-wbt{flex:none;width:100%;font-size:12px;color:var(--dim)}
@@ -1312,7 +1338,6 @@
   .cs-step.base::before{content:"";position:absolute;left:50%;top:12px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:currentColor}
   .cs-name{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:12.5px}
   .cs-name input[type=text]{width:130px;padding:4px 8px}
-  #csShade>.cl-row .cp-sw{width:44px;height:28px;flex:none}
   .cs-ph{position:relative}
   .cs-ph.hide{display:none}
   .cs-ph canvas{display:block;width:100%;height:100%;border-radius:6px}
@@ -1327,8 +1352,10 @@
   .cs-strip .cs-step{padding:6px 8px;justify-content:center}
   #csPhView{min-height:220px}
   /* поле фото: пунктир как у других мест, куда бросают файлы; подсветка, пока файл над окном */
-  .cl-view.cs-drop{border:1.5px dashed var(--line2);transition:border-color .2s,background .2s,box-shadow .2s}
-  .cl-view.cs-drop.over{border-color:var(--accs);background:var(--accbg);box-shadow:0 0 0 6px rgba(var(--acc-rgb),.08)}
+  /* «Из фото»: пунктир у самой рамки поля, внутри поле без своей рамки; при перетаскивании файла рамка подсвечивается */
+  .cl-view.cs-drop{background:none;border-radius:0}
+  .cl-vcard:has(>.cs-drop){border:1px dashed var(--line2);transition:border-color .2s,background .2s,box-shadow .2s}
+  .cl-vcard:has(>.cs-drop.over){border-color:var(--accs);background:var(--accbg);box-shadow:0 0 0 6px rgba(var(--acc-rgb),.08)}
   /* «Отправить в»: подпись и кнопки других инструментов */
   .cl-send{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .cl-send>span{color:var(--dim);font-size:12.5px}
