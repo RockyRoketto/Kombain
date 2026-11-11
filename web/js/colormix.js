@@ -43,7 +43,6 @@ $('mixKn').addEventListener('input', () => { if ($('mixKn').value !== '') mixSet
 $('mixKn').addEventListener('change', () => { mixSetK(+$('mixKn').value, true); $('mixKn').value = cl.mix.k; });
 $('mixMode').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { cl.mix.mode = b.dataset.v; mixDraw(); clSave(); } });
 $('mixN').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { cl.mix.n = +b.dataset.v; mixDraw(); clSave(); } });
-$('mixSwap').onclick = () => { const m = cl.mix; [m.a, m.b] = [m.b, m.a]; m.k = 100 - m.k; mixDraw(); clSave(); };
 $('mixBig').onclick = () => { const c = mixAt(cl.mix, cl.mix.k / 100); clRecentAdd(c); clCopy(clUp(c)); clLibDraw(); };
 $('mixRow').addEventListener('click', e => {
   const b = e.target.closest('.mix-t');
