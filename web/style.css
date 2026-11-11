@@ -1174,6 +1174,13 @@
   .cl-seg button.on{background:var(--accbg);color:var(--acct2)}
   .cl-num{display:inline-flex;align-items:center;gap:3px;color:var(--dim);font-size:12.5px}
   .cl-num input[type=number]{width:64px;padding:4px 8px}
+  .cl-fxo{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+  .cl-fxo.hide{display:none}
+  .cl-fxp{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:12.5px}
+  .cl-fxp input[type=range].vol{flex:none;width:92px}
+  .cl-fxp input[type=number]{width:56px;padding:3px 6px}
+  .cl-fxp i{font-style:normal;margin-left:-3px}
+  .cl-fxp .cp-sw{width:34px;height:24px;flex:none}
   .cl-row .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
   .cl-row .btn svg+span{margin-left:6px}
   .btn.cl-ico{padding:6px 8px}

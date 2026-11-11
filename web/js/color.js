@@ -119,19 +119,129 @@ function clGeo(g, w, h) {
   const cx = g.cx * w, cy = g.cy * h;
   return {cx, cy, r: Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy), Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy)) || 1};
 }
-function clPaint(ctx, g, w, h) {
+// ---------- стили: шум, растр, полосы, ступени, пиксели ----------
+// Стиль лежит в самом градиенте (g.fx), поэтому уходит с ним в «Мои цвета», в отмену и переживает «Случайно».
+// Размеры стиля в пикселях выгрузки; просмотр уменьшен в той же доле (sc), и картинка в нём та же, что в PNG.
+// Числовой параметр: [меньше, больше, по умолчанию]; строка — цвет по умолчанию.
+const CL_FX = {
+  none: {},
+  noise: {a: [1, 100, 30], s: [1, 12, 1]},
+  dots: {s: [4, 160, 18], ang: [0, 90, 45], k: [30, 150, 100], bg: '#ffffff'},
+  lines: {s: [4, 160, 14], ang: [0, 180, 45], k: [30, 150, 100], bg: '#ffffff'},
+  steps: {n: [2, 24, 6]},
+  pixel: {s: [2, 240, 32]},
+};
+const CL_FX_SHAPES = 60000;   // больше кружков или квадратов SVG не пишем: файл станет неподъёмным для редакторов
+const clFxDef = t => { const o = {t}; for (const [k, v] of Object.entries(CL_FX[t])) o[k] = Array.isArray(v) ? v[2] : v; return o; };
+function clFxValid(f) {
+  const t = f && Object.hasOwn(CL_FX, f.t) ? f.t : 'none', o = {t};
+  for (const [k, v] of Object.entries(CL_FX[t])) {
+    o[k] = !Array.isArray(v) ? cpValid(f[k], v, true)
+      : Number.isFinite(f[k]) ? Math.min(Math.max(Math.round(f[k]), v[0]), v[1]) : v[2];
+  }
+  return o;
+}
+const clFxT = g => g.fx ? g.fx.t : 'none';
+// ступени: n полос ровного цвета, крайние — ровно цвета концов
+function clStepStops(g, n) {
+  const list = clSorted(g), out = [];
+  for (let i = 0; i < n; i++) { const c = clAt(g, i / (n - 1), list); out.push({at: i / n, c}, {at: (i + 1) / n, c}); }
+  return out;
+}
+// точки для рисования с учётом стиля: ступени — жёсткими парами, иначе как обычно
+const clOutStops = g => clFxT(g) === 'steps' ? clStepStops(g, g.fx.n) : clDense(g);
+// место на градиенте (0..1) для точки холста — то же, что считает canvas
+function clPlace(g, o) {
+  if (g.k === 'lin') { const dx = o.x1 - o.x0, dy = o.y1 - o.y0, L2 = dx * dx + dy * dy || 1; return (x, y) => ((x - o.x0) * dx + (y - o.y0) * dy) / L2; }
+  if (g.k === 'rad') return (x, y) => Math.hypot(x - o.cx, y - o.cy) / o.r;
+  const a0 = (g.ang - 90) * Math.PI / 180, T = Math.PI * 2;
+  return (x, y) => (((Math.atan2(y - o.cy, x - o.cx) - a0) % T + T) % T) / T;
+}
+// таблица цветов градиента: цвет и закраска клетки (0..1) в каждой из n долей.
+// Закраска от темноты цвета, но в пределах самого градиента: самое светлое место — тонко, самое тёмное — густо.
+// По абсолютной темноте у обычных градиентов средней яркости точки и линии выходили еле заметными.
+const CL_LUT_N = 1024;
+function clLut(g) {
+  const list = clSorted(g), c = new Array(CL_LUT_N), dk = new Float32Array(CL_LUT_N);
+  for (let i = 0; i < CL_LUT_N; i++) { const x = clAt(g, i / (CL_LUT_N - 1), list); c[i] = x; dk[i] = 1 - clLab(x).L; }
+  let lo = Infinity, hi = -Infinity;
+  for (const v of dk) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  const k = (g.fx && g.fx.k || 100) / 100;
+  for (let i = 0; i < CL_LUT_N; i++) dk[i] = (.12 + .78 * (hi - lo > .04 ? (dk[i] - lo) / (hi - lo) : .5)) * k;
+  return {c, dk, at: v => Math.round(Math.min(Math.max(v, 0), 1) * (CL_LUT_N - 1))};
+}
+// кружки растра: сетка с центром в середине картинки, повёрнутая на угол; площадь кружка растёт с темнотой цвета
+function clDotList(g, w, h, sc) {
+  const f = g.fx, s = f.s * sc, A = f.ang * Math.PI / 180, ca = Math.cos(A), sa = Math.sin(A);
+  const P = clPlace(g, clGeo(g, w, h)), L = clLut(g), n = Math.ceil(Math.hypot(w, h) / 2 / s) + 1, out = [];
+  for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+    const x = w / 2 + (i * ca - j * sa) * s, y = h / 2 + (i * sa + j * ca) * s;
+    if (x < -s || y < -s || x > w + s || y > h + s) continue;
+    const k = L.at(P(Math.min(Math.max(x, 0), w), Math.min(Math.max(y, 0), h))), r = s * Math.sqrt(L.dk[k] / Math.PI);
+    if (r * 2 >= .1 * sc) out.push([x, y, r, L.c[k]]);
+  }
+  return out;
+}
+// квадраты пикселей: сетка от левого верхнего угла, цвет — в середине клетки; края округлены, чтобы не было щелей
+function clPixList(g, w, h, sc) {
+  const s = g.fx.s * sc, P = clPlace(g, clGeo(g, w, h)), L = clLut(g), out = [];
+  for (let j = 0; j * s < h; j++) for (let i = 0; i * s < w; i++) {
+    const x0 = Math.round(i * s), y0 = Math.round(j * s), x1 = Math.min(Math.round((i + 1) * s), w), y1 = Math.min(Math.round((j + 1) * s), h);
+    out.push([x0, y0, x1, y1, L.c[L.at(P((x0 + x1) / 2, (y0 + y1) / 2))]]);
+  }
+  return out;
+}
+const clCount = (g, w, h) => Math.ceil(w / g.fx.s) * Math.ceil(h / g.fx.s) * (clFxT(g) === 'dots' ? 1.6 : 1);
+// шум: у каждой клетки зерна своё смещение яркости, одинаковое при каждой перерисовке (иначе просмотр мерцал бы при тяге)
+const clHash = (x, y) => { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) | 0; h = Math.imul(h ^ h >>> 13, 1274126177); return ((h ^ h >>> 16) >>> 0) / 4294967296; };
+function clNoise(ctx, w, h, sc, f) {
+  const im = ctx.getImageData(0, 0, w, h), d = im.data, cell = f.s * sc;
+  // в уменьшенном просмотре несколько зёрен сливаются в одну точку экрана и шум честно слабеет; ослабляем мягче, чтобы зерно было видно
+  const A = f.a * 1.6 * Math.sqrt(Math.min(cell, 1));
+  for (let y = 0, i = 0; y < h; y++) {
+    const cy = Math.floor(y / cell);
+    for (let x = 0; x < w; x++, i += 4) { const n = (clHash(Math.floor(x / cell), cy) - .5) * A; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  }
+  ctx.putImageData(im, 0, 0);
+}
+// полосы: толщина линии растёт с темнотой цвета, края сглажены на пиксель
+function clLines(ctx, g, w, h, sc) {
+  const f = g.fx, s = f.s * sc, A = f.ang * Math.PI / 180, nx = -Math.sin(A), ny = Math.cos(A);
+  const P = clPlace(g, clGeo(g, w, h)), L = clLut(g), im = ctx.createImageData(w, h), d = im.data;
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i += 4) {
+    const v = ((x + .5 - w / 2) * nx + (y + .5 - h / 2) * ny) / s, dist = Math.abs(v - Math.floor(v) - .5) * s;
+    const k = L.at(P(x + .5, y + .5)), half = s * Math.min(L.dk[k], 1) / 2, cov = Math.min(Math.max(half - dist + .5, 0), 1);
+    if (!cov) continue;
+    const c = L.c[k];
+    d[i] = c.r; d[i + 1] = c.g; d[i + 2] = c.b; d[i + 3] = 255 * c.a * cov;
+  }
+  const t = document.createElement('canvas');
+  t.width = w; t.height = h;
+  t.getContext('2d').putImageData(im, 0, 0);
+  ctx.drawImage(t, 0, 0);
+}
+function clPaint(ctx, g, w, h, sc = 1) {
+  const t = clFxT(g);
+  ctx.clearRect(0, 0, w, h);
+  if (t === 'dots' || t === 'lines') { ctx.fillStyle = g.fx.bg; ctx.fillRect(0, 0, w, h); }
+  if (t === 'dots') {
+    for (const [x, y, r, c] of clDotList(g, w, h, sc)) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = clRgba(c); ctx.fill(); }
+    return;
+  }
+  if (t === 'lines') { clLines(ctx, g, w, h, sc); return; }
+  if (t === 'pixel') { for (const [x0, y0, x1, y1, c] of clPixList(g, w, h, sc)) { ctx.fillStyle = clRgba(c); ctx.fillRect(x0, y0, x1 - x0, y1 - y0); } return; }
   const o = clGeo(g, w, h);
   const q = g.k === 'lin' ? ctx.createLinearGradient(o.x0, o.y0, o.x1, o.y1)
     : g.k === 'rad' ? ctx.createRadialGradient(o.cx, o.cy, 0, o.cx, o.cy, o.r)
     : ctx.createConicGradient((g.ang - 90) * Math.PI / 180, o.cx, o.cy);
-  for (const s of clDense(g)) q.addColorStop(Math.min(Math.max(s.at, 0), 1), clRgba(s.c));
-  ctx.clearRect(0, 0, w, h);
+  for (const s of clOutStops(g)) q.addColorStop(Math.min(Math.max(s.at, 0), 1), clRgba(s.c));
   ctx.fillStyle = q;
   ctx.fillRect(0, 0, w, h);
+  if (t === 'noise') clNoise(ctx, w, h, sc, g.fx);
 }
 const clPct = n => +(n * 100).toFixed(2) + '%';
 function clCssOf(g, dense) {
-  const list = dense ? clDense(g).map(s => `${clRgba(s.c)} ${clPct(s.at)}`) : clSorted(g).map(s => `${s.c} ${clPct(s.at)}`);
+  const list = dense ? clOutStops(g).map(s => `${clRgba(s.c)} ${clPct(s.at)}`) : clSorted(g).map(s => `${s.c} ${clPct(s.at)}`);
   const sp = dense ? '' : ' in oklch';
   const at = `at ${clPct(g.cx)} ${clPct(g.cy)}`;
   return g.k === 'lin' ? `linear-gradient(${g.ang}deg${sp}, ${list.join(', ')})`
@@ -141,13 +251,29 @@ function clCssOf(g, dense) {
 // CSS для копирования: строка, которую понимают все браузеры, и для OKLCH ещё короткая запись поверх неё
 function clCssCode(g) {
   const lines = [`background: ${clCssOf(g, true)};`];
-  if (g.mix === 'oklch') lines.push(`background: ${clCssOf(g, false)};`);
+  if (g.mix === 'oklch' && clFxT(g) === 'none') lines.push(`background: ${clCssOf(g, false)};`);
   return lines.join('\n');
 }
-// SVG: линейный и круговой градиенты настоящие, точки с прозрачностью — через stop-opacity (8-значный HEX понимают не все)
+// почему SVG или CSS не выйдет (ключ текста) или '' — выйдет
+function clNoOut(g, ext, w, h) {
+  const t = clFxT(g);
+  if (ext === 'css') return t === 'none' || t === 'steps' ? '' : 'cl.cssFx';
+  if (t === 'noise' || t === 'lines') return 'cl.svgFx';
+  if (t === 'dots' || t === 'pixel') return clCount(g, w, h) > CL_FX_SHAPES ? 'cl.svgMany' : '';
+  return g.k === 'conic' ? 'cl.svgConic' : '';
+}
+const clSvgFill = c => `fill="${cpHex({...c, a: 1}, false)}"${c.a < 1 ? ` fill-opacity="${+c.a.toFixed(3)}"` : ''}`;
+// SVG: линейный и круговой градиенты настоящие, точки с прозрачностью — через stop-opacity (8-значный HEX понимают не все).
+// Растр и пиксели — настоящими кружками и квадратами (так их можно править в редакторе), им и конический не помеха.
 function clSvg(g, w, h) {
-  const o = clGeo(g, w, h), n = x => +x.toFixed(2);
-  const stops = clDense(g).map(s => `<stop offset="${+s.at.toFixed(4)}" stop-color="${cpHex({...s.c, a: 1}, false)}"${s.c.a < 1 ? ` stop-opacity="${+s.c.a.toFixed(3)}"` : ''}/>`).join('');
+  const o = clGeo(g, w, h), n = x => +x.toFixed(2), t = clFxT(g);
+  const head = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  if (t === 'dots') {
+    const bg = cpParse(g.fx.bg), back = bg.a > 0 ? `<rect width="${w}" height="${h}" ${clSvgFill(bg)}/>` : '';
+    return head + back + clDotList(g, w, h, 1).map(([x, y, r, c]) => `<circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" ${clSvgFill(c)}/>`).join('') + '</svg>';
+  }
+  if (t === 'pixel') return head + clPixList(g, w, h, 1).map(([x0, y0, x1, y1, c]) => `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" ${clSvgFill(c)}/>`).join('') + '</svg>';
+  const stops = clOutStops(g).map(s => `<stop offset="${+s.at.toFixed(4)}" stop-color="${cpHex({...s.c, a: 1}, false)}"${s.c.a < 1 ? ` stop-opacity="${+s.c.a.toFixed(3)}"` : ''}/>`).join('');
   const def = g.k === 'lin'
     ? `<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="${n(o.x0)}" y1="${n(o.y0)}" x2="${n(o.x1)}" y2="${n(o.y1)}">${stops}</linearGradient>`
     : `<radialGradient id="g" gradientUnits="userSpaceOnUse" cx="${n(o.cx)}" cy="${n(o.cy)}" r="${n(o.r)}">${stops}</radialGradient>`;
@@ -161,8 +287,9 @@ function clValidG(g) {
     .map(s => clStop(Math.min(Math.max(s.at, 0), 1), cpValid(s.c, '', true), s.lock));
   if (stops.length < 2) return null;
   const num = (v, d, lo, hi) => Number.isFinite(v) ? Math.min(Math.max(v, lo), hi) : d;
+  const fx = g.fx ? clFxValid(g.fx) : null;
   return {k: CL_KINDS.includes(g.k) ? g.k : 'lin', ang: num(g.ang, 90, -360, 360), cx: num(g.cx, .5, 0, 1), cy: num(g.cy, .5, 0, 1),
-    mix: g.mix === 'rgb' ? 'rgb' : 'oklch', stops};
+    mix: g.mix === 'rgb' ? 'rgb' : 'oklch', stops, fx: fx && fx.t !== 'none' ? fx : undefined};
 }
 function clLoad() {
   try {
@@ -175,7 +302,8 @@ function clLoad() {
       pick: cpValid(o.pick, d.pick), g: clValidG(o.g) || d.g};
   } catch (e) {}
 }
-const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined}))});
+const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined})),
+  fx: clFxT(g) !== 'none' ? {...g.fx} : undefined});
 const clSave = () => { storeSet(CL_KEY, JSON.stringify({...cl, g: clPlain(cl.g)})); clMark(); };   // clMark — шаг отмены (colorset.js)
 // размер выгрузки
 function clWH() {
@@ -194,7 +322,7 @@ function clDraw() {
   clCv.style.width = cw + 'px'; clCv.style.height = ch + 'px';
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   if (clCv.width !== pw || clCv.height !== ph) { clCv.width = pw; clCv.height = ph; }
-  clPaint(clCx, cl.g, pw, ph);
+  clPaint(clCx, cl.g, pw, ph, pw / W);
   // точки цвета лежат прямо на картинке: у линейного на линии градиента, у кругового на луче из середины в дальний угол,
   // у конического на кольце вокруг середины. Их можно брать и двигать, как на полосе.
   const g = cl.g, x = clCx, R = 6 * dpr, mk = clMarkers(pw, ph);
@@ -306,7 +434,7 @@ function clAim(e) {
 // ---------- полоса с точками ----------
 const clBar = $('clBar');
 function clBarDraw() {
-  clBar.querySelector('b').style.background = clCssOf({...cl.g, k: 'lin', ang: 90}, true);
+  clBar.querySelector('b').style.background = clCssOf({...cl.g, k: 'lin', ang: 90, fx: undefined}, true);   // на полосе точки, без стиля
   const have = new Map([...clBar.querySelectorAll('.cl-st')].map(el => [+el.dataset.id, el]));
   for (const s of cl.g.stops) {
     let el = have.get(s.id);
@@ -472,10 +600,14 @@ const clRecentAdd = hex => storeSet(CP_RECENT_KEY, JSON.stringify([hex, ...cpRec
 
 // ---------- выгрузка ----------
 const clName = ext => `gradient-${clWH().join('x')}.${ext}`;
-$('clCss').onclick = () => clCopy(clCssCode(cl.g), t('cl.cssCopied'));
+const clNoOutText = (ext, W, H) => { const k = clNoOut(cl.g, ext, W, H); return k && t(k, {s: clFxName(clFxT(cl.g)), n: CL_FX_SHAPES}); };
+$('clCss').onclick = () => {
+  const no = clNoOutText('css');
+  if (no) say('warn', t('warn.title'), no); else clCopy(clCssCode(cl.g), t('cl.cssCopied'));
+};
 $('clSvg').onclick = () => dialog(async () => {
-  if (cl.g.k === 'conic') { say('warn', t('warn.title'), t('cl.svgConic')); return; }
-  const [W, H] = clWH();
+  const [W, H] = clWH(), no = clNoOutText('svg', W, H);
+  if (no) { say('warn', t('warn.title'), no); return; }
   clSaved(await api('color-save', {ext: 'svg', name: clName('svg'), data: clSvg(cl.g, W, H)}));
 });
 $('clPng').onclick = () => dialog(async () => {
@@ -483,10 +615,12 @@ $('clPng').onclick = () => dialog(async () => {
   c.width = W; c.height = H;
   const x = c.getContext('2d');
   clPaint(x, cl.g, W, H);
-  // лёгкий шум на полшага яркости: на плавных переходах в 8 битах иначе видны ступеньки
-  const im = x.getImageData(0, 0, W, H), d = im.data;
-  for (let i = 0; i < d.length; i += 4) { const n = Math.random() - .5; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
-  x.putImageData(im, 0, 0);
+  // лёгкий шум на полшага яркости: на плавных переходах в 8 битах иначе видны ступеньки. Ровным заливкам стилей он не нужен
+  if (clFxT(cl.g) === 'none') {
+    const im = x.getImageData(0, 0, W, H), d = im.data;
+    for (let i = 0; i < d.length; i += 4) { const n = Math.random() - .5; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+    x.putImageData(im, 0, 0);
+  }
   clSaved(await api('color-save', {ext: 'png', name: clName('png'), data: c.toDataURL('image/png').split(',')[1]}));
 });
 function clSaved(r) {
@@ -600,6 +734,65 @@ document.addEventListener('keydown', e => {
   else if (cl.tool === 'grad' && (e.code === 'Delete' || e.code === 'Backspace') && clSel) { e.preventDefault(); clDel(clSel); }
 });
 
+// ---------- стиль: переключатель и его настройки ----------
+// Настройки каждого стиля помнятся до закрытия программы: вернулся к растру — шаг и угол прежние.
+const clFxMem = {};
+let clFxSig = '';
+const clFxUnit = {s: 'px', ang: '°', k: '%'};
+// ключи текстов целиком, чтобы тест текстов (i18n_test.go) видел каждый
+const clFxName = ft => ({noise: () => t('cl.fx_noise'), dots: () => t('cl.fx_dots'), lines: () => t('cl.fx_lines'), steps: () => t('cl.fx_steps'), pixel: () => t('cl.fx_pixel')}[ft] || (() => t('cl.fx_none')))();
+const clFxLabel = (ft, k) => ({a: () => t('cl.fxP_a'), s: () => ft === 'noise' ? t('cl.fxP_grain') : ft === 'pixel' ? t('cl.fxP_cell') : t('cl.fxP_s'),
+  ang: () => t('cl.fxP_ang'), k: () => t('cl.fxP_k'), n: () => t('cl.fxP_n'), bg: () => t('cl.fxP_bg')}[k])();
+const clFxTip = k => ({a: () => t('cl.fxTip_a'), s: () => t('cl.fxTip_s'), ang: () => t('cl.fxTip_ang'), k: () => t('cl.fxTip_k'), n: () => t('cl.fxTip_n'), bg: () => t('cl.fxTip_bg')}[k])();
+function clFxDraw() {
+  const g = cl.g, ft = clFxT(g), box = $('clFxOpt');
+  clSegSync('clFx', ft);
+  if (clFxSig !== ft) {
+    clFxSig = ft;
+    box.innerHTML = Object.entries(CL_FX[ft]).map(([k, v]) => {
+      const name = esc(clFxLabel(ft, k)), tip = esc(clFxTip(k));
+      if (!Array.isArray(v)) return `<span class="cl-fxp" title="${tip}"><span>${name}</span><button type="button" class="cp-sw" data-k="${k}" aria-label="${name}"></button></span>`;
+      return `<label class="cl-fxp" title="${tip}"><span>${name}</span><input type="range" class="vol" data-k="${k}" data-origin="${v[2]}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">`
+        + `<input type="number" data-k="${k}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">${clFxUnit[k] ? `<i>${clFxUnit[k]}</i>` : ''}</label>`;
+    }).join('');
+    box.querySelectorAll('input[type=range]').forEach(slPlace);
+    box.querySelectorAll('.cp-sw').forEach(sw => {
+      let was;
+      cpField(sw, {alpha: true,
+        live: v => { if (!cl.g.fx) return; if (was === undefined) was = cl.g.fx[sw.dataset.k]; cl.g.fx[sw.dataset.k] = v; clDraw(); },
+        done: ok => { if (cl.g.fx && !ok && was !== undefined) cl.g.fx[sw.dataset.k] = was; was = undefined; clRender(); clSave(); }});
+    });
+  }
+  box.classList.toggle('hide', ft === 'none');
+  if (ft === 'none') return;
+  box.querySelectorAll('[data-k]').forEach(el => {
+    const v = g.fx[el.dataset.k];
+    if (el.matches('.cp-sw')) { if (el.value !== v && !(cp && cp.el === el)) el.value = v; }
+    else if (document.activeElement !== el || el.type === 'range') el.value = v;
+  });
+}
+$('clFx').addEventListener('click', e => {
+  const b = e.target.closest('[data-v]'), g = cl.g;
+  if (!b || b.dataset.v === clFxT(g)) return;
+  if (g.fx) clFxMem[g.fx.t] = {...g.fx};
+  const ft = b.dataset.v;
+  g.fx = ft === 'none' ? undefined : {...(clFxMem[ft] || clFxDef(ft))};
+  clRender(); clSave();
+});
+// ползунок и число рядом: оба правят одно значение; тяга рисует сразу, шаг отмены — по отпусканию
+function clFxIn(e, commit) {
+  const el = e.target.closest('input[data-k]'), f = cl.g.fx;
+  if (!el || !f) return;
+  const v = CL_FX[f.t][el.dataset.k], n = Math.round(+el.value);
+  if (el.value === '' || !Number.isFinite(n)) { if (commit) clRender(); return; }
+  f[el.dataset.k] = Math.min(Math.max(n, v[0]), v[1]);
+  $('clFxOpt').querySelectorAll(`input[data-k="${el.dataset.k}"]`).forEach(x => { if (x !== el) x.value = f[el.dataset.k]; });
+  clDraw();
+  if (commit) { clRender(); clSave(); }
+}
+$('clFxOpt').addEventListener('input', e => clFxIn(e, false));
+$('clFxOpt').addEventListener('change', e => clFxIn(e, true));
+
 function clRender() {
   if (!cl.g.stops.includes(clSel)) clSel = clSorted(cl.g)[0];
   const g = cl.g, grad = cl.tool === 'grad';
@@ -617,8 +810,10 @@ function clRender() {
     $('clOwn').classList.toggle('hide', cl.size !== 'own');
     if (document.activeElement !== $('clW')) $('clW').value = cl.w;
     if (document.activeElement !== $('clH')) $('clH').value = cl.h;
-    $('clSvg').title = g.k === 'conic' ? t('cl.svgConic') : '';
-    clBarDraw(); clChips(); clDraw();
+    const [W, H] = clWH();
+    $('clSvg').title = clNoOutText('svg', W, H) || '';
+    $('clCss').title = clNoOutText('css') || '';
+    clFxDraw(); clBarDraw(); clChips(); clDraw();
   } else if (cl.tool === 'pick') clPickDraw();
   else csRender();
   clLibDraw();
@@ -628,7 +823,7 @@ function clRender() {
 function clShow() { clRender(); }
 new ResizeObserver(() => { if (tab === 'color' && cl.tool === 'grad') clDraw(); }).observe($('clView'));
 // язык сменили (settings.js): подписи в точках и кнопках собираются заново
-function clRelang() { clChipsSig = ''; csRelang(); if (tab === 'color') clRender(); }
+function clRelang() { clChipsSig = ''; clFxSig = ''; csRelang(); if (tab === 'color') clRender(); }
 
 clLoad();
 $('clEyeNo').classList.add('hide');   // своя пипетка есть всегда, запасной не нужен
