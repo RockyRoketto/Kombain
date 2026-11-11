@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 3.1
+
+- Favicons: preview polished. Icons sit centered in the phone mockups, phones have a fixed height, rounding is removed, and the dark Google card shows the dark icon.
+
 ## 3.0
 
 - New Favicons tab: one icon makes the whole site set (favicon.ico, SVG, PNG for iPhone and Android, manifest and head code) with previews in a browser tab, Google, iPhone and Android.
