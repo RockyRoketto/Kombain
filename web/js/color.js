@@ -576,7 +576,7 @@ function clChips() {
     lk.setAttribute('aria-label', lk.title);
     ch.querySelector('.cl-x').classList.toggle('hide', !many);
   }
-  // цвета идут одной строкой с прокруткой вбок: выбранную точку (щелчок по полосе, новая точка) подвигаем в видимую часть
+  // выбранную точку (щелчок по полосе, новая точка) подвигаем в видимую часть, если сетка цветов ушла за край карточки
   const selId = clSel ? clSel.id : null;
   if (selId !== clChipsSelShown) {
     clChipsSelShown = selId;
@@ -584,11 +584,6 @@ function clChips() {
     if (ch) ch.scrollIntoView({block: 'nearest', inline: 'nearest'});
   }
 }
-// колесо над строкой цветов листает её вбок
-clStopsEl.addEventListener('wheel', e => {
-  if (clStopsEl.scrollWidth <= clStopsEl.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-  e.preventDefault(); clStopsEl.scrollLeft += e.deltaY;
-}, {passive: false});
 // окно цвета у точки (оно уже открыто у неё — не закрывать: cpOpen по тому же полю закрыл бы его)
 function clChipOpen(id) { const sw = clStopsEl.querySelector(`.cl-chip[data-id="${id}"] .cp-sw`); if (sw && !(cp && cp.el === sw)) cpOpen(sw); }
 clStopsEl.addEventListener('click', e => {

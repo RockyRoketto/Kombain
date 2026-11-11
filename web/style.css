@@ -1215,10 +1215,14 @@
   .cl-vcard>:not(.cl-bar):not(.cs-strip){flex:1;min-height:60px}
   .cl-vcard>.cl-view:not(.cs-drop){background:none;border-radius:0}
   .cp-sw.cl-swl{width:56px;height:30px;flex:none}
-  /* цвета градиента одной строкой: лишние листаются вбок, «+ Цвет» на месте */
-  .cl-blk .cl-srow{flex-wrap:nowrap}
-  .cl-blk .cl-srow .cl-stops{display:flex;flex:0 1 auto;flex-wrap:nowrap;min-width:0;overflow:auto hidden;scrollbar-width:thin;padding-bottom:2px}
-  .cl-blk .cl-chip,.cl-blk .cl-add{flex:none}
+  /* цвета градиента сеткой: плитки переносятся на новые строки (прокрутки вбок нет), «+ Цвет» последней ячейкой; в узком окне по одной в ряд */
+  .cl-blk .cl-srow{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,224px),1fr));gap:6px}
+  .cl-blk .cl-srow .cl-stops{display:contents}
+  .cl-blk .cl-chip{min-width:0}
+  .cl-blk .cl-chip .cl-hex{flex:1;min-width:60px}
+  .cl-blk .cl-add{justify-self:start;align-self:stretch;min-height:34px}
+  /* сетка бывает в несколько строк: подпись остаётся у первой */
+  .cl-blk:has(.cl-srow)>.cl-cap{align-self:start;min-height:34px}
   .cs-readb .cs-read{height:146px;overflow:hidden auto;scrollbar-width:thin}
   .cl-blk .ctr-ratio{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
   .cl-blk .ctr-ratio small{display:block;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis}
