@@ -10,11 +10,17 @@
 const CL_KEY = 'k9000.color', CL_LIB_KEY = 'k9000.colorLib', CL_MAX = 8, CL_LIB_N = 60;
 const CL_KINDS = ['lin', 'rad', 'conic'];
 // инструменты; pal, shade и photo живут в colorset.js
-const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade', 'ctr'];
+const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade', 'ctr', 'mix'];
 let clId = 0;
 const clStop = (at, c, lock) => ({id: ++clId, at, c, lock: !!lock});
-const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872', ctr: {fg: '#9a9a9a', bg: '#ffffff'},
+const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872', ctr: {fg: '#9a9a9a', bg: '#ffffff'}, mix: {a: '#ff7a59', b: '#5b8cff', k: 50, n: 7, mode: 'oklch'},
   g: {k: 'lin', ang: 135, cx: .5, cy: .5, mix: 'oklch', stops: [clStop(0, '#ff7a59'), clStop(.5, '#e9b872'), clStop(1, '#5b8cff')]}});
+// «Смешать» (colormix.js): проверка сохранённого состояния, число шагов 3–15, доля 0–100
+function mixOk(o) {
+  const n = o && Number.isInteger(o.n) && o.n >= 3 && o.n <= 15 ? o.n : 7;
+  const k = o && Number.isFinite(o.k) ? Math.min(Math.max(Math.round(o.k), 0), 100) : 50;
+  return {a: cpValid(o && o.a, '#ff7a59'), b: cpValid(o && o.b, '#5b8cff'), k, n, mode: o && o.mode === 'rgb' ? 'rgb' : 'oklch'};
+}
 let cl = clDefault();
 let clSel = null;   // выбранная точка (объект из cl.g.stops)
 
@@ -299,7 +305,7 @@ function clLoad() {
     cl = {tool: CL_TOOLS.includes(o.tool) ? o.tool : d.tool,
       size: typeof o.size === 'string' && (o.size === 'own' || /^\d+x\d+$/.test(o.size)) ? o.size : d.size,
       w: Number.isInteger(o.w) ? Math.min(Math.max(o.w, 16), 8192) : d.w, h: Number.isInteger(o.h) ? Math.min(Math.max(o.h, 16), 8192) : d.h,
-      pick: cpValid(o.pick, d.pick), ctr: {fg: cpValid(o.ctr && o.ctr.fg, d.ctr.fg), bg: cpValid(o.ctr && o.ctr.bg, d.ctr.bg)}, g: clValidG(o.g) || d.g};
+      pick: cpValid(o.pick, d.pick), ctr: {fg: cpValid(o.ctr && o.ctr.fg, d.ctr.fg), bg: cpValid(o.ctr && o.ctr.bg, d.ctr.bg)}, mix: mixOk(o.mix), g: clValidG(o.g) || d.g};
   } catch (e) {}
 }
 const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined})),
@@ -696,6 +702,7 @@ function clUse(hex) {
   if (CS_TOOLS.includes(cl.tool)) { csUse(hex); clLibDraw(); return; }
   if (cl.tool === 'pick') cl.pick = cpHex(cpParse(hex), false);
   else if (cl.tool === 'ctr') cl.ctr.fg = cpHex(cpParse(hex), false);   // цвет из библиотеки — в текст
+  else if (cl.tool === 'mix') cl.mix.a = cpHex(cpParse(hex), false);   // и в «Смешать» — цвет A
   else if (clSel) clSel.c = cpHex(cpParse(hex), true);
   clRender(); clSave();
 }
@@ -720,6 +727,7 @@ $('clKeep').onclick = () => {
   const lib = clLib();
   const one = cl.tool === 'pick' ? cl.pick : cl.tool === 'shade' ? cs.shade.base : null;
   if (cl.tool === 'ctr') lib.unshift({p: [cl.ctr.fg, cl.ctr.bg]});   // пара текст + фон идёт палитрой из двух цветов
+  else if (cl.tool === 'mix') lib.unshift({p: mixRow()});   // ряд шагов — палитрой
   else if (one) { if (!lib.includes(one)) lib.unshift(one); }
   else if (cl.tool === 'grad') lib.unshift(clPlain(cl.g));
   else { const p = csList().map(x => x.hex); if (p.length < CS_MIN) { toast({type: 'warn', title: t('cs.none'), ttl: 2500}); return; } lib.unshift({p}); }
@@ -819,6 +827,7 @@ function clRender() {
   $('clGrad').classList.toggle('hide', !grad);
   $('clPick').classList.toggle('hide', cl.tool !== 'pick');
   $('ctrWork').classList.toggle('hide', cl.tool !== 'ctr');
+  $('mixWork').classList.toggle('hide', cl.tool !== 'mix');
   $('csWork').classList.toggle('hide', !CS_TOOLS.includes(cl.tool));
   if (grad) {
     clSegSync('clKind', g.k);
@@ -835,6 +844,7 @@ function clRender() {
     clFxDraw(); clBarDraw(); clChips(); clDraw();
   } else if (cl.tool === 'pick') clPickDraw();
   else if (cl.tool === 'ctr') ctrDraw();
+  else if (cl.tool === 'mix') mixDraw();
   else csRender();
   clLibDraw();
   clSendDraw();

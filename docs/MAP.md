@@ -197,6 +197,7 @@
 | `js/color.js` | вкладка «Цвет»: градиент, пипетка и форматы, «Мои цвета»; подробно в таблице задач |
 | `js/colorset.js` | вкладка «Цвет»: Палитра, Из фото, Оттенки и их общая выгрузка (CSS, JSON, ASE, SVG, PNG); подробно в таблице задач |
 | `js/colorctr.js` | вкладка «Цвет», инструмент «Контраст»: пара `cl.ctr` {fg, bg}, образец, AA/AAA, `ctrRaise`/`ctrFix` (подтяжка светлоты в OKLCH); `clContrast` в color.js |
+| `js/colormix.js` | вкладка «Цвет», инструмент «Смешать»: `cl.mix` {a, b, k, n, mode} (проверка `mixOk` в color.js), `mixAt`/`mixRow` на `clMix`, крупный результат, ряд плиток, копирование; секция `#mixWork` |
 | `js/favicon.js` | вкладка «Фавиконы», выбор файла окном Windows (`fvPick`, чтобы знать папку оригинала), состояние `fv` (`FV_DEF`), иконки `fvImg` (светлая и тёмная), приём файла `fvTake` и `fvDrop` (из `drop.js`), рисование `fvDraw`, `fvSvg` (обёртка со сменой темы), `fvManifest`, `fvHtml`, отрисовка вкладки `fvPaint`, сохранение по `#fvSave`; память в localStorage `konv9000.fav2`, `konv9000.favImg` |
 | `js/bannertab.js` | «Баннеры» и переключение вкладок и инструментов «Утилит»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |

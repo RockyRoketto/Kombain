@@ -473,9 +473,10 @@ function csRelang() { csColsSig = ''; csReadSig = ''; clSendSig = ''; }
 // ---------- отправить в другой инструмент ----------
 // Наборы (градиент, палитра, фото, оттенки) идут набором, в оттенки — один цвет:
 // выбранная точка градиента, выбранная колонка палитры, основа оттенков, первый цвет фото.
-const CL_SEND = {grad: ['pal', 'shade', 'ctr'], pal: ['grad', 'shade', 'ctr'], photo: ['pal', 'grad', 'shade', 'ctr'],
-  shade: ['pal', 'grad', 'ctr'], pick: ['grad', 'pal', 'shade', 'ctr'], ctr: ['grad', 'pal', 'shade']};
-const CL_TOOL_NAME = {grad: 'cl.tGrad', pal: 'cs.tPal', shade: 'cs.tShade', pick: 'cl.tPick', ctr: 'cl.tCtr'};
+const CL_SEND = {grad: ['pal', 'shade', 'ctr', 'mix'], pal: ['grad', 'shade', 'ctr', 'mix'], photo: ['pal', 'grad', 'shade', 'ctr', 'mix'],
+  shade: ['pal', 'grad', 'ctr', 'mix'], pick: ['grad', 'pal', 'shade', 'ctr', 'mix'], ctr: ['grad', 'pal', 'shade', 'mix'],
+  mix: ['grad', 'pal', 'shade', 'ctr']};
+const CL_TOOL_NAME = {grad: 'cl.tGrad', pal: 'cs.tPal', shade: 'cs.tShade', pick: 'cl.tPick', ctr: 'cl.tCtr', mix: 'cl.tMix'};
 const clOpaque = c => cpHex(cpParse(c), false);
 function clSetOf(tool) {
   if (tool === 'grad') return clSorted(cl.g).map(s => clOpaque(s.c));
@@ -489,6 +490,7 @@ function clSetOf(tool) {
     return [...new Set(idx)].sort((a, b) => a - b).map(i => l[i]);
   }
   if (tool === 'ctr') return [cl.ctr.fg, cl.ctr.bg];
+  if (tool === 'mix') return mixRow();
   return [cl.pick];
 }
 function clOneOf(tool) {
@@ -497,6 +499,7 @@ function clOneOf(tool) {
   if (tool === 'shade') return cs.shade.base;
   if (tool === 'photo') return csPh && csPh.pts[0] ? csPh.pts[0].c : null;
   if (tool === 'ctr') return cl.ctr.fg;
+  if (tool === 'mix') return mixAt(cl.mix, cl.mix.k / 100);   // выбранная доля
   return cl.pick;
 }
 function clSendTo(to) {
@@ -505,6 +508,7 @@ function clSendTo(to) {
   if (to === 'shade') cs.shade.base = one;
   else if (to === 'pick') cl.pick = one;
   else if (to === 'ctr') { cl.ctr.fg = list.length > 1 ? list[0] : one; if (list.length > 1) cl.ctr.bg = list[list.length - 1]; }   // набор: первый цвет — текст, последний — фон
+  else if (to === 'mix') { cl.mix.a = list.length > 1 ? list[0] : one; if (list.length > 1) cl.mix.b = list[list.length - 1]; }   // набор: первый цвет — A, последний — B
   else if (from === 'pick' && to === 'grad') { if (!clAddStop(one)) return; }
   else if (from === 'pick' && to === 'pal') {
     const cols = cs.pal.colors;

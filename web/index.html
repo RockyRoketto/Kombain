@@ -681,6 +681,7 @@ __CSS__
       <button type="button" class="cl-tool" data-tool="grad" data-i18n-title="cl.tGrad"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 15.5l12-12M8.5 20.5l12-12"/></svg><span data-i18n="cl.tGrad"></span></button>
       <button type="button" class="cl-tool" data-tool="pal" data-i18n-title="cs.tPal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M9.2 5.5v13M14.8 5.5v13"/></svg><span data-i18n="cs.tPal"></span></button>
       <button type="button" class="cl-tool" data-tool="shade" data-i18n-title="cs.tShade"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 9.2h17M3.5 14.8h17"/></svg><span data-i18n="cs.tShade"></span></button>
+      <button type="button" class="cl-tool" data-tool="mix" data-i18n-title="cl.tMix"><svg viewBox="0 0 24 24"><circle cx="9.5" cy="12" r="6"/><circle cx="14.5" cy="12" r="6"/></svg><span data-i18n="cl.tMix"></span></button>
       <h2 data-i18n="cl.grpTake"></h2>
       <button type="button" class="cl-tool" data-tool="pick" data-i18n-title="cl.tPick"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5M17 7l-9.5 9.5L5 19l2.5-2.5M12 4.5l7.5 7.5M15.8 3.2a2.1 2.1 0 0 1 3 0l2 2a2.1 2.1 0 0 1 0 3l-2 2-5-5z"/></svg><span data-i18n="cl.tPick"></span></button>
       <button type="button" class="cl-tool" data-tool="ctr" data-i18n-title="cl.tCtr"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor" stroke="none"/></svg><span data-i18n="cl.tCtr"></span></button>
@@ -757,6 +758,40 @@ __CSS__
             <div class="cl-send cl-up"></div>
           </div>
           <div class="note" data-i18n="cl.ctrNote"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Смешать (web/js/colormix.js): два цвета, доля и ряд промежуточных шагов -->
+    <section class="card cl-work hide" id="mixWork">
+      <div class="cl-pk">
+        <div class="mix-big" id="mixBig" role="button" tabindex="0" data-i18n-title="cl.mixBigTip"></div>
+        <div class="cl-pkr">
+          <div class="cl-row">
+            <span class="ctr-lbl">A</span>
+            <button type="button" class="cp-sw" id="mixASw" aria-label="A"></button>
+            <button type="button" class="btn sm" id="mixAEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
+            <button type="button" class="btn sm cl-ico" id="mixSwap" data-i18n-title="cl.mixSwap" data-i18n-aria="cl.mixSwap"><svg viewBox="0 0 16 16"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg></button>
+            <span class="ctr-lbl">B</span>
+            <button type="button" class="cp-sw" id="mixBSw" aria-label="B"></button>
+            <button type="button" class="btn sm" id="mixBEye" data-i18n-title="cl.eye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg></button>
+          </div>
+          <div class="cl-row mix-k">
+            <span class="ctr-lbl" data-i18n="cl.mixShare"></span>
+            <input type="range" class="vol" id="mixK" min="0" max="100" step="1" data-i18n-aria="cl.mixShare">
+            <label class="cl-num"><input type="number" id="mixKn" min="0" max="100" step="1">%</label>
+          </div>
+          <div class="cl-row">
+            <div class="cl-seg" id="mixMode" data-i18n-title="cl.mixTip"><button type="button" data-v="oklch">OKLCH</button><button type="button" data-v="rgb">RGB</button></div>
+            <span class="ctr-lbl" data-i18n="cl.mixSteps"></span>
+            <div class="cl-seg" id="mixN"><button type="button" data-v="5">5</button><button type="button" data-v="7">7</button><button type="button" data-v="9">9</button></div>
+          </div>
+          <div class="mix-row" id="mixRow"></div>
+          <div class="cl-row">
+            <button type="button" class="btn sm primary" id="mixCopyRow" data-i18n="cl.mixCopyRow"></button>
+            <span class="cl-sp"></span>
+            <div class="cl-send cl-up"></div>
+          </div>
         </div>
       </div>
     </section>
