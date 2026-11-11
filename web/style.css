@@ -500,18 +500,18 @@
   .mt-hit:hover:not(:disabled){background:var(--accbg)}
   .mt-hit:disabled{opacity:.45;cursor:default}
   /* вкладки как ярлычки папки: выбранная одного цвета с областью настроек и переходит в неё, вогнутые углы сверху и снизу */
-  .mt-body{flex:1;min-height:0;overflow:auto;display:flex;align-items:stretch}
+  .mt-body{flex:1;min-height:0;overflow:auto;display:flex;align-items:stretch;margin-left:-10px;padding-left:10px}   /* запас слева, чтобы подложка вкладки заезжала в отступ карточки и не обрезалась прокруткой */
   .mt-main{flex:1;min-width:0;background:var(--s2);border-radius:12px;padding:8px 12px 10px}
   .mt-tabs.mt-rail{flex:none;align-self:flex-start;flex-direction:column;gap:2px;position:sticky;top:0;padding:12px 0 0;background:none;border:0;border-radius:0}
-  .mt-rail .mt-tab{flex:none;position:relative;display:grid;place-items:center;width:36px;height:34px;padding:0 14px 0 0;border-radius:10px 0 0 10px;color:var(--dim)}   /* значок посередине между краем карточки (её отступ 14px) и областью настроек */
+  .mt-rail .mt-tab{flex:none;position:relative;display:grid;place-items:center;width:44px;height:38px;margin-left:-8px;padding:0 14px 0 8px;border-radius:16px 0 0 16px;color:var(--dim)}   /* значок посередине между краем карточки (её отступ 14px) и областью настроек */
   .mt-rail .mt-tab:hover:not(:disabled){color:var(--tx);background-color:rgba(127,127,127,.08)}
   .mt-rail .mt-tab.on,.mt-rail .mt-tab.on:hover{background-color:var(--s2);color:var(--acct2);box-shadow:none}
-  .mt-rail .mt-tab.on::before,.mt-rail .mt-tab.on::after{content:"";position:absolute;right:0;width:10px;height:10px;pointer-events:none}
-  .mt-rail .mt-tab.on::before{top:-10px;background:radial-gradient(circle at 0 0,transparent 9.5px,var(--s2) 10px)}
-  .mt-rail .mt-tab.on::after{bottom:-10px;background:radial-gradient(circle at 0 100%,transparent 9.5px,var(--s2) 10px)}
+  .mt-rail .mt-tab.on::before,.mt-rail .mt-tab.on::after{content:"";position:absolute;right:0;width:16px;height:16px;pointer-events:none}
+  .mt-rail .mt-tab.on::before{top:-16px;background:radial-gradient(circle at 0 0,transparent 15.5px,var(--s2) 16px)}
+  .mt-rail .mt-tab.on::after{bottom:-16px;background:radial-gradient(circle at 0 100%,transparent 15.5px,var(--s2) 16px)}
   .mt-rail svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .mt-rail svg .solid{fill:currentColor;stroke:none}
-  .mt-rail .mt-tab.mark{background-image:radial-gradient(circle at 23px 7px,var(--accs) 2.5px,transparent 3px)}
+  .mt-rail .mt-tab.mark{background-image:radial-gradient(circle at 31px 8px,var(--accs) 2.5px,transparent 3px)}
   .mt-tabname{font-size:13px;font-weight:700;color:var(--tx);margin:4px 0 6px}
   .mt-clipname{font-size:12px;color:var(--tx2);font-weight:600;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mt-subshead{display:flex;align-items:center;gap:4px;margin-bottom:6px}
@@ -962,6 +962,7 @@
   .tab{background:none;border:0;border-radius:8px;padding:4px 12px;line-height:1.4;font-size:13px;
     color:var(--tx2);font-weight:600;transition:.12s}
   .tab:hover{background:var(--s2)}
+  .tab:focus-visible{outline:none}   /* после клавиши у вкладки появлялась тёмная рамка вокруг выбранной */
   .tab.on{background:var(--accbg);color:var(--acct2);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.5)}
   .need{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .need div{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:10px;background:var(--s2);font-size:13px;
@@ -1145,6 +1146,7 @@
   .ut-main>.cl-tools{min-height:0;overflow:hidden auto}
   .ut-pane{min-width:0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,34vw,520px);grid-template-rows:minmax(0,1fr);gap:10px}
   .cl-tools{display:flex;flex-direction:column;gap:2px;padding:10px 8px}
+  .cl-main>.cl-tools,.ut-main>.cl-tools{align-self:start;max-height:100%}   /* рамка ровно по высоте кнопок, без пустоты снизу */
   .cl-tools h2{padding:0 6px;margin:4px 0 4px}
   .cl-tools h2~h2{margin-top:12px}
   .cl-tool{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:10px;background:none;color:var(--tx2);text-align:left;font-size:13px;transition:.12s}
@@ -1230,7 +1232,7 @@
   /* «?» справа в подписи блока: подсказка вместо строки текста под полем; видна при наведении, щелчок закрепляет (color.js); открывается вверх, над полем места хватает */
   .cl-q{position:relative;z-index:3;display:grid;place-items:center;width:18px;height:18px;margin-left:auto;padding:0;border:0;border-radius:50%;background:var(--s3);color:var(--dim);font-size:11px;font-weight:700;letter-spacing:0;cursor:help}
   .cl-q:hover,.cl-q.open{color:var(--tx)}
-  .cl-qt{position:absolute;bottom:calc(100% + 6px);right:0;width:max-content;max-width:300px;padding:8px 10px;border-radius:9px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 12px 30px -8px var(--sh);
+  .cl-qt{position:fixed;left:0;top:0;width:max-content;max-width:300px;padding:8px 10px;border-radius:9px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 12px 30px -8px var(--sh);
     color:var(--tx);font-size:12.5px;font-weight:400;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .12s,visibility .12s}
   .cl-q:hover .cl-qt,.cl-q:focus-visible .cl-qt,.cl-q.open .cl-qt{opacity:1;visibility:visible}
   .cl-big{position:relative;border-radius:14px;min-height:160px;box-shadow:inset 0 0 0 1px var(--line2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:16px}

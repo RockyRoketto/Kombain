@@ -227,8 +227,9 @@ const clCount = (o, w, h) => Math.ceil(w / o.fx.s) * Math.ceil(h / o.fx.s) * (cl
 // шум: у каждой клетки зерна своё смещение яркости, одинаковое при каждой перерисовке (иначе просмотр мерцал бы при тяге)
 const clHash = (x, y) => { let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) | 0; h = Math.imul(h ^ h >>> 13, 1274126177); return ((h ^ h >>> 16) >>> 0) / 4294967296; };
 function clNoise(ctx, w, h, sc, f) {
-  const im = ctx.getImageData(0, 0, w, h), d = im.data, cell = f.s * sc;
-  // в уменьшенном просмотре несколько зёрен сливаются в одну точку экрана и шум честно слабеет; ослабляем мягче, чтобы зерно было видно
+  // зерно считается от ширины картинки (f.s тысячных), а не в пикселях: просмотр и PNG любого размера выглядят одинаково; sc тут не нужен, w уже в долях выгрузки
+  const im = ctx.getImageData(0, 0, w, h), d = im.data, cell = f.s * w / 1000;
+  // зерно мельче пикселя слипается в точку и шум честно слабеет; ослабляем мягче, чтобы зерно было видно
   const A = f.a * 1.6 * Math.sqrt(Math.min(cell, 1));
   for (let y = 0, i = 0; y < h; y++) {
     const cy = Math.floor(y / cell);
@@ -693,8 +694,23 @@ cpField($('clPickSw'), {live: v => { cl.pick = v; clPickDraw(); }, done: () => {
 function clContrast(a, b) { return rdContrast(a, b); }
 // большая плашка: щелчок открывает выбор цвета, как образец рядом с кнопкой
 // «?» в углу поля или в подписи блока: подсказка видна при наведении, щелчок закрепляет её до щелчка мимо
+// подсказка fixed, чтобы рамка карточки её не обрезала: ставим над «?» и не даём выйти за окно
+function clQPlace(q) {
+  const tip = q.querySelector('.cl-qt');
+  if (!tip) return;
+  const r = q.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+  const top = r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+['mouseover', 'focusin'].forEach(ev => document.addEventListener(ev, e => {
+  const q = e.target.closest && e.target.closest('#colorView .cl-q');
+  if (q) clQPlace(q);
+}));
 document.addEventListener('click', e => {
   const q = e.target.closest('#colorView .cl-q');
+  if (q) clQPlace(q);
   document.querySelectorAll('#colorView .cl-q.open').forEach(x => { if (x !== q) x.classList.remove('open'); });
   if (q) { q.classList.toggle('open'); e.stopPropagation(); }
 }, true);
@@ -818,7 +834,7 @@ const clFxUnit = {s: 'px', ang: '°', k: '%'};
 const clFxName = ft => ({noise: () => t('cl.fx_noise'), dots: () => t('cl.fx_dots'), lines: () => t('cl.fx_lines'), steps: () => t('cl.fx_steps'), pixel: () => t('cl.fx_pixel')}[ft] || (() => t('cl.fx_none')))();
 const clFxLabel = (ft, k) => ({a: () => t('cl.fxP_a'), s: () => ft === 'noise' ? t('cl.fxP_grain') : ft === 'pixel' ? t('cl.fxP_cell') : t('cl.fxP_s'),
   ang: () => t('cl.fxP_ang'), k: () => t('cl.fxP_k'), n: () => t('cl.fxP_n'), bg: () => t('cl.fxP_bg')}[k])();
-const clFxTip = k => ({a: () => t('cl.fxTip_a'), s: () => t('cl.fxTip_s'), ang: () => t('cl.fxTip_ang'), k: () => t('cl.fxTip_k'), n: () => t('cl.fxTip_n'), bg: () => t('cl.fxTip_bg')}[k])();
+const clFxTip = (k, ft) => ({a: () => t('cl.fxTip_a'), s: () => ft === 'noise' ? t('cl.fxTip_grain') : t('cl.fxTip_s'), ang: () => t('cl.fxTip_ang'), k: () => t('cl.fxTip_k'), n: () => t('cl.fxTip_n'), bg: () => t('cl.fxTip_bg')}[k])();
 // Ряд «Стиль» есть у градиента (#clFx) и у меша (#meshFx), правит стиль того, что сейчас открыто
 const CL_FX_ROWS = {grad: {seg: 'clFx', opt: 'clFxOpt'}, mesh: {seg: 'meshFx', opt: 'meshFxOpt'}};
 const clFxHost = () => cl.tool === 'mesh' ? cl.mesh : cl.g;
@@ -829,10 +845,10 @@ function clFxDraw() {
   if (box.dataset.sig !== ft) {
     box.dataset.sig = ft;
     box.innerHTML = Object.entries(CL_FX[ft]).map(([k, v]) => {
-      const name = esc(clFxLabel(ft, k)), tip = esc(clFxTip(k));
+      const name = esc(clFxLabel(ft, k)), tip = esc(clFxTip(k, ft)), unit = ft === 'noise' && k === 's' ? '‰' : clFxUnit[k];
       if (!Array.isArray(v)) return `<span class="cl-fxp" title="${tip}"><span>${name}</span><button type="button" class="cp-sw" data-k="${k}" aria-label="${name}"></button></span>`;
       return `<label class="cl-fxp" title="${tip}"><span>${name}</span><input type="range" class="vol" data-k="${k}" data-origin="${v[2]}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">`
-        + `<input type="number" data-k="${k}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">${clFxUnit[k] ? `<i>${clFxUnit[k]}</i>` : ''}</label>`;
+        + `<input type="number" data-k="${k}" min="${v[0]}" max="${v[1]}" step="1" aria-label="${name}">${unit ? `<i>${unit}</i>` : ''}</label>`;
     }).join('') || `<span class="cl-fxn">${esc(t('cl.fxNoOpts'))}</span>`;
     box.querySelectorAll('input[type=range]').forEach(slPlace);
     box.querySelectorAll('.cp-sw').forEach(sw => {
