@@ -649,12 +649,8 @@ function clPickDraw() {
 }
 $('clFmts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { clCopy(b.dataset.v); clRecentAdd(cl.pick); clLibDraw(); } });
 cpField($('clPickSw'), {live: v => { cl.pick = v; clPickDraw(); }, done: () => { clSave(); clLibDraw(); }});
-// контраст двух цветов по WCAG 2: (L1 + 0.05) / (L2 + 0.05), L — относительная яркость sRGB
-function clContrast(a, b) {
-  const lum = hex => { const c = cpParse(hex), f = v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(c.r) + .7152 * f(c.g) + .0722 * f(c.b); };
-  const x = lum(a), y = lum(b);
-  return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
-}
+// контраст двух цветов по WCAG 2, общий расчёт в readable.js
+function clContrast(a, b) { return rdContrast(a, b); }
 // большая плашка: щелчок открывает выбор цвета, как образец рядом с кнопкой
 $('clBig').addEventListener('click', () => $('clPickSw').click());
 $('clBig').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('clPickSw').click(); } });

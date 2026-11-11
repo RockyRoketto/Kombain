@@ -302,6 +302,7 @@ __CSS__
         <div class="hide" id="mtTextBox">
         <details class="mt-sec" data-sec="text" open>
           <summary><span data-i18n="mt.secText"></span></summary>
+          <div class="note mt-read hide" id="mtTextRead" role="status"></div>
           <textarea class="mt-textarea" id="mtTextS" rows="3" data-i18n-aria="mt.secText"></textarea>
           <div class="note" data-i18n="mt.textBoxHint"></div>
           <label class="mt-row"><span data-i18n="mt.subsFont"></span><select id="mtTextFont"></select></label>
@@ -312,6 +313,11 @@ __CSS__
           </label>
           <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.textStroke"></span><input type="range" class="vol" id="mtTextStrokeR" min="0" max="30" step="0.5" data-i18n-aria="mt.textStroke"><input type="number" id="mtTextStroke" min="0" max="30" step="0.5" data-i18n-aria="mt.textStroke"></div>
           <div class="mt-row go"><span data-i18n="mt.textStrokeColor"></span><button type="button" class="cp-sw" id="mtTextStrokeColor" data-i18n-aria="mt.textStrokeColor"></button></div>
+          <label class="sw mt-each"><span data-i18n="mt.subsBackOn"></span><input type="checkbox" id="mtTextBackOn"><i></i></label>
+          <div class="hide" id="mtTextBackBody">
+            <div class="mt-row go"><span data-i18n="mt.subsBack"></span><button type="button" class="cp-sw" id="mtTextBack" data-i18n-aria="mt.subsBack"></button></div>
+            <div class="mt-row" data-n data-i18n-title="mt.altTip"><span data-i18n="mt.subsBackA"></span><input type="range" class="vol" id="mtTextBackAR" data-origin="60" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"><input type="number" id="mtTextBackA" min="5" max="100" step="1" data-i18n-aria="mt.subsBackA"></div>
+          </div>
         </details>
         </div>
         <div class="hide" id="mtShapeBox">
@@ -515,6 +521,7 @@ __CSS__
           </div>
         </div>
       </details>
+      <div class="note mt-read hide" id="mtSubsRead" role="status"></div>
       <details class="mt-sec hide mt-subsec" data-sec="subsLook">
         <summary><span data-i18n="mt.secSubsLook"></span></summary>
           <div>

@@ -29,7 +29,7 @@ const tkTotal = () => tkClips().reduce((a, c) => Math.max(a, tkEnd(c)), 0);
 const tkLive = () => tkTracks.filter(x => !x.off).flatMap(x => x.clips);
 const tkById = id => tkClips().find(c => c.id === id);
 const tkTrackOf = c => tkTracks.find(x => x.clips.includes(c));
-const MT_TEXT_DEF = {s: '', font: 'Arial', size: .08, color: '#ffffff', bold: false, italic: false, align: 'center', stroke: 0, strokeColor: '#000000'};   // клип «Текст», textclip.js; нужно уже при загрузке проекта
+const MT_TEXT_DEF = {s: '', font: 'Arial', size: .08, color: '#ffffff', bold: false, italic: false, align: 'center', stroke: 0, strokeColor: '#000000', back: '', backA: .6};   // клип «Текст», textclip.js; нужно уже при загрузке проекта
 const tkPhoto = c => !c.src;
 // у клипов «Текст» и «Фигура» в пути только служебное имя
 const tkClipName = c => c.text ? c.text.s.replace(/\s+/g, ' ') : c.shape ? tkShapeName(c.shape) : base(c.path);
@@ -158,7 +158,7 @@ function tkLoad(o, path) {
       ...(c.link ? {link: linkOf(c.link)} : {}),
       ...(times(c.marks).length ? {marks: times(c.marks)} : {}),
       ...kfLoad(c.kf), ...kfAnimLoad(c.anim),
-      ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text, color: cpValidG(c.text.color, MT_TEXT_DEF.color), strokeColor: cpValidG(c.text.strokeColor, MT_TEXT_DEF.strokeColor)}, ...more(c, 'nw')} : {}),
+      ...(c.text && typeof c.text.s === 'string' ? {text: {...MT_TEXT_DEF, ...c.text, color: cpValidG(c.text.color, MT_TEXT_DEF.color), strokeColor: cpValidG(c.text.strokeColor, MT_TEXT_DEF.strokeColor), back: cpValid(c.text.back, ''), backA: Number.isFinite(c.text.backA) ? Math.min(Math.max(c.text.backA, .05), 1) : MT_TEXT_DEF.backA}, ...more(c, 'nw')} : {}),
       ...(tkShapeLoad(c.shape) ? {shape: tkShapeLoad(c.shape), ...(typeof c.seq === 'string' && c.seqN > 0 && c.seqFps > 0 ? {seq: c.seq, seqN: c.seqN, seqFps: c.seqFps} : {})} : {}),
     }))}));
   if (!tracks.some(x => x.kind === 'v')) tracks.unshift({kind: 'v', thin: false, clips: []});

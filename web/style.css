@@ -1113,6 +1113,9 @@
   .fv-slot .x{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:24px;height:24px;font-size:11px}
   .fv-slot .x:hover{color:var(--err)}
   .fv-warn b{color:var(--acct2)}
+  .mt-read{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:2px 0 8px;padding:7px 9px;border-radius:8px;border:1px solid rgba(var(--err-rgb),.45);background:rgba(var(--err-rgb),.08);color:var(--tx2)}
+  .mt-read>span:first-child{flex:1 1 180px;min-width:0}
+  .mt-read-do{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
   .fv-row{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--tx2);font-size:13px}
   .fv-row>span:first-child{flex:1;min-width:0}
   .fv-row .cp-sw{width:56px;flex:none}

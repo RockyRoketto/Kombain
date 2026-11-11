@@ -22,7 +22,8 @@ function mtTextDraw(x, H, box) {
   const font = `${x.italic ? 'italic ' : ''}${x.bold ? 'bold ' : ''}${px}px "${x.font}"`;
   let g = cv.getContext('2d');
   g.font = font;
-  const pad = Math.ceil(px * .1 + sw), areaW = box ? Math.max(Math.ceil(box.w * k), 2) : 0;
+  const back = cpParse(x.back), bp = px * .12;   // подложка на каждую строку, отступ как у субтитров (mvSubsDraw)
+  const pad = Math.ceil(px * (back ? .14 : .1) + sw), areaW = box ? Math.max(Math.ceil(box.w * k), 2) : 0;
   const lines = (x.s || ' ').split('\n').flatMap(l => box ? mtTextWrap(g, l, areaW - pad * 2) : [l]), wide = Math.max(...lines.map(l => g.measureText(l || ' ').width));
   const m = g.measureText('Ag'), asc = m.fontBoundingBoxAscent || px, line = asc + (m.fontBoundingBoxDescent || px * .25);
   cv.width = box ? areaW : Math.max(Math.ceil(wide + pad * 2), 2);
@@ -32,6 +33,19 @@ function mtTextDraw(x, H, box) {
   g.font = font;
   g.lineJoin = 'round';
   g.textBaseline = 'alphabetic';
+  // Подложка ложится отдельной картинкой под текст: стирание обводки под полупрозрачной заливкой не должно задеть её
+  const under = back && document.createElement('canvas');
+  if (under) {
+    under.width = cv.width; under.height = cv.height;
+    const u = under.getContext('2d');
+    u.fillStyle = `rgba(${back.r},${back.g},${back.b},${Math.min(Math.max(x.backA, 0), 1)})`;
+    lines.forEach((l, i) => {
+      if (!l.trim()) return;
+      const w = g.measureText(l).width, at = x.align === 'left' ? pad : x.align === 'right' ? cv.width - pad - w : (cv.width - w) / 2;
+      const y0 = Math.round(top + i * line - (i ? 0 : bp * .5)), y1 = Math.round(top + (i + 1) * line + (i === lines.length - 1 ? bp * .5 : 0));   // строки не накладываются: на стыке не темнее
+      u.fillRect(Math.round(at - bp), y0, Math.round(w + bp * 2), y1 - y0);
+    });
+  }
   lines.forEach((l, i) => {
     const y = top + asc + i * line, rtl = MT_RTL.test(l);
     g.direction = rtl ? 'rtl' : 'ltr';
@@ -45,6 +59,7 @@ function mtTextDraw(x, H, box) {
     g.fillStyle = cpStyle(g, x.color, cv.width, cv.height);   // градиент в долях всей картинки (рамки слоя)
     g.fillText(l, at, y);
   });
+  if (under) { under.getContext('2d').drawImage(cv, 0, 0); return {cv: under, w: under.width / k, h: under.height / k}; }
   return {cv, w: cv.width / k, h: cv.height / k};
 }
 // картинка на диске, размер в долях холста
@@ -118,6 +133,10 @@ function mtTextFill() {
   $('mtTextBold').classList.toggle('on', x.bold);
   $('mtTextItalic').classList.toggle('on', x.italic);
   $('mtTextAlign').value = x.align;
+  $('mtTextBackOn').checked = !!x.back;
+  $('mtTextBackBody').classList.toggle('hide', !x.back);
+  $('mtTextBack').value = x.back || '#000000';
+  mtVal('mtTextBackA', Math.round(x.backA * 100));
 }
 // Текст печатают: картинка обновляется на ходу, а отмена шагает на весь ввод сразу
 let mtTextBefore = null, mtTextTimer = 0;
@@ -142,6 +161,10 @@ $('mtTextBold').onclick = () => { const c = tkOne(); if (c && c.text) mtTextDo({
 $('mtTextItalic').onclick = () => { const c = tkOne(); if (c && c.text) mtTextDo({italic: !c.text.italic}); };
 mtRow('mtTextSize', .1, v => mtTextPatch({size: mtRnd(Math.min(Math.max(v, 1), 50) / 100, 4)}));
 mtRow('mtTextStroke', .05, v => mtTextPatch({stroke: mtRnd(Math.min(Math.max(v, 0), 30) / 100, 4)}));
+// подложка: прямоугольник под каждой строкой (и кнопка из предупреждения о читаемости, mtread.js)
+$('mtTextBackOn').addEventListener('change', () => { $('mtTextBackOn').blur(); mtTextDo({back: $('mtTextBackOn').checked ? $('mtTextBack').value : ''}); });
+mtColor('mtTextBack', v => mtTextPatch({back: v}));
+mtRow('mtTextBackA', .5, v => mtTextPatch({backA: mtRnd(Math.min(Math.max(v, 5), 100) / 100, 2)}));
 
 // Инструмент «Текст»: кнопка или T включает режим, щелчок в кадре ставит туда надпись. Esc и повторное нажатие отменяют.
 // Над самой кнопкой курсор обычный, курсор T только над вьюпортом в режиме.

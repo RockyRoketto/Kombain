@@ -92,6 +92,7 @@ function mvSubLine(font) {
 function mvSubAsc(font) { mvSubLine(font); return mvSubLines.get('asc:' + font); }
 function mvSubsDraw() {
   const el = $('mvSubs'), s = tkSubs;
+  mrSoon();
   mtCueNow();
   // куски (subChunks в subfx.js) режутся только из реплик, что видны сейчас: дёшево на каждый кадр
   const now = c => tkAt >= c.a && tkAt < c.b, cues = s && !s.off ? subChunks(mtCueList().filter(now), s.chunk || 0).filter(now) : [], line = c => s.join ? c.t.replace(/\s*\n\s*/g, ' ') : c.t;
@@ -599,6 +600,7 @@ function mvShow() {
   for (const {c, e} of mv.live) mvSync(e, c, now);
   mvLook();
   mvNotes();
+  mrSoon();   // читаемость текста и субтитров на этом кадре (mtread.js)
   mvFrameDraw();
 }
 // Один слой держится на курсоре времени
