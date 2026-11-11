@@ -1201,6 +1201,13 @@
   /* кнопка, которая сейчас не сработает (стиль не выгрузить, нет цветов): тусклая, но нажимается и объясняет почему */
   .btn.cl-no{opacity:.45}
   .btn.cl-no:hover{opacity:.7}
+  .ctr-plate{border-radius:14px;min-height:160px;box-shadow:inset 0 0 0 1px var(--line2);display:flex;flex-direction:column;justify-content:center;gap:16px;padding:20px 28px;overflow:hidden}
+  .ctr-row{display:flex;align-items:baseline;gap:14px;min-width:0}
+  .ctr-row > span{flex:1;min-width:0;overflow-wrap:anywhere}
+  .ctr-row em{flex:none;font-style:normal;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;padding:2px 8px;border-radius:999px;box-shadow:inset 0 0 0 1px currentColor}
+  .ctr-lbl{font-size:12.5px;color:var(--dim)}
+  .ctr-ratio{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+  .ctr-ratio small{font-size:13px;font-weight:500;color:var(--dim);margin-left:8px}
   .cl-pkr{display:flex;flex-direction:column;gap:10px;min-width:0}
   .cl-pkr .cl-row{flex-wrap:nowrap}
   .cl-pkr .cp-sw{width:64px;height:32px;flex:none}

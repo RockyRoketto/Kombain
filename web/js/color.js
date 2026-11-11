@@ -10,10 +10,10 @@
 const CL_KEY = 'k9000.color', CL_LIB_KEY = 'k9000.colorLib', CL_MAX = 8, CL_LIB_N = 60;
 const CL_KINDS = ['lin', 'rad', 'conic'];
 // инструменты; pal, shade и photo живут в colorset.js
-const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade'];
+const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade', 'ctr'];
 let clId = 0;
 const clStop = (at, c, lock) => ({id: ++clId, at, c, lock: !!lock});
-const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872',
+const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872', ctr: {fg: '#9a9a9a', bg: '#ffffff'},
   g: {k: 'lin', ang: 135, cx: .5, cy: .5, mix: 'oklch', stops: [clStop(0, '#ff7a59'), clStop(.5, '#e9b872'), clStop(1, '#5b8cff')]}});
 let cl = clDefault();
 let clSel = null;   // выбранная точка (объект из cl.g.stops)
@@ -299,7 +299,7 @@ function clLoad() {
     cl = {tool: CL_TOOLS.includes(o.tool) ? o.tool : d.tool,
       size: typeof o.size === 'string' && (o.size === 'own' || /^\d+x\d+$/.test(o.size)) ? o.size : d.size,
       w: Number.isInteger(o.w) ? Math.min(Math.max(o.w, 16), 8192) : d.w, h: Number.isInteger(o.h) ? Math.min(Math.max(o.h, 16), 8192) : d.h,
-      pick: cpValid(o.pick, d.pick), g: clValidG(o.g) || d.g};
+      pick: cpValid(o.pick, d.pick), ctr: {fg: cpValid(o.ctr && o.ctr.fg, d.ctr.fg), bg: cpValid(o.ctr && o.ctr.bg, d.ctr.bg)}, g: clValidG(o.g) || d.g};
   } catch (e) {}
 }
 const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined})),
@@ -687,7 +687,7 @@ function clLibDraw() {
     return `<div class="cl-item${g || p ? ' grad' : ''}" data-i="${i}" role="button" tabindex="0" style="background:${esc(bg)}" title="${esc(p ? t('cs.libLoad') : g ? t('cl.libLoad') : clUp(x))}"><button type="button" class="cl-mini cl-x" title="${esc(t('cl.del'))}" aria-label="${esc(t('cl.del'))}">${CL_ICO.del}</button></div>`;
   }).join('');
   $('clSavedNone').classList.toggle('hide', lib.length > 0);
-  $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' ? 'cl.keepColor' : cl.tool === 'grad' ? 'cl.keep' : 'cs.keep');
+  $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' || cl.tool === 'ctr' ? 'cl.keepColor' : cl.tool === 'grad' ? 'cl.keep' : 'cs.keep');
   $('clKeep').classList.toggle('cl-no', CS_TOOLS.includes(cl.tool) && cl.tool !== 'shade' && csList().length < CS_MIN);
   $('clRecent').innerHTML = cpRecent().map(v => `<button type="button" class="cl-rc" data-c="${esc(v)}" style="background:${esc(v)}" title="${esc(clUp(v))}" aria-label="${esc(clUp(v))}"></button>`).join('');
 }
@@ -695,6 +695,7 @@ function clLibDraw() {
 function clUse(hex) {
   if (CS_TOOLS.includes(cl.tool)) { csUse(hex); clLibDraw(); return; }
   if (cl.tool === 'pick') cl.pick = cpHex(cpParse(hex), false);
+  else if (cl.tool === 'ctr') cl.ctr.fg = cpHex(cpParse(hex), false);   // цвет из библиотеки — в текст
   else if (clSel) clSel.c = cpHex(cpParse(hex), true);
   clRender(); clSave();
 }
@@ -718,7 +719,8 @@ $('clRecent').addEventListener('click', e => { const b = e.target.closest('[data
 $('clKeep').onclick = () => {
   const lib = clLib();
   const one = cl.tool === 'pick' ? cl.pick : cl.tool === 'shade' ? cs.shade.base : null;
-  if (one) { if (!lib.includes(one)) lib.unshift(one); }
+  if (cl.tool === 'ctr') lib.unshift({p: [cl.ctr.fg, cl.ctr.bg]});   // пара текст + фон идёт палитрой из двух цветов
+  else if (one) { if (!lib.includes(one)) lib.unshift(one); }
   else if (cl.tool === 'grad') lib.unshift(clPlain(cl.g));
   else { const p = csList().map(x => x.hex); if (p.length < CS_MIN) { toast({type: 'warn', title: t('cs.none'), ttl: 2500}); return; } lib.unshift({p}); }
   clLibSet(lib); clLibDraw();
@@ -816,6 +818,7 @@ function clRender() {
   document.querySelectorAll('#clTools .cl-tool').forEach(b => b.classList.toggle('on', b.dataset.tool === cl.tool));
   $('clGrad').classList.toggle('hide', !grad);
   $('clPick').classList.toggle('hide', cl.tool !== 'pick');
+  $('ctrWork').classList.toggle('hide', cl.tool !== 'ctr');
   $('csWork').classList.toggle('hide', !CS_TOOLS.includes(cl.tool));
   if (grad) {
     clSegSync('clKind', g.k);
@@ -831,6 +834,7 @@ function clRender() {
     for (const [id, no] of [['clSvg', clNoOutText('svg', W, H)], ['clCss', clNoOutText('css')]]) { $(id).title = no || ''; $(id).classList.toggle('cl-no', !!no); }
     clFxDraw(); clBarDraw(); clChips(); clDraw();
   } else if (cl.tool === 'pick') clPickDraw();
+  else if (cl.tool === 'ctr') ctrDraw();
   else csRender();
   clLibDraw();
   clSendDraw();

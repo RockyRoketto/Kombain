@@ -442,9 +442,9 @@ function csRelang() { csColsSig = ''; clSendSig = ''; }
 // ---------- отправить в другой инструмент ----------
 // Наборы (градиент, палитра, фото, оттенки) идут набором, в оттенки — один цвет:
 // выбранная точка градиента, выбранная колонка палитры, основа оттенков, первый цвет фото.
-const CL_SEND = {grad: ['pal', 'shade'], pal: ['grad', 'shade'], photo: ['pal', 'grad', 'shade'],
-  shade: ['pal', 'grad'], pick: ['grad', 'pal', 'shade']};
-const CL_TOOL_NAME = {grad: 'cl.tGrad', pal: 'cs.tPal', shade: 'cs.tShade', pick: 'cl.tPick'};
+const CL_SEND = {grad: ['pal', 'shade', 'ctr'], pal: ['grad', 'shade', 'ctr'], photo: ['pal', 'grad', 'shade', 'ctr'],
+  shade: ['pal', 'grad', 'ctr'], pick: ['grad', 'pal', 'shade', 'ctr'], ctr: ['grad', 'pal', 'shade']};
+const CL_TOOL_NAME = {grad: 'cl.tGrad', pal: 'cs.tPal', shade: 'cs.tShade', pick: 'cl.tPick', ctr: 'cl.tCtr'};
 const clOpaque = c => cpHex(cpParse(c), false);
 function clSetOf(tool) {
   if (tool === 'grad') return clSorted(cl.g).map(s => clOpaque(s.c));
@@ -457,6 +457,7 @@ function clSetOf(tool) {
     idx[j] = i0;
     return [...new Set(idx)].sort((a, b) => a - b).map(i => l[i]);
   }
+  if (tool === 'ctr') return [cl.ctr.fg, cl.ctr.bg];
   return [cl.pick];
 }
 function clOneOf(tool) {
@@ -464,6 +465,7 @@ function clOneOf(tool) {
   if (tool === 'pal') return (csSel || cs.pal.colors[0]).c;
   if (tool === 'shade') return cs.shade.base;
   if (tool === 'photo') return csPh && csPh.pts[0] ? csPh.pts[0].c : null;
+  if (tool === 'ctr') return cl.ctr.fg;
   return cl.pick;
 }
 function clSendTo(to) {
@@ -471,6 +473,7 @@ function clSendTo(to) {
   if (!one) { toast({type: 'warn', title: t('cs.none'), ttl: 2500}); return; }
   if (to === 'shade') cs.shade.base = one;
   else if (to === 'pick') cl.pick = one;
+  else if (to === 'ctr') { cl.ctr.fg = list.length > 1 ? list[0] : one; if (list.length > 1) cl.ctr.bg = list[list.length - 1]; }   // набор: первый цвет — текст, последний — фон
   else if (from === 'pick' && to === 'grad') { if (!clAddStop(one)) return; }
   else if (from === 'pick' && to === 'pal') {
     const cols = cs.pal.colors;
