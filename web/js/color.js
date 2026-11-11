@@ -758,8 +758,10 @@ $('clTools').addEventListener('click', e => { const b = e.target.closest('.cl-to
 document.addEventListener('keydown', e => {
   if (tab !== 'color' || cl.tool !== 'grad' && cl.tool !== 'pal' || cp || tkTyping(e.target) || document.querySelector('.modal:not(.hide)') || e.ctrlKey || e.altKey || e.metaKey) return;
   // пробел на кнопке колонки палитры (после щелчка по цвету там остаётся фокус) тоже «Случайно», а не нажатие на цвет и окно выбора поверх колонок
+  // так же с кнопками вкладок шапки и выбора инструмента: после переключения фокус остаётся на них, и первый пробел нажимал бы их
   const inCols = cl.tool === 'pal' && e.target.closest('#csCols');
-  if (e.code === 'Space' && (inCols || !e.target.closest('button,select,[role=button]'))) { e.preventDefault(); if (inCols && e.target.blur) e.target.blur(); if (cl.tool === 'pal') csRandom(); else clRandom(); }
+  const onNav = e.target.closest('#tabs,#clTools');
+  if (e.code === 'Space' && (inCols || onNav || !e.target.closest('button,select,[role=button]'))) { e.preventDefault(); if ((inCols || onNav) && e.target.blur) e.target.blur(); if (cl.tool === 'pal') csRandom(); else clRandom(); }
   else if (cl.tool === 'grad' && (e.code === 'Delete' || e.code === 'Backspace') && clSel) { e.preventDefault(); clDel(clSel); }
 });
 
