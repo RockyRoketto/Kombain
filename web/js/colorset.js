@@ -123,6 +123,37 @@ $('csAdd').onclick = () => {
   csSel = x;
   csRender(); csSave();
 };
+// сетка читаемости: строка — фон, столбец — цвет текста; оценка как в «Контрасте» (ctrMark из colorctr.js)
+const csReadEl = $('csRead');
+let csReadSig = '';
+function csReadDraw() {
+  const cols = cs.pal.colors, sig = cols.map(x => x.c).join(',');
+  if (sig === csReadSig) return;
+  csReadSig = sig;
+  const n = cols.length;
+  const head = (c, k) => `<i class="rd-h ${k}" style="background:${c}" title="${esc(clUp(c))}"></i>`;
+  let h = `<div class="rd-grid" style="--n:${n}"><span class="rd-corner" title="${esc(t('cs.rdAxis'))}">${esc(t('cs.rdBg'))} ↓<br>${esc(t('cs.rdFg'))} →</span>`;
+  h += cols.map(x => head(x.c, "rd-hc")).join('');
+  cols.forEach((b, bi) => {
+    h += head(b.c, "rd-hr");
+    cols.forEach((f, fi) => {
+      if (fi === bi) { h += '<span class="rd-same"></span>'; return; }
+      const r = clContrast(f.c, b.c), m = ctrMark(r, false), cls = m === 'AAA' ? 'g' : m === 'AA' ? 'a' : r >= 3 ? 'b' : 'l';
+      const lbl = cls === 'b' ? t('cs.rdBig') : m;
+      h += `<button type="button" class="rd-c ${cls}" data-f="${fi}" data-b="${bi}" style="background:${b.c};color:${f.c}" title="${esc(clUp(f.c) + ' / ' + clUp(b.c) + ' — ' + ctrFmt(r) + ':1. ' + t('cs.rdOpen'))}"><b>Aa</b><em>${esc(lbl)}</em></button>`;
+    });
+  });
+  csReadEl.innerHTML = h + '</div>';
+}
+csReadEl.addEventListener('click', e => {
+  const b = e.target.closest('.rd-c');
+  if (!b) return;
+  const f = cs.pal.colors[+b.dataset.f], g = cs.pal.colors[+b.dataset.b];
+  if (!f || !g) return;
+  cl.ctr = {fg: f.c, bg: g.c};
+  cl.tool = 'ctr';
+  clRender(); clSave();
+});
 // палитра в градиент: цвета через равные промежутки
 function csToGrad(list) {
   list = list.slice(0, CL_MAX);
@@ -431,13 +462,13 @@ function csRender() {
   $('csShade').classList.toggle('hide', tool !== 'shade');
   $('csPhoto').classList.toggle('hide', tool !== 'photo');
   if (!cs.pal.colors.includes(csSel)) csSel = null;
-  if (tool === 'pal') { $('csRule').value = cs.pal.rule; csColsDraw(); }
+  if (tool === 'pal') { $('csRule').value = cs.pal.rule; csColsDraw(); csReadDraw(); }
   else if (tool === 'shade') csShadeDraw();
   else if (tool === 'photo') csPhDraw();
   const none = !csList().length;   // пустое «Из фото»: выгрузка тусклая, по нажатию скажет, что цветов нет
   for (const id of ['csCss', 'csJson', 'csAse', 'csSvg', 'csPng']) $(id).classList.toggle('cl-no', none);
 }
-function csRelang() { csColsSig = ''; clSendSig = ''; }
+function csRelang() { csColsSig = ''; csReadSig = ''; clSendSig = ''; }
 
 // ---------- отправить в другой инструмент ----------
 // Наборы (градиент, палитра, фото, оттенки) идут набором, в оттенки — один цвет:

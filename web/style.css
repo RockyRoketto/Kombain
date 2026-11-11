@@ -727,7 +727,7 @@
   .stage.canplay:hover .bigplay svg{fill:var(--on-acc)}
 
   /* ----- кнопки проигрывателя ----- */
-  .ctl{display:flex;align-items:center;gap:6px;margin-top:8px;min-height:36px}
+  .ctl{display:flex;align-items:center;gap:6px;margin-top:8px;min-height:30px}
   .ctl.off .ctl-b,.ctl.off .btn,.ctl.off .seek{opacity:.4;pointer-events:none}
   .ctl-b{display:grid;place-items:center;flex:none;width:32px;height:32px;padding:0;background:none;border:0;border-radius:9px;color:var(--tx2);transition:.15s}
   .ctl-b:hover{background:var(--s3);color:var(--tx)}
@@ -1266,6 +1266,23 @@
   .cs-col:not(:hover):not(:focus-within) .cs-btns>:not(.cs-lk.on){visibility:hidden}
   .cs-col .cl-mini{color:var(--ink2)}
   .cs-col .cl-mini:hover,.cs-col .cl-mini.on{background:var(--inkbg);color:var(--ink)}
+  /* сетка читаемости палитры: строка — фон, столбец — текст */
+  .cs-read{flex:none;container-type:inline-size;min-width:0;max-height:340px;overflow:auto}
+  .rd-grid{display:grid;grid-template-columns:42px repeat(var(--n),minmax(0,1fr));gap:3px;align-items:stretch}
+  .rd-corner{font-size:9.5px;line-height:1.15;color:var(--dim);display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+  .rd-h{display:block;height:14px;border-radius:5px;box-shadow:inset 0 0 0 1px var(--line2)}
+  .rd-hc{align-self:center}
+  .rd-hr{height:100%;min-height:30px}
+  .rd-same{border-radius:7px;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--line2) 5px 6px);opacity:.5}
+  button.rd-c{display:flex;align-items:center;justify-content:center;gap:6px;overflow:hidden;min-width:0;min-height:30px;padding:2px 4px;border:0;border-radius:7px;box-shadow:inset 0 0 0 1px var(--line2);cursor:pointer}
+  button.rd-c b{font-size:16px;line-height:1}
+  button.rd-c em{font-style:normal;font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:999px;box-shadow:inset 0 0 0 1px currentColor;white-space:nowrap}
+  button.rd-c.l em{opacity:.75;box-shadow:none;text-decoration:line-through}
+  button.rd-c.b em{opacity:.9;border-style:dashed}
+  button.rd-c:hover{filter:brightness(1.08);outline:2px solid var(--acc);outline-offset:-2px}
+  @container (max-width:520px){ button.rd-c em{display:none} button.rd-c b{font-size:15px} }
+  .rd-grid[style*="--n:7"] button.rd-c em,.rd-grid[style*="--n:8"] button.rd-c em{padding:1px 4px;font-size:9.5px}
+  .rd-grid[style*="--n:7"] button.rd-c,.rd-grid[style*="--n:8"] button.rd-c{gap:3px;padding:2px}
   .cs-steps{flex:1;min-height:160px;display:flex;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line2)}
   .cs-step{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:2px;padding:10px 8px;border:0;border-radius:0;
     color:#fff;text-align:left;cursor:copy;transition:filter .12s}
