@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 4.0
+
+- New Color tab: gradients (linear, radial, conic) and mesh gradients with draggable points, noise, halftone, hatch, steps and pixel styles, export to PNG, SVG and CSS.
+- Palette, Shades, Mix (OKLCH), Contrast (AA/AAA), eyedropper with a loupe and HEX, RGB, HSL, OKLCH, CMYK formats, colors from a photo, My colors and Send to.
+- Utilities: Banners and Favicons in one tab, the Favicons tool checks that the icon is visible on light and dark browser tabs.
+- Montage: readability check for text and subtitles over the frame, outline or backdrop in one click.
+
 ## 3.1
 
 - Favicons: preview polished. Icons sit centered in the phone mockups, phones have a fixed height, rounding is removed, and the dark Google card shows the dark icon.
