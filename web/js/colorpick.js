@@ -158,7 +158,6 @@ function cpOpen(el) {
   cpLoad(el.value);
   cpTexts();
   cpQ('.cp-kinds').classList.toggle('hide', !cp.opt.grad);
-  cpQ('.cp-eye').classList.toggle('hide', !window.EyeDropper);
   cpQ('.cp-was').style.background = cpCss(cp.was);
   cpFillRecent();
   el.classList.add('on');
@@ -385,17 +384,15 @@ cpQ('.cp-no').addEventListener('click', () => cpClose(false));
 // пипетка берёт цвет с экрана; окно на это время не закрывается
 cpQ('.cp-eye').addEventListener('click', async () => {
   const at = cp && cp.el;
-  try {
-    const r = await new EyeDropper().open();
-    const c = cpParse(r.sRGBHex);
-    if (cp && cp.el === at && c) cpPut({r: c.r, g: c.g, b: c.b});
-  } catch (e) {}
+  const hex = await screenColor();
+  const c = hex && cpParse(hex);
+  if (cp && cp.el === at && c) cpPut({r: c.r, g: c.g, b: c.b});
 });
 // щелчок мимо окна и поля — «ОК»; сам щелчок проходит дальше (выбор клипа и т. п.). Ручки градиента во вьюпорте (.cp-keep) окно не закрывают.
 addEventListener('pointerdown', e => { if (cp && !cpBox.contains(e.target) && !cp.el.contains(e.target) && !(e.target.closest && e.target.closest('.cp-keep'))) cpClose(true); }, true);
 // пока окно открыто, клавиши программы не работают: Ctrl+Z посреди просмотра сломал бы отмену
 addEventListener('keydown', e => {
-  if (!cp) return;
+  if (!cp || screenPicking) return;
   const typing = cpBox.contains(e.target) && e.target.matches('input');
   if (e.key === 'Escape') cpClose(false);
   else if (e.key === 'Enter' && !(e.target.closest && e.target.closest('.cp-foot, .cp-recent, .cp-was, .cp-eye, .cp-kinds, .cp-grow'))) cpClose(true);

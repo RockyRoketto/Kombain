@@ -195,45 +195,110 @@ function clDraw() {
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   if (clCv.width !== pw || clCv.height !== ph) { clCv.width = pw; clCv.height = ph; }
   clPaint(clCx, cl.g, pw, ph);
-  // ручка: у линейного стрелка направления из середины, у кругового и конического — середина
-  const g = cl.g, x = clCx, cx = (g.k === 'lin' ? .5 : g.cx) * pw, cy = (g.k === 'lin' ? .5 : g.cy) * ph, R = 6 * dpr;
+  // точки цвета лежат прямо на картинке: у линейного на линии градиента, у кругового на луче из середины в дальний угол,
+  // у конического на кольце вокруг середины. Их можно брать и двигать, как на полосе.
+  const g = cl.g, x = clCx, R = 6 * dpr, mk = clMarkers(pw, ph);
+  const cx = (g.k === 'lin' ? .5 : g.cx) * pw, cy = (g.k === 'lin' ? .5 : g.cy) * ph;
   x.save();
   x.lineWidth = 2 * dpr;
   x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 4 * dpr;
   x.strokeStyle = '#fff';
-  if (g.k === 'lin') {
-    const A = g.ang * Math.PI / 180, len = Math.min(pw, ph) * .32, ex = cx + Math.sin(A) * len, ey = cy - Math.cos(A) * len;
-    x.beginPath(); x.moveTo(cx, cy); x.lineTo(ex, ey); x.stroke();
-    x.beginPath(); x.arc(ex, ey, R, 0, Math.PI * 2); x.fillStyle = clRgba(clAt(g, 1)); x.fill(); x.stroke();
-    x.beginPath(); x.arc(cx, cy, R * .6, 0, Math.PI * 2); x.fillStyle = clRgba(clAt(g, 0)); x.fill(); x.stroke();
+  if (g.k === 'conic') {
+    const A = g.ang * Math.PI / 180, len = Math.min(pw, ph) * .22;
+    x.beginPath(); x.arc(cx, cy, R * .6, 0, Math.PI * 2); x.stroke();
+    x.beginPath(); x.arc(cx, cy, mk.ring, 0, Math.PI * 2); x.globalAlpha = .55; x.stroke(); x.globalAlpha = 1;   // кольцо, по которому ходят точки
+    const ex = cx + Math.sin(A) * len, ey = cy - Math.cos(A) * len;
+    x.beginPath(); x.moveTo(cx + Math.sin(A) * R, cy - Math.cos(A) * R); x.lineTo(ex, ey); x.stroke();
+    x.beginPath(); x.arc(ex, ey, R * .8, 0, Math.PI * 2); x.fillStyle = 'rgba(255,255,255,.9)'; x.fill(); x.stroke();   // за этот кружок крутят
   } else {
-    x.beginPath(); x.arc(cx, cy, R, 0, Math.PI * 2); x.fillStyle = clRgba(clAt(g, 0)); x.fill(); x.stroke();
-    if (g.k === 'conic') {
-      const A = g.ang * Math.PI / 180, len = Math.min(pw, ph) * .22;
-      x.beginPath(); x.moveTo(cx + Math.sin(A) * R, cy - Math.cos(A) * R); x.lineTo(cx + Math.sin(A) * len, cy - Math.cos(A) * len); x.stroke();
-    }
+    x.beginPath();
+    x.moveTo(mk.x0, mk.y0); x.lineTo(mk.x0 + mk.dx, mk.y0 + mk.dy);
+    x.globalAlpha = .6; x.stroke(); x.globalAlpha = 1;
+  }
+  const order = [...mk.pts].sort((a, b) => (a.s === clSel) - (b.s === clSel));   // выбранная сверху
+  for (const m of order) {
+    const on = m.s === clSel;
+    x.beginPath(); x.arc(m.x, m.y, R * (on ? 1.5 : 1.25), 0, Math.PI * 2);
+    x.fillStyle = clRgba(m.s.c); x.fill();
+    x.strokeStyle = on ? '#e9b872' : '#fff'; x.lineWidth = (on ? 3 : 2) * dpr; x.stroke();
   }
   x.restore();
   $('clSizeTag').textContent = `${W} × ${H}`;
 }
-// тяга по полю: линейный — направление (угол), круговой и конический — середина; Shift — шаг 15°
+// положение точек в пикселях холста pw × ph. Линейный и круговой: точка at = (x0, y0) + (dx, dy) · at; конический: кольцо радиуса ring
+function clMarkers(pw, ph) {
+  const g = cl.g, o = clGeo(g, pw, ph), r = {pts: []};
+  if (g.k === 'lin') Object.assign(r, {x0: o.x0, y0: o.y0, dx: o.x1 - o.x0, dy: o.y1 - o.y0});
+  else if (g.k === 'rad') {   // луч в дальний угол: там как раз at = 1
+    const fx = o.cx < pw / 2 ? pw : 0, fy = o.cy < ph / 2 ? ph : 0;
+    Object.assign(r, {x0: o.cx, y0: o.cy, dx: fx - o.cx, dy: fy - o.cy});
+  } else r.ring = Math.min(pw, ph) * .33;
+  for (const s of g.stops) {
+    const at = Math.min(Math.max(s.at, 0), 1);
+    if (g.k === 'conic') {
+      const A = (g.ang + at * 360) * Math.PI / 180;
+      r.pts.push({s, x: g.cx * pw + Math.sin(A) * r.ring, y: g.cy * ph - Math.cos(A) * r.ring});
+    } else r.pts.push({s, x: r.x0 + r.dx * at, y: r.y0 + r.dy * at});
+  }
+  return r;
+}
+// тяга по полю: точка цвета — двигается по линии, лучу или кольцу; иначе линейный — направление (угол), круговой — середина,
+// конический — середина, а за белый кружок на стрелке — поворот; Shift — шаг 15°
 let clDrag = null;
 clCv.addEventListener('pointerdown', e => {
-  clDrag = {id: e.pointerId};
+  if (e.button !== 0) return;
+  clDrag = {id: e.pointerId, turn: false, stop: null, moved: false, x0: e.clientX, y0: e.clientY};
+  const g = cl.g, r = clCv.getBoundingClientRect(), k = clCv.width / r.width;
+  const px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k, reach = 14 * (devicePixelRatio || 1);
+  let best = reach;
+  for (const m of clMarkers(clCv.width, clCv.height).pts) {   // ближайшая точка в пределах кружка; при равенстве выбранная
+    const d = Math.hypot(px - m.x, py - m.y) - (m.s === clSel ? 1 : 0);
+    if (d <= best) { best = d; clDrag.stop = m.s; }
+  }
+  if (clDrag.stop) { clSel = clDrag.stop; clRender(); }
+  else if (g.k === 'conic') {   // попали в кружок на конце стрелки — крутим, иначе двигаем середину
+    const len = Math.min(r.width, r.height) * .22, A = g.ang * Math.PI / 180;
+    const hx = r.left + g.cx * r.width + Math.sin(A) * len, hy = r.top + g.cy * r.height - Math.cos(A) * len;
+    clDrag.turn = Math.hypot(e.clientX - hx, e.clientY - hy) <= 16;
+  }
   clCv.setPointerCapture(e.pointerId);
-  clAim(e);
+  if (!clDrag.stop) clAim(e);
 });
 clCv.addEventListener('pointermove', e => { if (clDrag && clDrag.id === e.pointerId) clAim(e); });
-const clDragEnd = () => { if (clDrag) { clDrag = null; clSave(); } };
+function clDragEnd(e) {
+  const d = clDrag;
+  if (!d) return;
+  clDrag = null;
+  clSave();
+  // щелчок по точке без тяги — окно цвета, как на полосе
+  if (d.stop && !d.moved && e && e.type === 'pointerup') clChipOpen(d.stop.id);
+}
 clCv.addEventListener('pointerup', clDragEnd);
 clCv.addEventListener('pointercancel', clDragEnd);
 function clAim(e) {
   const r = clCv.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height, g = cl.g;
-  if (g.k === 'lin') {
+  const snap = a => ((e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a)) + 360) % 360;
+  const d = clDrag;
+  if (d && d.stop) {
+    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 3) return;
+    d.moved = true;
+    const k = clCv.width / r.width, px = (e.clientX - r.left) * k, py = (e.clientY - r.top) * k;
+    let at;
+    if (g.k === 'conic') {
+      const a = Math.atan2(px - g.cx * clCv.width, -(py - g.cy * clCv.height)) * 180 / Math.PI;
+      at = (((a - g.ang) % 360) + 360) % 360 / 360;
+      if (d.stop.at >= .999 && at < .05) at = 1;   // у конца кольца точка остаётся на конце, а не перескакивает в начало
+      else if (d.stop.at <= .001 && at > .95) at = 0;
+    } else {
+      const m = clMarkers(clCv.width, clCv.height);
+      at = ((px - m.x0) * m.dx + (py - m.y0) * m.dy) / (m.dx * m.dx + m.dy * m.dy);
+    }
+    d.stop.at = Math.min(Math.max(at, 0), 1);
+  } else if (g.k === 'lin') {
     const [W, H] = clWH();
-    let a = Math.atan2((u - .5) * W, -(v - .5) * H) * 180 / Math.PI;
-    a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a);
-    g.ang = (a + 360) % 360;
+    g.ang = snap(Math.atan2((u - .5) * W, -(v - .5) * H) * 180 / Math.PI);
+  } else if (g.k === 'conic' && d && d.turn) {
+    g.ang = snap(Math.atan2(e.clientX - r.left - g.cx * r.width, -(e.clientY - r.top - g.cy * r.height)) * 180 / Math.PI);
   } else { g.cx = Math.min(Math.max(u, 0), 1); g.cy = Math.min(Math.max(v, 0), 1); }
   clRender();
 }
@@ -441,11 +506,12 @@ function clPickDraw() {
 $('clFmts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) { clCopy(b.dataset.v); clRecentAdd(cl.pick); clLibDraw(); } });
 cpField($('clPickSw'), {live: v => { cl.pick = v; clPickDraw(); }, done: () => { clSave(); clLibDraw(); }});
 $('clEye').onclick = async () => {
-  try {
-    const r = await new EyeDropper().open();
-    cl.pick = cpHex(cpParse(r.sRGBHex), false);
-    clRecentAdd(cl.pick); clSave(); clRender();
-  } catch (e) {}   // Esc — передумали
+  toast({type: 'ok', title: t('cl.eyeGo'), ttl: 2500});
+  const hex = await screenColor();   // null — Esc, передумали
+  const c = hex && cpParse(hex);
+  if (!c) return;
+  cl.pick = cpHex(c, false);
+  clRecentAdd(cl.pick); clSave(); clRender();
 };
 // цвет новой точкой градиента в самый широкий промежуток (из пипетки, «Отправить в» в colorset.js); false — точек уже предел
 function clAddStop(hex) {
@@ -565,6 +631,4 @@ new ResizeObserver(() => { if (tab === 'color' && cl.tool === 'grad') clDraw(); 
 function clRelang() { clChipsSig = ''; csRelang(); if (tab === 'color') clRender(); }
 
 clLoad();
-const clEyeOk = !!window.EyeDropper;
-$('clEye').classList.toggle('hide', !clEyeOk);
-$('clEyeNo').classList.toggle('hide', clEyeOk);
+$('clEyeNo').classList.add('hide');   // своя пипетка есть всегда, запасной не нужен

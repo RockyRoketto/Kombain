@@ -417,10 +417,10 @@ function csRender() {
 function csRelang() { csColsSig = ''; clSendSig = ''; }
 
 // ---------- отправить в другой инструмент ----------
-// Наборы (градиент, палитра, фото, оттенки) идут набором, в оттенки и пипетку — один цвет:
+// Наборы (градиент, палитра, фото, оттенки) идут набором, в оттенки — один цвет:
 // выбранная точка градиента, выбранная колонка палитры, основа оттенков, первый цвет фото.
-const CL_SEND = {grad: ['pal', 'shade', 'pick'], pal: ['grad', 'shade', 'pick'], photo: ['pal', 'grad', 'shade', 'pick'],
-  shade: ['pal', 'grad', 'pick'], pick: ['grad', 'pal', 'shade']};
+const CL_SEND = {grad: ['pal', 'shade'], pal: ['grad', 'shade'], photo: ['pal', 'grad', 'shade'],
+  shade: ['pal', 'grad'], pick: ['grad', 'pal', 'shade']};
 const CL_TOOL_NAME = {grad: 'cl.tGrad', pal: 'cs.tPal', shade: 'cs.tShade', pick: 'cl.tPick'};
 const clOpaque = c => cpHex(cpParse(c), false);
 function clSetOf(tool) {
@@ -461,16 +461,30 @@ function clSendTo(to) {
   clRender(); clSave(); csSave();
 }
 let clSendSig = '';
+// одна кнопка «Отправить в ▾»: по нажатию выпадает список инструментов; в пипетку слать нечего (она берёт цвет с экрана), поэтому её в списке нет
 function clSendDraw() {
   const sig = cl.tool + (cl.tool === 'photo' ? !!csPh : '');
   if (sig === clSendSig) return;
   clSendSig = sig;
   const to = CL_SEND[cl.tool] || [], off = cl.tool === 'photo' && !csPh;
   document.querySelectorAll('.cl-send').forEach(el => {
-    el.innerHTML = `<span>${esc(t('cs.send'))}</span>` + to.map(k => `<button type="button" class="btn sm" data-to="${k}"${off ? ' disabled' : ''}>${esc(t(CL_TOOL_NAME[k]))}</button>`).join('');
+    el.innerHTML = `<button type="button" class="btn sm cl-sendb" aria-haspopup="true" aria-expanded="false"${off ? ' disabled' : ''}>${esc(t('cs.send'))} <i class="cl-car"></i></button>`
+      + `<div class="cl-sendm hide" role="menu">` + to.map(k => `<button type="button" role="menuitem" data-to="${k}">${esc(t(CL_TOOL_NAME[k]))}</button>`).join('') + `</div>`;
   });
 }
-document.addEventListener('click', e => { const b = e.target.closest('.cl-send [data-to]'); if (b) clSendTo(b.dataset.to); });
+function clSendClose() {
+  document.querySelectorAll('.cl-sendm').forEach(m => m.classList.add('hide'));
+  document.querySelectorAll('.cl-sendb').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.cl-send [data-to]');
+  const open = e.target.closest('.cl-sendb');
+  if (b) { clSendClose(); clSendTo(b.dataset.to); return; }
+  const wasHidden = open && open.parentNode.querySelector('.cl-sendm').classList.contains('hide');
+  clSendClose();
+  if (open && wasHidden) { open.parentNode.querySelector('.cl-sendm').classList.remove('hide'); open.setAttribute('aria-expanded', 'true'); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.querySelector('.cl-sendm:not(.hide)')) { clSendClose(); e.stopPropagation(); } }, true);
 
 // ---------- отмена: Ctrl+Z, вернуть: Ctrl+Shift+Z или Ctrl+Y ----------
 // Снимок берётся после каждого сохранения (clSave, csSave, clLibSet и конец тяги метки зовут clMark), если что-то изменилось.

@@ -383,6 +383,16 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, res)
 	}))
 
+	// пипетка с экрана: ждёт щелчок, отвечает цветом (пусто — отменили)
+	mux.HandleFunc("/api/pick-screen", s.api(func(w http.ResponseWriter, r *http.Request) {
+		c, err := pickScreenColor()
+		res := map[string]any{"color": c}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		writeJSON(w, res)
+	}))
+
 	mux.HandleFunc("/api/sounds", s.api(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"sounds": systemSounds()})
 	}))

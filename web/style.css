@@ -1275,3 +1275,10 @@
   .cl-send{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
   .cl-send>span{color:var(--dim);font-size:12.5px}
   .cl-send:empty{display:none}
+  /* «Отправить в»: одна кнопка, список инструментов выпадает под ней */
+  .cl-send{position:relative}
+  .cl-send .cl-car{display:inline-block;width:5px;height:5px;margin:0 0 2px 4px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+  .cl-sendm{position:absolute;left:0;top:calc(100% + 4px);z-index:20;min-width:150px;display:flex;flex-direction:column;padding:4px;background:var(--s1);border:1px solid var(--line2);border-radius:var(--r2);box-shadow:0 12px 30px -8px var(--sh)}
+  .cl-sendm.hide{display:none}
+  .cl-sendm button{text-align:left;padding:7px 10px;border-radius:7px;background:none;border:0;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+  .cl-sendm button:hover,.cl-sendm button:focus-visible{background:var(--accbg)}

@@ -63,6 +63,21 @@ async function api(path, body) {
     return await r.json();
   } catch (e) { return {error:t('net.err')}; }
 }
+// цвет с экрана «#rrggbb»; null — отменили. Сначала своя пипетка окна (Go), запасная — системный EyeDropper
+let screenPicking = false;
+async function screenColor() {
+  if (screenPicking) return null;
+  screenPicking = true;
+  try { return await screenColor1(); } finally { setTimeout(() => { screenPicking = false; }, 200); }
+}
+async function screenColor1() {
+  const r = await api('pick-screen');
+  if (r.color) return r.color;
+  if (!r.error) return null;
+  if (window.EyeDropper) { try { return (await new EyeDropper().open()).sRGBHex; } catch (e) { return null; } }
+  toast({type: 'warn', title: t('cl.eyeNo'), ttl: 3500});
+  return null;
+}
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const base = p => p.split(/[\\/]/).pop();
 const dirOf = p => p.slice(0, p.length - base(p).length);
