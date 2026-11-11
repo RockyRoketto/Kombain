@@ -123,30 +123,33 @@ $('csAdd').onclick = () => {
   csSel = x;
   csRender(); csSave();
 };
-// сетка читаемости: строка — фон, столбец — цвет текста; оценка как в «Контрасте» (ctrMark из colorctr.js)
+// читаемость: лучшие пары «этим цветом текст на этом фоне» (оценка как в «Контрасте»); контраст в обе стороны одинаков, текстом берём более тёмный
 const csReadEl = $('csRead');
 let csReadSig = '';
+const CS_RD_MAX = 6;
 function csReadDraw() {
   const cols = cs.pal.colors, sig = cols.map(x => x.c).join(',');
   if (sig === csReadSig) return;
   csReadSig = sig;
-  const n = cols.length;
-  const head = (c, k) => `<i class="rd-h ${k}" style="background:${c}" title="${esc(clUp(c))}"></i>`;
-  let h = `<div class="rd-grid" style="--n:${n}"><span class="rd-corner" title="${esc(t('cs.rdAxis'))}">${esc(t('cs.rdBg'))} ↓<br>${esc(t('cs.rdFg'))} →</span>`;
-  h += cols.map(x => head(x.c, "rd-hc")).join('');
-  cols.forEach((b, bi) => {
-    h += head(b.c, "rd-hr");
-    cols.forEach((f, fi) => {
-      if (fi === bi) { h += '<span class="rd-same"></span>'; return; }
-      const r = clContrast(f.c, b.c), m = ctrMark(r, false), cls = m === 'AAA' ? 'g' : m === 'AA' ? 'a' : r >= 3 ? 'b' : 'l';
-      const lbl = cls === 'b' ? t('cs.rdBig') : m;
-      h += `<button type="button" class="rd-c ${cls}" data-f="${fi}" data-b="${bi}" style="background:${b.c};color:${f.c}" title="${esc(clUp(f.c) + ' / ' + clUp(b.c) + ' — ' + ctrFmt(r) + ':1. ' + t('cs.rdOpen'))}"><b>Aa</b><em>${esc(lbl)}</em></button>`;
-    });
-  });
-  csReadEl.innerHTML = h + '</div>';
+  const pairs = [];
+  cols.forEach((a, i) => cols.forEach((b, j) => {
+    if (j <= i) return;
+    const r = clContrast(a.c, b.c);
+    if (r < 3) return;
+    const darkA = clContrast(a.c, '#ffffff') > clContrast(b.c, '#ffffff');
+    pairs.push({f: darkA ? i : j, b: darkA ? j : i, r});
+  }));
+  pairs.sort((x, y) => y.r - x.r);
+  let h = `<div class="rd-head"><b>${esc(t('cs.rdTitle'))}</b><span>${esc(t('cs.rdInfo'))}</span></div>`;
+  if (!pairs.length) h += `<div class="rd-none">${esc(t('cs.rdNone'))}</div>`;
+  else h += '<div class="rd-list">' + pairs.slice(0, CS_RD_MAX).map(p => {
+    const f = cols[p.f].c, g = cols[p.b].c, cls = p.r >= 7 ? 'g' : p.r >= 4.5 ? 'a' : 'b', lbl = p.r >= 7 ? t('cs.rdBest') : p.r >= 4.5 ? t('cs.rdGood') : t('cs.rdBig');
+    return `<button type="button" class="rd-row ${cls}" data-f="${p.f}" data-b="${p.b}" title="${esc(t('cs.rdOpen'))}"><span class="rd-s" style="background:${g};color:${f}">${esc(t('cs.rdSample'))}</span><span class="rd-hex">${esc(clUp(f))} <small>${esc(t('cs.rdOn'))}</small> ${esc(clUp(g))}</span><span class="rd-q">${esc(lbl)}<small>${esc(ctrFmt(p.r))}:1</small></span></button>`;
+  }).join('') + '</div>';
+  csReadEl.innerHTML = h;
 }
 csReadEl.addEventListener('click', e => {
-  const b = e.target.closest('.rd-c');
+  const b = e.target.closest('.rd-row');
   if (!b) return;
   const f = cs.pal.colors[+b.dataset.f], g = cs.pal.colors[+b.dataset.b];
   if (!f || !g) return;
