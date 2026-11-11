@@ -8,7 +8,7 @@ import (
 
 func TestTabsOrder(t *testing.T) {
 	page, at := pages[langRU], 0
-	for _, want := range []string{`data-t="conv"`, `data-t="play"`, `data-t="mont"`, `data-t="banner"`} {
+	for _, want := range []string{`data-t="conv"`, `data-t="play"`, `data-t="mont"`, `data-t="color"`, `data-t="util"`} {
 		i := strings.Index(page, want)
 		if i < at {
 			t.Fatalf("вкладка %s не на своём месте", want)

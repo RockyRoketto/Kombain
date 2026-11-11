@@ -72,9 +72,10 @@
 | «Уложить в N МБ» | `ffargs.go` (`planRate`, `rateArgs`), `convert.go` (`encodeTarget`) |
 | Текст ошибок ffmpeg | `fferrors.go` |
 | Имя и папка результата | `files.go` (`outPath`) |
-| Вкладка «Баннеры» | `banner.go`, `web/js/bannertab.js` |
+| Вкладка «Утилиты» (колонка инструментов слева, как у «Цвета») | разметка `#utilView` в `web/index.html`: колонка `#utTools` (классы `.cl-tool` из «Цвета»), панели `#favView` и `#bannerView` (`.ut-pane`); переключение: `setTab` в `web/js/bannertab.js` (значения `tab`: `util` — фавиконы, `banner` — баннеры; кнопка шапки `data-t="util"` открывает последний инструмент `utl` из `web/js/settings.js`); стили `.ut-main`, `.ut-pane` рядом с `.cl-main` в `web/style.css`. Новый инструмент: кнопка в `#utTools`, панель `.ut-pane`, ветка в `setTab` и `utl` |
+| Инструмент «Баннеры» (в «Утилитах») | `banner.go`, `web/js/bannertab.js` |
 | Вкладка «Цвет» | `web/js/color.js`: инструменты `cl.tool` (`grad`, `pick`), цвет OKLCH (`clLab`, `clLabRgb`, `clLch`, `clFit`, `clMix`), точки для рисования `clDense`, геометрия как в CSS `clGeo`, рисование `clPaint`, выгрузка `clCssCode`, `clSvg`, PNG с шумом; полоса точек `clBarDraw`, точки списком `clChips` (поле цвета из colorpick.js), «Случайно» `clRandom`, форматы `clFormats`, «Мои цвета» `clLib` (`k9000.colorLib`), состояние `k9000.color`. Разметка `#colorView` в `web/index.html`, стили: раздел «вкладка «Цвет»» в конце `web/style.css`. Go: `color.go` (`colorFileBytes`, `saveColorFile`), запрос `color-save` в `api.go`, диалог `pickColorSave` в `ui_windows.go`. Проверка: `TestColorFileBytes`, `TestColorFileName` |
-| Вкладка «Фавиконы» (раньше «Утилиты») | `web/js/favicon.js` (картинки рисует canvas), `favicon.go` (ICO, ZIP и папка), разметка `#utilView` в `web/index.html`, стили: раздел «вкладка «Утилиты»» в конце `web/style.css`. Проверка: `TestBuildICO`, `TestWriteFavZip`, `TestWriteFavFolderAndFreePath` |
+| Инструмент «Фавиконы» (в «Утилитах») | `web/js/favicon.js` (картинки рисует canvas), `favicon.go` (ICO, ZIP и папка), разметка `#favView` в `web/index.html`, стили: раздел «вкладка «Утилиты»» в конце `web/style.css`. Проверка: `TestBuildICO`, `TestWriteFavZip`, `TestWriteFavFolderAndFreePath` |
 | Новая настройка в интерфейсе | `web/index.html` + `web/js/settings.js` (`FIELDS`) + `web/js/start.js` (`currentReq`) + `state.go` (`StartReq`) |
 | Панель настроек за шестерёнкой | `web/index.html` (`setPanel`: разделы `.setp-tab` и страницы `.setp-page` с одним `data-p`), `web/js/settings.js` (`setPanel`, `setpShow`, сброс `resetAll` и что он оставляет `RESET_KEEP`, в Go: поле `reset` в `/api/settings`) |
 | Тема оформления | цвета: `web/style.css` (`:root`, `:root[data-theme="light"]`); применение: `applyTheme` в `web/index.html`; переключатель: `web/js/settings.js` (`renderTheme`); окно: `ui_windows.go` (`applyWindowTheme`); значения: `theme.go` |
@@ -194,7 +195,7 @@
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/color.js` | вкладка «Цвет»: градиент, пипетка и форматы, «Мои цвета»; подробно в таблице задач |
 | `js/favicon.js` | вкладка «Фавиконы», выбор файла окном Windows (`fvPick`, чтобы знать папку оригинала), состояние `fv` (`FV_DEF`), иконки `fvImg` (светлая и тёмная), приём файла `fvTake` и `fvDrop` (из `drop.js`), рисование `fvDraw`, `fvSvg` (обёртка со сменой темы), `fvManifest`, `fvHtml`, отрисовка вкладки `fvPaint`, сохранение по `#fvSave`; память в localStorage `konv9000.fav2`, `konv9000.favImg` |
-| `js/bannertab.js` | вкладка «Баннеры»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
+| `js/bannertab.js` | «Баннеры» и переключение вкладок и инструментов «Утилит»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
 ## HTTP API

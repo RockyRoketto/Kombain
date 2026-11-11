@@ -34,7 +34,6 @@ __CSS__
       <button class="tab" data-t="play" data-i18n="tab.play"></button>
       <button class="tab" data-t="mont" data-i18n="tab.mont"></button>
       <button class="tab" data-t="color" data-i18n="tab.color"></button>
-      <button class="tab" data-t="banner" data-i18n="tab.banner"></button>
       <button class="tab" data-t="util" data-i18n="tab.util"></button>
     </nav>
     <div class="hero-right">
@@ -675,55 +674,6 @@ __CSS__
     </section>
   </div>
 
-  <div class="main hide" id="bannerView">
-    <section class="drop" id="bDrop">
-      <div class="drop-head">
-        <button class="btn sm" id="bAddFiles" data-i18n="add.files"></button>
-        <button class="btn sm" id="bAddFolder" data-i18n="add.folder"></button>
-        <button class="btn sm" id="bClear" data-i18n="btn.clear"></button>
-        <span class="cnt" id="bCnt"></span>
-      </div>
-      <div class="empty" id="bEmpty">
-        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
-        </svg>
-        <b data-i18n="b.dropTitle"></b>
-        <span data-i18n="b.dropSub"></span>
-      </div>
-      <div class="list" id="bList"></div>
-    </section>
-
-    <div class="col">
-      <section class="card">
-        <h2><span data-i18n="b.need"></span> <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
-        <div class="need" id="bNeed"></div>
-        <div class="note" data-i18n-title="b.noteTitle" data-i18n="b.note"></div>
-      </section>
-
-      <section class="card">
-        <label class="sw"><span data-i18n="b.autoDirs"></span><input type="checkbox" id="bAutoDirs"><i></i></label>
-      </section>
-
-      <section class="card">
-        <h2 data-i18n="acc.out"></h2>
-        <div id="bManualDirs">
-          <span class="lb">JPEG</span>
-          <div class="rowf dirrow">
-            <input type="text" id="jpgDir" data-i18n-ph="out.noFolder">
-            <button class="btn" data-pick="jpgDir" data-i18n="btn.pick"></button>
-          </div>
-          <span class="lb" style="display:block">WebP</span>
-          <div class="rowf dirrow">
-            <input type="text" id="webpDir" data-i18n-ph="out.noFolder">
-            <button class="btn" data-pick="webpDir" data-i18n="btn.pick"></button>
-          </div>
-        </div>
-        <div class="note" id="bAutoNote"></div>
-        <div class="note" data-i18n="b.overwriteNote"></div>
-      </section>
-    </div>
-  </div>
-
   <!-- вкладка «Цвет», web/js/color.js: слева инструменты, в середине рабочее поле, справа «Мои цвета» -->
   <div class="main cl-main hide" id="colorView">
     <nav class="card cl-tools" id="clTools">
@@ -786,121 +736,179 @@ __CSS__
     </aside>
   </div>
 
-  <!-- вкладка «Фавиконы» (раньше «Утилиты»), web/js/favicon.js -->
-  <div class="main hide" id="utilView">
-    <section class="drop fv-stage" id="fvDrop">
-      <div class="fv-mocks nofile" id="fvMocks">
-        <figure class="fv-m fv-m-tabs">
-          <figcaption data-i18n="fv.mTabs"></figcaption>
-          <div class="fv-tabs light"><div class="fv-tab"><img data-fv="tab" alt=""><span class="fv-ttl" data-fv-name></span><i>✕</i></div><div class="fv-tab off"><b></b><span class="fv-sk"></span></div></div>
-          <div class="fv-tabs dark"><div class="fv-tab"><img data-fv="tabDark" alt=""><span class="fv-ttl" data-fv-name></span><i>✕</i></div><div class="fv-tab off"><b></b><span class="fv-sk"></span></div></div>
-        </figure>
-        <figure class="fv-m fv-m-serp">
-          <figcaption data-i18n="fv.mSerp"></figcaption>
-          <div class="fv-serp light"><div class="fv-site"><span class="fv-ring"><img data-fv="serp" alt=""></span><div><b data-fv-name></b><small data-fv-url></small></div></div><div class="fv-h"></div><span class="fv-sk w9"></span><span class="fv-sk w7"></span></div>
-          <div class="fv-serp dark"><div class="fv-site"><span class="fv-ring"><img data-fv="serpDark" alt=""></span><div><b data-fv-name></b><small data-fv-url></small></div></div><div class="fv-h"></div><span class="fv-sk w9"></span><span class="fv-sk w7"></span></div>
-        </figure>
-        <figure class="fv-m fv-m-ios">
-          <figcaption>iPhone</figcaption>
-          <div class="fv-phone ios">
-            <div class="fv-bar"><span>9:41</span><span class="fv-sig"></span></div>
-            <div class="fv-grid">
-              <div class="fv-app"><b class="a1"></b><span></span></div><div class="fv-app"><b class="a2"></b><span></span></div>
-              <div class="fv-app"><b class="a3"></b><span></span></div><div class="fv-app me"><img data-fv="ios" alt=""><span data-fv-ios></span></div>
+  <!-- вкладка «Утилиты»: слева колонка инструментов (web/js/bannertab.js), справа выбранный инструмент -->
+  <div class="main ut-main hide" id="utilView">
+    <nav class="card cl-tools" id="utTools">
+      <h2 data-i18n="ut.grpImg"></h2>
+      <button type="button" class="cl-tool" data-tool="util" data-i18n-title="ut.tFav"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/><rect x="5.5" y="11.5" width="4.5" height="4.5" rx="1"/></svg><span data-i18n="ut.tFav"></span></button>
+      <button type="button" class="cl-tool" data-tool="banner" data-i18n-title="ut.tBanner"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3.5 17l5-4.5 3.5 3 3-2.5 5.5 4.5"/></svg><span data-i18n="ut.tBanner"></span></button>
+    </nav>
+
+    <div class="ut-pane hide" id="bannerView">
+      <section class="drop" id="bDrop">
+        <div class="drop-head">
+          <button class="btn sm" id="bAddFiles" data-i18n="add.files"></button>
+          <button class="btn sm" id="bAddFolder" data-i18n="add.folder"></button>
+          <button class="btn sm" id="bClear" data-i18n="btn.clear"></button>
+          <span class="cnt" id="bCnt"></span>
+        </div>
+        <div class="empty" id="bEmpty">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
+          </svg>
+          <b data-i18n="b.dropTitle"></b>
+          <span data-i18n="b.dropSub"></span>
+        </div>
+        <div class="list" id="bList"></div>
+      </section>
+  
+      <div class="col">
+        <section class="card">
+          <h2><span data-i18n="b.need"></span> <span id="bFound" style="letter-spacing:0;text-transform:none;font-size:12px"></span></h2>
+          <div class="need" id="bNeed"></div>
+          <div class="note" data-i18n-title="b.noteTitle" data-i18n="b.note"></div>
+        </section>
+  
+        <section class="card">
+          <label class="sw"><span data-i18n="b.autoDirs"></span><input type="checkbox" id="bAutoDirs"><i></i></label>
+        </section>
+  
+        <section class="card">
+          <h2 data-i18n="acc.out"></h2>
+          <div id="bManualDirs">
+            <span class="lb">JPEG</span>
+            <div class="rowf dirrow">
+              <input type="text" id="jpgDir" data-i18n-ph="out.noFolder">
+              <button class="btn" data-pick="jpgDir" data-i18n="btn.pick"></button>
+            </div>
+            <span class="lb" style="display:block">WebP</span>
+            <div class="rowf dirrow">
+              <input type="text" id="webpDir" data-i18n-ph="out.noFolder">
+              <button class="btn" data-pick="webpDir" data-i18n="btn.pick"></button>
             </div>
           </div>
-        </figure>
-        <figure class="fv-m fv-m-and">
-          <figcaption>Android</figcaption>
-          <div class="fv-pair">
-            <div class="fv-phone and">
-              <div class="fv-bar"><span>12:30</span><span class="fv-sig"></span></div>
+          <div class="note" id="bAutoNote"></div>
+          <div class="note" data-i18n="b.overwriteNote"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- «Фавиконы», web/js/favicon.js -->
+    <div class="ut-pane hide" id="favView">
+      <section class="drop fv-stage" id="fvDrop">
+        <div class="fv-mocks nofile" id="fvMocks">
+          <figure class="fv-m fv-m-tabs">
+            <figcaption data-i18n="fv.mTabs"></figcaption>
+            <div class="fv-tabs light"><div class="fv-tab"><img data-fv="tab" alt=""><span class="fv-ttl" data-fv-name></span><i>✕</i></div><div class="fv-tab off"><b></b><span class="fv-sk"></span></div></div>
+            <div class="fv-tabs dark"><div class="fv-tab"><img data-fv="tabDark" alt=""><span class="fv-ttl" data-fv-name></span><i>✕</i></div><div class="fv-tab off"><b></b><span class="fv-sk"></span></div></div>
+          </figure>
+          <figure class="fv-m fv-m-serp">
+            <figcaption data-i18n="fv.mSerp"></figcaption>
+            <div class="fv-serp light"><div class="fv-site"><span class="fv-ring"><img data-fv="serp" alt=""></span><div><b data-fv-name></b><small data-fv-url></small></div></div><div class="fv-h"></div><span class="fv-sk w9"></span><span class="fv-sk w7"></span></div>
+            <div class="fv-serp dark"><div class="fv-site"><span class="fv-ring"><img data-fv="serpDark" alt=""></span><div><b data-fv-name></b><small data-fv-url></small></div></div><div class="fv-h"></div><span class="fv-sk w9"></span><span class="fv-sk w7"></span></div>
+          </figure>
+          <figure class="fv-m fv-m-ios">
+            <figcaption>iPhone</figcaption>
+            <div class="fv-phone ios">
+              <div class="fv-bar"><span>9:41</span><span class="fv-sig"></span></div>
               <div class="fv-grid">
-                <div class="fv-app"><b class="a4"></b><span></span></div><div class="fv-app"><b class="a5"></b><span></span></div>
-                <div class="fv-app"><b class="a6"></b><span></span></div><div class="fv-app me"><img data-fv="and" alt=""><span data-fv-short></span></div>
+                <div class="fv-app"><b class="a1"></b><span></span></div><div class="fv-app"><b class="a2"></b><span></span></div>
+                <div class="fv-app"><b class="a3"></b><span></span></div><div class="fv-app me"><img data-fv="ios" alt=""><span data-fv-ios></span></div>
               </div>
             </div>
-            <div class="fv-phone splash" id="fvSplash"><img data-fv="splash" alt=""><span data-fv-full></span></div>
+          </figure>
+          <figure class="fv-m fv-m-and">
+            <figcaption>Android</figcaption>
+            <div class="fv-pair">
+              <div class="fv-phone and">
+                <div class="fv-bar"><span>12:30</span><span class="fv-sig"></span></div>
+                <div class="fv-grid">
+                  <div class="fv-app"><b class="a4"></b><span></span></div><div class="fv-app"><b class="a5"></b><span></span></div>
+                  <div class="fv-app"><b class="a6"></b><span></span></div><div class="fv-app me"><img data-fv="and" alt=""><span data-fv-short></span></div>
+                </div>
+              </div>
+              <div class="fv-phone splash" id="fvSplash"><img data-fv="splash" alt=""><span data-fv-full></span></div>
+            </div>
+          </figure>
+          <figure class="fv-m fv-m-code">
+            <figcaption><span data-i18n="fv.mCode"></span><button class="btn sm" id="fvCopy" data-i18n="fv.copy"></button></figcaption>
+            <pre class="fv-code" id="fvCode"></pre>
+          </figure>
+        </div>
+      </section>
+
+      <div class="col fv-col">
+        <section class="card">
+          <h2 data-i18n="fv.icons"></h2>
+          <div class="fv-slots">
+            <div class="fv-slot" id="fvSlotLight" data-slot="light" tabindex="0" role="button" data-i18n-aria="fv.light">
+              <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
+              <div class="fv-sl"><b data-i18n="fv.light"></b><span data-i18n="fv.lightSub"></span></div>
+              <button class="x hide" data-i18n-title="fv.remove">✕</button>
+            </div>
+            <div class="fv-slot" id="fvSlotDark" data-slot="dark" tabindex="0" role="button" data-i18n-aria="fv.dark">
+              <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
+              <div class="fv-sl"><b data-i18n="fv.dark"></b><span data-i18n="fv.darkSub"></span></div>
+              <button class="x hide" data-i18n-title="fv.remove">✕</button>
+            </div>
           </div>
-        </figure>
-        <figure class="fv-m fv-m-code">
-          <figcaption><span data-i18n="fv.mCode"></span><button class="btn sm" id="fvCopy" data-i18n="fv.copy"></button></figcaption>
-          <pre class="fv-code" id="fvCode"></pre>
-        </figure>
+          <div class="note" data-i18n="fv.dropSub"></div>
+          <div class="note fv-warn hide" id="fvWarn"></div>
+        </section>
+
+        <section class="card fv-set">
+          <h2 data-i18n="fv.browser"></h2>
+          <label class="sw"><span data-i18n="fv.bgOn"></span><input type="checkbox" id="fvBrOn"><i></i></label>
+          <div class="fv-opts" id="fvBrOpts">
+            <div class="fv-grid2">
+              <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvBrColor" data-i18n-aria="fv.bg"></button></div>
+              <div class="fv-row" id="fvBrDarkRow"><span data-i18n="fv.bgDark"></span><button type="button" class="cp-sw" id="fvBrColorDark" data-i18n-aria="fv.bgDark"></button></div>
+              <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvBrPad" min="0" max="30" step="1"><output id="fvBrPadV"></output></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card fv-set">
+          <h2>iPhone</h2>
+          <div class="fv-grid2">
+            <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvIosColor" data-i18n-aria="fv.bg"></button></div>
+            <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvIosPad" min="0" max="30" step="1"><output id="fvIosPadV"></output></div>
+          </div>
+          <div class="stack"><span class="lb" data-i18n="fv.appName"></span><input type="text" id="fvIosName" maxlength="40" data-i18n-ph="fv.namePh"></div>
+        </section>
+
+        <section class="card fv-set">
+          <h2>Android</h2>
+          <label class="sw"><span data-i18n="fv.andOn"></span><input type="checkbox" id="fvAndOn"><i></i></label>
+          <div class="fv-opts" id="fvAndOpts">
+            <div class="fv-grid2">
+              <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvAndColor" data-i18n-aria="fv.bg"></button></div>
+              <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvAndPad" min="0" max="30" step="1"><output id="fvAndPadV"></output></div>
+            </div>
+          </div>
+          <div class="fv-row"><span data-i18n="fv.theme"></span><button type="button" class="cp-sw" id="fvAndTheme" data-i18n-aria="fv.theme"></button></div>
+          <div class="fv-grid2">
+            <div class="stack"><span class="lb" data-i18n="fv.name"></span><input type="text" id="fvAndName" maxlength="60" data-i18n-ph="fv.namePh"></div>
+            <div class="stack"><span class="lb" data-i18n="fv.short"></span><input type="text" id="fvAndShort" maxlength="20" data-i18n-ph="fv.namePh"></div>
+          </div>
+        </section>
+
+        <section class="card fv-set">
+          <h2 data-i18n="fv.out"></h2>
+          <div class="seg seg2" id="fvWhere">
+            <button class="segb on" data-v="orig" data-i18n-title="fv.whereOrigTip"><b data-i18n="fv.whereOrig"></b></button>
+            <button class="segb" data-v="ask"><b data-i18n="fv.whereAsk"></b></button>
+          </div>
+          <div class="seg seg2" id="fvKind">
+            <button class="segb on" data-v="zip"><b data-i18n="fv.kindZip"></b></button>
+            <button class="segb" data-v="folder"><b data-i18n="fv.kindFolder"></b></button>
+          </div>
+          <div class="stack"><span class="lb" data-i18n="fv.path"></span><input type="text" id="fvPath" spellcheck="false" placeholder="/" data-i18n-title="fv.pathNote"></div>
+          <div class="fv-go"><button class="btn primary" id="fvSave" data-i18n="fv.save"></button></div>
+        </section>
       </div>
-    </section>
-
-    <div class="col fv-col">
-      <section class="card">
-        <h2 data-i18n="fv.icons"></h2>
-        <div class="fv-slots">
-          <div class="fv-slot" id="fvSlotLight" data-slot="light" tabindex="0" role="button" data-i18n-aria="fv.light">
-            <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
-            <div class="fv-sl"><b data-i18n="fv.light"></b><span data-i18n="fv.lightSub"></span></div>
-            <button class="x hide" data-i18n-title="fv.remove">✕</button>
-          </div>
-          <div class="fv-slot" id="fvSlotDark" data-slot="dark" tabindex="0" role="button" data-i18n-aria="fv.dark">
-            <div class="fv-th"><img alt=""><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></div>
-            <div class="fv-sl"><b data-i18n="fv.dark"></b><span data-i18n="fv.darkSub"></span></div>
-            <button class="x hide" data-i18n-title="fv.remove">✕</button>
-          </div>
-        </div>
-        <div class="note" data-i18n="fv.dropSub"></div>
-        <div class="note fv-warn hide" id="fvWarn"></div>
-      </section>
-
-      <section class="card fv-set">
-        <h2 data-i18n="fv.browser"></h2>
-        <label class="sw"><span data-i18n="fv.bgOn"></span><input type="checkbox" id="fvBrOn"><i></i></label>
-        <div class="fv-opts" id="fvBrOpts">
-          <div class="fv-grid2">
-            <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvBrColor" data-i18n-aria="fv.bg"></button></div>
-            <div class="fv-row" id="fvBrDarkRow"><span data-i18n="fv.bgDark"></span><button type="button" class="cp-sw" id="fvBrColorDark" data-i18n-aria="fv.bgDark"></button></div>
-            <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvBrPad" min="0" max="30" step="1"><output id="fvBrPadV"></output></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="card fv-set">
-        <h2>iPhone</h2>
-        <div class="fv-grid2">
-          <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvIosColor" data-i18n-aria="fv.bg"></button></div>
-          <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvIosPad" min="0" max="30" step="1"><output id="fvIosPadV"></output></div>
-        </div>
-        <div class="stack"><span class="lb" data-i18n="fv.appName"></span><input type="text" id="fvIosName" maxlength="40" data-i18n-ph="fv.namePh"></div>
-      </section>
-
-      <section class="card fv-set">
-        <h2>Android</h2>
-        <label class="sw"><span data-i18n="fv.andOn"></span><input type="checkbox" id="fvAndOn"><i></i></label>
-        <div class="fv-opts" id="fvAndOpts">
-          <div class="fv-grid2">
-            <div class="fv-row"><span data-i18n="fv.bg"></span><button type="button" class="cp-sw" id="fvAndColor" data-i18n-aria="fv.bg"></button></div>
-            <div class="fv-row"><span data-i18n="fv.pad"></span><input type="range" id="fvAndPad" min="0" max="30" step="1"><output id="fvAndPadV"></output></div>
-          </div>
-        </div>
-        <div class="fv-row"><span data-i18n="fv.theme"></span><button type="button" class="cp-sw" id="fvAndTheme" data-i18n-aria="fv.theme"></button></div>
-        <div class="fv-grid2">
-          <div class="stack"><span class="lb" data-i18n="fv.name"></span><input type="text" id="fvAndName" maxlength="60" data-i18n-ph="fv.namePh"></div>
-          <div class="stack"><span class="lb" data-i18n="fv.short"></span><input type="text" id="fvAndShort" maxlength="20" data-i18n-ph="fv.namePh"></div>
-        </div>
-      </section>
-
-      <section class="card fv-set">
-        <h2 data-i18n="fv.out"></h2>
-        <div class="seg seg2" id="fvWhere">
-          <button class="segb on" data-v="orig" data-i18n-title="fv.whereOrigTip"><b data-i18n="fv.whereOrig"></b></button>
-          <button class="segb" data-v="ask"><b data-i18n="fv.whereAsk"></b></button>
-        </div>
-        <div class="seg seg2" id="fvKind">
-          <button class="segb on" data-v="zip"><b data-i18n="fv.kindZip"></b></button>
-          <button class="segb" data-v="folder"><b data-i18n="fv.kindFolder"></b></button>
-        </div>
-        <div class="stack"><span class="lb" data-i18n="fv.path"></span><input type="text" id="fvPath" spellcheck="false" placeholder="/" data-i18n-title="fv.pathNote"></div>
-        <div class="fv-go"><button class="btn primary" id="fvSave" data-i18n="fv.save"></button></div>
-      </section>
+      <input type="file" id="fvFile" accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp" class="hide">
     </div>
-    <input type="file" id="fvFile" accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp" class="hide">
   </div>
 
   <div class="main" id="convView">

@@ -11,12 +11,13 @@ const NEW_RUN = (() => {
   } catch (e) {}
   return true;
 })();
-let tab = 'conv';        // вкладка: 'conv' — конвертер, 'play' — плеер, 'mont' — монтаж, 'color' — цвет, 'banner' — баннеры, 'util' — утилиты
+let tab = 'conv';        // вид: 'conv' — конвертер, 'play' — плеер, 'mont' — монтаж, 'color' — цвет; в «Утилитах»: 'util' — фавиконы, 'banner' — баннеры
+let utl = 'util';        // последний открытый инструмент «Утилит» ('util' или 'banner')
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
 function save() {
   try {
-    const o = {fmt, outMode, dropOut, tab};
+    const o = {fmt, outMode, dropOut, tab, utl};
     FIELDS.forEach(k => o[k] = $(k).value); CHECKS.forEach(k => o[k] = $(k).checked);
     localStorage.setItem('konv9000', JSON.stringify(o));
   } catch (e) {}
@@ -27,6 +28,7 @@ function load() {
     if (!NEW_RUN && o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
     if (!NEW_RUN && ['conv', 'play', 'mont', 'color', 'banner', 'util'].includes(o.tab)) tab = o.tab;
+    if (o.utl === 'banner' || o.utl === 'util') utl = o.utl;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
     FIELDS.filter(k => !NEW_RUN || FIELDS_KEEP.includes(k)).forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
     CHECKS.forEach(k => { if (o[k] !== undefined) $(k).checked = o[k]; });

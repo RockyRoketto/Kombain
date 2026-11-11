@@ -215,7 +215,7 @@ func TestNoStrayRussian(t *testing.T) {
 			t.Errorf("в русской странице нет %q", want)
 		}
 	}
-	for _, want := range []string{`<html lang="en">`, ">Kombain</title>", ">Convert</button>", ">Converter</button>", ">Banners</button>", "by Dmitrii Trudnikov"} {
+	for _, want := range []string{`<html lang="en">`, ">Kombain</title>", ">Convert</button>", ">Converter</button>", ">Utilities</button>", "by Dmitrii Trudnikov"} {
 		if !strings.Contains(markup(pages[langEN]), want) {
 			t.Errorf("в английской странице нет %q", want)
 		}

@@ -18,21 +18,28 @@ async function bCheckSizes(force) {
   }
   bRender();
 }
+// t — вид из списка у `tab`; баннеры и фавиконы живут во вкладке шапки «Утилиты» (data-t="util")
 function setTab(t) {
-  tab = t; save();
-  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+  tab = t;
+  const ut = tab === 'util' || tab === 'banner';
+  if (ut) utl = tab;
+  save();
+  document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === (ut ? 'util' : tab)));
+  document.querySelectorAll('#utTools .cl-tool').forEach(b => b.classList.toggle('on', b.dataset.tool === tab));
   $('convView').classList.toggle('hide', tab !== 'conv');
-  $('bannerView').classList.toggle('hide', tab !== 'banner');
   $('playView').classList.toggle('hide', tab !== 'play');
   $('montView').classList.toggle('hide', tab !== 'mont');
-  $('utilView').classList.toggle('hide', tab !== 'util');
+  $('utilView').classList.toggle('hide', !ut);
+  $('bannerView').classList.toggle('hide', tab !== 'banner');
+  $('favView').classList.toggle('hide', tab !== 'util');
   $('colorView').classList.toggle('hide', tab !== 'color');
   if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
   plTabChanged();
   updateButtons(); bRender();
 }
-$('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t); });
+$('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t === 'util' ? utl : b.dataset.t); });
+$('utTools').addEventListener('click', e => { const b = e.target.closest('.cl-tool'); if (b) setTab(b.dataset.tool); });
 function bAdd(list) {
   const have = new Set(bFiles.map(f => f.path.toLowerCase()));
   for (const f of list || []) {
