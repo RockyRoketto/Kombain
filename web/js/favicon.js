@@ -171,6 +171,7 @@ function fvPaint() {
   }
   $('fvWarn').innerHTML = warn.join('<br>');
   $('fvWarn').classList.toggle('hide', !warn.length);
+  fvReadShow(fvReadCheck());
   // поля
   $('fvBrOpts').classList.toggle('off', !fv.br.on);
   $('fvBrDarkRow').classList.toggle('hide', !D);
@@ -201,6 +202,57 @@ function fvPaint() {
   const code = fvHtml();
   if ($('fvCode').textContent !== code) $('fvCode').textContent = code;
 }
+// ---------- видно ли иконку на вкладке: светлой и тёмной ----------
+// Фон под иконкой: своя подложка, а без неё — вкладка браузера (белая и тёмная как у Chrome).
+const FV_TAB = {light: '#ffffff', dark: '#1f1f23'};
+const fvBack = dark => fv.br.on ? (dark ? fv.br.colorDark : fv.br.color) : (dark ? FV_TAB.dark : FV_TAB.light);
+// медианный контраст непрозрачных точек иконки с цветом bg; null — иконка пустая
+function fvMedian(it, bg) {
+  const c = fvDraw(it, 32), px = c.getContext('2d').getImageData(0, 0, 32, 32).data, b = cpParse(bg);
+  if (!b) return null;
+  const lb = rdLum(b.r, b.g, b.b), list = [];
+  for (let i = 0; i < px.length; i += 4) if (px[i + 3] > 128) list.push(rdRatio(rdLum(px[i], px[i + 1], px[i + 2]), lb));
+  if (list.length < 8) return null;
+  list.sort((x, y) => x - y);
+  return list[list.length >> 1];
+}
+// что видно плохо: [{dark, ratio}]
+function fvReadCheck() {
+  const out = [];
+  if (!fvImg.light) return out;
+  for (const dark of [false, true]) {
+    const r = fvMedian(dark ? fvImg.dark || fvImg.light : fvImg.light, fvBack(dark));
+    if (r !== null && r < RD_MIN) out.push({dark, ratio: r});
+  }
+  return out;
+}
+// подложка, на которой иконка видна лучше: белая или тёмная
+function fvBestBack(dark) {
+  const it = dark ? fvImg.dark || fvImg.light : fvImg.light, cand = ['#ffffff', '#1f1f23'];
+  const m = cand.map(c => fvMedian(it, c) || 0);
+  return m[0] >= m[1] ? cand[0] : cand[1];
+}
+function fvReadShow(bad) {
+  const box = $('fvRead');
+  box.classList.toggle('hide', !bad.length);
+  if (!bad.length) return;
+  const key = JSON.stringify([bad.map(b => [b.dark, rdShow(b.ratio)]), fv.br.on, lang]);
+  if (box.dataset.k === key) return;
+  box.dataset.k = key;
+  box.innerHTML = bad.map(b => `<span>${esc(t(b.dark ? 'fv.readDark' : 'fv.readLight', {r: rdShow(b.ratio), min: RD_MIN}))}</span>`).join('')
+    + `<span class="mt-read-do"><button type="button" class="btn sm" data-fix="back" title="${esc(t('fv.readFixTip'))}">${esc(t('fv.readFix'))}</button></span>`;
+}
+$('fvRead').addEventListener('click', e => {
+  if (!e.target.closest('[data-fix=back]')) return;
+  const bad = fvReadCheck();
+  if (!bad.length) return;
+  const was = fv.br.on;
+  fv.br.on = true;
+  // уже была подложка: меняем только плохую тему; не было: выбираем обе
+  for (const dark of [false, true]) if (!was || bad.some(b => b.dark === dark)) fv.br[dark ? 'colorDark' : 'color'] = fvBestBack(dark);
+  fvFields();
+  fvChanged();
+});
 const fvLight = hex => { const c = cpParse(hex) || {r: 255, g: 255, b: 255}; return .299 * c.r + .587 * c.g + .114 * c.b > 150; };
 
 // поля → состояние
