@@ -3,6 +3,7 @@ package main
 // HTTP: отдача страницы и картинок, все ручки /api/*.
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -376,6 +377,8 @@ func (s *Server) routes() *http.ServeMux {
 		} else if dir != "" {
 			if body.Purpose == "add" {
 				res["files"] = walkMedia(dir)
+			} else if body.Purpose == "pdf" {
+				res["files"] = pdfList([]string{dir})
 			} else {
 				res["path"] = dir
 			}
@@ -744,6 +747,62 @@ func (s *Server) routes() *http.ServeMux {
 		s.rememberBannerDirs(req.Files, req.JpgDir, req.WebpDir)
 		go s.runBanners(req, ffm)
 		writeJSON(w, map[string]any{"ok": true, "jpgDir": req.JpgDir, "webpDir": req.WebpDir})
+	}))
+
+	// «PDF» в «Утилитах» (pdf.go): выбор файлов, сведения о файле, пакетный прогон
+	mux.HandleFunc("/api/pdf-pick", s.api(func(w http.ResponseWriter, r *http.Request) {
+		paths, err := pickPDFs()
+		res := map[string]any{"files": pdfList(paths)}
+		if err != nil {
+			res["error"] = err.Error()
+		}
+		writeJSON(w, res)
+	}))
+
+	// PDF из перетащенных путей, папки с подпапками
+	mux.HandleFunc("/api/pdf-list", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Paths []string `json:"paths"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		writeJSON(w, map[string]any{"files": pdfList(body.Paths)})
+	}))
+
+	mux.HandleFunc("/api/pdf-info", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path     string `json:"path"`
+			Password string `json:"password"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		c, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		writeJSON(w, pdfInfo(c, body.Path, body.Password))
+	}))
+
+	mux.HandleFunc("/api/pdf-run", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var req PDFReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		req.OutDir = strings.TrimSpace(req.OutDir)
+		switch {
+		case len(req.Files) == 0:
+			writeJSON(w, map[string]any{"error": tr("err.noFiles")})
+			return
+		case !req.SameDir && req.OutDir == "":
+			writeJSON(w, map[string]any{"error": tr("pdf.pickDir")})
+			return
+		case req.Op != "resave" && req.Op != "img2pdf":
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		if err := s.beginPDF(); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		go s.runPDF(req)
+		writeJSON(w, map[string]any{"ok": true})
 	}))
 
 	// где папки JPEG и WebP для этих PNG; jpgDir и webpDir в запросе — их только что выбрали, запомнить

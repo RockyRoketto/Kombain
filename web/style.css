@@ -1374,3 +1374,11 @@
   .cl-sendm.hide{display:none}
   .cl-sendm button{text-align:left;padding:7px 10px;border-radius:7px;background:none;border:0;color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
   .cl-sendm button:hover,.cl-sendm button:focus-visible{background:var(--accbg)}
+
+  /* PDF: «Картинки → PDF» — файлы не для выбранного действия, порядок перетаскиванием */
+  #pdfList .f.off{opacity:.45}
+  #pdfList .f[data-mv]{cursor:grab;touch-action:none;user-select:none}
+  #pdfList .f.dragging{opacity:.5;cursor:grabbing}
+  #pdfList .f.drop-before{box-shadow:inset 0 2px 0 var(--acct)}
+  #pdfList .f.drop-after{box-shadow:inset 0 -2px 0 var(--acct)}
+  #pdfImgCard .note+.sw{margin-top:8px}

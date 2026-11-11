@@ -18,10 +18,10 @@ async function bCheckSizes(force) {
   }
   bRender();
 }
-// t — вид из списка у `tab`; баннеры и фавиконы живут во вкладке шапки «Утилиты» (data-t="util")
+// t — вид из списка у `tab`; баннеры, фавиконы и PDF живут во вкладке шапки «Утилиты» (data-t="util")
 function setTab(t) {
   tab = t;
-  const ut = tab === 'util' || tab === 'banner';
+  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf';
   if (ut) utl = tab;
   save();
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === (ut ? 'util' : tab)));
@@ -32,6 +32,7 @@ function setTab(t) {
   $('utilView').classList.toggle('hide', !ut);
   $('bannerView').classList.toggle('hide', tab !== 'banner');
   $('favView').classList.toggle('hide', tab !== 'util');
+  $('pdfView').classList.toggle('hide', tab !== 'pdf');
   $('colorView').classList.toggle('hide', tab !== 'color');
   if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим

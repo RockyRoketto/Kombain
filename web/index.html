@@ -951,6 +951,8 @@ __CSS__
       <h2 data-i18n="ut.grpImg"></h2>
       <button type="button" class="cl-tool" data-tool="util" data-i18n-title="ut.tFav"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M3 9h18"/><rect x="5.5" y="11.5" width="4.5" height="4.5" rx="1"/></svg><span data-i18n="ut.tFav"></span></button>
       <button type="button" class="cl-tool" data-tool="banner" data-i18n-title="ut.tBanner"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3.5 17l5-4.5 3.5 3 3-2.5 5.5 4.5"/></svg><span data-i18n="ut.tBanner"></span></button>
+      <h2 data-i18n="ut.grpDoc"></h2>
+      <button type="button" class="cl-tool" data-tool="pdf" data-i18n-title="ut.tPdf"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 15.5h6M9 19h3.5"/></svg><span data-i18n="ut.tPdf"></span></button>
     </nav>
 
     <div class="ut-pane hide" id="bannerView">
@@ -1119,6 +1121,76 @@ __CSS__
       </div>
       <input type="file" id="fvFile" accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp" class="hide">
     </div>
+
+    <!-- «PDF», web/js/pdf.js и pdf.go -->
+    <div class="ut-pane hide" id="pdfView">
+      <section class="drop" id="pdfDrop">
+        <div class="drop-head">
+          <button class="btn sm" id="pdfAddFiles" data-i18n="add.files"></button>
+          <button class="btn sm" id="pdfAddFolder" data-i18n="add.folder"></button>
+          <button class="btn sm" id="pdfClear" data-i18n="btn.clear"></button>
+          <button class="btn sm hide" id="pdfSortName" data-i18n="pdf.sortName" data-i18n-title="pdf.sortNameTip"></button>
+          <span class="cnt" id="pdfCnt"></span>
+        </div>
+        <div class="empty" id="pdfEmpty">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 6v22M15 19l9 9 9-9"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/>
+          </svg>
+          <b data-i18n="pdf.dropTitle"></b>
+          <span data-i18n="pdf.dropSub"></span>
+        </div>
+        <div class="list hide" id="pdfList"></div>
+      </section>
+
+      <div class="col one">
+        <section class="card">
+          <h2 data-i18n="pdf.action"></h2>
+          <div class="seg" id="pdfOp">
+            <button class="segb" data-op="img2pdf"><b data-i18n="pdf.opImg"></b><span data-i18n="pdf.opImgSub"></span></button>
+            <button class="segb on" data-op="resave"><b data-i18n="pdf.opResave"></b><span data-i18n="pdf.opResaveSub"></span></button>
+          </div>
+          <div class="note" data-i18n="pdf.moreSoon"></div>
+        </section>
+
+        <section class="card hide" id="pdfImgCard">
+          <h2 data-i18n="pdf.imgTitle"></h2>
+          <div class="fgroup"><small data-i18n="pdf.page"></small><div class="chips" id="pdfImgPage">
+            <button class="chip" data-v="a4">A4</button><button class="chip" data-v="a5">A5</button><button class="chip" data-v="fit" data-i18n="pdf.pageFit"></button>
+          </div></div>
+          <div class="fgroup" id="pdfImgOrientRow"><small data-i18n="pdf.orient"></small><div class="chips" id="pdfImgOrient">
+            <button class="chip" data-v="auto" data-i18n="pdf.orientAuto"></button><button class="chip" data-v="portrait" data-i18n="pdf.orientPortrait"></button><button class="chip" data-v="landscape" data-i18n="pdf.orientLandscape"></button>
+          </div></div>
+          <div class="fgroup"><small data-i18n="pdf.margin"></small><div class="chips" id="pdfImgMargin">
+            <button class="chip" data-v="0" data-i18n="pdf.marginNone"></button><button class="chip" data-v="5" data-i18n="pdf.marginThin"></button><button class="chip" data-v="15" data-i18n="pdf.marginNormal"></button>
+          </div></div>
+          <div class="fgroup"><small data-i18n="pdf.quality"></small><div class="chips" id="pdfImgQuality">
+            <button class="chip" data-v="orig" data-i18n="pdf.qOrig"></button><button class="chip" data-v="high" data-i18n="pdf.qHigh"></button><button class="chip" data-v="mid" data-i18n="pdf.qMid"></button><button class="chip" data-v="low" data-i18n="pdf.qLow"></button>
+          </div></div>
+          <div class="note" id="pdfImgQNote"></div>
+          <label class="sw"><span data-i18n="pdf.separate"></span><input type="checkbox" id="pdfImgSep"><i></i></label>
+          <div class="note" data-i18n="pdf.orderNote"></div>
+        </section>
+
+        <section class="card" id="pdfPassCard">
+          <h2 data-i18n="pdf.pass"></h2>
+          <div class="rowf"><input type="password" id="pdfPass" autocomplete="off" spellcheck="false" data-i18n-ph="pdf.passPh"></div>
+          <div class="note" data-i18n="pdf.passNote"></div>
+        </section>
+
+        <section class="card">
+          <h2 data-i18n="acc.out"></h2>
+          <div class="seg" id="pdfOutMode">
+            <button class="segb on" data-m="same"><b data-i18n="out.same"></b><span data-i18n="out.sameSub"></span></button>
+            <button class="segb" data-m="folder"><b data-i18n="out.folder"></b><span data-i18n="out.folderSub"></span></button>
+          </div>
+          <div id="pdfFolderRow" class="rowf hide" style="margin-top:8px">
+            <input type="text" id="pdfOutDir" data-i18n-ph="out.noFolder">
+            <button class="btn" id="pdfPickOut" data-i18n="btn.pick"></button>
+          </div>
+          <div class="note" data-i18n="pdf.outNote"></div>
+        </section>
+      </div>
+    </div>
   </div>
 
   <div class="main" id="convView">
@@ -1262,6 +1334,7 @@ __CSS__
     <button class="btn danger hide" id="stop" data-i18n="btn.stop"></button>
     <button class="btn primary" id="start" data-i18n="btn.start"></button>
     <button class="btn primary hide" id="bStart" data-i18n="btn.encode"></button>
+    <button class="btn primary hide" id="pdfStart" data-i18n="pdf.start"></button>
   </div>
 </div>
 

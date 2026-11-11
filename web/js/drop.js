@@ -11,7 +11,7 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' :tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
+const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
@@ -43,7 +43,7 @@ window.addEventListener('drop', e => {
     say('warn', t('drop.notSuitableTitle'), t('pl.noDrop'));
     return;
   }
-  if (tab === 'banner') {   // браузер даёт только копии, а пережатые PNG надо записать на место
+  if (tab === 'banner' || tab === 'pdf') {   // браузер даёт только копии: пережатые PNG надо записать на место, PDF — рядом с оригиналом
     say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
     return;
   }
@@ -55,10 +55,11 @@ window.addEventListener('drop', e => {
   }
   collect(entries).then(list => enqueueUpload(list));
 });
-window.__konvDrop = list => {
+window.__konvDrop = (list, raw) => {
   const aim = dropAim;
   dropAim = null;
-  if (tab === 'mont' && aim) mtAddAt(list, aim);
+  if (tab === 'pdf') pdfAddPaths(raw || list.map(f => f.path));   // из папок нужны PDF, а list — только медиафайлы
+  else if (tab === 'mont' && aim) mtAddAt(list, aim);
   else if (tab === 'banner') bAdd(list);
   else if (tab === 'play') plAdd(list);
   else if (tab === 'mont') mtAdd(list);

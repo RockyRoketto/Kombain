@@ -11,6 +11,10 @@ func pickFiles() ([]string, error) {
 	return nil, errT("dlg.onlyWindows")
 }
 
+func pickPDFs() ([]string, error) {
+	return nil, errT("dlg.onlyWindows")
+}
+
 func pickFolder() (string, error) {
 	return "", errT("dlg.onlyWindows")
 }

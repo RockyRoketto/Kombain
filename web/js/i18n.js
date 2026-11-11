@@ -23,7 +23,7 @@ function applyLang() {
   // тексты, которые ставит сам код; показанные раньше всплывашки, сообщения и лог остаются как были
   buildFormats(); applyKind(); renderOut(); renderSounds();
   newsBanner(snap); appBanner(snap); ffBanner(snap); renderSetup(snap); renderInstallBtn(snap);
-  render(); bLast = ''; bRender(); updateButtons(); renderSummary(snap);
+  render(); bLast = ''; bRender(); pdfLast = ''; pdfRender(); updateButtons(); renderSummary(snap);
   storeRender(); aboutRender(snap); fvRender();
 }
 

@@ -623,7 +623,8 @@ func onWebMessage(message string, _ *edge.ICoreWebView2, args *edge.ICoreWebView
 			list = []FileInfo{}
 		}
 		b, _ := json.Marshal(list)
-		js := "window.__konvDrop && window.__konvDrop(" + string(b) + ")"
+		raw, _ := json.Marshal(paths) // как бросили, с папками: «PDF» разворачивает их сам (pdf-list)
+		js := "window.__konvDrop && window.__konvDrop(" + string(b) + "," + string(raw) + ")"
 		runOnUI(func() { chromium.Eval(js) })
 	}()
 }
@@ -771,6 +772,10 @@ func ownerDialog(show func(owner uintptr) ([]string, error)) ([]string, error) {
 
 func pickFiles() ([]string, error) {
 	return dialogOnUI(false, true, tr("dlg.pickFiles"), tr("dlg.mediaFiles"), mediaFilter())
+}
+
+func pickPDFs() ([]string, error) {
+	return dialogOnUI(false, true, tr("dlg.pickPDF"), tr("dlg.pdfFiles"), "*.pdf;*.jpg;*.jpeg;*.png;*.webp")
 }
 
 func pickFolder() (string, error) {

@@ -15,6 +15,9 @@ function updateButtons() {
   $('bStart').disabled = $('start').disabled;
   $('start').classList.toggle('hide', snap.running || tab !== 'conv');
   $('bStart').classList.toggle('hide', snap.running || tab !== 'banner');
+  $('pdfStart').disabled = snap.running || pending > 0;
+  $('pdfStart').classList.toggle('hide', snap.running || tab !== 'pdf');
+  $('pdfAddFiles').disabled = $('pdfAddFolder').disabled = $('pdfClear').disabled = snap.running;
   const anyOk = (snap.files || []).some(f => f.status === 'ok' && f.dst);
   $('openOut').classList.toggle('hide', snap.running || !anyOk);
 }
@@ -23,7 +26,7 @@ function renderSummary(s) {
   const fl = s.files || [];
   const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
   $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
-    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : t('dock.idle'));
+    : s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : tab === 'pdf' ? t('dock.idlePdf') : t('dock.idle'));
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }
@@ -35,10 +38,11 @@ async function poll() {
     if (s.project) mtProjectIncoming(s.project);
     if ((s.incoming || []).length) {   // файлы снаружи: «Отправить» или второй запуск
       if (tab === 'banner' && s.incoming.every(f => /\.png$/i.test(f.path))) bAdd(s.incoming);
+      else if (s.incoming.every(f => /\.pdf$/i.test(f.path))) { setTab('pdf'); pdfAddPaths(s.incoming.map(f => f.path)); }
       else { setTab('conv'); addInfos(s.incoming); }
     }
-    const conv = s.batch !== 'banner';
-    (s.files || []).forEach(f => { (conv ? res : bres)[f.path] = f; });
+    const conv = s.batch !== 'banner' && s.batch !== 'pdf';
+    (s.files || []).forEach(f => { (conv ? res : s.batch === 'pdf' ? pdfRes : bres)[f.path] = f; });
     const dl = s.dl || {}, inst = (s.app || {}).install || {};
     if (ffWasActive && !dl.active && !dl.err && s.ffmpeg && hadFF) ffDoneUntil = Date.now() + 8000;
     if (!dl.active) hadFF = !!s.ffmpeg;
@@ -53,13 +57,13 @@ async function poll() {
     renderSummary(s);
     if (conv) batchEvents(s);
     if (doneSeq === null) doneSeq = s.batchSeq;   // пачки до открытия страницы не наши
-    if (!s.running && s.batchSeq !== doneSeq) { doneSeq = s.batchSeq; batchSound(s); conv ? batchDone(s) : bDone(s); }
+    if (!s.running && s.batchSeq !== doneSeq) { doneSeq = s.batchSeq; batchSound(s); conv ? batchDone(s) : s.batch === 'pdf' ? pdfDone(s) : bDone(s); }
     if (s.app && $('appVer').textContent === '') $('appVer').textContent = 'v' + s.app.version + ' · ';
     const log = $('logWrap'), bottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
     const logText = (s.log || []).join('\n');
     if (log.textContent !== logText) log.textContent = logText;   // иначе сбрасывается выделение текста в логе
     if (bottom) log.scrollTop = log.scrollHeight;
-    updateButtons(); render(); bRender(); mtRender();
+    updateButtons(); render(); bRender(); pdfRender(); mtRender();
   }
   // в простое опрашиваем реже, в свёрнутом окне ещё реже; после действий pollSoon() спрашивает сразу
   const active = snap.running || pending > 0 || !!(snap.dl && snap.dl.active);
