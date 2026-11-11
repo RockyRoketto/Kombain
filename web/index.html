@@ -33,6 +33,7 @@ __CSS__
       <button class="tab on" data-t="conv" data-i18n="tab.conv"></button>
       <button class="tab" data-t="play" data-i18n="tab.play"></button>
       <button class="tab" data-t="mont" data-i18n="tab.mont"></button>
+      <button class="tab" data-t="color" data-i18n="tab.color"></button>
       <button class="tab" data-t="banner" data-i18n="tab.banner"></button>
       <button class="tab" data-t="util" data-i18n="tab.util"></button>
     </nav>
@@ -721,6 +722,68 @@ __CSS__
         <div class="note" data-i18n="b.overwriteNote"></div>
       </section>
     </div>
+  </div>
+
+  <!-- вкладка «Цвет», web/js/color.js: слева инструменты, в середине рабочее поле, справа «Мои цвета» -->
+  <div class="main cl-main hide" id="colorView">
+    <nav class="card cl-tools" id="clTools">
+      <h2 data-i18n="cl.grpMake"></h2>
+      <button type="button" class="cl-tool" data-tool="grad" data-i18n-title="cl.tGrad"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M3.5 15.5l12-12M8.5 20.5l12-12"/></svg><span data-i18n="cl.tGrad"></span></button>
+      <h2 data-i18n="cl.grpTools"></h2>
+      <button type="button" class="cl-tool" data-tool="pick" data-i18n-title="cl.tPick"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5M17 7l-9.5 9.5L5 19l2.5-2.5M12 4.5l7.5 7.5M15.8 3.2a2.1 2.1 0 0 1 3 0l2 2a2.1 2.1 0 0 1 0 3l-2 2-5-5z"/></svg><span data-i18n="cl.tPick"></span></button>
+    </nav>
+
+    <section class="card cl-work" id="clGrad">
+      <div class="cl-view" id="clView"><canvas id="clCanvas"></canvas><span class="cl-size" id="clSizeTag"></span></div>
+      <div class="cl-bar" id="clBar" data-i18n-title="cl.barTip"><b></b></div>
+      <div class="cl-hint" data-i18n="cl.hint"></div>
+      <div class="cl-srow"><div class="cl-stops" id="clStops"></div><button type="button" class="btn sm cl-add" id="clAdd" data-i18n="cl.add"></button></div>
+      <div class="cl-row">
+        <div class="cl-seg" id="clKind"><button type="button" data-v="lin" data-i18n="cl.kLin"></button><button type="button" data-v="rad" data-i18n="cl.kRad"></button><button type="button" data-v="conic" data-i18n="cl.kConic"></button></div>
+        <label class="cl-num" id="clAngWrap" data-i18n-title="cl.angle"><input type="number" id="clAng" min="-360" max="360" step="1">°</label>
+        <button type="button" class="btn sm cl-ico" id="clRot" data-i18n-title="cl.rot90" data-i18n-aria="cl.rot90"><svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2v3h-3"/></svg></button>
+        <button type="button" class="btn sm cl-ico" id="clFlip" data-i18n-title="cl.flip" data-i18n-aria="cl.flip"><svg viewBox="0 0 16 16"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg></button>
+        <div class="cl-seg" id="clMix" data-i18n-title="cl.mixTip"><button type="button" data-v="oklch">OKLCH</button><button type="button" data-v="rgb">RGB</button></div>
+        <button type="button" class="btn sm" id="clRand" data-i18n-title="cl.randTip"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M12 9.5l2 2-2 2M2 11.5h2.5c1.2 0 2-1 2.6-2.2M9 6.7c.6-1.2 1.4-2.2 2.5-2.2H14M12 2.5l2 2-2 2"/></svg><span data-i18n="cl.rand"></span></button>
+      </div>
+      <div class="cl-row cl-out">
+        <select id="clSize" data-i18n-title="cl.size">
+          <option value="1920x1080">1920 × 1080</option><option value="3840x2160">3840 × 2160 (4K)</option>
+          <option value="1080x1080">1080 × 1080</option><option value="1080x1350">1080 × 1350</option>
+          <option value="1080x1920">1080 × 1920</option><option value="own" data-i18n="cl.sizeOwn"></option>
+        </select>
+        <span class="cl-own hide" id="clOwn"><input type="number" id="clW" min="16" max="8192" step="1"><i>×</i><input type="number" id="clH" min="16" max="8192" step="1"></span>
+        <span class="cl-sp"></span>
+        <button type="button" class="btn sm" id="clCss" data-i18n="cl.css"></button>
+        <button type="button" class="btn sm" id="clSvg">SVG</button>
+        <button type="button" class="btn sm primary" id="clPng">PNG</button>
+      </div>
+    </section>
+
+    <section class="card cl-work hide" id="clPick">
+      <div class="cl-pk">
+        <div class="cl-big" id="clBig"></div>
+        <div class="cl-pkr">
+          <div class="cl-row">
+            <button type="button" class="cp-sw" id="clPickSw" data-i18n-aria="cl.color"></button>
+            <button type="button" class="btn sm primary" id="clEye"><svg viewBox="0 0 16 16"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor" stroke="none"/></svg><span data-i18n="cl.eye"></span></button>
+          </div>
+          <div class="note hide" id="clEyeNo" data-i18n="cl.eyeNo"></div>
+          <div class="cl-fmts" id="clFmts"></div>
+          <div class="note" data-i18n="cl.cmykNote"></div>
+          <button type="button" class="btn sm" id="clToGrad" data-i18n="cl.toGrad"></button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card cl-lib" id="clLib">
+      <h2 data-i18n="cl.lib"></h2>
+      <div class="cl-saved" id="clSaved"></div>
+      <div class="note hide" id="clSavedNone" data-i18n="cl.libNone"></div>
+      <button type="button" class="btn sm" id="clKeep" data-i18n="cl.keep"></button>
+      <h2 data-i18n="cl.recent"></h2>
+      <div class="cl-recent" id="clRecent"></div>
+    </aside>
   </div>
 
   <!-- вкладка «Фавиконы» (раньше «Утилиты»), web/js/favicon.js -->

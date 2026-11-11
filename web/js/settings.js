@@ -11,7 +11,7 @@ const NEW_RUN = (() => {
   } catch (e) {}
   return true;
 })();
-let tab = 'conv';        // вкладка: 'conv' — конвертер, 'play' — плеер, 'mont' — монтаж, 'banner' — баннеры, 'util' — утилиты
+let tab = 'conv';        // вкладка: 'conv' — конвертер, 'play' — плеер, 'mont' — монтаж, 'color' — цвет, 'banner' — баннеры, 'util' — утилиты
 let outMode = 'same';   // 'same' = рядом с оригиналом, 'folder' = своя папка
 let dropOut = '';       // куда класть перетащенные файлы в режиме «рядом с оригиналом»
 function save() {
@@ -26,7 +26,7 @@ function load() {
     const o = JSON.parse(localStorage.getItem('konv9000') || '{}');
     if (!NEW_RUN && o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
-    if (!NEW_RUN && ['conv', 'play', 'mont', 'banner', 'util'].includes(o.tab)) tab = o.tab;
+    if (!NEW_RUN && ['conv', 'play', 'mont', 'color', 'banner', 'util'].includes(o.tab)) tab = o.tab;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
     FIELDS.filter(k => !NEW_RUN || FIELDS_KEEP.includes(k)).forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });
     CHECKS.forEach(k => { if (o[k] !== undefined) $(k).checked = o[k]; });
@@ -352,7 +352,7 @@ $('langSeg').addEventListener('click', async e => {
   const b = e.target.closest('.segb');
   if (!b || b.dataset.v === lang) return;
   lang = b.dataset.v;
-  applyLang(); renderLang(); tkRender(); mtRender(); mtPanel();
+  applyLang(); renderLang(); tkRender(); mtRender(); mtPanel(); clRelang();
   const r = await api('settings', {lang});
   if (r.error) say('warn', t('lang.saveFailed'), r.error);
 });

@@ -484,6 +484,25 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"path": path})
 	}))
 
+	// вкладка «Цвет»: спросить, куда сохранить, и записать PNG или SVG (нарисовала страница)
+	mux.HandleFunc("/api/color-save", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Ext  string `json:"ext"`  // png или svg
+			Name string `json:"name"` // имя, которое диалог предложит
+			Data string `json:"data"` // PNG в base64, SVG текстом
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128<<20)).Decode(&body); err != nil {
+			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		path, err := saveColorFile(body.Ext, body.Name, body.Data)
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"path": path})
+	}))
+
 	// фавиконы: спросить, куда сохранить, и записать ZIP (картинки уже нарисовала страница)
 	mux.HandleFunc("/api/favicon-save", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

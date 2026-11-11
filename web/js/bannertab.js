@@ -26,6 +26,8 @@ function setTab(t) {
   $('playView').classList.toggle('hide', tab !== 'play');
   $('montView').classList.toggle('hide', tab !== 'mont');
   $('utilView').classList.toggle('hide', tab !== 'util');
+  $('colorView').classList.toggle('hide', tab !== 'color');
+  if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
   plTabChanged();
   updateButtons(); bRender();

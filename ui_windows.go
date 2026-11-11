@@ -837,6 +837,21 @@ func pickZipSave() (string, error) {
 	return p[0], nil
 }
 
+// pickColorSave: куда сохранить картинку с вкладки «Цвет»; ext — png или svg, name — имя, которое диалог предложит
+func pickColorSave(ext, name string) (string, error) {
+	typeName := tr("dlg.pngFiles")
+	if ext == "svg" {
+		typeName = tr("dlg.svgFiles")
+	}
+	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
+		return showSaveDialog(owner, tr("dlg.saveColor"), typeName, "*."+ext, ext, name)
+	})
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
 // showSaveDialog: те же номера методов IFileDialog, что у showDialog. Спросить про замену файла просит сам диалог.
 // name — имя файла, которое диалог предложит сразу (необязательно).
 func showSaveDialog(owner uintptr, title, typeName, typePattern, ext string, name ...string) ([]string, error) {
