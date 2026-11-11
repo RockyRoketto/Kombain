@@ -131,20 +131,27 @@ function csReadDraw() {
   const cols = cs.pal.colors, sig = cols.map(x => x.c).join(',');
   if (sig === csReadSig) return;
   csReadSig = sig;
-  const pairs = [];
+  const all = [];
   cols.forEach((a, i) => cols.forEach((b, j) => {
     if (j <= i) return;
     const r = clContrast(a.c, b.c);
-    if (r < 3) return;
     const darkA = clContrast(a.c, '#ffffff') > clContrast(b.c, '#ffffff');
-    pairs.push({f: darkA ? i : j, b: darkA ? j : i, r});
+    all.push({f: darkA ? i : j, b: darkA ? j : i, r});
   }));
-  pairs.sort((x, y) => y.r - x.r);
+  all.sort((x, y) => y.r - x.r);
+  const strong = all.filter(p => p.r >= 3), weak = !strong.length;
+  // ни одна пара не дотягивает до 3:1: показываем лучшие из имеющихся с пометкой «Мало» и белый/чёрный текст на каждом цвете
+  const pairs = weak ? all.slice(0, 3) : strong;
   let h = `<div class="rd-head"><b>${esc(t('cs.rdTitle'))}</b><span>${esc(t('cs.rdInfo'))}</span></div>`;
-  if (!pairs.length) h += `<div class="rd-none">${esc(t('cs.rdNone'))}</div>`;
-  else h += '<div class="rd-list">' + pairs.slice(0, CS_RD_MAX).map(p => {
-    const f = cols[p.f].c, g = cols[p.b].c, cls = p.r >= 7 ? 'g' : p.r >= 4.5 ? 'a' : 'b', lbl = p.r >= 7 ? t('cs.rdBest') : p.r >= 4.5 ? t('cs.rdGood') : t('cs.rdBig');
+  if (weak) h += `<div class="rd-none">${esc(t('cs.rdNone'))}</div>`;
+  if (pairs.length) h += '<div class="rd-list">' + pairs.slice(0, CS_RD_MAX).map(p => {
+    const f = cols[p.f].c, g = cols[p.b].c, cls = p.r >= 7 ? 'g' : p.r >= 4.5 ? 'a' : 'b', lbl = p.r >= 7 ? t('cs.rdBest') : p.r >= 4.5 ? t('cs.rdGood') : p.r >= 3 ? t('cs.rdBig') : t('cs.rdLow');
     return `<button type="button" class="rd-row ${cls}" data-f="${p.f}" data-b="${p.b}" title="${esc(t('cs.rdOpen'))}"><span class="rd-s" style="background:${g};color:${f}">${esc(t('cs.rdSample'))}</span><span class="rd-hex">${esc(clUp(f))} <small>${esc(t('cs.rdOn'))}</small> ${esc(clUp(g))}</span><span class="rd-q">${esc(lbl)}<small>${esc(ctrFmt(p.r))}:1</small></span></button>`;
+  }).join('') + '</div>';
+  if (weak) h += `<div class="rd-wb"><span class="rd-wbt">${esc(t('cs.rdWB'))}</span>` + cols.map(x => {
+    const w = clContrast(x.c, '#ffffff'), k = clContrast(x.c, '#000000'), white = w >= k, r = Math.max(w, k);
+    const mark = r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : r >= 3 ? 'AA Large' : '';
+    return `<span class="rd-wbc" style="background:${x.c};color:${white ? '#fff' : '#000'}" title="${esc(clUp(x.c))}"><b>Aa</b><small>${esc(t(white ? 'cs.rdWhite' : 'cs.rdBlack'))} ${esc(ctrFmt(r))}:1${mark ? ' ' + mark : ''}</small></span>`;
   }).join('') + '</div>';
   csReadEl.innerHTML = h;
 }
