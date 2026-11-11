@@ -837,11 +837,14 @@ func pickZipSave() (string, error) {
 	return p[0], nil
 }
 
-// pickColorSave: куда сохранить картинку с вкладки «Цвет»; ext — png или svg, name — имя, которое диалог предложит
+// pickColorSave: куда сохранить файл с вкладки «Цвет»; ext — png, svg или ase, name — имя, которое диалог предложит
 func pickColorSave(ext, name string) (string, error) {
 	typeName := tr("dlg.pngFiles")
-	if ext == "svg" {
+	switch ext {
+	case "svg":
 		typeName = tr("dlg.svgFiles")
+	case "ase":
+		typeName = tr("dlg.aseFiles")
 	}
 	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
 		return showSaveDialog(owner, tr("dlg.saveColor"), typeName, "*."+ext, ext, name)

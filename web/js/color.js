@@ -1,5 +1,6 @@
 // ---------- вкладка «Цвет» ----------
-// Слева инструменты (Градиент, Пипетка), в середине рабочее поле, справа «Мои цвета» (сохранённое и недавние).
+// Слева инструменты, в середине рабочее поле, справа «Мои цвета» (сохранённое и недавние).
+// Здесь Градиент и Пипетка; Палитра, Оттенки и Из фото — в colorset.js.
 // Градиент: от 2 до CL_MAX точек, вид линейный, круговой или конический, смешивание в OKLCH или RGB.
 // OKLCH-смешивание браузер и редакторы понимают не везде, поэтому в PNG, SVG и CSS оно уходит частыми точками,
 // посчитанными здесь (clDense): так файл выглядит одинаково в любой программе.
@@ -8,6 +9,8 @@
 
 const CL_KEY = 'k9000.color', CL_LIB_KEY = 'k9000.colorLib', CL_MAX = 8, CL_LIB_N = 60;
 const CL_KINDS = ['lin', 'rad', 'conic'];
+// инструменты; pal, shade и photo живут в colorset.js
+const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade'];
 let clId = 0;
 const clStop = (at, c, lock) => ({id: ++clId, at, c, lock: !!lock});
 const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872',
@@ -166,14 +169,14 @@ function clLoad() {
     const o = JSON.parse(storeGet(CL_KEY) || 'null');
     if (!o) return;
     const d = clDefault();
-    cl = {tool: ['grad', 'pick'].includes(o.tool) ? o.tool : d.tool,
+    cl = {tool: CL_TOOLS.includes(o.tool) ? o.tool : d.tool,
       size: typeof o.size === 'string' && (o.size === 'own' || /^\d+x\d+$/.test(o.size)) ? o.size : d.size,
       w: Number.isInteger(o.w) ? Math.min(Math.max(o.w, 16), 8192) : d.w, h: Number.isInteger(o.h) ? Math.min(Math.max(o.h, 16), 8192) : d.h,
       pick: cpValid(o.pick, d.pick), g: clValidG(o.g) || d.g};
   } catch (e) {}
 }
 const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined}))});
-const clSave = () => storeSet(CL_KEY, JSON.stringify({...cl, g: clPlain(cl.g)}));
+const clSave = () => { storeSet(CL_KEY, JSON.stringify({...cl, g: clPlain(cl.g)})); clMark(); };   // clMark — шаг отмены (colorset.js)
 // размер выгрузки
 function clWH() {
   if (cl.size === 'own') return [cl.w, cl.h];
@@ -444,35 +447,39 @@ $('clEye').onclick = async () => {
     clRecentAdd(cl.pick); clSave(); clRender();
   } catch (e) {}   // Esc — передумали
 };
-$('clToGrad').onclick = () => {
+// цвет новой точкой градиента в самый широкий промежуток (из пипетки, «Отправить в» в colorset.js); false — точек уже предел
+function clAddStop(hex) {
   const g = cl.g;
-  if (g.stops.length >= CL_MAX) { toast({type: 'warn', title: t('cl.maxStops', {n: CL_MAX}), ttl: 3000}); return; }
-  // в самый широкий промежуток между точками
+  if (g.stops.length >= CL_MAX) { toast({type: 'warn', title: t('cl.maxStops', {n: CL_MAX}), ttl: 3000}); return false; }
   const list = clSorted(g);
   let at = 1, gap = -1;
   list.forEach((s, i) => { const n = list[i + 1]; if (n && n.at - s.at > gap) { gap = n.at - s.at; at = (s.at + n.at) / 2; } });
-  clSel = clStop(at, cl.pick);
+  clSel = clStop(at, hex);
   g.stops.push(clSel);
-  cl.tool = 'grad';
-  clRender(); clSave();
-};
+  return true;
+}
 
 // ---------- Мои цвета и недавние ----------
-const clLib = () => { try { return (JSON.parse(storeGet(CL_LIB_KEY)) || []).filter(x => typeof x === 'string' ? cpParse(x) : clValidG(x)); } catch (e) { return []; } };
-const clLibSet = list => storeSet(CL_LIB_KEY, JSON.stringify(list.slice(0, CL_LIB_N)));
+// в библиотеке три вида: цвет '#rrggbb', градиент {k, stops…}, палитра {p: ['#rrggbb', …]}
+const clLibOk = x => typeof x === 'string' ? cpParse(x) : x && x.p ? csPalOf(x.p).length >= CS_MIN : clValidG(x);
+const clLib = () => { try { return (JSON.parse(storeGet(CL_LIB_KEY)) || []).filter(clLibOk); } catch (e) { return []; } };
+const clLibSet = list => { storeSet(CL_LIB_KEY, JSON.stringify(list.slice(0, CL_LIB_N))); clMark(); };
+// палитра полосками одинаковой ширины
+const clPalCss = p => `linear-gradient(90deg, ${p.map((c, i) => `${c} ${clPct(i / p.length)} ${clPct((i + 1) / p.length)}`).join(', ')})`;
 function clLibDraw() {
   const lib = clLib();
   $('clSaved').innerHTML = lib.map((x, i) => {
-    const g = typeof x === 'string' ? null : clValidG(x);
-    const bg = g ? clCssOf(g, true) : x;
-    return `<div class="cl-item${g ? ' grad' : ''}" data-i="${i}" role="button" tabindex="0" style="background:${esc(bg)}" title="${esc(g ? t('cl.libLoad') : clUp(x))}"><button type="button" class="cl-mini cl-x" title="${esc(t('cl.del'))}" aria-label="${esc(t('cl.del'))}">${CL_ICO.del}</button></div>`;
+    const p = x.p ? csPalOf(x.p) : null, g = typeof x === 'string' || p ? null : clValidG(x);
+    const bg = p ? clPalCss(p) : g ? clCssOf(g, true) : x;
+    return `<div class="cl-item${g || p ? ' grad' : ''}" data-i="${i}" role="button" tabindex="0" style="background:${esc(bg)}" title="${esc(p ? t('cs.libLoad') : g ? t('cl.libLoad') : clUp(x))}"><button type="button" class="cl-mini cl-x" title="${esc(t('cl.del'))}" aria-label="${esc(t('cl.del'))}">${CL_ICO.del}</button></div>`;
   }).join('');
   $('clSavedNone').classList.toggle('hide', lib.length > 0);
-  $('clKeep').textContent = t(cl.tool === 'pick' ? 'cl.keepColor' : 'cl.keep');
+  $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' ? 'cl.keepColor' : cl.tool === 'grad' ? 'cl.keep' : 'cs.keep');
   $('clRecent').innerHTML = cpRecent().map(v => `<button type="button" class="cl-rc" data-c="${esc(v)}" style="background:${esc(v)}" title="${esc(clUp(v))}" aria-label="${esc(clUp(v))}"></button>`).join('');
 }
 // цвет из библиотеки или недавних: в пипетке — текущий цвет, в градиенте — выбранная точка
 function clUse(hex) {
+  if (CS_TOOLS.includes(cl.tool)) { csUse(hex); clLibDraw(); return; }
   if (cl.tool === 'pick') cl.pick = cpHex(cpParse(hex), false);
   else if (clSel) clSel.c = cpHex(cpParse(hex), true);
   clRender(); clSave();
@@ -483,6 +490,7 @@ $('clSaved').addEventListener('click', e => {
   const lib = clLib(), x = lib[+it.dataset.i];
   if (e.target.closest('.cl-x')) { lib.splice(+it.dataset.i, 1); clLibSet(lib); clLibDraw(); return; }
   if (typeof x === 'string') { clUse(x); return; }
+  if (x.p) { csPalLoad(x.p); return; }
   const g = clValidG(x);
   if (!g) return;
   cl.g = g; cl.tool = 'grad'; clSel = clSorted(g)[0];
@@ -492,8 +500,10 @@ $('clSaved').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key 
 $('clRecent').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) clUse(b.dataset.c); });
 $('clKeep').onclick = () => {
   const lib = clLib();
-  if (cl.tool === 'pick') { if (!lib.includes(cl.pick)) lib.unshift(cl.pick); }
-  else lib.unshift(clPlain(cl.g));
+  const one = cl.tool === 'pick' ? cl.pick : cl.tool === 'shade' ? cs.shade.base : null;
+  if (one) { if (!lib.includes(one)) lib.unshift(one); }
+  else if (cl.tool === 'grad') lib.unshift(clPlain(cl.g));
+  else { const p = csList().map(x => x.hex); if (p.length < CS_MIN) { toast({type: 'warn', title: t('cs.none'), ttl: 2500}); return; } lib.unshift({p}); }
   clLibSet(lib); clLibDraw();
   toast({type: 'ok', title: t('cl.kept'), ttl: 2000});
 };
@@ -517,11 +527,11 @@ for (const [id, k] of [['clW', 'w'], ['clH', 'h']]) {
 }
 $('clTools').addEventListener('click', e => { const b = e.target.closest('.cl-tool'); if (b) { cl.tool = b.dataset.tool; clRender(); clSave(); } });
 
-// пробел — случайный градиент, Delete — убрать выбранную точку (не во время ввода и не поверх окон)
+// пробел — случайный градиент или палитра, Delete — убрать выбранную точку (не во время ввода и не поверх окон)
 document.addEventListener('keydown', e => {
-  if (tab !== 'color' || cl.tool !== 'grad' || cp || tkTyping(e.target) || document.querySelector('.modal:not(.hide)') || e.ctrlKey || e.altKey || e.metaKey) return;
-  if (e.code === 'Space' && !e.target.closest('button,select,[role=button]')) { e.preventDefault(); clRandom(); }
-  else if ((e.code === 'Delete' || e.code === 'Backspace') && clSel) { e.preventDefault(); clDel(clSel); }
+  if (tab !== 'color' || cl.tool !== 'grad' && cl.tool !== 'pal' || cp || tkTyping(e.target) || document.querySelector('.modal:not(.hide)') || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.code === 'Space' && !e.target.closest('button,select,[role=button]')) { e.preventDefault(); if (cl.tool === 'pal') csRandom(); else clRandom(); }
+  else if (cl.tool === 'grad' && (e.code === 'Delete' || e.code === 'Backspace') && clSel) { e.preventDefault(); clDel(clSel); }
 });
 
 function clRender() {
@@ -529,7 +539,8 @@ function clRender() {
   const g = cl.g, grad = cl.tool === 'grad';
   document.querySelectorAll('#clTools .cl-tool').forEach(b => b.classList.toggle('on', b.dataset.tool === cl.tool));
   $('clGrad').classList.toggle('hide', !grad);
-  $('clPick').classList.toggle('hide', grad);
+  $('clPick').classList.toggle('hide', cl.tool !== 'pick');
+  $('csWork').classList.toggle('hide', !CS_TOOLS.includes(cl.tool));
   if (grad) {
     clSegSync('clKind', g.k);
     clSegSync('clMix', g.mix);
@@ -542,14 +553,16 @@ function clRender() {
     if (document.activeElement !== $('clH')) $('clH').value = cl.h;
     $('clSvg').title = g.k === 'conic' ? t('cl.svgConic') : '';
     clBarDraw(); clChips(); clDraw();
-  } else clPickDraw();
+  } else if (cl.tool === 'pick') clPickDraw();
+  else csRender();
   clLibDraw();
+  clSendDraw();
 }
 // вкладку показали: размеры поля стали известны
 function clShow() { clRender(); }
 new ResizeObserver(() => { if (tab === 'color' && cl.tool === 'grad') clDraw(); }).observe($('clView'));
 // язык сменили (settings.js): подписи в точках и кнопках собираются заново
-function clRelang() { clChipsSig = ''; if (tab === 'color') clRender(); }
+function clRelang() { clChipsSig = ''; csRelang(); if (tab === 'color') clRender(); }
 
 clLoad();
 const clEyeOk = !!window.EyeDropper;

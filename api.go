@@ -487,9 +487,9 @@ func (s *Server) routes() *http.ServeMux {
 	// вкладка «Цвет»: спросить, куда сохранить, и записать PNG или SVG (нарисовала страница)
 	mux.HandleFunc("/api/color-save", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Ext  string `json:"ext"`  // png или svg
+			Ext  string `json:"ext"`  // png, svg или ase
 			Name string `json:"name"` // имя, которое диалог предложит
-			Data string `json:"data"` // PNG в base64, SVG текстом
+			Data string `json:"data"` // PNG в base64, SVG текстом, для ASE JSON с цветами
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 128<<20)).Decode(&body); err != nil {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})

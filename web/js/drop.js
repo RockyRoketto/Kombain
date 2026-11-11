@@ -11,9 +11,9 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'clView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' :tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
+const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' :tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab !== 'color') dropEl().classList.add('over'); });
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
@@ -25,6 +25,7 @@ window.addEventListener('dragleave', e => {
   dragDepth = Math.max(0, dragDepth - 1);
   if (dragDepth) return;
   dropEl().classList.remove('over'); fvDropHover(null);
+  if (tab === 'color') csDragOut(false);
   if (tab === 'mont') mtDropHide();
 });
 window.addEventListener('drop', e => {
@@ -32,7 +33,7 @@ window.addEventListener('drop', e => {
   e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over'); fvDropHover(null);
   const aim = tab === 'mont' ? mtDropHover(e) : null;
   if (tab === 'mont') mtDropHide();
-  if (tab === 'color') return;   // на вкладку «Цвет» файлы пока не бросают (палитра из фото будет на этапе 2)
+  if (tab === 'color') { csDrop(e); return; }   // на вкладку «Цвет» — картинка в «Из фото»
   if (tab === 'util') { fvDrop(e); return; }   // фавиконам нужен сам файл в окне, путь на диске не нужен
   if (snap.running &&tab !== 'play' && tab !== 'mont') return;   // смотреть и монтировать можно и во время конвертации
   if (NATIVE_DROP) {
