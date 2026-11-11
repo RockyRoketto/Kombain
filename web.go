@@ -19,7 +19,7 @@ var faviconPNG []byte
 
 var webJS = []string{
 	"i18n.js", "core.js", "settings.js", "filelist.js", "drop.js", "start.js", "toasts.js",
-	"sliders.js", "colorpick.js", "kinetic.js", "player.js", "preview.js", "trim.js", "playertab.js", "tracks.js", "montage.js", "textclip.js", "subedit.js", "subfx.js", "readable.js", "mtread.js", "ctxmenu.js", "vumeter.js", "viewport.js", "mvtrans.js", "trpanel.js", "rulers.js", "viewzoom.js", "shapes.js", "gradhandles.js", "chroma.js", "keyframes.js", "setup.js", "updates.js", "sounds.js", "poll.js", "bannertab.js", "favicon.js", "color.js", "colorset.js", "colorctr.js", "colormix.js", "session.js", "boot.js", "anim.js",
+	"sliders.js", "colorpick.js", "kinetic.js", "player.js", "preview.js", "trim.js", "playertab.js", "tracks.js", "montage.js", "textclip.js", "subedit.js", "subfx.js", "readable.js", "mtread.js", "ctxmenu.js", "vumeter.js", "viewport.js", "mvtrans.js", "trpanel.js", "rulers.js", "viewzoom.js", "shapes.js", "gradhandles.js", "chroma.js", "keyframes.js", "setup.js", "updates.js", "sounds.js", "poll.js", "bannertab.js", "favicon.js", "color.js", "colorset.js", "colorctr.js", "colormix.js", "colormesh.js", "session.js", "boot.js", "anim.js",
 }
 
 // страница на каждом языке: разметка переведена заранее, чтобы при запуске не мигал другой язык

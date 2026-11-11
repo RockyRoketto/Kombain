@@ -10,10 +10,10 @@
 const CL_KEY = 'k9000.color', CL_LIB_KEY = 'k9000.colorLib', CL_MAX = 8, CL_LIB_N = 60;
 const CL_KINDS = ['lin', 'rad', 'conic'];
 // инструменты; pal, shade и photo живут в colorset.js
-const CL_TOOLS = ['grad', 'pal', 'photo', 'pick', 'shade', 'ctr', 'mix'];
+const CL_TOOLS = ['grad', 'mesh', 'pal', 'photo', 'pick', 'shade', 'ctr', 'mix'];
 let clId = 0;
 const clStop = (at, c, lock) => ({id: ++clId, at, c, lock: !!lock});
-const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872', ctr: {fg: '#9a9a9a', bg: '#ffffff'}, mix: {a: '#ff7a59', b: '#5b8cff', k: 50, n: 7, mode: 'oklch'},
+const clDefault = () => ({tool: 'grad', size: '1920x1080', w: 1920, h: 1080, pick: '#e9b872', ctr: {fg: '#9a9a9a', bg: '#ffffff'}, mix: {a: '#ff7a59', b: '#5b8cff', k: 50, n: 7, mode: 'oklch'}, mesh: meshDefault(),
   g: {k: 'lin', ang: 135, cx: .5, cy: .5, mix: 'oklch', stops: [clStop(0, '#ff7a59'), clStop(.5, '#e9b872'), clStop(1, '#5b8cff')]}});
 // «Смешать» (colormix.js): проверка сохранённого состояния, число шагов 3–15, доля 0–100
 function mixOk(o) {
@@ -21,6 +21,24 @@ function mixOk(o) {
   const k = o && Number.isFinite(o.k) ? Math.min(Math.max(Math.round(o.k), 0), 100) : 50;
   return {a: cpValid(o && o.a, '#ff7a59'), b: cpValid(o && o.b, '#5b8cff'), k, n, mode: o && o.mode === 'rgb' ? 'rgb' : 'oklch'};
 }
+// «Меш-градиент» (colormesh.js): сетка cols × rows точек (2–5 на 2–5), pts по строкам сверху вниз {x, y — доли кадра, c — #rrggbb}.
+// Углы стоят в углах кадра, точки на краях ходят только вдоль своего края: так меш всегда закрывает кадр целиком.
+const MESH_MIN = 2, MESH_MAX = 5;
+const MESH_DEF = ['#ff7a59', '#e9b872', '#ffd6a5', '#c86bfa', '#ff9ec4', '#8fd3ff', '#5b8cff', '#3dd6c6', '#b8f28a'];
+function meshValid(o) {
+  const n = v => Number.isInteger(v) && v >= MESH_MIN && v <= MESH_MAX;
+  if (!o || !n(o.cols) || !n(o.rows) || !Array.isArray(o.pts) || o.pts.length !== o.cols * o.rows) return null;
+  const f = v => Number.isFinite(v) ? Math.min(Math.max(v, 0), 1) : NaN, pts = [];
+  for (let k = 0; k < o.pts.length; k++) {
+    const p = o.pts[k], i = k % o.cols, j = Math.floor(k / o.cols), c = p && cpValid(p.c, '');
+    if (!c || !Number.isFinite(f(p.x)) || !Number.isFinite(f(p.y))) return null;
+    pts.push({x: i === 0 ? 0 : i === o.cols - 1 ? 1 : f(p.x), y: j === 0 ? 0 : j === o.rows - 1 ? 1 : f(p.y), c});
+  }
+  return {cols: o.cols, rows: o.rows, mix: o.mix === 'rgb' ? 'rgb' : 'oklch', pts};
+}
+const meshDefault = () => ({cols: 3, rows: 3, mix: 'oklch',
+  pts: MESH_DEF.map((c, k) => ({x: k % 3 / 2, y: Math.floor(k / 3) / 2, c})).map((p, k) => k === 4 ? {...p, x: .56, y: .44} : p)});
+const meshOk = o => meshValid(o) || meshDefault();
 let cl = clDefault();
 let clSel = null;   // выбранная точка (объект из cl.g.stops)
 
@@ -305,7 +323,7 @@ function clLoad() {
     cl = {tool: CL_TOOLS.includes(o.tool) ? o.tool : d.tool,
       size: typeof o.size === 'string' && (o.size === 'own' || /^\d+x\d+$/.test(o.size)) ? o.size : d.size,
       w: Number.isInteger(o.w) ? Math.min(Math.max(o.w, 16), 8192) : d.w, h: Number.isInteger(o.h) ? Math.min(Math.max(o.h, 16), 8192) : d.h,
-      pick: cpValid(o.pick, d.pick), ctr: {fg: cpValid(o.ctr && o.ctr.fg, d.ctr.fg), bg: cpValid(o.ctr && o.ctr.bg, d.ctr.bg)}, mix: mixOk(o.mix), g: clValidG(o.g) || d.g};
+      pick: cpValid(o.pick, d.pick), ctr: {fg: cpValid(o.ctr && o.ctr.fg, d.ctr.fg), bg: cpValid(o.ctr && o.ctr.bg, d.ctr.bg)}, mix: mixOk(o.mix), mesh: meshOk(o.mesh), g: clValidG(o.g) || d.g};
   } catch (e) {}
 }
 const clPlain = g => ({k: g.k, ang: g.ang, cx: g.cx, cy: g.cy, mix: g.mix, stops: clSorted(g).map(s => ({at: +s.at.toFixed(4), c: s.c, lock: s.lock || undefined})),
@@ -675,8 +693,8 @@ function clAddStop(hex) {
 }
 
 // ---------- Мои цвета и недавние ----------
-// в библиотеке три вида: цвет '#rrggbb', градиент {k, stops…}, палитра {p: ['#rrggbb', …]}
-const clLibOk = x => typeof x === 'string' ? cpParse(x) : x && x.p ? csPalOf(x.p).length >= CS_MIN : clValidG(x);
+// в библиотеке четыре вида: цвет '#rrggbb', градиент {k, stops…}, палитра {p: ['#rrggbb', …]}, меш {m: {cols, rows, pts…}}
+const clLibOk = x => typeof x === 'string' ? cpParse(x) : x && x.p ? csPalOf(x.p).length >= CS_MIN : x && x.m ? meshValid(x.m) : clValidG(x);
 const clLib = () => { try { return (JSON.parse(storeGet(CL_LIB_KEY)) || []).filter(clLibOk); } catch (e) { return []; } };
 const clLibSet = list => { storeSet(CL_LIB_KEY, JSON.stringify(list.slice(0, CL_LIB_N))); clMark(); };
 // палитра полосками одинаковой ширины
@@ -684,12 +702,12 @@ const clPalCss = p => `linear-gradient(90deg, ${p.map((c, i) => `${c} ${clPct(i 
 function clLibDraw() {
   const lib = clLib();
   $('clSaved').innerHTML = lib.map((x, i) => {
-    const p = x.p ? csPalOf(x.p) : null, g = typeof x === 'string' || p ? null : clValidG(x);
-    const bg = p ? clPalCss(p) : g ? clCssOf(g, true) : x;
-    return `<div class="cl-item${g || p ? ' grad' : ''}" data-i="${i}" role="button" tabindex="0" style="background:${esc(bg)}" title="${esc(p ? t('cs.libLoad') : g ? t('cl.libLoad') : clUp(x))}"><button type="button" class="cl-mini cl-x" title="${esc(t('cl.del'))}" aria-label="${esc(t('cl.del'))}">${CL_ICO.del}</button></div>`;
+    const p = x.p ? csPalOf(x.p) : null, m = x.m ? meshValid(x.m) : null, g = typeof x === 'string' || p || m ? null : clValidG(x);
+    const bg = p ? clPalCss(p) : m ? `url(${meshThumb(m)}) center/100% 100%` : g ? clCssOf(g, true) : x;
+    return `<div class="cl-item${g || p || m ? ' grad' : ''}" data-i="${i}" role="button" tabindex="0" style="background:${esc(bg)}" title="${esc(p ? t('cs.libLoad') : m ? t('mesh.libLoad') : g ? t('cl.libLoad') : clUp(x))}"><button type="button" class="cl-mini cl-x" title="${esc(t('cl.del'))}" aria-label="${esc(t('cl.del'))}">${CL_ICO.del}</button></div>`;
   }).join('');
   $('clSavedNone').classList.toggle('hide', lib.length > 0);
-  $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' || cl.tool === 'ctr' ? 'cl.keepColor' : cl.tool === 'grad' ? 'cl.keep' : 'cs.keep');
+  $('clKeep').textContent = t(cl.tool === 'pick' || cl.tool === 'shade' || cl.tool === 'ctr' ? 'cl.keepColor' : cl.tool === 'grad' || cl.tool === 'mesh' ? 'cl.keep' : 'cs.keep');
   $('clKeep').classList.toggle('cl-no', CS_TOOLS.includes(cl.tool) && cl.tool !== 'shade' && csList().length < CS_MIN);
   $('clRecent').innerHTML = cpRecent().map(v => `<button type="button" class="cl-rc" data-c="${esc(v)}" style="background:${esc(v)}" title="${esc(clUp(v))}" aria-label="${esc(clUp(v))}"></button>`).join('');
 }
@@ -699,6 +717,7 @@ function clUse(hex) {
   if (cl.tool === 'pick') cl.pick = cpHex(cpParse(hex), false);
   else if (cl.tool === 'ctr') cl.ctr.fg = cpHex(cpParse(hex), false);   // цвет из библиотеки — в текст
   else if (cl.tool === 'mix') cl.mix.a = cpHex(cpParse(hex), false);   // и в «Смешать» — цвет A
+  else if (cl.tool === 'mesh') meshSetSel(hex);   // в меше — выбранная точка
   else if (clSel) clSel.c = cpHex(cpParse(hex), true);
   clRender(); clSave();
 }
@@ -711,6 +730,7 @@ $('clSaved').addEventListener('click', e => {
   // градиент или палитра заменяют текущую работу и могут сменить инструмент: говорим, где открылось и как вернуть
   const said = to => toast({type: 'ok', title: t('cl.libOpened', {s: t(CL_TOOL_NAME[to])}), ttl: 3500});
   if (x.p) { csPalLoad(x.p); said('pal'); return; }
+  if (x.m) { cl.mesh = meshValid(x.m); cl.tool = 'mesh'; meshSel = -1; clRender(); clSave(); said('mesh'); return; }
   const g = clValidG(x);
   if (!g) return;
   cl.g = g; cl.tool = 'grad'; clSel = clSorted(g)[0];
@@ -724,6 +744,7 @@ $('clKeep').onclick = () => {
   const one = cl.tool === 'pick' ? cl.pick : cl.tool === 'shade' ? cs.shade.base : null;
   if (cl.tool === 'ctr') lib.unshift({p: [cl.ctr.fg, cl.ctr.bg]});   // пара текст + фон идёт палитрой из двух цветов
   else if (cl.tool === 'mix') lib.unshift({p: mixRow()});   // ряд шагов — палитрой
+  else if (cl.tool === 'mesh') lib.unshift({m: meshValid(cl.mesh)});
   else if (one) { if (!lib.includes(one)) lib.unshift(one); }
   else if (cl.tool === 'grad') lib.unshift(clPlain(cl.g));
   else { const p = csList().map(x => x.hex); if (p.length < CS_MIN) { toast({type: 'warn', title: t('cs.none'), ttl: 2500}); return; } lib.unshift({p}); }
@@ -752,12 +773,12 @@ $('clTools').addEventListener('click', e => { const b = e.target.closest('.cl-to
 
 // пробел — случайный градиент или палитра, Delete — убрать выбранную точку (не во время ввода и не поверх окон)
 document.addEventListener('keydown', e => {
-  if (tab !== 'color' || cl.tool !== 'grad' && cl.tool !== 'pal' || cp || tkTyping(e.target) || document.querySelector('.modal:not(.hide)') || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (tab !== 'color' || cl.tool !== 'grad' && cl.tool !== 'pal' && cl.tool !== 'mesh' || cp || tkTyping(e.target) || document.querySelector('.modal:not(.hide)') || e.ctrlKey || e.altKey || e.metaKey) return;
   // пробел на кнопке колонки палитры (после щелчка по цвету там остаётся фокус) тоже «Случайно», а не нажатие на цвет и окно выбора поверх колонок
   // так же с кнопками вкладок шапки и выбора инструмента: после переключения фокус остаётся на них, и первый пробел нажимал бы их
   const inCols = cl.tool === 'pal' && e.target.closest('#csCols');
   const onNav = e.target.closest('#tabs,#clTools');
-  if (e.code === 'Space' && (inCols || onNav || !e.target.closest('button,select,[role=button]'))) { e.preventDefault(); if ((inCols || onNav) && e.target.blur) e.target.blur(); if (cl.tool === 'pal') csRandom(); else clRandom(); }
+  if (e.code === 'Space' && (inCols || onNav || !e.target.closest('button,select,[role=button]'))) { e.preventDefault(); if ((inCols || onNav) && e.target.blur) e.target.blur(); if (cl.tool === 'pal') csRandom(); else if (cl.tool === 'mesh') meshRandom(); else clRandom(); }
   else if (cl.tool === 'grad' && (e.code === 'Delete' || e.code === 'Backspace') && clSel) { e.preventDefault(); clDel(clSel); }
 });
 
@@ -828,6 +849,7 @@ function clRender() {
   $('clPick').classList.toggle('hide', cl.tool !== 'pick');
   $('ctrWork').classList.toggle('hide', cl.tool !== 'ctr');
   $('mixWork').classList.toggle('hide', cl.tool !== 'mix');
+  $('meshWork').classList.toggle('hide', cl.tool !== 'mesh');
   $('csWork').classList.toggle('hide', !CS_TOOLS.includes(cl.tool));
   if (grad) {
     clSegSync('clKind', g.k);
@@ -845,6 +867,7 @@ function clRender() {
   } else if (cl.tool === 'pick') clPickDraw();
   else if (cl.tool === 'ctr') ctrDraw();
   else if (cl.tool === 'mix') mixDraw();
+  else if (cl.tool === 'mesh') meshRender();
   else csRender();
   clLibDraw();
   clSendDraw();
