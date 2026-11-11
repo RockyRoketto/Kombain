@@ -749,6 +749,10 @@ __CSS__
         <button type="button" class="btn sm" id="meshEvenB" data-i18n="mesh.even" data-i18n-title="mesh.evenTip"></button>
         <button type="button" class="btn sm" id="meshRand" data-i18n-title="mesh.randTip"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c3 0 4 7 7 7H14M12 9.5l2 2-2 2M2 11.5h2.5c1.2 0 2-1 2.6-2.2M9 6.7c.6-1.2 1.4-2.2 2.5-2.2H14M12 2.5l2 2-2 2"/></svg><span data-i18n="cl.rand"></span></button>
       </div>
+      <div class="cl-row cl-fxrow">
+        <div class="cl-seg" id="meshFx" data-i18n-title="cl.fxTip"><button type="button" data-v="none" data-i18n="cl.fx_none"></button><button type="button" data-v="noise" data-i18n="cl.fx_noise"></button><button type="button" data-v="dots" data-i18n="cl.fx_dots"></button><button type="button" data-v="lines" data-i18n="cl.fx_lines"></button><button type="button" data-v="steps" data-i18n="cl.fx_steps"></button><button type="button" data-v="pixel" data-i18n="cl.fx_pixel"></button></div>
+        <div class="cl-fxo hide" id="meshFxOpt"></div>
+      </div>
       <div class="cl-row cl-out">
         <select id="meshSize" data-i18n-title="cl.size">
           <option value="1920x1080">1920 × 1080</option><option value="3840x2160">3840 × 2160 (4K)</option>
@@ -758,6 +762,7 @@ __CSS__
         <span class="cl-own hide" id="meshOwn"><input type="number" id="meshW" min="16" max="8192" step="1"><i>×</i><input type="number" id="meshH" min="16" max="8192" step="1"></span>
         <span class="cl-sp"></span>
         <div class="cl-send cl-up"></div>
+        <button type="button" class="btn sm" id="meshSvg">SVG</button>
         <button type="button" class="btn sm primary" id="meshPng">PNG</button>
       </div>
     </section>

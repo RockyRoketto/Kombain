@@ -68,14 +68,28 @@ function meshBuild(m, S) {
 const meshSteps = (m, W, H) => Math.min(Math.max(Math.ceil(Math.max(W / (m.cols - 1), H / (m.rows - 1)) / 8), 4), 128);
 // картинка W × H в RGBA. dither — шум на полшага яркости против ступенек в 8 битах (как у PNG градиента).
 // Пиксель, куда не попал ни один треугольник (сетку перекрутили), остаётся прозрачным.
-function meshRaster(m, W, H, dither, mb = meshBuild(m, meshSteps(m, W, H))) {
+// q — стиль «Ступени»: поверхность режется на q × q плиток по месту в сетке, у каждой плитки ровный цвет поверхности
+// (крайние — ровно цвета углов), и плитки изгибаются вместе с мешем.
+function meshRaster(m, W, H, dither, mb = meshBuild(m, meshSteps(m, W, H)), q = 0) {
   const d = new Uint8ClampedArray(W * H * 4), {NX, NY, X, Y, R, G, B} = mb, E = 1e-6;
+  let tiles = null;
+  if (q) {
+    const ch = meshChan(m);
+    tiles = [];
+    for (let j = 0; j < q; j++) for (let i = 0; i < q; i++) {
+      const c = meshAt(m, i / (q - 1) * (m.cols - 1), j / (q - 1) * (m.rows - 1), ch).c;
+      tiles.push([c.r, c.g, c.b].map(v => Math.min(Math.max(v, 0), 255)));
+    }
+  }
   const tri = (i0, i1, i2) => {
     const ax = X[i0] * W, ay = Y[i0] * H, bx = X[i1] * W, by = Y[i1] * H, cx = X[i2] * W, cy = Y[i2] * H;
     const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     if (Math.abs(area) < 1e-9) return;
     const inv = 1 / area;
-    const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx)));
+    // место вершин в сетке (0..1) для плиток ступеней
+    const u0 = i0 % NX / (NX - 1), u1 = i1 % NX / (NX - 1), u2 = i2 % NX / (NX - 1);
+    const v0 = Math.floor(i0 / NX) / (NY - 1), v1 = Math.floor(i1 / NX) / (NY - 1), v2 = Math.floor(i2 / NX) / (NY - 1);
+    const x0 =Math.max(0, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx)));
     const y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by, cy)));
     for (let py = y0; py <= y1; py++) {
       const yc = py + .5;
@@ -88,7 +102,13 @@ function meshRaster(m, W, H, dither, mb = meshBuild(m, meshSteps(m, W, H))) {
         const w2 = 1 - w0 - w1;
         if (w2 < -E) continue;
         const n = dither ? Math.random() - .5 : 0, o = (py * W + px) * 4;
-        d[o] = w0 * R[i0] + w1 * R[i1] + w2 * R[i2] + n;
+        if (tiles) {
+          const tu = Math.min(Math.floor((w0 * u0 + w1 * u1 + w2 * u2) * q), q - 1), tv = Math.min(Math.floor((w0 * v0 + w1 * v1 + w2 * v2) * q), q - 1);
+          const c = tiles[Math.max(tv, 0) * q + Math.max(tu, 0)];
+          d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+          continue;
+        }
+        d[o] =w0 * R[i0] + w1 * R[i1] + w2 * R[i2] + n;
         d[o + 1] = w0 * G[i0] + w1 * G[i1] + w2 * G[i2] + n;
         d[o + 2] = w0 * B[i0] + w1 * B[i1] + w2 * B[i2] + n;
         d[o + 3] = 255;
@@ -104,15 +124,67 @@ function meshRaster(m, W, H, dither, mb = meshBuild(m, meshSteps(m, W, H))) {
   }
   return d;
 }
-// маленькая картинка для «Моих цветов», с запоминанием
+// ---------- стили (общие с градиентом: CL_FX, clFxShapes, clNoise в color.js) ----------
+// карта цвета для растра, штриха и пикселей (clField у градиента): цвет пикселя картинки меша и закраска по его темноте
+// в пределах самого меша — самое светлое место тонко, самое тёмное густо
+function meshField(m, w, h, img) {
+  const k = (m.fx && m.fx.k || 100) / 100, dk = new Float32Array(w * h).fill(-1), N = w * h;
+  const Lof = o => clLab({r: img[o], g: img[o + 1], b: img[o + 2]}).L;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0, st = Math.max(1, Math.floor(N / 5000)); i < N; i += st) if (img[i * 4 + 3]) { const L = Lof(i * 4); lo = Math.min(lo, L); hi = Math.max(hi, L); }
+  const span = hi - lo;
+  return (x, y) => {
+    const i = Math.min(Math.max(Math.floor(y), 0), h - 1) * w + Math.min(Math.max(Math.floor(x), 0), w - 1), o = i * 4;
+    if (dk[i] < 0) dk[i] = (.12 + .78 * (span > .04 ? Math.min(Math.max((hi - Lof(o)) / span, 0), 1) : .5)) * k;
+    return [{r: img[o], g: img[o + 1], b: img[o + 2], a: img[o + 3] / 255}, dk[i]];
+  };
+}
+// меш со стилем на холсте w × h; sc — доля от размера выгрузки (размеры стиля в пикселях выгрузки, как у градиента)
+function meshPaint(ctx, m, w, h, sc = 1, dither = false, mb = undefined) {
+  const t = clFxT(m);
+  ctx.clearRect(0, 0, w, h);
+  const img = meshRaster(m, w, h, dither && t === 'none', mb, t === 'steps' ? m.fx.n : 0);
+  if (clFxShaped(t)) { clFxShapes(ctx, m.fx, meshField(m, w, h, img), w, h, sc); return; }
+  ctx.putImageData(new ImageData(img, w, h), 0, 0);
+  if (t === 'noise') clNoise(ctx, w, h, sc, m.fx);
+}
+// SVG без стиля: настоящего меш-градиента не понимает ни один редактор, поэтому поверхность режется на мелкие треугольники
+// ровного цвета (цвет — среднее трёх вершин). Сглаженные края соседних треугольников вместе не закрывают стык целиком,
+// и на нём проступала бы сетка: поэтому каждый обведён своим же цветом в пиксель, а под всеми лежит средний цвет меша.
+const MESH_SVG_TRI = 20000;
+function meshSvg(m, W, H) {
+  const t = clFxT(m);
+  if (t === 'dots' || t === 'pixel') return clSvgShapes(m.fx, meshField(m, W, H, meshRaster(m, W, H, false)), W, H);
+  const S = Math.min(Math.max(Math.floor(Math.sqrt(MESH_SVG_TRI / 2 / ((m.cols - 1) * (m.rows - 1)))), 4), 64);
+  const {NX, NY, X, Y, R, G, B} = meshBuild(m, S), n = v => +v.toFixed(1), out = [];
+  const hex = v => '#' + v.map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+  const avg = A => A.reduce((s, x) => s + x, 0) / A.length;
+  const tri = (a, b, c) => {
+    const f = hex([R, G, B].map(A => (A[a] + A[b] + A[c]) / 3)), ax = n(X[a] * W), ay = n(Y[a] * H), bx = n(X[b] * W), by = n(Y[b] * H);
+    // вторая и третья вершины относительно предыдущей: файл короче на треть
+    out.push(`<path d="M${ax} ${ay}l${n(bx - ax)} ${n(by - ay)}l${n(n(X[c] * W) - bx)} ${n(n(Y[c] * H) - by)}z" fill="${f}" stroke="${f}"/>`);
+  };
+  for (let b = 0; b < NY - 1; b++) for (let a = 0; a < NX - 1; a++) { const q = b * NX + a; tri(q, q + 1, q + NX + 1); tri(q, q + NX + 1, q + NX); }
+  return `${clSvgHead(W, H)}<rect width="${W}" height="${H}" fill="${hex([R, G, B].map(avg))}"/><g stroke-width="1" stroke-linejoin="round">${out.join('')}</g></svg>`;
+}
+// почему SVG не выйдет (ключ текста) или '' — выйдет
+function meshNoOut(m, W, H) {
+  const t = clFxT(m);
+  if (t === 'noise' || t === 'lines' || t === 'steps') return 'cl.svgFx';
+  if (t === 'dots' || t === 'pixel') return clCount(m, W, H) > CL_FX_SHAPES ? 'cl.svgMany' : '';
+  return '';
+}
+const meshNoOutText = (W, H) => { const k = meshNoOut(cl.mesh, W, H); return k && t(k, {s: clFxName(clFxT(cl.mesh)), n: CL_FX_SHAPES}); };
+
+// маленькая картинка для «Моих цветов», с запоминанием; стиль в масштабе текущего размера выгрузки
 const meshThumbs = new Map();
 function meshThumb(m) {
-  const key = JSON.stringify(m);
+  const W = 64, H = 40, sc = W / clWH()[0], key = JSON.stringify(m) + (m.fx ? sc : '');
   let url = meshThumbs.get(key);
   if (url) return url;
-  const W = 64, H = 40, c = document.createElement('canvas');
+  const c = document.createElement('canvas');
   c.width = W; c.height = H;
-  c.getContext('2d').putImageData(new ImageData(meshRaster(m, W, H, false), W, H), 0, 0);
+  meshPaint(c.getContext('2d'), m, W, H, sc);
   url = c.toDataURL('image/png');
   if (meshThumbs.size > 80) meshThumbs.clear();
   meshThumbs.set(key, url);
@@ -149,7 +221,7 @@ function meshResize(cols, rows) {
     const u = i / (cols - 1) * (m.cols - 1), v = j / (rows - 1) * (m.rows - 1);
     if (Number.isInteger(u) && Number.isInteger(v)) { const o = m.pts[v * m.cols + u]; Object.assign(pts[j * cols + i], {x: o.x, y: o.y, c: o.c}); }
   }
-  cl.mesh = meshValid({cols, rows, mix: m.mix, pts});
+  cl.mesh = meshValid({cols, rows, mix: m.mix, pts, fx: m.fx});
   meshSel = Math.round(sv * (rows - 1)) * cols + Math.round(su * (cols - 1));   // выбранной остаётся точка в том же месте сетки
 }
 // «Случайно» (и пробел): цвета по сочетаниям круга оттенков, как у градиента (CL_SCHEMES в color.js); соседние точки
@@ -188,7 +260,7 @@ function meshDraw() {
   const pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   if (meshCv.width !== pw || meshCv.height !== ph) { meshCv.width = pw; meshCv.height = ph; }
   const mb = meshBuild(m, meshSteps(m, pw, ph));
-  meshCx.putImageData(new ImageData(meshRaster(m, pw, ph, true, mb), pw, ph), 0, 0);
+  meshPaint(meshCx, m, pw, ph, pw / W, true, mb);
   const x = meshCx, R = 6 * dpr, {S, NX, NY, X, Y} = mb;
   x.save();
   x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 4 * dpr;
@@ -273,6 +345,9 @@ function meshRender() {
   $('meshOwn').classList.toggle('hide', cl.size !== 'own');
   if (document.activeElement !== $('meshW')) $('meshW').value = cl.w;
   if (document.activeElement !== $('meshH')) $('meshH').value = cl.h;
+  const no = meshNoOutText(...clWH());
+  $('meshSvg').title = no || ''; $('meshSvg').classList.toggle('cl-no', !!no);
+  clFxDraw();
   meshDraw();
 }
 let meshWas;
@@ -310,7 +385,12 @@ for (const [id, k] of [['meshW', 'w'], ['meshH', 'h']]) {
 $('meshPng').onclick = () => dialog(async () => {
   const [W, H] = clWH(), c = document.createElement('canvas');
   c.width = W; c.height = H;
-  c.getContext('2d').putImageData(new ImageData(meshRaster(cl.mesh, W, H, true), W, H), 0, 0);
+  meshPaint(c.getContext('2d'), cl.mesh, W, H, 1, true);
   clSaved(await api('color-save', {ext: 'png', name: `mesh-${W}x${H}.png`, data: c.toDataURL('image/png').split(',')[1]}));
+});
+$('meshSvg').onclick = () => dialog(async () => {
+  const [W, H] = clWH(), no = meshNoOutText(W, H);
+  if (no) { say('warn', t('warn.title'), no); return; }
+  clSaved(await api('color-save', {ext: 'svg', name: `mesh-${W}x${H}.svg`, data: meshSvg(cl.mesh, W, H)}));
 });
 new ResizeObserver(() => { if (tab === 'color' && cl.tool === 'mesh') meshDraw(); }).observe($('meshView'));
