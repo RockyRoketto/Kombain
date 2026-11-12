@@ -835,7 +835,7 @@ func (s *Server) routes() *http.ServeMux {
 		case !req.SameDir && req.OutDir == "":
 			writeJSON(w, map[string]any{"error": tr("pdf.pickDir")})
 			return
-		case req.Op != "resave" && req.Op != "img2pdf" && req.Op != "compress" && req.Op != "raster" && req.Op != "pages":
+		case req.Op != "resave" && req.Op != "img2pdf" && req.Op != "compress" && req.Op != "raster" && req.Op != "pages" && req.Op != "decor":
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}

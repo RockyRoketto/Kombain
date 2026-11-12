@@ -1148,7 +1148,7 @@ __CSS__
           <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="pdf.action"></span><span class="acc-s" id="pdfOpSum"></span></button>
           <div class="acc-b">
             <div class="chips" id="pdfOp">
-              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="raster" data-i18n="pdf.opRas"></button><button class="chip" data-op="pages" data-i18n="pdf.opPg"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
+              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="raster" data-i18n="pdf.opRas"></button><button class="chip" data-op="pages" data-i18n="pdf.opPg"></button><button class="chip" data-op="decor" data-i18n="pdf.opDec"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
             </div>
             <div class="note" id="pdfOpNote"></div>
           </div>
@@ -1252,6 +1252,50 @@ __CSS__
           <div class="note" data-i18n="pdf.fixVerNote"></div>
           <label class="sw"><span data-i18n="pdf.fixStrip"></span><input type="checkbox" id="pdfFixStrip"><i></i></label>
           <div class="note" data-i18n="pdf.fixNote"></div>
+          </div>
+        </section>
+
+        <section class="acc hide" id="pdfDecCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.decTitle"></span><span class="acc-s" id="pdfDecSum"></span></button>
+          <div class="acc-b">
+          <label class="sw"><span data-i18n="pdf.wm"></span><input type="checkbox" id="pdfWmOn"><i></i></label>
+          <div class="dec-sub hide" id="pdfWmBox">
+            <div class="chips" id="pdfWmKind"><button class="chip" data-v="text" data-i18n="pdf.wmText"></button><button class="chip" data-v="image" data-i18n="pdf.wmImage"></button></div>
+            <div class="rowf" id="pdfWmTextRow" style="margin-top:6px"><input type="text" id="pdfWmText" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.wmTextPh" data-i18n-aria="pdf.wm"><input type="color" id="pdfWmColor" class="dec-color" data-i18n-aria="pdf.wmColor"></div>
+            <div class="rowf hide" id="pdfWmImgRow" style="margin-top:6px"><input type="text" id="pdfWmImg" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.wmImgPh" data-i18n-aria="pdf.wmImage"><button class="btn" id="pdfWmPick" data-i18n="btn.pick"></button></div>
+            <div class="fgroup" id="pdfWmSizeRow"><small data-i18n="pdf.wmSize"></small><div class="chips" id="pdfWmSize"><button class="chip" data-v="36" data-i18n="pdf.sizeS"></button><button class="chip" data-v="64" data-i18n="pdf.sizeM"></button><button class="chip" data-v="110" data-i18n="pdf.sizeL"></button></div></div>
+            <div class="fgroup hide" id="pdfWmScaleRow"><small data-i18n="pdf.wmScale"></small><div class="chips" id="pdfWmScale"><button class="chip" data-v="20">20%</button><button class="chip" data-v="40">40%</button><button class="chip" data-v="70">70%</button><button class="chip" data-v="100">100%</button></div></div>
+            <div class="fgroup"><small data-i18n="pdf.wmPos"></small><div class="chips" id="pdfWmPos"><button class="chip" data-v="c" data-i18n="pdf.posC"></button><button class="chip" data-v="tl" data-i18n="pdf.posTl"></button><button class="chip" data-v="tr" data-i18n="pdf.posTr"></button><button class="chip" data-v="bl" data-i18n="pdf.posBl"></button><button class="chip" data-v="br" data-i18n="pdf.posBr"></button></div></div>
+            <div class="fgroup"><small data-i18n="pdf.wmRot"></small><div class="chips" id="pdfWmRot"><button class="chip" data-v="0">0°</button><button class="chip" data-v="45">45°</button><button class="chip" data-v="90">90°</button></div></div>
+            <div class="fgroup"><small data-i18n="pdf.wmOp"></small><div class="pdf-q"><input type="range" class="vol" id="pdfWmOp" data-origin="30" min="5" max="100" step="5" data-i18n-aria="pdf.wmOp"><b id="pdfWmOpV"></b></div></div>
+            <label class="sw"><span data-i18n="pdf.wmTop"></span><input type="checkbox" id="pdfWmTop"><i></i></label>
+          </div>
+          <label class="sw"><span data-i18n="pdf.num"></span><input type="checkbox" id="pdfNumOn"><i></i></label>
+          <div class="dec-sub hide" id="pdfNumBox">
+            <div class="fgroup"><small data-i18n="pdf.numFmt"></small><div class="chips" id="pdfNumFmt"><button class="chip" data-v="n">1</button><button class="chip" data-v="nt">1 / 10</button><button class="chip" data-v="word" data-i18n="pdf.numWord"></button></div></div>
+            <div class="fgroup"><small data-i18n="pdf.numPos"></small><div class="chips" id="pdfNumPos"><button class="chip" data-v="bc" data-i18n="pdf.posBc"></button><button class="chip" data-v="br" data-i18n="pdf.posBr"></button><button class="chip" data-v="bl" data-i18n="pdf.posBl"></button><button class="chip" data-v="tc" data-i18n="pdf.posTc"></button><button class="chip" data-v="tr" data-i18n="pdf.posTr"></button></div></div>
+            <div class="fgroup"><small data-i18n="pdf.wmSize"></small><div class="chips" id="pdfNumSize"><button class="chip" data-v="9" data-i18n="pdf.sizeS"></button><button class="chip" data-v="11" data-i18n="pdf.sizeM"></button><button class="chip" data-v="14" data-i18n="pdf.sizeL"></button></div></div>
+            <label class="sw"><span data-i18n="pdf.numSkip"></span><input type="checkbox" id="pdfNumSkip"><i></i></label>
+          </div>
+          <label class="sw"><span data-i18n="pdf.crop"></span><input type="checkbox" id="pdfCropOn"><i></i></label>
+          <div class="dec-sub hide" id="pdfCropBox">
+            <div class="pdf-size dec-crop"><span data-i18n="pdf.cropTop"></span><input type="number" id="pdfCropTop" min="0" max="200" step="1" inputmode="decimal"><span data-i18n="pdf.cropRight"></span><input type="number" id="pdfCropRight" min="0" max="200" step="1" inputmode="decimal"></div>
+            <div class="pdf-size dec-crop"><span data-i18n="pdf.cropBottom"></span><input type="number" id="pdfCropBottom" min="0" max="200" step="1" inputmode="decimal"><span data-i18n="pdf.cropLeft"></span><input type="number" id="pdfCropLeft" min="0" max="200" step="1" inputmode="decimal"><span data-i18n="pdf.sizeMm"></span></div>
+            <div class="note" data-i18n="pdf.cropNote"></div>
+          </div>
+          <label class="sw"><span data-i18n="pdf.meta"></span><input type="checkbox" id="pdfMetaOn"><i></i></label>
+          <div class="dec-sub hide" id="pdfMetaBox">
+            <input type="text" id="pdfMetaTitle" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.metaTitle" data-i18n-aria="pdf.metaTitle">
+            <input type="text" id="pdfMetaAuthor" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.metaAuthor" data-i18n-aria="pdf.metaAuthor">
+            <input type="text" id="pdfMetaSubject" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.metaSubject" data-i18n-aria="pdf.metaSubject">
+            <input type="text" id="pdfMetaKeys" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.metaKeys" data-i18n-aria="pdf.metaKeys">
+            <div class="note" data-i18n="pdf.metaNote"></div>
+          </div>
+          <label class="sw"><span data-i18n="pdf.metaClean"></span><input type="checkbox" id="pdfMetaClean"><i></i></label>
+          <div class="fgroup dec-pw"><small data-i18n="pdf.pwTitle"></small><div class="chips" id="pdfPwMode"><button class="chip" data-v="" data-i18n="pdf.pwKeep"></button><button class="chip" data-v="set" data-i18n="pdf.pwSet"></button><button class="chip" data-v="remove" data-i18n="pdf.pwRemove"></button></div>
+            <div class="rowf hide" id="pdfPwNewRow" style="margin-top:6px"><input type="password" id="pdfPwNew" autocomplete="new-password" spellcheck="false" data-i18n-ph="pdf.pwNewPh" data-i18n-aria="pdf.pwSet"></div>
+            <div class="note" id="pdfPwNote"></div>
+          </div>
           </div>
         </section>
 

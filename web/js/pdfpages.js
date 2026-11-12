@@ -420,7 +420,7 @@ document.addEventListener('keydown', e => {
   else if (ctrl && k.toLowerCase() === 'z') { pgUndo(); }
   else if (ctrl && k.toLowerCase() === 'd') { pgDup(); }
   else if (k === 'Delete' || k === 'Backspace') { pgDelete(); }
-  else if (!ctrl && (k === 'r' || k === 'R' || k === 'к' || k === 'К')) { pgRotate(e.shiftKey ? -90 : 90); }
+  else if (!ctrl && e.code === 'KeyR') { pgRotate(e.shiftKey ? -90 : 90); }
   else if (e.altKey && k === 'ArrowLeft') { pgShift(-1); }
   else if (e.altKey && k === 'ArrowRight') { pgShift(1); }
   else return;

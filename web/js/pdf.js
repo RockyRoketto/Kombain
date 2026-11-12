@@ -4,7 +4,9 @@
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
 const pdfSet = {mode: 'same', dir: '', op: 'compress', ras: {fmt: 'png', dpi: 150, q: 92, pages: 'all', range: '', transparent: false}, fix: {version: '', strip: false}, img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
-  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}, pg: {mode: 'one', every: 2, ranges: ''}};   // сохраняется в localStorage
+  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}, pg: {mode: 'one', every: 2, ranges: ''},
+  dec: {wm: {on: false, kind: 'text', text: '', image: '', size: 64, scale: 40, opacity: 30, rotate: 45, pos: 'c', color: '#808080', onTop: true}, num: {on: false, fmt: 'nt', pos: 'bc', size: 11, skipFirst: false},
+    crop: {on: false, top: 0, right: 0, bottom: 0, left: 0}, meta: {on: false, title: '', author: '', subject: '', keywords: '', clean: false}, pw: {mode: ''}}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
@@ -13,10 +15,12 @@ try {
   Object.assign(pdfSet.ras, saved.ras || {}); delete saved.ras;
   Object.assign(pdfSet.fix, saved.fix || {}); delete saved.fix;
   Object.assign(pdfSet.pg, saved.pg || {}); delete saved.pg;
+  for (const k of ['wm', 'num', 'crop', 'meta', 'pw']) Object.assign(pdfSet.dec[k], (saved.dec || {})[k] || {});
+  delete saved.dec;
   Object.assign(pdfSet, saved);
 } catch (e) {}
 if (pdfSet.mode !== 'folder') pdfSet.mode = 'same';
-if (!['img2pdf', 'resave', 'compress', 'raster', 'pages'].includes(pdfSet.op)) pdfSet.op = 'compress';
+if (!['img2pdf', 'resave', 'compress', 'raster', 'pages', 'decor'].includes(pdfSet.op)) pdfSet.op = 'compress';
 function pdfSave() { try { localStorage.setItem('konv9000.pdf', JSON.stringify(pdfSet)); } catch (e) {} }
 
 const PDF_IMG = /\.(jpe?g|png|webp)$/i;
@@ -78,12 +82,12 @@ function pdfRender() {
   const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), kept:t('status.kept'), canceled:t('status.canceled')};
   const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf', cp = pdfSet.comp;
   document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas', pages: 'pdf.opPg'}[op];
+  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas', pages: 'pdf.opPg', decor: 'pdf.opDec'}[op];
   $('pdfOpSum').textContent = t(opKey);
   $('pdfOpNote').textContent = t(opKey + 'Sub');
   // разделы других действий прячутся; если открытый спрятался — открыть первый раздел этого
-  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard'], pages: ['pdfPgCard', 'pdfPassCard']}[op];
-  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfPgCard', 'pdfFixCard', 'pdfPassCard']) {
+  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard'], pages: ['pdfPgCard', 'pdfPassCard'], decor: ['pdfDecCard', 'pdfPassCard']}[op];
+  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfPgCard', 'pdfDecCard', 'pdfFixCard', 'pdfPassCard']) {
     if (show.includes(id)) continue;
     if ($(id).classList.contains('open')) { pdfAccOpen(id, false); pdfAccOpen(show[0], true); }
     $(id).classList.add('hide');
@@ -132,6 +136,7 @@ function pdfRender() {
   const outName = base(pdfSet.dir.replace(/[\\/]+$/, '')) || pdfSet.dir;
   $('pdfOutSum').textContent = pdfSet.mode === 'same' ? t('out.same') : pdfSet.dir ? t('out.sumFolder', {name: outName}) : t('out.noFolder');
   $('pdfOutSum').title = pdfSet.mode === 'folder' ? pdfSet.dir : '';
+  pdfDecRender();
   pdfPgSync();
   pdfPgPanel();
   // Ð¿Ð¾ÑÑÐ´Ð¾Ðº ÑÐ°Ð¹Ð»Ð¾Ð² Ð·Ð°Ð´Ð°ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº, Ð¿Ð¾ÐºÐ° ÑÑÑÐ°Ð½Ð¸ÑÑ Ð² ÑÐµÑÐºÐµ Ð½Ðµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð¸ Ð²ÑÑÑÐ½ÑÑ (Ð¿Ð¾ÑÐ¾Ð¼ Ð¿Ð¾ÑÑÐ´Ð¾Ðº Ð¶Ð¸Ð²ÑÑ Ð² ÑÐµÑÐºÐµ)
@@ -362,7 +367,12 @@ $('pdfStart').onclick = async () => {
   if (pdfSet.mode === 'folder' && !pdfSet.dir) { say('warn', t('start.whereTitle'), t('start.where')); return; }
   const ras = {...pdfSet.ras};
   if (op === 'raster' && ras.pages === 'range' && !pdfRangeOk(ras.range)) { say('warn', t('pdf.rasRangeTitle'), t('pdf.rasRangeBad')); $('pdfRasRange').focus(); return; }
-  let plan = null;
+  let plan = null, decor = {};
+  if (op === 'decor') {
+    const dd = pdfDecOpts();
+    if (dd.err) { say('warn', t('pdf.decBadTitle'), t(dd.err)); if (dd.focus) { pdfAccOpen('pdfDecCard', true); $(dd.focus).focus(); } return; }
+    decor = dd.opts;
+  }
   if (op === 'pages') {
     const bad = pdfPgBad()[0];
     if (bad) { say('warn', t('pdf.pgBadTitle'), t('pdf.pgBadFile', {name: bad.name})); return; }
@@ -377,7 +387,7 @@ $('pdfStart').onclick = async () => {
   snap.files = []; newBatch(); pdfLast = '';
   startSent = true;
   const pw = $('pdfPass').value;
-  const r = await api('pdf-run', {files: (op === 'pages' ? pdfPgFiles() : files).map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, fix: pdfSet.fix, pages: plan || {}, password: pw,
+  const r = await api('pdf-run', {files: (op === 'pages' ? pdfPgFiles() : files).map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, fix: pdfSet.fix, pages: plan || {}, decor, password: pw,
     sameDir: pdfSet.mode === 'same', outDir: pdfSet.mode === 'folder' ? pdfSet.dir : ''});
   startSent = false;
   if (r.error) { say('err', t('start.failed'), r.error); return; }
@@ -406,3 +416,63 @@ function pdfDone(s) {
     ttl: er.length ? 0 : 15000});
 }
 pdfRender();
+
+// ---------- «Оформление»: водяной знак, номера, поля, метаданные, пароль на файл ----------
+function pdfDecRender() {
+  const d = pdfSet.dec, wm = d.wm, nm = d.num, cr = d.crop, mt = d.meta;
+  const on = (id, v) => { if ($(id).checked !== !!v) $(id).checked = !!v; };
+  const val = (id, v) => { if (document.activeElement !== $(id) && $(id).value !== String(v)) $(id).value = v; };
+  on('pdfWmOn', wm.on); on('pdfNumOn', nm.on); on('pdfCropOn', cr.on); on('pdfMetaOn', mt.on);
+  on('pdfWmTop', wm.onTop); on('pdfNumSkip', nm.skipFirst); on('pdfMetaClean', mt.clean);
+  $('pdfWmBox').classList.toggle('hide', !wm.on); $('pdfNumBox').classList.toggle('hide', !nm.on);
+  $('pdfCropBox').classList.toggle('hide', !cr.on); $('pdfMetaBox').classList.toggle('hide', !mt.on);
+  const txt = wm.kind !== 'image';
+  $('pdfWmTextRow').classList.toggle('hide', !txt); $('pdfWmSizeRow').classList.toggle('hide', !txt);
+  $('pdfWmImgRow').classList.toggle('hide', txt); $('pdfWmScaleRow').classList.toggle('hide', txt);
+  pdfChips('pdfWmKind', wm.kind); pdfChips('pdfWmSize', wm.size); pdfChips('pdfWmScale', wm.scale); pdfChips('pdfWmPos', wm.pos); pdfChips('pdfWmRot', wm.rotate);
+  pdfChips('pdfNumFmt', nm.fmt); pdfChips('pdfNumPos', nm.pos); pdfChips('pdfNumSize', nm.size);
+  val('pdfWmText', wm.text); val('pdfWmImg', wm.image); val('pdfWmColor', wm.color);
+  val('pdfWmOp', wm.opacity); $('pdfWmOpV').textContent = wm.opacity + '%';
+  for (const [id, k] of [['pdfCropTop', 'top'], ['pdfCropRight', 'right'], ['pdfCropBottom', 'bottom'], ['pdfCropLeft', 'left']]) val(id, cr[k]);
+  val('pdfMetaTitle', mt.title); val('pdfMetaAuthor', mt.author); val('pdfMetaSubject', mt.subject); val('pdfMetaKeys', mt.keywords);
+  pdfChips('pdfPwMode', d.pw.mode);
+  $('pdfPwNewRow').classList.toggle('hide', d.pw.mode !== 'set');
+  $('pdfPwNote').textContent = t({set: 'pdf.pwNote_set', remove: 'pdf.pwNote_remove'}[d.pw.mode] || 'pdf.pwNote_keep');
+  $('pdfDecSum').textContent = [wm.on && t('pdf.wm'), nm.on && t('pdf.num'), cr.on && t('pdf.crop'), (mt.on || mt.clean) && t('pdf.meta'),
+    d.pw.mode && t('pdf.pwTitle')].filter(Boolean).join(' · ') || t('pdf.decNone');
+}
+function pdfDecBind() {
+  const d = pdfSet.dec, upd = () => { pdfSave(); pdfRender(); };
+  for (const [id, obj, key] of [['pdfWmOn', d.wm, 'on'], ['pdfNumOn', d.num, 'on'], ['pdfCropOn', d.crop, 'on'], ['pdfMetaOn', d.meta, 'on'],
+      ['pdfWmTop', d.wm, 'onTop'], ['pdfNumSkip', d.num, 'skipFirst'], ['pdfMetaClean', d.meta, 'clean']])
+    $(id).addEventListener('change', () => { obj[key] = $(id).checked; upd(); });
+  for (const [id, obj, key, num] of [['pdfWmKind', d.wm, 'kind'], ['pdfWmSize', d.wm, 'size', 1], ['pdfWmScale', d.wm, 'scale', 1], ['pdfWmPos', d.wm, 'pos'], ['pdfWmRot', d.wm, 'rotate', 1],
+      ['pdfNumFmt', d.num, 'fmt'], ['pdfNumPos', d.num, 'pos'], ['pdfNumSize', d.num, 'size', 1], ['pdfPwMode', d.pw, 'mode']])
+    $(id).addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; obj[key] = num ? +b.dataset.v : b.dataset.v; upd(); if (id === 'pdfPwMode' && b.dataset.v === 'set') $('pdfPwNew').focus(); });
+  for (const [id, obj, key] of [['pdfWmText', d.wm, 'text'], ['pdfWmColor', d.wm, 'color'], ['pdfMetaTitle', d.meta, 'title'], ['pdfMetaAuthor', d.meta, 'author'],
+      ['pdfMetaSubject', d.meta, 'subject'], ['pdfMetaKeys', d.meta, 'keywords'], ['pdfWmImg', d.wm, 'image']])
+    $(id).addEventListener('input', () => { obj[key] = $(id).value; upd(); });
+  $('pdfWmOp').addEventListener('input', () => { d.wm.opacity = +$('pdfWmOp').value; upd(); });
+  for (const [id, k] of [['pdfCropTop', 'top'], ['pdfCropRight', 'right'], ['pdfCropBottom', 'bottom'], ['pdfCropLeft', 'left']])
+    $(id).addEventListener('input', () => { const v = parseFloat($(id).value); d.crop[k] = v >= 0 && v <= 200 ? v : 0; upd(); });
+  $('pdfWmPick').onclick = () => dialog(async () => {
+    const r = await api('pick-files'); if (r.error) { alert(r.error); return; }
+    const f = (r.files || []).find(x => PDF_IMG.test(x.path)); if (f) { d.wm.image = f.path; upd(); }
+  });
+}
+// настройки «Оформления» для сервера или текст, чего не хватает (пароль на чтение — в разделе «Пароль»)
+function pdfDecOpts() {
+  const d = pdfSet.dec, wm = d.wm, nm = d.num, cr = d.crop, mt = d.meta;
+  if (wm.on && wm.kind === 'image' && !wm.image.trim()) return {err: 'pdf.decNeedImg', focus: 'pdfWmImg'};
+  if (wm.on && wm.kind !== 'image' && !wm.text.trim()) return {err: 'pdf.decNeedText', focus: 'pdfWmText'};
+  if (d.pw.mode === 'set' && !$('pdfPwNew').value.trim()) return {err: 'pdf.decNeedPw', focus: 'pdfPwNew'};
+  if (!wm.on && !nm.on && !cr.on && !mt.on && !mt.clean && !d.pw.mode) return {err: 'pdf.decNothing'};
+  const word = t('pdf.numTpl');
+  return {opts: {
+    wm: {on: wm.on, kind: wm.kind, text: wm.text.trim(), image: wm.image.trim(), size: wm.size, scale: wm.scale, opacity: wm.opacity, rotate: wm.rotate, pos: wm.pos, color: wm.color, onTop: wm.onTop},
+    num: {on: nm.on, format: {n: '%p', nt: '%p / %P', word}[nm.fmt] || '%p', pos: nm.pos, size: nm.size, skipFirst: nm.skipFirst},
+    crop: {on: cr.on, top: cr.top, right: cr.right, bottom: cr.bottom, left: cr.left},
+    meta: {on: mt.on, title: mt.title, author: mt.author, subject: mt.subject, keywords: mt.keywords, clean: mt.clean},
+    pass: {mode: d.pw.mode, new: $('pdfPwNew').value}}};
+}
+pdfDecBind();

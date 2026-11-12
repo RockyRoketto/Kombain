@@ -42,6 +42,7 @@ type PDFReq struct {
 	Comp     PDFCompress   `json:"comp"`     // настройки для "compress"
 	Fix      PDFResaveOpts `json:"fix"`      // настройки для "resave"
 	Pages    PDFPagesOpts  `json:"pages"`    // план для "pages" (pdf_pages.go)
+	Decor    PDFDecor      `json:"decor"`    // настройки для "decor" (pdf_decor.go)
 	Password string        `json:"password"` // для закрытых файлов, один на всю пачку
 	SameDir  bool          `json:"sameDir"`  // «Рядом с оригиналом»
 	OutDir   string        `json:"outDir"`   // своя папка, если не SameDir
@@ -279,6 +280,8 @@ func (s *Server) pdfWork(b *pdfBatch) {
 		ok, bad = s.runRaster(b.job)
 	case "pages":
 		ok, bad = s.runPages(c, states, req)
+	case "decor":
+		ok, bad = s.runDecor(c, states, req)
 	default:
 		ok, bad = s.runResave(c, states, req)
 	}
