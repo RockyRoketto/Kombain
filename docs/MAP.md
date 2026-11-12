@@ -128,6 +128,7 @@
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
 | `pdf.go` | инструмент «PDF»: чтение и пароль (pdfcpu), путь результата, прогон пачки |
 | `pdf_compress.go` | «Сжать»: пережатие картинок в PDF (JPEG, DPI, серое, ч/б), чистка метаданных, прогноз размера и «до размера» |
+| `pdf_compare.go` | «До/после» в «Сжать»: `pdfPageMarks` (страницы с картинками, по `pdfImageScan`), `pdfComparePage` (одна страница пережата и вынута отдельным PDF), ячейка `pdfCmp` для `/pdf?c=ID` (`pdfCmpGet`, `pdfCmpDrop`) |
 | `pdf_images.go` | «Картинки → PDF» (страница A4/A5/свой размер/по картинке в `pageLayout`): подготовка JPG/PNG/WebP, поворот по EXIF, раскладка на странице, запись PDF |
 | `pdf_raster.go` | «PDF → картинки»: прогон op `raster` (`newRasterJob`, `runRaster`), ручки `pdf-ras-begin`, `pdf-page-save`, `pdf-ras-end`, папка страниц `pdfRasterDir`; раздача `/pdfjs/` (pdf.js из `web/pdfjs`) и `/pdf` (сам PDF для pdf.js). «Пересобрать» с починкой и PDF 1.4 — в `pdf.go` (`pdfOpenRepair`, `pdfResave`, `pdfPatchHeader`) |
 | `favicon.go` | `buildICO` (favicon.ico из PNG), `writeFavZip` (архив; имена только простые), `writeFavFolder`, `favFreePath`, `pngSize`; ручки `favicon-save` и `fav-read`, диалог `pickZipSave` в `ui_windows.go` |
@@ -210,7 +211,7 @@
 | `js/colormix.js` | вкладка «Цвет», инструмент «Смешать»: `cl.mix` {a, b, k, n, mode} (проверка `mixOk` в color.js), `mixAt`/`mixRow` на `clMix`, крупный результат, ряд плиток, копирование; секция `#mixWork` |
 | `js/favicon.js` | вкладка «Фавиконы», проверка, видна ли иконка на светлой и тёмной вкладке (`fvReadCheck`, `fvMedian`, `fvBestBack`, кнопка «Подложка» в `#fvRead`), выбор файла окном Windows (`fvPick`, чтобы знать папку оригинала), состояние `fv` (`FV_DEF`), иконки `fvImg` (светлая и тёмная), приём файла `fvTake` и `fvDrop` (из `drop.js`), рисование `fvDraw`, `fvSvg` (обёртка со сменой темы), `fvManifest`, `fvHtml`, отрисовка вкладки `fvPaint`, сохранение по `#fvSave`; память в localStorage `konv9000.fav2`, `konv9000.favImg` |
 | `js/pdf.js` | инструмент «PDF»: список файлов (порядок через `kinSort`, просмотр картинок `openPreview`, значок PDF → `pdfBadge`), действия, пароль, свой размер страницы, «В картинки» и «Пересобрать» (`pdfSet.ras`, `pdfSet.fix`), куда сохранять, запуск и итог |
-| `js/pdfraster.js` | pdf.js в «PDF»: загрузка по требованию (`pdfjsLoad`), рисование страницы (`pdfDrawPage`, intent print — не встаёт в свёрнутом окне), миниатюры первой страницы (`pdfThumbs`, `pdfThumbWatch`), окно просмотра `#pdfPv` (`pdfView`, `pdfPvShow`), диапазон страниц (`pdfRange`), прогон «В картинки» (`pdfRasRun`) |
+| `js/pdfraster.js` | pdf.js в «PDF»: загрузка по требованию (`pdfjsLoad`), рисование страницы (`pdfDrawPage`, intent print — не встаёт в свёрнутом окне), миниатюры первой страницы (`pdfThumbs`, `pdfThumbWatch`), окно просмотра `#pdfPv` (`pdfView`, `pdfPvShow`), сравнение до/после со шторкой (`pdfPvCmpLoad`, `pdfPvCutAt`), лупа (`pdfPvHi`, `pdfPvLensDraw`), полоса страниц с отметками картинок (`pdfPvBar`, `pdfPvGoImg`), диапазон страниц (`pdfRange`), прогон «В картинки» (`pdfRasRun`) |
 | `js/bannertab.js` | «Баннеры» и переключение вкладок и инструментов «Утилит»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
@@ -222,7 +223,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `favicon-save`, `fav-read`, `pdf-pick`, `pdf-list`, `pdf-info`, `pdf-estimate`, `pdf-run`, `pdf-ras-begin`, `pdf-page-save`, `pdf-ras-end`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data`, `open-file` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `favicon-save`, `fav-read`, `pdf-pick`, `pdf-list`, `pdf-info`, `pdf-estimate`, `pdf-page-marks`, `pdf-compare`, `pdf-run`, `pdf-ras-begin`, `pdf-page-save`, `pdf-ras-end`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data`, `open-file` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Фигуры | `shape-seq` (кадры прорисовки линии: страница шлёт PNG, Go кладёт `seq-<сумма>-%04d.png` в кэш текста, `shapes.go`) |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit`, `storage`, `storage-clear`, `storage-remove` |

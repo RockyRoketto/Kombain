@@ -1463,13 +1463,24 @@ __CSS__
   <div class="mcard pcard">
     <div class="phead"><h3 id="pdfPvName"></h3><button class="btn sm" id="pdfPvOpen" data-i18n="pdf.openApp" data-i18n-title="pdf.openDefault"></button><button class="x" id="pdfPvClose" data-i18n-title="btn.close">✕</button></div>
     <div class="stage pdf-stage" id="pdfPvStage">
-      <canvas id="pdfPvCv"></canvas>
+      <div class="pdf-box" id="pdfPvBox">
+        <canvas id="pdfPvCv"></canvas>
+        <canvas id="pdfPvB" class="hide"></canvas>
+        <div class="pdf-cut hide" id="pdfPvCut"><i></i></div>
+        <span class="pdf-lbl l hide" data-i18n="pdf.cmpBefore"></span><span class="pdf-lbl r hide" data-i18n="pdf.cmpAfter"></span>
+      </div>
+      <canvas class="pdf-lens hide" id="pdfPvLens"></canvas>
       <div class="stage-note hide" id="pdfPvNote"></div>
     </div>
+    <div class="pdf-bar hide" id="pdfPvBarW"><canvas id="pdfPvBar"></canvas><span class="pdf-bar-k" id="pdfPvBarK"></span></div>
     <div class="ctl pdf-ctl">
       <button class="ctl-b" id="pdfPvPrev" data-i18n-title="pdf.pvPrev" data-i18n-aria="pdf.pvPrev"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <span class="ctl-t" id="pdfPvNum"></span>
       <button class="ctl-b" id="pdfPvNext" data-i18n-title="pdf.pvNext" data-i18n-aria="pdf.pvNext"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="btn sm" id="pdfPvImgNext" data-i18n="pdf.imgNext" data-i18n-title="pdf.imgNextTip"></button>
+      <span class="ctl-wait hide" id="pdfPvInfo"></span>
+      <button class="btn sm" id="pdfPvCmp" data-i18n="pdf.cmp" data-i18n-title="pdf.cmpTip"></button>
+      <button class="btn sm" id="pdfPvLensB" data-i18n="pdf.lens" data-i18n-title="pdf.lensTip"></button>
     </div>
   </div>
 </div>

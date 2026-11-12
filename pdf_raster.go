@@ -175,7 +175,22 @@ func (s *Server) pdfRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/pdf", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		p := q.Get("p")
-		if r.Host != s.host || q.Get("t") != s.token || !strings.EqualFold(filepath.Ext(p), ".pdf") {
+		if r.Host != s.host || q.Get("t") != s.token {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if id := q.Get("c"); id != "" { // страница сравнения после «Сжать» (pdf_compare.go), из памяти
+			rd := pdfCmpGet(id)
+			if rd == nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Cache-Control", "no-store")
+			http.ServeContent(w, r, "page.pdf", time.Time{}, rd)
+			return
+		}
+		if !strings.EqualFold(filepath.Ext(p), ".pdf") {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

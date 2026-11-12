@@ -143,7 +143,7 @@ function pdfRender() {
     if (inf.error) sub = `<span class="tag big">${t('pdf.tagBroken')}</span>` + esc(inf.error);
     if (off) { cls = 'off'; sub = `<span class="tag">${t(it.img ? 'pdf.offImg' : 'pdf.offPdf')}</span>` + sub; }
     else if (imgOp && !im.separate) sub = `<span class="tag">${t('pdf.pageN', {n: ++page})}</span>` + sub;
-    else if (op === 'compress' && !s) sub = pdfEstTag(it) + sub;
+    else if (op === 'compress' && !s) sub = pdfEstTag(it) + (pdfPvCanCmp(it) ? `<button class="tag" data-pcmp="${esc(it.path)}" title="${esc(t('pdf.cmpTip'))}">${t('pdf.cmp')}</button>` : '') + sub;
     if (s) {
       cls = s.status; status = labels[s.status] || '';
       if (s.status === 'error') sub = esc(s.hint || s.msg);
@@ -269,6 +269,8 @@ $('pdfList').addEventListener('click', async e => {
   if (pv) { const it = pdfFiles.find(f => f.path === pv.dataset.pprev); if (it) openPreview(it); return; }
   const vw = e.target.closest('[data-pview]');
   if (vw) { const it = pdfFiles.find(f => f.path === vw.dataset.pview); if (it) pdfView(it); return; }
+  const cm = e.target.closest('[data-pcmp]');
+  if (cm) { const it = pdfFiles.find(f => f.path === cm.dataset.pcmp); if (it) pdfView(it, true); return; }
   const op = e.target.closest('[data-popen]');
   if (op) { const r = await api('open-file', {path: op.dataset.popen}); if (r.error) say('warn', t('pdf.openDefault'), r.error); }
 });

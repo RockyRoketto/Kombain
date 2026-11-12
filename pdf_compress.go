@@ -205,7 +205,14 @@ func pdfName(s string) string {
 // pdfImageSizes: самый крупный показ каждой картинки на страницах, в пунктах (ширина, высота).
 // Картинки только из аннотаций, узоров и масок сюда не попадают — для них DPI не считается.
 func pdfImageSizes(c context.Context, ctx *model.Context) map[int][2]float64 {
-	sizes := map[int][2]float64{}
+	sizes, _ := pdfImageScan(c, ctx)
+	return sizes
+}
+
+// pdfImageScan: то же, что pdfImageSizes, и заодно какие картинки (номера объектов) показаны на каждой странице
+func pdfImageScan(c context.Context, ctx *model.Context) (sizes map[int][2]float64, pages map[int]map[int]bool) {
+	sizes, pages = map[int][2]float64{}, map[int]map[int]bool{}
+	cur := 0 // страница, которую обходим
 	xref := ctx.XRefTable
 	budget := 20_000 // вызовов форм на файл: защита от зацикленных и огромных файлов
 	var walk func(content []byte, res types.Dict, base pdfMat, depth int)
@@ -252,6 +259,10 @@ func pdfImageSizes(c context.Context, ctx *model.Context) map[int][2]float64 {
 					w, h := math.Hypot(ctm[0], ctm[1]), math.Hypot(ctm[2], ctm[3])
 					old := sizes[nr]
 					sizes[nr] = [2]float64{max(old[0], w), max(old[1], h)}
+					if pages[cur] == nil {
+						pages[cur] = map[int]bool{}
+					}
+					pages[cur][nr] = true
 				case st != nil && *st == "Form":
 					budget--
 					f := *sd
@@ -289,9 +300,10 @@ func pdfImageSizes(c context.Context, ctx *model.Context) map[int][2]float64 {
 		if res == nil {
 			res, _ = xref.DereferenceDict(d["Resources"])
 		}
+		cur = p
 		walk(content, res, pdfIdent, 0)
 	}
-	return sizes
+	return
 }
 
 // pdfStrip: убрать метаданные XMP, словарь Info, миниатюры страниц и служебные данные редакторов
@@ -646,8 +658,9 @@ func pdfFlateRaw(ctx *model.Context) {
 // pdfPrep: файл, прочитанный и готовый к пережатию картинок
 type pdfPrep struct {
 	ctx   *model.Context
-	jobs  []*pdfImgJob // картинки, которые можно пережать
-	total int          // всего картинок в файле
+	jobs  []*pdfImgJob         // картинки, которые можно пережать
+	total int                  // всего картинок в файле
+	pages map[int]map[int]bool // страница -> номера показанных на ней картинок
 }
 
 // pdfPrepare: открыть, убрать повторы, по просьбе почистить, несжатые потоки — во Flate, найти картинки
@@ -663,8 +676,9 @@ func pdfPrepare(c context.Context, src, pw string, strip bool) (*pdfPrep, error)
 		pdfStrip(c, ctx)
 	}
 	pdfFlateRaw(ctx)
-	jobs, total := pdfImageJobs(ctx, pdfImageSizes(c, ctx))
-	return &pdfPrep{ctx: ctx, jobs: jobs, total: total}, nil
+	sizes, pages := pdfImageScan(c, ctx)
+	jobs, total := pdfImageJobs(ctx, sizes)
+	return &pdfPrep{ctx: ctx, jobs: jobs, total: total, pages: pages}, nil
 }
 
 // pdfColor: "gray", "bw" или ""

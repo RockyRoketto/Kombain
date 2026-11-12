@@ -791,6 +791,36 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, pdfEstimateOne(r.Context(), body.Path, body.Password, body.Comp))
 	}))
 
+	// сравнение до и после «Сжать» (pdf_compare.go): отметки страниц с картинками и одна страница после сжатия
+	mux.HandleFunc("/api/pdf-page-marks", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path     string `json:"path"`
+			Password string `json:"password"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		c, cancel := context.WithTimeout(r.Context(), time.Minute)
+		defer cancel()
+		writeJSON(w, pdfPageMarks(c, body.Path, body.Password))
+	}))
+	mux.HandleFunc("/api/pdf-compare", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path     string      `json:"path"`
+			Password string      `json:"password"`
+			Comp     PDFCompress `json:"comp"`
+			Page     int         `json:"page"`
+			Q        int         `json:"q"`    // «До размера»: ступень из прогноза страницы
+			DPI      int         `json:"dpi"`  //
+			Drop     bool        `json:"drop"` // окно закрыли
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if body.Drop {
+			pdfCmpDrop()
+			writeJSON(w, map[string]any{})
+			return
+		}
+		writeJSON(w, pdfCompareOne(r.Context(), body.Path, body.Password, body.Comp, body.Page, body.Q, body.DPI))
+	}))
+
 	mux.HandleFunc("/api/pdf-run", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var req PDFReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
