@@ -1382,6 +1382,8 @@
 
   /* PDF: «Картинки → PDF» — файлы не для выбранного действия, порядок перетаскиванием */
   #pdfList .f.off{opacity:.45}
+  #pdfList .tag.est-wait{background:none;color:var(--dim)}   /* прогноз размера: считается */
+  #pdfList .tag.est-no{background:none;color:var(--dim);border:1px solid var(--line,rgba(255,255,255,.12))}   /* меньше не станет */
   #pdfList .f .badge.th[data-pprev],#pdfList .f .badge[data-popen]{cursor:pointer}
   .pdf-size{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--tx2,inherit);font-size:12px}
   .pdf-size input[type=number]{width:64px}

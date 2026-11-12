@@ -1182,9 +1182,15 @@ __CSS__
           <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.compTitle"></span><span class="acc-s" id="pdfCompSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.compPreset"></small><div class="chips" id="pdfCompPreset">
-            <button class="chip" data-v="strong" data-i18n="pdf.cStrong"></button><button class="chip" data-v="medium" data-i18n="pdf.cMedium"></button><button class="chip" data-v="light" data-i18n="pdf.cLight"></button><button class="chip" data-v="custom" data-i18n="pdf.cCustom"></button>
+            <button class="chip" data-v="strong" data-i18n="pdf.cStrong"></button><button class="chip" data-v="medium" data-i18n="pdf.cMedium"></button><button class="chip" data-v="light" data-i18n="pdf.cLight"></button><button class="chip" data-v="custom" data-i18n="pdf.cCustom"></button><button class="chip" data-v="target" data-i18n="pdf.cTarget"></button>
           </div></div>
           <div class="note" id="pdfCompNote"></div>
+          <div id="pdfCompTarget" class="hide">
+            <div class="fgroup"><small data-i18n="pdf.tgtLabel"></small><div class="chips" id="pdfCompTgt">
+              <button class="chip" data-v="2">2</button><button class="chip" data-v="5">5</button><button class="chip" data-v="10">10</button><button class="chip" data-v="20">20</button><button class="chip" data-v="25">25</button>
+            </div>
+            <div class="pdf-size"><input type="number" id="pdfCompTgtV" min="0.1" max="10000" step="0.1" inputmode="decimal" data-i18n-aria="pdf.tgtLabel"><span data-i18n="pdf.tgtMb"></span></div></div>
+          </div>
           <div id="pdfCompCustom" class="hide">
             <div class="fgroup"><small data-i18n="pdf.compQuality"></small><div class="pdf-q">
               <input type="range" class="vol" id="pdfCompQ" data-origin="70" min="10" max="95" step="1" data-i18n-aria="pdf.compQuality"><b id="pdfCompQV"></b>

@@ -4,7 +4,7 @@
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
 const pdfSet = {mode: 'same', dir: '', op: 'compress', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
-  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true}};   // сохраняется в localStorage
+  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
@@ -90,7 +90,10 @@ function pdfRender() {
   pdfChips('pdfCompPreset', cp.preset); pdfChips('pdfCompDpi', cp.dpi); pdfChips('pdfCompColor', cp.color);
   const custom = cp.preset === 'custom';
   $('pdfCompCustom').classList.toggle('hide', !custom);
-  $('pdfCompNote').textContent = t({strong: 'pdf.cNote_strong', light: 'pdf.cNote_light', custom: 'pdf.cNote_custom'}[cp.preset] || 'pdf.cNote_medium');
+  $('pdfCompTarget').classList.toggle('hide', cp.preset !== 'target');
+  pdfChips('pdfCompTgt', cp.target);
+  if (document.activeElement !== $('pdfCompTgtV')) $('pdfCompTgtV').value = cp.target;
+  $('pdfCompNote').textContent = t({strong: 'pdf.cNote_strong', light: 'pdf.cNote_light', custom: 'pdf.cNote_custom', target: 'pdf.cNote_target'}[cp.preset] || 'pdf.cNote_medium');
   if (document.activeElement !== $('pdfCompQ')) $('pdfCompQ').value = cp.quality;
   $('pdfCompQV').textContent = cp.quality;
   $('pdfCompStrip').checked = !!cp.strip;
@@ -104,7 +107,7 @@ function pdfRender() {
   const chip = id => document.querySelector(`#${id} .chip.on`)?.textContent || '';
   $('pdfImgSum').textContent = [im.page === 'custom' ? `${im.pageW}×${im.pageH} ${t('pdf.mm')}` : chip('pdfImgPage'),im.page === 'fit' ? '' : chip('pdfImgOrient'), chip('pdfImgMargin'), chip('pdfImgQuality'),
     im.separate ? t('pdf.sepShort') : ''].filter(Boolean).join(' · ');
-  $('pdfCompSum').textContent = [custom ? `JPEG ${cp.quality} · ${cp.dpi ? cp.dpi + ' dpi' : chip('pdfCompDpi')}` : chip('pdfCompPreset'),
+  $('pdfCompSum').textContent = [custom ? `JPEG ${cp.quality} · ${cp.dpi ? cp.dpi + ' dpi' : chip('pdfCompDpi')}` : cp.preset === 'target' ? t('pdf.tgtSum', {n: pdfNum(cp.target)}) : chip('pdfCompPreset'),
     cp.color ? chip('pdfCompColor') : ''].filter(Boolean).join(' · ');
   $('pdfPassSum').textContent =t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
@@ -117,7 +120,7 @@ function pdfRender() {
   $('pdfSortName').classList.toggle('hide', !drag || pdfFor('img2pdf').length < 2);
   let page = 0;
   const list = pdfFiles.map(it => {
-    const s = pdfRes[it.path], inf = it.info || {}, off = imgOp !== it.img;
+    const s = pdfResOf(it.path), inf = it.info || {}, off = imgOp !== it.img;
     let cls = '', status = '', sub = esc(it.dir) + ' · ' + fmtSize(it.size);
     if (inf.pages) sub += ' · ' + t('pdf.pages', {n: inf.pages});
     if (inf.needPass) sub = `<span class="tag big">${t('pdf.tagPass')}</span>` + sub;
@@ -125,6 +128,7 @@ function pdfRender() {
     if (inf.error) sub = `<span class="tag big">${t('pdf.tagBroken')}</span>` + esc(inf.error);
     if (off) { cls = 'off'; sub = `<span class="tag">${t(it.img ? 'pdf.offImg' : 'pdf.offPdf')}</span>` + sub; }
     else if (imgOp && !im.separate) sub = `<span class="tag">${t('pdf.pageN', {n: ++page})}</span>` + sub;
+    else if (op === 'compress' && !s) sub = pdfEstTag(it) + sub;
     if (s) {
       cls = s.status; status = labels[s.status] || '';
       if (s.status === 'error') sub = esc(s.hint || s.msg);
@@ -137,6 +141,7 @@ function pdfRender() {
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
       `<div class="pill">${status}</div>` + (snap.running ? '' : `<button class="x" data-px="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
+  pdfEstWatch();
   $('pdfList').classList.toggle('kin-list', drag && pdfFiles.length > 1);
   if (list === pdfLast || pdfSort.busy()) return;   // опрос не сбрасывает наведение и выделение, перетаскиваемую строку не трогаем
   pdfLast = list;
@@ -145,6 +150,86 @@ function pdfRender() {
   $('pdfList').classList.toggle('hide', !pdfFiles.length);
   const np = pdfFor('resave').length, ni = pdfFor('img2pdf').length;
   $('pdfCnt').textContent = [np ? np + ' PDF' : '', ni ? t('pdf.imgCount', {n: ni}) : ''].filter(Boolean).join(' · ');
+}
+
+// ---------- прогноз размера после «Сжать» ----------
+// Оценку делает pdf_compress.go пробным сжатием без записи (/api/pdf-estimate), по одному файлу.
+// Кэш по файлу и настройкам: вернулся к прежнему пресету — ответ сразу
+const pdfEst = {};          // ключ (pdfEstKey) -> ответ сервера или {wait: true}
+let pdfEstGen = 0, pdfEstTimer = 0, pdfEstBusy = 0, pdfEstSet = '';
+const pdfNum = v => lang === 'ru' ? String(v).replace('.', ',') : String(v);
+// настройки, от которых зависит размер
+function pdfEstOpts() {
+  const c = pdfSet.comp;
+  const p = c.preset === 'custom' ? [c.preset, c.quality, c.dpi] : c.preset === 'target' ? [c.preset, +c.target] : [c.preset];
+  return JSON.stringify([p, c.color, !!c.strip, $('pdfPass').value]);
+}
+const pdfEstKey = path => path + '\n' + pdfEstOpts();
+// файлы, которые можно оценить: прочитаны, не закрыты, не битые
+const pdfEstFiles = () => pdfSet.op === 'compress' ? pdfFor('compress').filter(f => f.info && f.info.pages && !f.info.needPass && !f.info.error) : [];
+// с какими настройками был последний «Сжать»: настройки сменили — его результаты уже не про них, вместо них прогноз
+let pdfRunOpts = '';
+const pdfResOf = path => pdfSet.op === 'compress' && !snap.running && pdfRunOpts !== pdfEstOpts() ? null : pdfRes[path];
+const pdfPct = (a, b) => b < a ? ` (−${Math.round((a - b) * 100 / a)}%)` : '';
+
+function pdfEstTag(it) {
+  const e = pdfEst[pdfEstKey(it.path)];
+  if (!e || e.error || e.needPass) return '';
+  if (e.wait) return `<span class="tag est-wait">${t('pdf.estWait')}</span>`;
+  const tip = ` title="${esc(t('pdf.estTip'))}"`;
+  if (e.already) return `<span class="tag"${tip}>${t('pdf.estAlready', {n: pdfNum(pdfSet.comp.target)})}</span>`;
+  if (e.kept) return `<span class="tag est-no"${tip}>${t('pdf.estKept')}</span>`;
+  const txt = `${e.exact ? '→' : '≈'} ${fmtSize(e.size)}${pdfPct(e.src, e.size)}`;
+  if (pdfSet.comp.preset === 'target' && !e.fit) return `<span class="tag big"${tip}>${txt} · ${t('pdf.estMiss', {n: pdfNum(pdfSet.comp.target)})}</span>`;
+  return `<span class="tag"${tip}>${txt}</span>`;
+}
+
+// итог по пачке для нижней панели: «Сейчас 180 МБ → будет ≈ 42 МБ (−77%)»; '' — показывать обычную подсказку
+function pdfEstTotal() {
+  const fl = pdfEstFiles();
+  if (!fl.length || fl.some(f => pdfResOf(f.path))) return '';
+  let src = 0, dst = 0, wait = 0, approx = false;
+  for (const f of fl) {
+    const e = pdfEst[pdfEstKey(f.path)];
+    if (!e || e.wait || e.error || e.needPass) { wait++; continue; }
+    src += e.src; dst += e.kept ? e.src : e.size;
+    approx = approx || !e.exact;
+  }
+  if (wait === fl.length) return t('pdf.estTotalWait', {n: 1, m: fl.length});
+  let s = t('pdf.estTotal', {a: fmtSize(src), b: (approx || wait ? '≈ ' : '') + fmtSize(dst) + pdfPct(src, dst)});
+  if (wait) s += ' · ' + t('pdf.estTotalWait', {n: fl.length - wait + 1, m: fl.length});
+  return s;
+}
+
+// после каждой отрисовки. Сменились настройки — через паузу оценить заново (прежнюю оценку на сервере
+// отменит новый запрос). Добавились файлы — идущий цикл возьмёт их сам, иначе запустить
+function pdfEstWatch() {
+  if (snap.running || tab !== 'pdf') return;
+  const set = pdfEstOpts(), changed = set !== pdfEstSet;
+  pdfEstSet = set;
+  if (changed) renderSummary(snap);
+  if (!changed && (pdfEstBusy || !pdfEstFiles().some(f => !pdfEst[pdfEstKey(f.path)]))) return;
+  const g = pdfEstBusy = ++pdfEstGen;
+  for (const k in pdfEst) if (pdfEst[k].wait) delete pdfEst[k];
+  clearTimeout(pdfEstTimer);
+  pdfEstTimer = setTimeout(() => pdfEstLoop(g), 350);
+}
+async function pdfEstLoop(g) {
+  try {
+    for (;;) {
+      if (g !== pdfEstGen || snap.running || tab !== 'pdf') return;
+      const it = pdfEstFiles().find(f => !pdfEst[pdfEstKey(f.path)]);
+      if (!it) return;
+      const key = pdfEstKey(it.path);
+      pdfEst[key] = {wait: true};
+      pdfLast = ''; pdfRender(); renderSummary(snap);
+      const r = await api('pdf-estimate', {path: it.path, password: $('pdfPass').value, comp: pdfSet.comp});
+      // отменил более новый запрос — забыть, оценим заново; иначе запомнить даже ошибку, чтобы не крутиться на ней
+      if (r.error === 'canceled' && g !== pdfEstGen) delete pdfEst[key];
+      else pdfEst[key] = r.error && !r.src ? {error: r.error} : r;
+      pdfLast = ''; pdfRender(); renderSummary(snap);
+    }
+  } finally { if (pdfEstBusy === g) pdfEstBusy = 0; }
 }
 
 $('pdfList').addEventListener('click', e => {
@@ -203,6 +288,16 @@ for (const [id, key] of [['pdfCompPreset', 'preset'], ['pdfCompDpi', 'dpi'], ['p
     pdfSet.comp[key] = key === 'dpi' ? +b.dataset.v : b.dataset.v; pdfSave(); pdfRender();
   });
 }
+// «До размера»: МБ на файл, чипами или своим числом (0,1…10000)
+$('pdfCompTgt').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  pdfSet.comp.target = +b.dataset.v; pdfSave(); pdfRender();
+});
+$('pdfCompTgtV').addEventListener('input', () => {
+  const v = parseFloat($('pdfCompTgtV').value.replace(',', '.'));
+  if (v >= 0.1 && v <= 10000) { pdfSet.comp.target = Math.round(v * 10) / 10; pdfSave(); pdfRender(); }
+});
+$('pdfCompTgtV').addEventListener('blur', () => { $('pdfCompTgtV').value = pdfSet.comp.target; });
 $('pdfCompQ').addEventListener('input', () => { pdfSet.comp.quality = +$('pdfCompQ').value; pdfSave(); pdfRender(); });
 $('pdfCompStrip').addEventListener('change', () => { pdfSet.comp.strip = $('pdfCompStrip').checked; pdfSave(); pdfRender(); });
 $('pdfImgSep').addEventListener('change', () => { pdfSet.img.separate = $('pdfImgSep').checked; pdfSave(); pdfRender(); });
@@ -226,6 +321,7 @@ $('pdfStart').onclick = async () => {
   if (!files.length) { say('warn', t('start.emptyTitle'), t(op === 'img2pdf' ? 'pdf.emptyAddImg' : 'pdf.emptyAdd')); return; }
   if (pdfSet.mode === 'folder' && !pdfSet.dir) { say('warn', t('start.whereTitle'), t('start.where')); return; }
   pdfFiles.forEach(f => delete pdfRes[f.path]);
+  pdfRunOpts = op === 'compress' ? pdfEstOpts() : '';
   snap.files = []; newBatch(); pdfLast = '';
   startSent = true;
   const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, password: $('pdfPass').value,
@@ -246,7 +342,7 @@ function pdfDone(s) {
   toast({id: 'done', type: er.length ? 'err' : stopped ? 'warn' : !made && kept.length ? 'info' : 'ok',
     title: stopped ? t('done.stopped') : !made && kept.length ? t('pdf.compNothing') : t('pdf.doneTitle', {n: made}),
     text: esc(s.summary || ''),
-    list: [...er, ...kept].map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
+    list: [...er, ...kept, ...fl.filter(f => f.status === 'ok' && f.hint)].map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
     actions: dirs.length === 1 ? [{t: t('btn.openFolder'), primary: true, keep: true, fn: async () => {
       const r = await api('open-dir', {path: dirs[0]}); if (r.error) say('warn', t('folder.title'), r.error);
     }}] : [],

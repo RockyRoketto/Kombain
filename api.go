@@ -779,6 +779,17 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, pdfInfo(c, body.Path, body.Password))
 	}))
 
+	// прогноз размера после «Сжать» (пробное сжатие без записи); новый запрос отменяет прежний
+	mux.HandleFunc("/api/pdf-estimate", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path     string      `json:"path"`
+			Password string      `json:"password"`
+			Comp     PDFCompress `json:"comp"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		writeJSON(w, pdfEstimateOne(r.Context(), body.Path, body.Password, body.Comp))
+	}))
+
 	mux.HandleFunc("/api/pdf-run", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var req PDFReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
