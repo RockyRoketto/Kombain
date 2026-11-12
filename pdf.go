@@ -41,6 +41,7 @@ type PDFReq struct {
 	Img      ImgPDFOpts    `json:"img"`      // настройки для "img2pdf"
 	Comp     PDFCompress   `json:"comp"`     // настройки для "compress"
 	Fix      PDFResaveOpts `json:"fix"`      // настройки для "resave"
+	Pages    PDFPagesOpts  `json:"pages"`    // план для "pages" (pdf_pages.go)
 	Password string        `json:"password"` // для закрытых файлов, один на всю пачку
 	SameDir  bool          `json:"sameDir"`  // «Рядом с оригиналом»
 	OutDir   string        `json:"outDir"`   // своя папка, если не SameDir
@@ -276,6 +277,8 @@ func (s *Server) pdfWork(b *pdfBatch) {
 		ok, bad, before, after = s.runCompress(c, states, req)
 	case "raster":
 		ok, bad = s.runRaster(b.job)
+	case "pages":
+		ok, bad = s.runPages(c, states, req)
 	default:
 		ok, bad = s.runResave(c, states, req)
 	}
@@ -300,6 +303,9 @@ func (s *Server) pdfWork(b *pdfBatch) {
 		key = "pdf.rasSummary"
 	}
 	s.summary = tr(key, title, ok, len(states), bad)
+	if req.Op == "pages" {
+		s.summary = tr("pdf.pgSummary", title, ok, bad)
+	}
 	if req.Op == "compress" {
 		// итог по пачке: «было 180 МБ → стало 42 МБ», не сжатые считаются как были
 		kept := 0

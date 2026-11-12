@@ -4,7 +4,7 @@
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
 const pdfSet = {mode: 'same', dir: '', op: 'compress', ras: {fmt: 'png', dpi: 150, q: 92, pages: 'all', range: '', transparent: false}, fix: {version: '', strip: false}, img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
-  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}};   // сохраняется в localStorage
+  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}, pg: {mode: 'one', every: 2, ranges: ''}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
@@ -12,10 +12,11 @@ try {
   Object.assign(pdfSet.comp, saved.comp || {}); delete saved.comp;
   Object.assign(pdfSet.ras, saved.ras || {}); delete saved.ras;
   Object.assign(pdfSet.fix, saved.fix || {}); delete saved.fix;
+  Object.assign(pdfSet.pg, saved.pg || {}); delete saved.pg;
   Object.assign(pdfSet, saved);
 } catch (e) {}
 if (pdfSet.mode !== 'folder') pdfSet.mode = 'same';
-if (!['img2pdf', 'resave', 'compress', 'raster'].includes(pdfSet.op)) pdfSet.op = 'compress';
+if (!['img2pdf', 'resave', 'compress', 'raster', 'pages'].includes(pdfSet.op)) pdfSet.op = 'compress';
 function pdfSave() { try { localStorage.setItem('konv9000.pdf', JSON.stringify(pdfSet)); } catch (e) {} }
 
 const PDF_IMG = /\.(jpe?g|png|webp)$/i;
@@ -77,12 +78,12 @@ function pdfRender() {
   const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), kept:t('status.kept'), canceled:t('status.canceled')};
   const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf', cp = pdfSet.comp;
   document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas'}[op];
+  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas', pages: 'pdf.opPg'}[op];
   $('pdfOpSum').textContent = t(opKey);
   $('pdfOpNote').textContent = t(opKey + 'Sub');
   // разделы других действий прячутся; если открытый спрятался — открыть первый раздел этого
-  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard']}[op];
-  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfFixCard', 'pdfPassCard']) {
+  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard'], pages: ['pdfPgCard', 'pdfPassCard']}[op];
+  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfPgCard', 'pdfFixCard', 'pdfPassCard']) {
     if (show.includes(id)) continue;
     if ($(id).classList.contains('open')) { pdfAccOpen(id, false); pdfAccOpen(show[0], true); }
     $(id).classList.add('hide');
@@ -131,7 +132,10 @@ function pdfRender() {
   const outName = base(pdfSet.dir.replace(/[\\/]+$/, '')) || pdfSet.dir;
   $('pdfOutSum').textContent = pdfSet.mode === 'same' ? t('out.same') : pdfSet.dir ? t('out.sumFolder', {name: outName}) : t('out.noFolder');
   $('pdfOutSum').title = pdfSet.mode === 'folder' ? pdfSet.dir : '';
-  const drag = imgOp && !snap.running;
+  pdfPgSync();
+  pdfPgPanel();
+  // Ð¿Ð¾ÑÑÐ´Ð¾Ðº ÑÐ°Ð¹Ð»Ð¾Ð² Ð·Ð°Ð´Ð°ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº, Ð¿Ð¾ÐºÐ° ÑÑÑÐ°Ð½Ð¸ÑÑ Ð² ÑÐµÑÐºÐµ Ð½Ðµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð¸ Ð²ÑÑÑÐ½ÑÑ (Ð¿Ð¾ÑÐ¾Ð¼ Ð¿Ð¾ÑÑÐ´Ð¾Ðº Ð¶Ð¸Ð²ÑÑ Ð² ÑÐµÑÐºÐµ)
+  const drag = (imgOp || (op === 'pages' && !pdfPg.dirty)) && !snap.running;
   $('pdfSortName').classList.toggle('hide', !drag || pdfFor('img2pdf').length < 2);
   let page = 0;
   const list = pdfFiles.map(it => {
@@ -358,6 +362,14 @@ $('pdfStart').onclick = async () => {
   if (pdfSet.mode === 'folder' && !pdfSet.dir) { say('warn', t('start.whereTitle'), t('start.where')); return; }
   const ras = {...pdfSet.ras};
   if (op === 'raster' && ras.pages === 'range' && !pdfRangeOk(ras.range)) { say('warn', t('pdf.rasRangeTitle'), t('pdf.rasRangeBad')); $('pdfRasRange').focus(); return; }
+  let plan = null;
+  if (op === 'pages') {
+    const bad = pdfPgBad()[0];
+    if (bad) { say('warn', t('pdf.pgBadTitle'), t('pdf.pgBadFile', {name: bad.name})); return; }
+    plan = pdfPgPlan();
+    if (plan.error) { say('warn', t('pdf.pgTitle'), plan.error); if (pdfSet.pg.mode === 'ranges') $('pdfPgRanges').focus(); return; }
+    pdfRunDocs = plan.docs.length;
+  }
   if (op === 'raster') try { await pdfjsLoad(); } catch (e) { say('err', t('start.failed'), e.message); return; }
   pdfFiles.forEach(f => delete pdfRes[f.path]);
   pdfRunOpts = op === 'compress' ? pdfEstOpts() : '';
@@ -365,14 +377,14 @@ $('pdfStart').onclick = async () => {
   snap.files = []; newBatch(); pdfLast = '';
   startSent = true;
   const pw = $('pdfPass').value;
-  const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, fix: pdfSet.fix, password: pw,
+  const r = await api('pdf-run', {files: (op === 'pages' ? pdfPgFiles() : files).map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, fix: pdfSet.fix, pages: plan || {}, password: pw,
     sameDir: pdfSet.mode === 'same', outDir: pdfSet.mode === 'folder' ? pdfSet.dir : ''});
   startSent = false;
   if (r.error) { say('err', t('start.failed'), r.error); return; }
   snap.running = true; pollSoon();
   if (op === 'raster') pdfRasRun(files, ras, pw);   // страницы рисует окно, сервер ведёт прогон
 };
-let pdfRunOp = '';
+let pdfRunOp = '', pdfRunDocs = 0;
 
 function pdfDone(s) {
   pdfLast = '';
@@ -382,7 +394,7 @@ function pdfDone(s) {
   let dirs = [...new Set(ok.map(f => dirOf(f.dst)))];
   // «В картинки»: у каждого PDF своя папка страниц; если их несколько, но лежат рядом — открыть общую
   if (pdfRunOp === 'raster' && dirs.length > 1) { const up = [...new Set(dirs.map(d => dirOf(d.replace(/[\\/]+$/, ''))))]; if (up.length === 1) dirs = up; }
-  const made = new Set(ok.map(f => f.dst.toLowerCase())).size;
+  const made = pdfRunOp === 'pages' ? pdfRunDocs - er.length : new Set(ok.map(f => f.dst.toLowerCase())).size;
   const kept = fl.filter(f => f.status === 'kept');   // «Сжать»: не стало меньше, оригинал как есть
   toast({id: 'done', type: er.length ? 'err' : stopped ? 'warn' : !made && kept.length ? 'info' : 'ok',
     title: stopped ? t('done.stopped') : !made && kept.length ? t('pdf.compNothing') : t(pdfRunOp === 'raster' ? 'pdf.rasDoneTitle' : 'pdf.doneTitle', {n: made}),
