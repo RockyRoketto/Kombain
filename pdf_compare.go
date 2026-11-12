@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -136,6 +137,43 @@ func pdfComparePage(c context.Context, path, pw string, o PDFCompress, page, q, 
 	return
 }
 
+// pdfDecorPage: страница page после «Оформления» (водяной знак, номер, обрезка) отдельным PDF в одну страницу.
+// Метаданные и пароль на странице не видны, их не трогаем
+func pdfDecorPage(c context.Context, path, pw string, d PDFDecor, page int) (r PDFCompare, out []byte) {
+	r.Page = page
+	fail := func(err error) (PDFCompare, []byte) {
+		if errors.Is(err, errPDFPassword) {
+			return PDFCompare{Page: page, NeedPass: true}, nil
+		}
+		return PDFCompare{Page: page, Error: pdfErrText(err)}, nil
+	}
+	var clean PDFDecor
+	d.Meta, d.Pass = clean.Meta, clean.Pass
+	ctx, _, err := pdfOpenRepair(c, path, pw)
+	if err != nil {
+		return fail(err)
+	}
+	if page < 1 || page > ctx.PageCount {
+		return PDFCompare{Page: page, Error: "page"}, nil
+	}
+	if d.WM.On || d.Num.On || d.Crop.On {
+		if err := pdfDecorApply(c, ctx, d, pdfConf(pw), page); err != nil {
+			if strings.Contains(err.Error(), "font") {
+				return PDFCompare{Page: page, Error: tr("pdf.decNoFont")}, nil
+			}
+			return fail(err)
+		}
+	}
+	rd, err := api.ExtractPage(c, ctx, page)
+	if err != nil {
+		return fail(err)
+	}
+	if out, err = io.ReadAll(rd); err != nil {
+		return fail(err)
+	}
+	return
+}
+
 // pdfCmp: последняя готовая страница сравнения (одна: окно показывает одну) и отмена прежнего запроса
 var pdfCmp struct {
 	sync.Mutex
@@ -147,6 +185,16 @@ var pdfCmp struct {
 
 // pdfCompareOne: для /api/pdf-compare. Новый запрос отменяет прежний, тот отвечает Error "canceled"
 func pdfCompareOne(parent context.Context, path, pw string, o PDFCompress, page, q, dpi int) PDFCompare {
+	return pdfAfterOne(parent, page, func(c context.Context) (PDFCompare, []byte) { return pdfComparePage(c, path, pw, o, page, q, dpi) })
+}
+
+// pdfDecorOne: для /api/pdf-compare с op "decor"
+func pdfDecorOne(parent context.Context, path, pw string, d PDFDecor, page int) PDFCompare {
+	return pdfAfterOne(parent, page, func(c context.Context) (PDFCompare, []byte) { return pdfDecorPage(c, path, pw, d, page) })
+}
+
+// pdfAfterOne: готовит страницу «после» в ячейке pdfCmp
+func pdfAfterOne(parent context.Context, page int, build func(c context.Context) (PDFCompare, []byte)) PDFCompare {
 	c, cancel := context.WithTimeout(parent, 3*time.Minute)
 	pdfCmp.Lock()
 	if pdfCmp.cancel != nil {
@@ -155,7 +203,7 @@ func pdfCompareOne(parent context.Context, path, pw string, o PDFCompress, page,
 	pdfCmp.cancel = cancel
 	pdfCmp.Unlock()
 	defer cancel()
-	r, out := pdfComparePage(c, path, pw, o, page, q, dpi)
+	r, out := build(c)
 	if c.Err() != nil {
 		return PDFCompare{Page: page, Error: "canceled"}
 	}

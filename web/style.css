@@ -1464,3 +1464,40 @@
   .dec-color{flex:none;width:38px;height:auto;padding:2px;background:var(--s2);border:1px solid var(--line2);border-radius:10px;cursor:pointer}
   .dec-crop input[type=number]{width:56px}
   .dec-pw{margin-top:10px}
+
+  /* ----- PDF: выбор действия, пустой список, просмотр справа внизу (pdf.js, pdfraster.js) ----- */
+  #pdfOp .chip{display:inline-flex;align-items:center;gap:6px}
+  #pdfOp .chip .cn{font-style:normal;font-size:11px;font-weight:600;min-width:16px;padding:0 5px;border-radius:99px;background:var(--s3);color:var(--tx2);text-align:center;line-height:16px}
+  #pdfOp .chip .cn:empty{display:none}
+  #pdfOp .chip.on .cn{background:rgba(var(--acc-rgb),.25);color:var(--acct2)}
+  #pdfOp .chip.none:not(.on){opacity:.5}
+  #pdfOp + .note{margin-top:6px}
+  .pdf-can{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;width:min(560px,100%);margin-top:14px}
+  .pdf-can-i{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px;border-radius:12px;background:var(--s2);border:1px solid var(--line);text-align:left;color:var(--dim);font-size:12px;transition:.12s}
+  .pdf-can-i b{font-size:13.5px;color:var(--tx);font-weight:600}
+  .pdf-can-i:hover{border-color:rgba(var(--acc-rgb),.5);background:var(--s3)}
+  .pdf-can-i.on{border-color:rgba(var(--acl-rgb),.55);background:var(--accbg)}
+  .pdf-can-i.on b{color:var(--acct2)}
+  #pdfList .f{cursor:pointer}
+  #pdfList .f.cur{background:var(--accbg);box-shadow:inset 3px 0 0 var(--acc)}
+  #pdfList .f.off.cur{opacity:.7}
+  /* плитка просмотра: занимает всё место под разделами, ниже 240 px не сжимается (колонка тогда прокручивается) */
+  .pdf-pvt{flex:1 0 240px;min-height:240px;display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px 8px;outline:none}
+  .pvt-h{flex:none;display:flex;align-items:center;gap:6px;min-height:30px;padding:0 0 6px 4px}
+  .pvt-h .acc-t{flex:none}
+  .pvt-n{flex:1;min-width:0;font-size:12.5px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pvt-h .ctl-b{width:28px;height:28px}
+  .pvt-h .ctl-b svg{width:17px;height:17px}
+  .pdf-pvt .pdf-stage{flex:1;height:auto;min-height:120px}
+  .pdf-pvt .pdf-ctl{flex:none;margin-top:6px;gap:4px;flex-wrap:wrap}
+  .pdf-pvt .pdf-ctl .sp{flex:1}
+  .pdf-pvt .pdf-ctl.hide{display:none}
+  .pdf-pvt .pdf-bar{flex:none;margin-top:6px}
+  .pvt-info{flex:none;margin-top:4px;padding:0 4px;font-size:12px;line-height:1.4;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .pdf-stage canvas.pic{background:none}
+  .pdf-pvt .stage-note{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:12px;width:max-content}
+  .pdf-pvt .pdf-cut i{width:22px;height:22px;left:-11px;margin-top:-11px}
+  /* развёрнутый просмотр: та же плитка поверх окна */
+  .pvt-back{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.55)}
+  .pdf-pvt.big{position:fixed;inset:24px;z-index:56;padding:12px 16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .pdf-pvt.big .pvt-n{font-size:14px;color:var(--tx)}

@@ -811,11 +811,17 @@ func (s *Server) routes() *http.ServeMux {
 			Q        int         `json:"q"`    // «До размера»: ступень из прогноза страницы
 			DPI      int         `json:"dpi"`  //
 			Drop     bool        `json:"drop"` // окно закрыли
+			Op       string      `json:"op"`   // "decor" — страница после «Оформления», иначе после «Сжать»
+			Decor    PDFDecor    `json:"decor"`
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 		if body.Drop {
 			pdfCmpDrop()
 			writeJSON(w, map[string]any{})
+			return
+		}
+		if body.Op == "decor" {
+			writeJSON(w, pdfDecorOne(r.Context(), body.Path, body.Password, body.Decor, body.Page))
 			return
 		}
 		writeJSON(w, pdfCompareOne(r.Context(), body.Path, body.Password, body.Comp, body.Page, body.Q, body.DPI))

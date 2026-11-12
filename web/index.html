@@ -1138,24 +1138,31 @@ __CSS__
           </svg>
           <b data-i18n="pdf.dropTitle"></b>
           <span data-i18n="pdf.dropSub"></span>
+          <div class="pdf-can" id="pdfCan"></div>
         </div>
         <div class="list hide" id="pdfList"></div>
       </section>
 
-      <!-- правая колонка как у конвертера: разделы-аккордеоны, открыт один (settings.js) -->
-      <div class="col">
+      <!-- правая колонка как у конвертера: «Что сделать», «Параметры» выбранного действия, «Пароль» (только если есть закрытые),
+           «Куда сохранять»; разделы-аккордеоны, открыт один (settings.js). Под ними просмотр выбранного файла -->
+      <div class="col pdf-col">
         <section class="acc open" id="pdfAccOp">
           <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="pdf.action"></span><span class="acc-s" id="pdfOpSum"></span></button>
           <div class="acc-b">
-            <div class="chips" id="pdfOp">
-              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="raster" data-i18n="pdf.opRas"></button><button class="chip" data-op="pages" data-i18n="pdf.opPg"></button><button class="chip" data-op="decor" data-i18n="pdf.opDec"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
+            <div id="pdfOp">
+              <div class="fgroup"><small data-i18n="pdf.grpPdf"></small><div class="chips">
+                <button class="chip on" data-op="compress"><span data-i18n="pdf.opComp"></span><i class="cn"></i></button><button class="chip" data-op="raster"><span data-i18n="pdf.opRas"></span><i class="cn"></i></button><button class="chip" data-op="pages"><span data-i18n="pdf.opPg"></span><i class="cn"></i></button><button class="chip" data-op="decor"><span data-i18n="pdf.opDec"></span><i class="cn"></i></button><button class="chip" data-op="resave"><span data-i18n="pdf.opResave"></span><i class="cn"></i></button>
+              </div></div>
+              <div class="fgroup"><small data-i18n="pdf.grpImg"></small><div class="chips">
+                <button class="chip" data-op="img2pdf"><span data-i18n="pdf.opImg"></span><i class="cn"></i></button>
+              </div></div>
             </div>
             <div class="note" id="pdfOpNote"></div>
           </div>
         </section>
 
         <section class="acc hide" id="pdfImgCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.imgTitle"></span><span class="acc-s" id="pdfImgSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfImgSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.page"></small><div class="chips" id="pdfImgPage">
             <button class="chip" data-v="a4">A4</button><button class="chip" data-v="a5">A5</button><button class="chip" data-v="custom" data-i18n="pdf.pageCustom"></button><button class="chip" data-v="fit" data-i18n="pdf.pageFit"></button>
@@ -1179,7 +1186,7 @@ __CSS__
         </section>
 
         <section class="acc hide" id="pdfCompCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.compTitle"></span><span class="acc-s" id="pdfCompSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfCompSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.compPreset"></small><div class="chips" id="pdfCompPreset">
             <button class="chip" data-v="strong" data-i18n="pdf.cStrong"></button><button class="chip" data-v="medium" data-i18n="pdf.cMedium"></button><button class="chip" data-v="light" data-i18n="pdf.cLight"></button><button class="chip" data-v="custom" data-i18n="pdf.cCustom"></button><button class="chip" data-v="target" data-i18n="pdf.cTarget"></button>
@@ -1208,7 +1215,7 @@ __CSS__
         </section>
 
         <section class="acc hide" id="pdfRasCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.rasTitle"></span><span class="acc-s" id="pdfRasSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfRasSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.rasFmt"></small><div class="chips" id="pdfRasFmt">
             <button class="chip" data-v="png">PNG</button><button class="chip" data-v="jpg">JPG</button><button class="chip" data-v="webp">WebP</button>
@@ -1230,7 +1237,7 @@ __CSS__
         </section>
 
         <section class="acc hide" id="pdfPgCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.pgTitle"></span><span class="acc-s" id="pdfPgSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfPgSum"></span></button>
           <div class="acc-b">
           <button class="btn" id="pdfPgOpen" data-i18n="pdf.pgOpen"></button>
           <div class="note" id="pdfPgState"></div>
@@ -1244,7 +1251,7 @@ __CSS__
         </section>
 
         <section class="acc hide" id="pdfFixCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.fixTitle"></span><span class="acc-s" id="pdfFixSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfFixSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.fixVer"></small><div class="chips" id="pdfFixVer">
             <button class="chip" data-v="" data-i18n="pdf.fixVerNorm"></button><button class="chip" data-v="1.4" data-i18n="pdf.fixVer14"></button>
@@ -1256,7 +1263,7 @@ __CSS__
         </section>
 
         <section class="acc hide" id="pdfDecCard">
-          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.decTitle"></span><span class="acc-s" id="pdfDecSum"></span></button>
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.params"></span><span class="acc-s" id="pdfDecSum"></span></button>
           <div class="acc-b">
           <label class="sw"><span data-i18n="pdf.wm"></span><input type="checkbox" id="pdfWmOn"><i></i></label>
           <div class="dec-sub hide" id="pdfWmBox">
@@ -1299,7 +1306,7 @@ __CSS__
           </div>
         </section>
 
-        <section class="acc" id="pdfPassCard">
+        <section class="acc hide" id="pdfPassCard">
           <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.pass"></span><span class="acc-s" id="pdfPassSum"></span></button>
           <div class="acc-b">
             <div class="rowf"><input type="password" id="pdfPass" autocomplete="off" spellcheck="false" data-i18n-ph="pdf.passPh"></div>
@@ -1320,6 +1327,36 @@ __CSS__
           </div>
           <div class="note" data-i18n="pdf.outNote"></div>
           </div>
+        </section>
+
+        <!-- просмотр выбранного файла и «до / после»: web/js/pdfraster.js (pdf.js). Кнопка «Развернуть» раскрывает его на всё окно -->
+        <section class="pdf-pvt" id="pdfPv" tabindex="-1" aria-labelledby="pdfPvName">
+          <div class="pvt-h">
+            <span class="acc-t" data-i18n="pdf.pvTitle"></span><span class="pvt-n" id="pdfPvName"></span>
+            <button class="ctl-b" id="pdfPvOpen" data-i18n-title="pdf.openDefault" data-i18n-aria="pdf.openDefault"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="ctl-b" id="pdfPvBig" data-i18n-title="pdf.pvBig" data-i18n-aria="pdf.pvBig"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+          <div class="stage pdf-stage" id="pdfPvStage">
+            <div class="pdf-box" id="pdfPvBox">
+              <canvas id="pdfPvCv"></canvas>
+              <canvas id="pdfPvB" class="hide"></canvas>
+              <div class="pdf-cut hide" id="pdfPvCut"><i></i></div>
+              <span class="pdf-lbl l hide" data-i18n="pdf.cmpBefore"></span><span class="pdf-lbl r hide" data-i18n="pdf.cmpAfter"></span>
+            </div>
+            <canvas class="pdf-lens hide" id="pdfPvLens"></canvas>
+            <div class="stage-note hide" id="pdfPvNote"></div>
+          </div>
+          <div class="pdf-bar hide" id="pdfPvBarW"><canvas id="pdfPvBar"></canvas><span class="pdf-bar-k" id="pdfPvBarK"></span></div>
+          <div class="ctl pdf-ctl" id="pdfPvCtl">
+            <button class="ctl-b" id="pdfPvPrev" data-i18n-title="pdf.pvPrev" data-i18n-aria="pdf.pvPrev"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <span class="ctl-t" id="pdfPvNum"></span>
+            <button class="ctl-b" id="pdfPvNext" data-i18n-title="pdf.pvNext" data-i18n-aria="pdf.pvNext"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <span class="sp"></span>
+            <button class="btn sm" id="pdfPvImgNext" data-i18n="pdf.imgNext" data-i18n-title="pdf.imgNextTip"></button>
+            <button class="btn sm" id="pdfPvCmp" data-i18n="pdf.cmp" data-i18n-title="pdf.cmpTip"></button>
+            <button class="btn sm" id="pdfPvLensB" data-i18n="pdf.lens" data-i18n-title="pdf.lensTip"></button>
+          </div>
+          <div class="pvt-info hide" id="pdfPvInfo"></div>
         </section>
       </div>
     </div>
@@ -1513,33 +1550,6 @@ __CSS__
   <div class="mcard kh-card">
     <div class="phead"><h3 id="khTitle" data-i18n="tk.keysTitle"></h3><button class="x" id="khClose" data-i18n-title="btn.close">✕</button></div>
     <div class="kh-body" id="khBody"></div>
-  </div>
-</div>
-
-<!-- просмотр PDF: web/js/pdfraster.js (pdf.js) -->
-<div id="pdfPv" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="pdfPvName">
-  <div class="mcard pcard">
-    <div class="phead"><h3 id="pdfPvName"></h3><button class="btn sm" id="pdfPvOpen" data-i18n="pdf.openApp" data-i18n-title="pdf.openDefault"></button><button class="x" id="pdfPvClose" data-i18n-title="btn.close">✕</button></div>
-    <div class="stage pdf-stage" id="pdfPvStage">
-      <div class="pdf-box" id="pdfPvBox">
-        <canvas id="pdfPvCv"></canvas>
-        <canvas id="pdfPvB" class="hide"></canvas>
-        <div class="pdf-cut hide" id="pdfPvCut"><i></i></div>
-        <span class="pdf-lbl l hide" data-i18n="pdf.cmpBefore"></span><span class="pdf-lbl r hide" data-i18n="pdf.cmpAfter"></span>
-      </div>
-      <canvas class="pdf-lens hide" id="pdfPvLens"></canvas>
-      <div class="stage-note hide" id="pdfPvNote"></div>
-    </div>
-    <div class="pdf-bar hide" id="pdfPvBarW"><canvas id="pdfPvBar"></canvas><span class="pdf-bar-k" id="pdfPvBarK"></span></div>
-    <div class="ctl pdf-ctl">
-      <button class="ctl-b" id="pdfPvPrev" data-i18n-title="pdf.pvPrev" data-i18n-aria="pdf.pvPrev"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <span class="ctl-t" id="pdfPvNum"></span>
-      <button class="ctl-b" id="pdfPvNext" data-i18n-title="pdf.pvNext" data-i18n-aria="pdf.pvNext"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="btn sm" id="pdfPvImgNext" data-i18n="pdf.imgNext" data-i18n-title="pdf.imgNextTip"></button>
-      <span class="ctl-wait hide" id="pdfPvInfo"></span>
-      <button class="btn sm" id="pdfPvCmp" data-i18n="pdf.cmp" data-i18n-title="pdf.cmpTip"></button>
-      <button class="btn sm" id="pdfPvLensB" data-i18n="pdf.lens" data-i18n-title="pdf.lensTip"></button>
-    </div>
   </div>
 </div>
 

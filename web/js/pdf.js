@@ -24,8 +24,12 @@ if (!['img2pdf', 'resave', 'compress', 'raster', 'pages', 'decor'].includes(pdfS
 function pdfSave() { try { localStorage.setItem('konv9000.pdf', JSON.stringify(pdfSet)); } catch (e) {} }
 
 const PDF_IMG = /\.(jpe?g|png|webp)$/i;
-// файлы, с которыми работает выбранное действие
-const pdfFor = op => pdfFiles.filter(f => op === 'img2pdf' ? f.img : !f.img);
+// файлы, с которыми работает действие: картинки — только «Картинки → PDF»; нечитаемый PDF — только «Починить»
+const pdfFor = op => pdfFiles.filter(f => op === 'img2pdf' ? f.img : !f.img && (op === 'resave' || !(f.info && f.info.error)));
+const PDF_OPS = ['compress', 'raster', 'pages', 'decor', 'resave', 'img2pdf'];
+const PDF_OPKEY = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas', pages: 'pdf.opPg', decor: 'pdf.opDec'};
+// раздел «Параметры» каждого действия
+const PDF_CARD = {img2pdf: 'pdfImgCard', resave: 'pdfFixCard', compress: 'pdfCompCard', raster: 'pdfRasCard', pages: 'pdfPgCard', decor: 'pdfDecCard'};
 
 function pdfAdd(list) {
   const have = new Set(pdfFiles.map(f => f.path.toLowerCase()));
@@ -76,18 +80,33 @@ function pdfAccOpen(id, on) {
   $(id).classList.toggle('open', on);
   $(id).querySelector('.acc-h').setAttribute('aria-expanded', String(on));
 }
+// открыть только этот раздел правой колонки (как щелчок по заголовку)
+function pdfAccOnly(id) {
+  document.querySelectorAll('.pdf-col > .acc').forEach(s => pdfAccOpen(s.id, s.id === id));
+}
+// выбранную строку списка — в видимую часть
+function pdfScrollSel() {
+  requestAnimationFrame(() => { const r = document.querySelector('#pdfList .f.cur'); if (r) r.scrollIntoView({block: 'nearest'}); });
+}
 function pdfChips(id, v) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
 
 function pdfRender() {
   const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), kept:t('status.kept'), canceled:t('status.canceled')};
   const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf', cp = pdfSet.comp;
-  document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas', pages: 'pdf.opPg', decor: 'pdf.opDec'}[op];
+  // действия: у каждого — сколько файлов из списка ему подходит; не подходит ни один — чип приглушён
+  document.querySelectorAll('#pdfOp .chip').forEach(b => {
+    const n = pdfFiles.length ? pdfFor(b.dataset.op).length : 0;
+    b.classList.toggle('on', b.dataset.op === op);
+    b.classList.toggle('none', !!pdfFiles.length && !n);
+    b.querySelector('.cn').textContent = n || '';
+  });
+  const opKey = PDF_OPKEY[op];
   $('pdfOpSum').textContent = t(opKey);
   $('pdfOpNote').textContent = t(opKey + 'Sub');
-  // разделы других действий прячутся; если открытый спрятался — открыть первый раздел этого
-  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard'], pages: ['pdfPgCard', 'pdfPassCard'], decor: ['pdfDecCard', 'pdfPassCard']}[op];
-  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfPgCard', 'pdfDecCard', 'pdfFixCard', 'pdfPassCard']) {
+  // «Параметры» только выбранного действия; «Пароль» — только если в списке есть закрытые PDF (или пароль уже вписан)
+  const pass = !imgOp && (!!$('pdfPass').value || pdfFiles.some(f => f.info && (f.info.needPass || f.info.encrypted)));
+  const show = [PDF_CARD[op], ...(pass ? ['pdfPassCard'] : [])];
+  for (const id of [...Object.values(PDF_CARD), 'pdfPassCard']) {
     if (show.includes(id)) continue;
     if ($(id).classList.contains('open')) { pdfAccOpen(id, false); pdfAccOpen(show[0], true); }
     $(id).classList.add('hide');
@@ -139,20 +158,24 @@ function pdfRender() {
   pdfDecRender();
   pdfPgSync();
   pdfPgPanel();
-  // Ð¿Ð¾ÑÑÐ´Ð¾Ðº ÑÐ°Ð¹Ð»Ð¾Ð² Ð·Ð°Ð´Ð°ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº, Ð¿Ð¾ÐºÐ° ÑÑÑÐ°Ð½Ð¸ÑÑ Ð² ÑÐµÑÐºÐµ Ð½Ðµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð¸ Ð²ÑÑÑÐ½ÑÑ (Ð¿Ð¾ÑÐ¾Ð¼ Ð¿Ð¾ÑÑÐ´Ð¾Ðº Ð¶Ð¸Ð²ÑÑ Ð² ÑÐµÑÐºÐµ)
+  // порядок файлов задаёт список, пока страницы в сетке не правили вручную (потом порядок живёт в сетке)
   const drag = (imgOp || (op === 'pages' && !pdfPg.dirty)) && !snap.running;
   $('pdfSortName').classList.toggle('hide', !drag || pdfFor('img2pdf').length < 2);
+  pdfCanRender();
+  pdfPvSync();   // выбранный файл и просмотр; до строк: выбор мог смениться
   let page = 0;
+  const fits = new Set(pdfFor(op));
   const list = pdfFiles.map(it => {
-    const s = pdfResOf(it.path), inf = it.info || {}, off = imgOp !== it.img;
-    let cls = '', status = '', sub = esc(it.dir) + ' · ' + fmtSize(it.size);
+    const s = pdfResOf(it.path), inf = it.info || {}, off = !fits.has(it);
+    let cls = it.path === pdfSel ? 'cur' : '', status = '', sub = esc(it.dir) + ' · ' + fmtSize(it.size);
     if (inf.pages) sub += ' · ' + t('pdf.pages', {n: inf.pages});
-    if (inf.needPass) sub = `<span class="tag big">${t('pdf.tagPass')}</span>` + sub;
+    // закрытый: метка ведёт к полю пароля; нечитаемый: к «Починить»
+    if (inf.needPass) sub = `<button class="tag big" data-ppass="1" title="${esc(t('pdf.tagPassTip'))}">${t('pdf.tagPass')}</button>` + sub;
     else if (inf.encrypted) sub += `<span class="tag">${t('pdf.tagLocked')}</span>`;
-    if (inf.error) sub = `<span class="tag big">${t('pdf.tagBroken')}</span>` + esc(inf.error);
-    if (off) { cls = 'off'; sub = `<span class="tag">${t(it.img ? 'pdf.offImg' : 'pdf.offPdf')}</span>` + sub; }
+    if (inf.error) sub = `<span class="tag big">${t('pdf.tagBroken')}</span>` + (op !== 'resave' ? `<button class="tag" data-pfix="1" title="${esc(t('pdf.tagFixTip'))}">${t('pdf.tagFix')}</button>` : '') + esc(inf.error);
+    if (off) { cls += ' off'; if (!inf.error) sub = `<span class="tag">${t(it.img ? 'pdf.offImg' : 'pdf.offPdf')}</span>` + sub; }
     else if (imgOp && !im.separate) sub = `<span class="tag">${t('pdf.pageN', {n: ++page})}</span>` + sub;
-    else if (op === 'compress' && !s) sub = pdfEstTag(it) + (pdfPvCanCmp(it) ? `<button class="tag" data-pcmp="${esc(it.path)}" title="${esc(t('pdf.cmpTip'))}">${t('pdf.cmp')}</button>` : '') + sub;
+    else if (op === 'compress' && !s) sub = pdfEstTag(it) + sub;
     if (s) {
       cls = s.status; status = labels[s.status] || '';
       if (s.status === 'error') sub = esc(s.hint || s.msg);
@@ -160,7 +183,7 @@ function pdfRender() {
       else if (s.status === 'running' && s.pct) sub = Math.round(s.pct) + '%';
     }
     const badge = it.img
-      ? `<div class="badge th" data-pprev="${esc(it.path)}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, 0, 120)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
+      ? `<div class="badge th"><img src="${thumbUrl(it.path, 0, 120)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
       : pdfBadge(it);
     return `<div class="f sel ${cls}" title="${esc(it.path)}" data-pp="${esc(it.path)}">${badge}` +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
@@ -169,6 +192,7 @@ function pdfRender() {
   pdfEstWatch();
   pdfThumbWatch();
   $('pdfList').classList.toggle('kin-list', drag && pdfFiles.length > 1);
+  renderSummary(snap);
   if (list === pdfLast || pdfSort.busy()) return;   // опрос не сбрасывает наведение и выделение, перетаскиваемую строку не трогаем
   pdfLast = list;
   $('pdfList').innerHTML = list;
@@ -176,6 +200,43 @@ function pdfRender() {
   $('pdfList').classList.toggle('hide', !pdfFiles.length);
   const np = pdfFor('resave').length, ni = pdfFor('img2pdf').length;
   $('pdfCnt').textContent = [np ? np + ' PDF' : '', ni ? t('pdf.imgCount', {n: ni}) : ''].filter(Boolean).join(' · ');
+}
+
+// пустой список: что здесь можно сделать. Щелчок выбирает действие заранее
+function pdfCanRender() {
+  const html = PDF_OPS.map(op => `<button class="pdf-can-i${op === pdfSet.op ? ' on' : ''}" data-op="${op}"><b>${t(PDF_OPKEY[op])}</b><span>${t(PDF_OPKEY[op] + 'Can')}</span></button>`).join('');
+  if ($('pdfCan').innerHTML !== html) $('pdfCan').innerHTML = html;
+}
+$('pdfCan').addEventListener('click', e => { const b = e.target.closest('[data-op]'); if (b) pdfSetOp(b.dataset.op); });
+
+// что получится — для нижней панели до запуска. '' — обычная подсказка
+function pdfPlanText() {
+  if (!pdfFiles.length || pdfFiles.some(f => pdfResOf(f.path))) return '';   // после прогона — его итог
+  const op = pdfSet.op, fl = pdfFor(op), skip = pdfFiles.length - fl.length;
+  if (!fl.length) return t(op === 'img2pdf' ? 'pdf.planNoImg' : 'pdf.planNoPdf', {op: t(PDF_OPKEY[op])});
+  const pages = fl.reduce((a, f) => a + ((f.info && f.info.pages) || 0), 0);
+  let s = '';
+  if (op === 'compress') s = pdfEstTotal() || t('pdf.planComp', {n: fl.length});
+  else if (op === 'img2pdf') s = t(pdfSet.img.separate ? 'pdf.planImgSep' : 'pdf.planImg', {n: fl.length});
+  else if (op === 'raster') s = t(pdfSet.ras.pages === 'range' ? 'pdf.planRasRange' : 'pdf.planRas', {n: fl.length, p: pages, f: pdfSet.ras.fmt.toUpperCase(), d: pdfSet.ras.dpi});
+  else if (op === 'pages') { const pl = pdfPgPlan(); s = pl.error ? pl.error : t('pdf.planPg', {p: pl.docs.reduce((a, d) => a + d.pages.length, 0), n: pl.docs.length}); }
+  else if (op === 'decor') s = pdfDecSumText() === t('pdf.decNone') ? t('pdf.planDecNone') : t('pdf.planDec', {n: fl.length, what: pdfDecSumText()});
+  else if (op === 'resave') { const bad = fl.filter(f => f.info && f.info.error).length; s = t('pdf.planFix', {n: fl.length}) + (bad ? ' · ' + t('pdf.planFixBad', {n: bad}) : ''); }
+  if (skip) s += ' · ' + t('pdf.planSkip', {n: skip});
+  return s;
+}
+
+// выбрать действие: его «Параметры» сразу открываются, а выбранный в списке файл, если не подходит, меняется на подходящий
+function pdfSetOp(op) {
+  if (snap.running || !PDF_OPKEY[op]) return;
+  const was = pdfSet.op;
+  pdfSet.op = op; pdfSave();
+  const fl = pdfFor(op), cur = pdfFiles.find(f => f.path === pdfSel);
+  if (fl.length && !fl.includes(cur)) pdfSel = fl[0].path;
+  if (was !== op || !$(PDF_CARD[op]).classList.contains('open')) pdfAccOnly(PDF_CARD[op]);
+  pdfLast = '';
+  pdfRender(); renderSummary(snap);
+  pdfScrollSel();
 }
 
 // ---------- прогноз размера после «Сжать» ----------
@@ -195,7 +256,8 @@ const pdfEstKey = path => path + '\n' + pdfEstOpts();
 const pdfEstFiles = () => pdfSet.op === 'compress' ? pdfFor('compress').filter(f => f.info && f.info.pages && !f.info.needPass && !f.info.error) : [];
 // с какими настройками был последний «Сжать»: настройки сменили — его результаты уже не про них, вместо них прогноз
 let pdfRunOpts = '';
-const pdfResOf = path => pdfSet.op === 'compress' && !snap.running && pdfRunOpts !== pdfEstOpts() ? null : pdfRes[path];
+// результаты прогона видны, пока действие то же (у «Сжать» — и настройки те же); выбрал другое — вместо них его прогноз
+const pdfResOf = path => !snap.running && (pdfSet.op !== pdfRunOp || (pdfSet.op === 'compress' && pdfRunOpts !== pdfEstOpts())) ? null : pdfRes[path];
 const pdfPct = (a, b) => b < a ? ` (−${Math.round((a - b) * 100 / a)}%)` : '';
 
 function pdfEstTag(it) {
@@ -272,16 +334,18 @@ function pdfMove(from, to) {
 }
 const pdfSort = kinSort($('pdfList'), {item: '.f', key: r => r.dataset.pp, done: pdfMove});
 
-// миниатюра картинки открывает быстрый просмотр, значок PDF — просмотр страниц (pdfraster.js), а битый или закрытый — файл в программе по умолчанию
-$('pdfList').addEventListener('click', async e => {
-  const pv = e.target.closest('[data-pprev]');
-  if (pv) { const it = pdfFiles.find(f => f.path === pv.dataset.pprev); if (it) openPreview(it); return; }
-  const vw = e.target.closest('[data-pview]');
-  if (vw) { const it = pdfFiles.find(f => f.path === vw.dataset.pview); if (it) pdfView(it); return; }
-  const cm = e.target.closest('[data-pcmp]');
-  if (cm) { const it = pdfFiles.find(f => f.path === cm.dataset.pcmp); if (it) pdfView(it, true); return; }
-  const op = e.target.closest('[data-popen]');
-  if (op) { const r = await api('open-file', {path: op.dataset.popen}); if (r.error) say('warn', t('pdf.openDefault'), r.error); }
+// строка списка: щелчок выбирает файл для просмотра, двойной — просмотр на всё окно.
+// Метки в строке: «нужен пароль» ведёт к полю пароля, «Починить» — к этому действию
+$('pdfList').addEventListener('click', e => {
+  const row = e.target.closest('.f[data-pp]');
+  if (!row || e.target.closest('[data-px]')) return;
+  if (e.target.closest('[data-ppass]')) { pdfAccOnly('pdfPassCard'); $('pdfPass').focus(); }
+  if (e.target.closest('[data-pfix]')) { pdfSel = row.dataset.pp; pdfSetOp('resave'); return; }
+  if (pdfSel !== row.dataset.pp) { pdfSel = row.dataset.pp; pdfLast = ''; pdfRender(); }
+});
+$('pdfList').addEventListener('dblclick', e => {
+  const row = e.target.closest('.f[data-pp]');
+  if (row && !e.target.closest('button')) { pdfSel = row.dataset.pp; pdfLast = ''; pdfRender(); pdfPvBigSet(true); }
 });
 $('pdfSortName').onclick = () => {
   if (snap.running) return;
@@ -294,8 +358,7 @@ $('pdfAddFiles').onclick = () => dialog(async () => { const r = await api('pdf-p
 $('pdfAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'pdf'}); if (r.error) alert(r.error); pdfAdd(r.files); });
 $('pdfClear').onclick = () => { if (!snap.running) { pdfFiles = []; Object.keys(pdfRes).forEach(k => delete pdfRes[k]); pdfRender(); } };
 $('pdfOp').addEventListener('click', e => {
-  const b = e.target.closest('.chip'); if (!b || snap.running) return;
-  pdfSet.op = b.dataset.op; pdfSave(); pdfRender(); renderSummary(snap);   // прогноз «Сжать» в панели — только у него
+  const b = e.target.closest('.chip'); if (b) pdfSetOp(b.dataset.op);
 });
 for (const [id, key] of [['pdfImgPage', 'page'], ['pdfImgOrient', 'orient'], ['pdfImgMargin', 'margin'], ['pdfImgQuality', 'quality']]) {
   $(id).addEventListener('click', e => {
@@ -370,7 +433,7 @@ $('pdfStart').onclick = async () => {
   let plan = null, decor = {};
   if (op === 'decor') {
     const dd = pdfDecOpts();
-    if (dd.err) { say('warn', t('pdf.decBadTitle'), t(dd.err)); if (dd.focus) { pdfAccOpen('pdfDecCard', true); $(dd.focus).focus(); } return; }
+    if (dd.err) { say('warn', t('pdf.decBadTitle'), t(dd.err)); if (dd.focus) { pdfAccOnly('pdfDecCard'); $(dd.focus).focus(); } return; }
     decor = dd.opts;
   }
   if (op === 'pages') {
@@ -438,8 +501,7 @@ function pdfDecRender() {
   pdfChips('pdfPwMode', d.pw.mode);
   $('pdfPwNewRow').classList.toggle('hide', d.pw.mode !== 'set');
   $('pdfPwNote').textContent = t({set: 'pdf.pwNote_set', remove: 'pdf.pwNote_remove'}[d.pw.mode] || 'pdf.pwNote_keep');
-  $('pdfDecSum').textContent = [wm.on && t('pdf.wm'), nm.on && t('pdf.num'), cr.on && t('pdf.crop'), (mt.on || mt.clean) && t('pdf.meta'),
-    d.pw.mode && t('pdf.pwTitle')].filter(Boolean).join(' · ') || t('pdf.decNone');
+  $('pdfDecSum').textContent = pdfDecSumText();
 }
 function pdfDecBind() {
   const d = pdfSet.dec, upd = () => { pdfSave(); pdfRender(); };
@@ -467,12 +529,23 @@ function pdfDecOpts() {
   if (wm.on && wm.kind !== 'image' && !wm.text.trim()) return {err: 'pdf.decNeedText', focus: 'pdfWmText'};
   if (d.pw.mode === 'set' && !$('pdfPwNew').value.trim()) return {err: 'pdf.decNeedPw', focus: 'pdfPwNew'};
   if (!wm.on && !nm.on && !cr.on && !mt.on && !mt.clean && !d.pw.mode) return {err: 'pdf.decNothing'};
-  const word = t('pdf.numTpl');
-  return {opts: {
-    wm: {on: wm.on, kind: wm.kind, text: wm.text.trim(), image: wm.image.trim(), size: wm.size, scale: wm.scale, opacity: wm.opacity, rotate: wm.rotate, pos: wm.pos, color: wm.color, onTop: wm.onTop},
+  return {opts: pdfDecBuild()};
+}
+// те же настройки без проверок; водяной знак без текста или картинки выключен (так их берёт и просмотр «после»)
+function pdfDecBuild() {
+  const d = pdfSet.dec, wm = d.wm, nm = d.num, cr = d.crop, mt = d.meta;
+  const word = t('pdf.numTpl'), wmOk = wm.on && !!(wm.kind === 'image' ? wm.image.trim() : wm.text.trim());
+  return {
+    wm: {on: wmOk, kind: wm.kind, text: wm.text.trim(), image: wm.image.trim(), size: wm.size, scale: wm.scale, opacity: wm.opacity, rotate: wm.rotate, pos: wm.pos, color: wm.color, onTop: wm.onTop},
     num: {on: nm.on, format: {n: '%p', nt: '%p / %P', word}[nm.fmt] || '%p', pos: nm.pos, size: nm.size, skipFirst: nm.skipFirst},
     crop: {on: cr.on, top: cr.top, right: cr.right, bottom: cr.bottom, left: cr.left},
     meta: {on: mt.on, title: mt.title, author: mt.author, subject: mt.subject, keywords: mt.keywords, clean: mt.clean},
-    pass: {mode: d.pw.mode, new: $('pdfPwNew').value}}};
+    pass: {mode: d.pw.mode, new: $('pdfPwNew').value}};
+}
+// что включено в «Оформлении», через точку
+function pdfDecSumText() {
+  const d = pdfSet.dec;
+  return [d.wm.on && t('pdf.wm'), d.num.on && t('pdf.num'), d.crop.on && t('pdf.crop'), (d.meta.on || d.meta.clean) && t('pdf.meta'),
+    d.pw.mode === 'set' && t('pdf.pwSetSum'), d.pw.mode === 'remove' && t('pdf.pwRemoveSum')].filter(Boolean).join(' · ') || t('pdf.decNone');
 }
 pdfDecBind();

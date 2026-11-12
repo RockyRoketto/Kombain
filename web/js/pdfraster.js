@@ -49,13 +49,13 @@ async function pdfDrawPage(doc, n, scale, transparent) {
 // ---------- миниатюры первой страницы в списке ----------
 const pdfThumbs = {};   // путь -> dataURL, 'wait' или 'fail'
 let pdfThumbBusy = false;
-// значок PDF в строке списка: миниатюра, если уже есть, иначе просто «pdf»; оба открывают просмотр
+// значок PDF в строке списка: миниатюра первой страницы, если уже есть, иначе просто «pdf». Щелчок по строке показывает файл в просмотре
 function pdfBadge(it) {
   const th = pdfThumbs[it.path], inf = it.info || {};
   const can = inf.pages && !inf.needPass && !inf.error;
   if (can && th && th !== 'wait' && th !== 'fail')
-    return `<div class="badge th pdfth" data-pview="${esc(it.path)}" title="${t('pdf.view')}"><img src="${th}" alt="" draggable="false"><span class="ex">pdf</span></div>`;
-  return `<div class="badge${can ? ' pdfv' : ''}" ${can ? `data-pview="${esc(it.path)}" title="${t('pdf.view')}"` : `data-popen="${esc(it.path)}" title="${t('pdf.openDefault')}"`}>pdf</div>`;
+    return `<div class="badge th pdfth"><img src="${th}" alt="" draggable="false"><span class="ex">pdf</span></div>`;
+  return `<div class="badge">pdf</div>`;
 }
 // дорисовать недостающие миниатюры по одной; во время прогона не мешаем
 async function pdfThumbWatch() {
@@ -81,51 +81,179 @@ async function pdfThumbWatch() {
   } finally { pdfThumbBusy = false; }
 }
 
-// ---------- просмотр PDF ----------
-// В «Сжать» тот же просмотр сравнивает страницу до и после (pdf_compare.go пережимает одну страницу):
-// «После» лежит поверх «До», шторка (--cut) открывает его справа. Лупа показывает место под курсором крупно,
-// с обеих сторон шторки. Полоса под страницей — все страницы, страницы с картинками отмечены
-const pdfPv = {doc: null, path: '', n: 1, gen: 0, it: null, marks: null, cmp: false, lens: false, cut: 0.5, z: 3, zMax: 4,
-  scale: 1, docB: null, res: null, hiA: null, hiB: null, hiKey: '', lp: null};
-const pdfPvCanCmp = it => pdfSet.op === 'compress' && !!(it && it.info && it.info.pages && !it.info.needPass && !it.info.error);
-async function pdfView(it, cmp) {
-  pdfPvClose();
-  const g = ++pdfPv.gen;
-  Object.assign(pdfPv, {path: it.path, it, n: 1, marks: null, cmp: !!cmp && pdfPvCanCmp(it), res: null});
-  $('pdfPvName').textContent = it.name;
-  $('pdfPvNum').textContent = '';
-  const cv = $('pdfPvCv'); cv.width = cv.height = 0;
-  $('pdfPvNote').classList.add('hide');
-  $('pdfPvCmp').classList.toggle('hide', !pdfPvCanCmp(it));
-  pdfPvMode();
-  $('pdfPv').classList.remove('hide');
-  $('pdfPvClose').focus();
-  const pw = $('pdfPass').value;
-  const marks = api('pdf-page-marks', {path: it.path, password: pw}).then(r => {
+// ---------- просмотр выбранного файла (плитка справа внизу) ----------
+// Показывает то, что выбрано в списке: страницу PDF с листанием, картинку, а в «Картинки → PDF» — будущую страницу
+// (картинка на листе с полями, листаются картинки по порядку). «До / после»: в «Сжать» и «Оформлении» сервер
+// готовит одну страницу с текущими настройками (pdf_compare.go), «После» лежит поверх «До», шторка (--cut)
+// открывает его справа. Лупа показывает место под курсором крупно, с обеих сторон шторки.
+// Полоса под страницей — все страницы, страницы с картинками отмечены. «Развернуть» — та же плитка на всё окно
+const pdfPv = {doc: null, path: '', n: 1, gen: 0, it: null, kind: '', key: '', marks: null, cmp: false, cmpWant: true, aKey: '', lens: false,
+  cut: 0.5, z: 3, zMax: 4, scale: 1, docB: null, res: null, hiA: null, hiB: null, hiKey: '', lp: null, big: false, img: null, layKey: ''};
+let pdfSel = '';   // путь выбранного в списке файла
+const pdfDecVis = () => { const d = pdfSet.dec; return d.wm.on || d.num.on || d.crop.on; };
+// где есть что сравнивать: сжатие меняет картинки, оформление — вид страницы
+const pdfPvCanCmp = () => pdfPv.kind === 'pdf' && !snap.running && (pdfSet.op === 'compress' || (pdfSet.op === 'decor' && pdfDecVis()));
+// настройки, от которых зависит страница «После»
+function pdfPvAfterKey() {
+  if (pdfSet.op === 'compress') return 'c' + pdfEstOpts();
+  const d = pdfDecBuild();
+  return 'd' + JSON.stringify([d.wm, d.num, d.crop, $('pdfPass').value]);
+}
+
+// после каждой отрисовки списка: выбранный файл, вид просмотра, страница «После»
+function pdfPvSync() {
+  let it = pdfFiles.find(f => f.path === pdfSel);
+  if (!it) { it = pdfFor(pdfSet.op)[0] || pdfFiles[0]; pdfSel = it ? it.path : ''; }
+  const inf = (it && it.info) || {};
+  const kind = !it ? 'none' : it.img ? (pdfSet.op === 'img2pdf' ? 'lay' : 'img') : !it.info || inf.wait ? 'wait' : inf.needPass ? 'pass' : inf.error ? 'bad' : 'pdf';
+  const key = [kind, it ? it.path : '', kind === 'pdf' ? $('pdfPass').value : '', kind === 'bad' ? pdfSet.op === 'resave' : ''].join('\n');
+  if (key !== pdfPv.key) { pdfPv.key = key; pdfPvLoad(it, kind); return; }
+  if (kind === 'lay') pdfPvLay();
+  else if (kind === 'pdf') {
+    pdfPvAfterSync(); pdfPvBar();
+    // подпись живёт вместе с настройками и прогнозом размера
+    if (pdfPv.cmp && pdfPv.res) pdfPvInfo(pdfPvInfoText(pdfPv.res)); else if (!pdfPv.cmp && pdfPv.doc) pdfPvInfo(pdfPvPlainInfo());
+  }
+}
+
+// показать файл it как kind
+function pdfPvLoad(it, kind) {
+  pdfPvReset();
+  const g = pdfPv.gen;
+  Object.assign(pdfPv, {path: it ? it.path : '', it: it || null, kind, n: 1});
+  $('pdfPvName').textContent = it ? it.name : '';
+  $('pdfPvName').title = it ? it.path : '';
+  const note = {none: 'pdf.pvEmpty', wait: '', pass: 'pdf.pvPass', bad: pdfSet.op === 'resave' ? 'pdf.pvBadFix' : 'pdf.pvBad'}[kind];
+  if (note !== undefined) pdfPvNote(note && t(note));
+  pdfPvCtl();
+  if (kind === 'img') pdfPvImg(g);
+  else if (kind === 'lay') pdfPvLay();
+  else if (kind === 'pdf') pdfPvOpenDoc(g);
+}
+function pdfPvNote(s) {
+  $('pdfPvNote').textContent = s || '';
+  $('pdfPvNote').classList.toggle('hide', !s);
+}
+// кнопки по виду: листание у PDF и будущих страниц, сравнение и лупа только у PDF
+function pdfPvCtl() {
+  const k = pdfPv.kind, pages = k === 'pdf' || k === 'lay';
+  $('pdfPvCtl').classList.toggle('hide', !pages);
+  $('pdfPvLensB').classList.toggle('hide', k !== 'pdf');
+  $('pdfPvCmp').classList.toggle('hide', !pdfPvCanCmp());
+  $('pdfPvOpen').classList.toggle('hide', !pdfPv.it);
+  $('pdfPvBig').classList.toggle('hide', !pdfPv.it && !pdfPv.big);
+  $('pdfPvInfo').classList.toggle('hide', !$('pdfPvInfo').textContent);
+}
+function pdfPvInfo(s) {
+  $('pdfPvInfo').textContent = s || '';
+  $('pdfPvInfo').classList.toggle('hide', !s);
+}
+
+// размер холста под плитку: страница w×h (в любых единицах) вписывается целиком
+function pdfPvFit(w, h) {
+  const st = $('pdfPvStage');
+  return Math.max(0.05, Math.min((st.clientWidth - 20) / w, (st.clientHeight - 20) / h) || 1);
+}
+
+// картинка как есть (не для «Картинки → PDF»)
+function pdfPvImg(g) {
+  const im = new Image();
+  im.onload = () => {
+    if (g !== pdfPv.gen) return;
+    pdfPv.img = im;
+    const k = pdfPvFit(im.naturalWidth, im.naturalHeight), dpr = window.devicePixelRatio || 1;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(im.naturalWidth * k * dpr)); cv.height = Math.max(1, Math.round(im.naturalHeight * k * dpr));
+    cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+    pdfPvPut($('pdfPvCv'), cv, [Math.round(cv.width / dpr) + 'px', Math.round(cv.height / dpr) + 'px']);
+    $('pdfPvCv').classList.add('pic');
+    pdfPvInfo(`${im.naturalWidth} × ${im.naturalHeight} px`);
+  };
+  im.onerror = () => { if (g === pdfPv.gen) pdfPvNote(t('pdf.pvNoImg')); };
+  im.src = thumbUrl(pdfPv.path, 0, 1600);
+}
+
+// «Картинки → PDF»: будущая страница. Раскладка как pageLayout в pdf_images.go
+const pdfPvImgs = {};   // путь -> Image (размеры и сама картинка для листа)
+function pdfPvLayCalc(iw, ih) {
+  const o = pdfSet.img;
+  let m = Math.max(0, Math.min(+o.margin || 0, 50)) * 72 / 25.4, pw = 595.276, ph = 841.89;
+  if (o.page !== 'a4' && o.page !== 'a5' && o.page !== 'custom') {
+    const w = iw * 0.75, h = ih * 0.75;
+    return {pw: w + 2 * m, ph: h + 2 * m, x: m, y: m, w, h};
+  }
+  if (o.page === 'a5') { pw = 419.528; ph = 595.276; }
+  if (o.page === 'custom') {
+    if (o.pageW >= 20 && o.pageW <= 5000 && o.pageH >= 20 && o.pageH <= 5000) { pw = o.pageW * 72 / 25.4; ph = o.pageH * 72 / 25.4; if (pw > ph) [pw, ph] = [ph, pw]; }
+    m = Math.min(m, pw / 2 - 1, ph / 2 - 1);
+  }
+  if (o.orient === 'landscape' || (o.orient !== 'portrait' && iw > ih)) [pw, ph] = [ph, pw];
+  const k = Math.min((pw - 2 * m) / iw, (ph - 2 * m) / ih), w = iw * k, h = ih * k;
+  return {pw, ph, x: (pw - w) / 2, y: (ph - h) / 2, w, h};
+}
+function pdfPvLay() {
+  const list = pdfFor('img2pdf'), it = pdfPv.it;
+  if (!it) return;
+  const n = list.indexOf(it) + 1, st = $('pdfPvStage');
+  const key = [it.path, n, list.length, JSON.stringify(pdfSet.img), st.clientWidth, st.clientHeight].join('|');
+  if (key === pdfPv.layKey) return;
+  const g = pdfPv.gen;
+  let im = pdfPvImgs[it.path];
+  if (!im) {
+    im = pdfPvImgs[it.path] = new Image();
+    im.onload = () => { if (g === pdfPv.gen) { pdfPv.layKey = ''; pdfPvLay(); } };
+    im.onerror = () => { im.bad = true; if (g === pdfPv.gen) pdfPvNote(t('pdf.pvNoImg')); };
+    im.src = thumbUrl(it.path, 0, 1600);
+  }
+  pdfPv.n = n;
+  $('pdfPvNum').textContent = t('pdf.pvPage', {n, m: list.length});
+  $('pdfPvPrev').disabled = n <= 1; $('pdfPvNext').disabled = n >= list.length;
+  pdfPvBar();
+  if (!im.complete || im.bad || !im.naturalWidth) return;
+  pdfPv.layKey = key;
+  const L = pdfPvLayCalc(im.naturalWidth, im.naturalHeight), dpr = window.devicePixelRatio || 1, k = pdfPvFit(L.pw, L.ph) * dpr;
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(L.pw * k)); cv.height = Math.max(1, Math.round(L.ph * k));
+  const c = cv.getContext('2d');
+  c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+  c.drawImage(im, L.x * k, L.y * k, L.w * k, L.h * k);
+  pdfPvPut($('pdfPvCv'), cv, [Math.round(cv.width / dpr) + 'px', Math.round(cv.height / dpr) + 'px']);
+  $('pdfPvCv').classList.remove('pic');
+  const o = pdfSet.img, mm = v => Math.round(v * 25.4 / 72);
+  const page = o.page === 'fit' ? t('pdf.pageFit') : o.page === 'custom' ? `${o.pageW}×${o.pageH} ${t('pdf.mm')}` : o.page.toUpperCase();
+  pdfPvInfo([t(o.separate ? 'pdf.laySep' : 'pdf.layOne', {n, m: list.length}), page, o.page === 'fit' ? `${mm(L.pw)}×${mm(L.ph)} ${t('pdf.mm')}` : t(L.pw > L.ph ? 'pdf.orientLandscape' : 'pdf.orientPortrait').toLowerCase(),
+    o.margin ? t('pdf.layMargin', {n: o.margin}) : t('pdf.marginNone')].join(' · '));
+  pdfPvNote('');
+}
+
+// PDF: открыть, найти страницы с картинками, показать первую (в «Сжать» — первую с картинками)
+async function pdfPvOpenDoc(g) {
+  const pw = $('pdfPass').value, path = pdfPv.path;
+  const marks = api('pdf-page-marks', {path, password: pw}).then(r => {
     if (g !== pdfPv.gen) return;
     pdfPv.marks = r.error || r.needPass ? null : {img: new Set(r.img || []), any: new Set(r.any || [])};
     pdfPvBar();
   });
   try {
-    const doc = await pdfDoc(it.path, pw);
+    const doc = await pdfDoc(path, pw);
     if (g !== pdfPv.gen) { doc.destroy(); return; }
     pdfPv.doc = doc;
-    // открыли сравнение — сразу к первой странице с картинками: на остальных сжатию нечего менять
-    if (pdfPv.cmp) {
+    if (pdfSet.op === 'compress') {
       await marks;
       if (g !== pdfPv.gen) return;
       const first = pdfPv.marks && Math.min(...pdfPv.marks.img);
       if (first && isFinite(first)) pdfPv.n = first;
     }
+    pdfPvAfterSync(true);
     pdfPvShow();
   } catch (e) {
-    if (g !== pdfPv.gen) return;
-    $('pdfPvNote').textContent = pdfJsErr(e);
-    $('pdfPvNote').classList.remove('hide');
+    if (g === pdfPv.gen) pdfPvNote(pdfJsErr(e));
   }
 }
 let pdfPvTask = null;
 async function pdfPvShow() {
+  if (pdfPv.kind === 'lay') { pdfPv.layKey = ''; pdfPvLay(); return; }
+  if (pdfPv.kind === 'img') { pdfPvImg(pdfPv.gen); return; }
   const doc = pdfPv.doc; if (!doc) return;
   const g = pdfPv.gen, n = pdfPv.n = Math.max(1, Math.min(doc.numPages, pdfPv.n));
   $('pdfPvNum').textContent = t('pdf.pvPage', {n, m: doc.numPages});
@@ -135,8 +263,8 @@ async function pdfPvShow() {
   try {
     const page = await doc.getPage(n);
     if (g !== pdfPv.gen || n !== pdfPv.n) { page.cleanup(); return; }
-    const st = $('pdfPvStage'), base = page.getViewport({scale: 1});
-    const fit = Math.max(0.1, Math.min((st.clientWidth - 24) / base.width, (st.clientHeight - 24) / base.height) || 1);   // окно ещё не разложено — хоть что-то
+    const base = page.getViewport({scale: 1}), fit = pdfPvFit(base.width, base.height);
+    pdfPv.vp1 = [base.width, base.height];
     const dpr = window.devicePixelRatio || 1, vp = page.getViewport({scale: fit * dpr});
     if (pdfPvTask) { pdfPvTask.cancel(); pdfPvTask = null; }
     const cv = document.createElement('canvas');
@@ -150,14 +278,29 @@ async function pdfPvShow() {
     pdfPv.scale = fit * dpr;
     const css = [Math.floor(vp.width / dpr) + 'px', Math.floor(vp.height / dpr) + 'px'];
     pdfPvPut($('pdfPvCv'), cv, css);
+    $('pdfPvCv').classList.remove('pic');
+    pdfPvNote('');
     if (!$('pdfPvB').classList.contains('hide')) { $('pdfPvB').style.width = css[0]; $('pdfPvB').style.height = css[1]; }
     pdfPvHi();
-    if (pdfPv.cmp) pdfPvCmpLoad(g, n);
+    if (pdfPv.cmp) pdfPvCmpSoon(0);
+    else pdfPvInfo(pdfPvPlainInfo());
   } catch (e) {
     if (e && e.name === 'RenderingCancelledException') return;
-    $('pdfPvNote').textContent = pdfJsErr(e);
-    $('pdfPvNote').classList.remove('hide');
+    pdfPvNote(pdfJsErr(e));
   }
+}
+// подпись под страницей без сравнения: что выйдет у выбранного действия
+function pdfPvPlainInfo() {
+  const op = pdfSet.op;
+  if (op === 'raster' && pdfPv.doc) {
+    const r = pdfSet.ras, k = r.dpi / 72, vp = pdfPv.vp1;
+    const w = vp ? Math.round(vp[0] * k) : 0, h = vp ? Math.round(vp[1] * k) : 0;
+    return w ? t('pdf.rasPvInfo', {w, h, f: r.fmt.toUpperCase()}) : '';
+  }
+  if (op === 'pages') return t('pdf.pgPvInfo');
+  if (op === 'decor' && !pdfDecVis()) return t('pdf.decPvNone');
+  if (op === 'resave') return pdfPv.it && pdfPv.it.info && pdfPv.it.info.version ? t('pdf.fixPvInfo', {v: pdfPv.it.info.version}) : '';
+  return '';
 }
 // перенести готовый холст cv в видимый out с размером css
 function pdfPvPut(out, cv, css) {
@@ -168,18 +311,39 @@ function pdfPvPut(out, cv, css) {
 }
 
 // ---------- сравнение до/после ----------
+// включить или выключить сравнение по действию и настройкам; настройки сменились — «После» готовится заново (с паузой)
+function pdfPvAfterSync(quiet) {
+  const can = pdfPvCanCmp(), want = can && pdfPv.cmpWant, k = want ? pdfPvAfterKey() : '';
+  $('pdfPvCmp').classList.toggle('hide', !can);
+  if (want === pdfPv.cmp && k === pdfPv.aKey) return;
+  pdfPv.cmp = want; pdfPv.aKey = k;
+  pdfPvDropB();
+  if (!want) { api('pdf-compare', {drop: true}); pdfPvInfo(pdfPvPlainInfo()); }
+  pdfPvMode();
+  if (want && pdfPv.doc && !quiet) pdfPvCmpSoon(400);
+}
+let pdfPvCmpT = 0;
+function pdfPvCmpSoon(ms) {
+  clearTimeout(pdfPvCmpT);
+  const g = pdfPv.gen;
+  if (!pdfPv.res) pdfPvInfo(t(pdfSet.op === 'decor' ? 'pdf.cmpWaitDec' : 'pdf.cmpWait'));
+  pdfPvCmpT = setTimeout(() => pdfPvCmpLoad(g, pdfPv.n), ms);
+}
 // страница «После» с сервера: PDF в одну страницу, целиком в память (сервер держит только последнюю)
 async function pdfPvCmpLoad(g, n) {
-  const info = $('pdfPvInfo');
-  const stale = () => g !== pdfPv.gen || n !== pdfPv.n || !pdfPv.cmp;
+  const key = pdfPv.aKey, op = pdfSet.op;
+  const stale = () => g !== pdfPv.gen || n !== pdfPv.n || !pdfPv.cmp || key !== pdfPv.aKey;
+  if (stale()) return;
   try {
     if (!pdfPv.docB || !pdfPv.res || pdfPv.res.page !== n) {
       pdfPvDropB();
-      info.textContent = t('pdf.cmpWait');
+      pdfPvInfo(t(op === 'decor' ? 'pdf.cmpWaitDec' : 'pdf.cmpWait'));
       const e = pdfEst[pdfEstKey(pdfPv.path)] || {};   // «До размера»: ступень уже подобрал прогноз
-      const r = await api('pdf-compare', {path: pdfPv.path, password: $('pdfPass').value, comp: pdfSet.comp, page: n, q: e.quality || 0, dpi: e.dpi || 0});
+      const r = await api('pdf-compare', op === 'decor'
+        ? {op, path: pdfPv.path, password: $('pdfPass').value, decor: pdfDecBuild(), page: n}
+        : {path: pdfPv.path, password: $('pdfPass').value, comp: pdfSet.comp, page: n, q: e.quality || 0, dpi: e.dpi || 0});
       if (stale() || r.error === 'canceled') return;
-      if (r.error || r.needPass || !r.id) { info.textContent = r.needPass ? t('pdf.jsPass') : r.error || t('net.err'); return; }
+      if (r.error || r.needPass || !r.id) { pdfPvInfo(r.needPass ? t('pdf.jsPass') : r.error || t('net.err')); return; }
       const buf = await (await fetch(`/pdf?t=${TOKEN}&c=${encodeURIComponent(r.id)}`)).arrayBuffer();
       if (stale()) return;
       const doc = await (await pdfjsLoad()).getDocument({data: new Uint8Array(buf), isEvalSupported: false}).promise;
@@ -187,25 +351,43 @@ async function pdfPvCmpLoad(g, n) {
       if (pdfPv.docB) pdfPv.docB.destroy();
       pdfPv.docB = doc; pdfPv.res = r;
     }
-    info.textContent = pdfPvInfoText(pdfPv.res);
-    const cv = await pdfDrawPage(pdfPv.docB, 1, pdfPv.scale, false);
+    pdfPvInfo(pdfPvInfoText(pdfPv.res));
+    let cv = await pdfDrawPage(pdfPv.docB, 1, pdfPv.scale, false);
     if (stale()) { cv.width = cv.height = 0; return; }
+    cv = pdfPvCropFit(cv, pdfPv.scale);
     const a = $('pdfPvCv');
     pdfPvPut($('pdfPvB'), cv, [a.style.width, a.style.height]);
     pdfPvMode();
     pdfPvHi();
   } catch (e) {
-    if (!stale()) info.textContent = pdfJsErr(e);
+    if (!stale()) pdfPvInfo(pdfJsErr(e));
   }
 }
+// «Оформление» с обрезкой: страница «После» меньше исходной. Кладём её на холст размера «До» на своё место,
+// срезанные поля остаются пустыми — шторка показывает, что именно уйдёт. k — масштаб холста (1 = 72 dpi)
+function pdfPvCropFit(cv, k) {
+  const a = $('pdfPvCv'), cr = pdfSet.dec.crop;
+  if (pdfSet.op !== 'decor' || !cr.on || !a.width) return cv;
+  const W = Math.round(a.width * k / pdfPv.scale), H = Math.round(a.height * k / pdfPv.scale);
+  if (Math.abs(cv.width - W) < 3 && Math.abs(cv.height - H) < 3) return cv;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const c = out.getContext('2d'), mm = k * 72 / 25.4;
+  c.fillStyle = '#4a4a4a'; c.fillRect(0, 0, W, H);
+  c.drawImage(cv, Math.round(cr.left * mm), Math.round(cr.top * mm));
+  cv.width = cv.height = 0;
+  return out;
+}
 function pdfPvInfoText(r) {
-  if (!r.images) return t('pdf.cmpNoImg');
-  if (!r.recoded) return t('pdf.cmpSame', {n: r.images});
+  if (pdfSet.op === 'decor') return t('pdf.cmpDecInfo');
+  const e = pdfEst[pdfEstKey(pdfPv.path)];
+  const file = e && !e.wait && !e.error && e.src ? t('pdf.cmpFile', {a: fmtSize(e.src), b: (e.exact ? '' : '≈ ') + fmtSize(e.kept ? e.src : e.size) + pdfPct(e.src, e.kept ? e.src : e.size)}) + ' · ' : '';
+  if (!r.images) return file + t('pdf.cmpNoImg');
+  if (!r.recoded) return file + t('pdf.cmpSame', {n: r.images});
   let s = t('pdf.cmpInfo', {n: r.recoded, m: r.images, a: fmtSize(r.before), b: fmtSize(r.after)}) + pdfPct(r.before, r.after);
   if (pdfSet.comp.preset === 'target' && r.quality) s += ` · JPEG ${r.quality}, ${r.dpi} dpi`;
-  const e = pdfEst[pdfEstKey(pdfPv.path)];
   if (e && e.kept) s += ' · ' + t('pdf.cmpKept');
-  return s;
+  return file + s;
 }
 // убрать страницу «После»
 function pdfPvDropB() {
@@ -218,20 +400,17 @@ function pdfPvDropB() {
 // видимость шторки, подписей и кнопок по состоянию
 function pdfPvMode() {
   const ready = pdfPv.cmp && !!pdfPv.docB;
-  $('pdfPvStage').classList.toggle('cmp', pdfPv.cmp);
+  $('pdfPvStage').classList.toggle('cmp', ready);
   $('pdfPvStage').classList.toggle('lens', pdfPv.lens);
   for (const el of [$('pdfPvB'), $('pdfPvCut'), ...document.querySelectorAll('#pdfPvBox .pdf-lbl')]) el.classList.toggle('hide', !ready);
-  $('pdfPvInfo').classList.toggle('hide', !pdfPv.cmp);
   $('pdfPvCmp').classList.toggle('on', pdfPv.cmp);
   $('pdfPvLensB').classList.toggle('on', pdfPv.lens);
   $('pdfPvBox').style.setProperty('--cut', pdfPv.cut * 100 + '%');
   pdfPvLensDraw();
 }
 $('pdfPvCmp').onclick = () => {
-  pdfPv.cmp = !pdfPv.cmp && pdfPvCanCmp(pdfPv.it);
-  if (!pdfPv.cmp) { pdfPvDropB(); api('pdf-compare', {drop: true}); }
-  pdfPvMode();
-  if (pdfPv.cmp && pdfPv.doc) pdfPvCmpLoad(pdfPv.gen, pdfPv.n);
+  pdfPv.cmpWant = !pdfPv.cmp;
+  pdfPvAfterSync();
 };
 
 // шторка: тянуть в любом месте страницы
@@ -244,7 +423,8 @@ function pdfPvCutAt(e) {
 }
 const pdfPvSt = $('pdfPvStage');
 pdfPvSt.addEventListener('pointerdown', e => {
-  if (!pdfPv.cmp || e.button !== 0) return;
+  $('pdfPv').focus({preventScroll: true});
+  if (!pdfPv.cmp || !pdfPv.docB || e.button !== 0) return;
   pdfPvSt.setPointerCapture(e.pointerId);
   pdfPvDrag = true;
   pdfPvCutAt(e);
@@ -256,6 +436,8 @@ pdfPvSt.addEventListener('pointermove', e => {
 });
 for (const ev of ['pointerup', 'pointercancel']) pdfPvSt.addEventListener(ev, () => { pdfPvDrag = false; });
 pdfPvSt.addEventListener('pointerleave', () => { if (!pdfPvDrag) { pdfPv.lp = null; pdfPvLensDraw(); } });
+// двойной щелчок по странице — развернуть или свернуть
+pdfPvSt.addEventListener('dblclick', () => { if (pdfPv.it) pdfPvBigSet(!pdfPv.big); });
 
 // ---------- лупа ----------
 // Страницы для лупы рисуются крупнее экрана (до 4 раз, не больше 48 Мпикс), пока рисуются — лупа берёт экранные
@@ -278,7 +460,7 @@ async function pdfPvHi() {
     pdfPv.hiA = hiA;
     pdfPvLensDraw();
     if (docB && pdfPv.cmp) {
-      const hiB = await pdfDrawPage(docB, 1, pdfPv.scale * f, false);
+      const hiB = pdfPvCropFit(await pdfDrawPage(docB, 1, pdfPv.scale * f, false), pdfPv.scale * f);
       if (key !== pdfPv.hiKey || g !== pdfPv.gen) { hiB.width = hiB.height = 0; return; }
       pdfPv.hiB = hiB;
       pdfPvLensDraw();
@@ -290,9 +472,10 @@ function pdfPvLensDraw() {
   const L = $('pdfPvLens'), a = $('pdfPvCv');
   const ra = a.getBoundingClientRect(), lp = pdfPv.lp;
   const u = lp && (lp.x - ra.left) / ra.width, v = lp && (lp.y - ra.top) / ra.height;
-  if (!pdfPv.lens || !lp || !a.width || !(u >= 0 && u <= 1 && v >= 0 && v <= 1)) { L.classList.add('hide'); return; }
-  const rs = pdfPvSt.getBoundingClientRect(), S = 240, dpr = window.devicePixelRatio || 1, D = Math.round(S * dpr);
+  if (!pdfPv.lens || pdfPv.kind !== 'pdf' || !lp || !a.width || !(u >= 0 && u <= 1 && v >= 0 && v <= 1)) { L.classList.add('hide'); return; }
+  const rs = pdfPvSt.getBoundingClientRect(), S = Math.min(240, Math.max(140, rs.width * 0.45)), dpr = window.devicePixelRatio || 1, D = Math.round(S * dpr);
   if (L.width !== D) L.width = L.height = D;
+  L.style.width = L.style.height = S + 'px';
   L.style.left = (lp.x - rs.left - S / 2) + 'px';
   L.style.top = (lp.y - rs.top - S / 2) + 'px';
   L.classList.remove('hide');
@@ -320,9 +503,10 @@ function pdfPvLensDraw() {
 }
 
 // ---------- полоса страниц ----------
+const pdfPvCount = () => pdfPv.kind === 'lay' ? pdfFor('img2pdf').length : pdfPv.doc ? pdfPv.doc.numPages : 0;
 function pdfPvBar() {
-  const w = $('pdfPvBarW'), cv = $('pdfPvBar'), N = pdfPv.doc ? pdfPv.doc.numPages : 0, mk = pdfPv.marks;
-  $('pdfPvImgNext').classList.toggle('hide', !mk || N < 2);
+  const w = $('pdfPvBarW'), cv = $('pdfPvBar'), N = pdfPvCount(), mk = pdfPv.kind === 'pdf' ? pdfPv.marks : null;
+  $('pdfPvImgNext').classList.toggle('hide', !mk || N < 2 || !['compress', 'raster', 'decor'].includes(pdfSet.op));
   $('pdfPvImgNext').disabled = !mk || !mk.img.size;
   w.classList.toggle('hide', N < 2);
   if (N < 2) return;
@@ -345,13 +529,14 @@ function pdfPvBar() {
   c.fillRect(x + (step - gap - cw) / 2, 0, cw, H);
 }
 const pdfPvBarPage = e => {
-  const r = $('pdfPvBar').getBoundingClientRect(), N = pdfPv.doc ? pdfPv.doc.numPages : 0;
+  const r = $('pdfPvBar').getBoundingClientRect(), N = pdfPvCount();
   return N ? Math.min(N, Math.max(1, Math.floor((e.clientX - r.left) / r.width * N) + 1)) : 0;
 };
-$('pdfPvBar').addEventListener('click', e => { const p = pdfPvBarPage(e); if (p) { pdfPv.n = p; pdfPvShow(); } });
+$('pdfPvBar').addEventListener('click', e => { const p = pdfPvBarPage(e); if (p) pdfPvTo(p); });
 $('pdfPvBar').addEventListener('mousemove', e => {
-  const p = pdfPvBarPage(e), mk = pdfPv.marks;
-  e.target.title = !p ? '' : t('pdf.pvPage', {n: p, m: pdfPv.doc.numPages}) + (mk && mk.any.has(p) ? ' · ' + t(pdfSet.op === 'compress' && !mk.img.has(p) ? 'pdf.barAny' : 'pdf.barPics') : '');
+  const p = pdfPvBarPage(e), mk = pdfPv.kind === 'pdf' ? pdfPv.marks : null;
+  e.target.title = !p ? '' : pdfPv.kind === 'lay' ? (pdfFor('img2pdf')[p - 1] || {}).name || ''
+    : t('pdf.pvPage', {n: p, m: pdfPvCount()}) + (mk && mk.any.has(p) ? ' · ' + t(pdfSet.op === 'compress' && !mk.img.has(p) ? 'pdf.barAny' : 'pdf.barPics') : '');
 });
 // к следующей (d = -1 — к предыдущей) странице с картинками, по кругу
 function pdfPvGoImg(d) {
@@ -364,46 +549,84 @@ function pdfPvGoImg(d) {
 }
 $('pdfPvImgNext').onclick = () => pdfPvGoImg(1);
 
-function pdfPvGo(d) { if (pdfPv.doc) { pdfPv.n += d; pdfPvShow(); } }
-function pdfPvClose() {
+// к странице p: у PDF — страница файла, у «Картинки → PDF» — следующая картинка (она же выбирается в списке)
+function pdfPvTo(p) {
+  if (pdfPv.kind === 'lay') {
+    const it = pdfFor('img2pdf')[p - 1];
+    if (it && it !== pdfPv.it) { pdfSel = it.path; pdfLast = ''; pdfRender(); pdfScrollSel(); }
+    return;
+  }
+  if (pdfPv.doc) { pdfPv.n = p; pdfPvShow(); }
+}
+const pdfPvGo = d => pdfPvTo(pdfPv.n + d);
+// сбросить показанный файл (смена файла)
+function pdfPvReset() {
   pdfPv.gen++;
+  clearTimeout(pdfPvCmpT);
   if (pdfPvTask) { pdfPvTask.cancel(); pdfPvTask = null; }
   if (pdfPv.doc) { pdfPv.doc.destroy(); pdfPv.doc = null; }
   if (pdfPv.docB || pdfPv.cmp) api('pdf-compare', {drop: true});
   pdfPvDropB();
   for (const k of ['hiA', 'hiB']) if (pdfPv[k]) { pdfPv[k].width = pdfPv[k].height = 0; pdfPv[k] = null; }
-  pdfPv.hiKey = ''; pdfPv.lp = null; pdfPv.marks = null;
+  Object.assign(pdfPv, {hiKey: '', lp: null, marks: null, cmp: false, aKey: '', img: null, layKey: '', vp1: null});
+  const cv = $('pdfPvCv'); cv.width = cv.height = 0; cv.style.width = cv.style.height = '0';
+  $('pdfPvNum').textContent = '';
   $('pdfPvLens').classList.add('hide');
-  $('pdfPv').classList.add('hide');
+  $('pdfPvBarW').classList.add('hide');
+  pdfPvNote('');
+  pdfPvInfo('');
 }
-$('pdfPvClose').onclick = pdfPvClose;
-$('pdfPv').addEventListener('click', e => { if (e.target === $('pdfPv')) pdfPvClose(); });
+// развернуть на всё окно и обратно: та же плитка, над ней затемнение
+function pdfPvBigSet(on) {
+  pdfPv.big = !!on;
+  $('pdfPv').classList.toggle('big', pdfPv.big);
+  $('pdfPvBack').classList.toggle('hide', !pdfPv.big);
+  $('pdfPvBig').title = t(pdfPv.big ? 'pdf.pvSmall' : 'pdf.pvBig');
+  if (pdfPv.big) $('pdfPv').focus({preventScroll: true});
+  requestAnimationFrame(() => { pdfPv.layKey = ''; pdfPvShow(); });
+}
+{
+  const back = document.createElement('div');
+  back.id = 'pdfPvBack'; back.className = 'pvt-back hide';
+  back.onclick = () => pdfPvBigSet(false);
+  $('pdfPv').before(back);
+}
+$('pdfPvBig').onclick = () => pdfPvBigSet(!pdfPv.big);
 $('pdfPvPrev').onclick = () => pdfPvGo(-1);
 $('pdfPvNext').onclick = () => pdfPvGo(1);
-$('pdfPvOpen').onclick = async () => { const r = await api('open-file', {path: pdfPv.path}); if (r.error) say('warn', t('pdf.openDefault'), r.error); };
+$('pdfPvOpen').onclick = async () => { if (!pdfPv.path) return; const r = await api('open-file', {path: pdfPv.path}); if (r.error) say('warn', t('pdf.openDefault'), r.error); };
 // колесо листает страницы; с лупой над страницей — меняет её увеличение
 pdfPvSt.addEventListener('wheel', e => {
-  if (e.ctrlKey || Math.abs(e.deltaY) <= 4) return;
+  if (e.ctrlKey || Math.abs(e.deltaY) <= 4 || pdfPvCount() < 2 && !pdfPv.lens) return;
   e.preventDefault();
   if (pdfPv.lens && !$('pdfPvLens').classList.contains('hide')) {
     pdfPv.z = Math.min(pdfPv.zMax, Math.max(1.5, pdfPv.z * (e.deltaY < 0 ? 1.25 : 0.8)));
     pdfPvLensDraw();
   } else pdfPvGo(e.deltaY > 0 ? 1 : -1);
 }, {passive: false});
+// клавиши: в развёрнутом просмотре всегда, в плитке — когда фокус на ней
 document.addEventListener('keydown', e => {
-  if ($('pdfPv').classList.contains('hide')) return;
+  if (tab !== 'pdf' || (!pdfPv.big && !$('pdfPv').contains(document.activeElement))) return;
+  if (e.target.closest('input,textarea,select')) return;
   const k = e.key;
-  if (k === 'Escape') pdfPvClose();
+  if (k === 'Escape' && pdfPv.big) pdfPvBigSet(false);
   else if (e.shiftKey && (k === 'ArrowLeft' || k === 'ArrowRight')) pdfPvGoImg(k === 'ArrowRight' ? 1 : -1);
   else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') pdfPvGo(-1);
   else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !e.target.closest('button'))) pdfPvGo(1);
-  else if (k === 'Home' && pdfPv.doc) { pdfPv.n = 1; pdfPvShow(); }
-  else if (k === 'End' && pdfPv.doc) { pdfPv.n = pdfPv.doc.numPages; pdfPvShow(); }
+  else if (k === 'Home') pdfPvTo(1);
+  else if (k === 'End') pdfPvTo(pdfPvCount());
   else return;
   e.preventDefault();
 });
-let pdfPvResize = 0;
-window.addEventListener('resize', () => { clearTimeout(pdfPvResize); if (pdfPv.doc) pdfPvResize = setTimeout(pdfPvShow, 150); });
+// плитка меняет размер (окно, раскрытый раздел над ней) — перерисовать под новый размер
+let pdfPvResize = 0, pdfPvSize = '';
+new ResizeObserver(() => {
+  const st = $('pdfPvStage'), s = st.clientWidth + 'x' + st.clientHeight;
+  if (s === pdfPvSize || !st.clientWidth) return;
+  pdfPvSize = s;
+  clearTimeout(pdfPvResize);
+  if (pdfPv.it) pdfPvResize = setTimeout(pdfPvShow, 120);
+}).observe($('pdfPvStage'));
 
 // ---------- «В картинки» ----------
 // «1-3, 5, 8-» → номера страниц по порядку без повторов; null — не разобрать. total — сколько страниц в файле

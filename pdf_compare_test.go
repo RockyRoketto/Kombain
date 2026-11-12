@@ -66,3 +66,36 @@ func TestPDFComparePage(t *testing.T) {
 		t.Fatal("после закрытия страница осталась")
 	}
 }
+
+// «После» для «Оформления»: одна страница с водяным знаком, номером «2 из 3» и обрезкой
+func TestPDFDecorPage(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "Отчёт.pdf")
+	pdfMiniW(t, src, 300, 300, 300)
+	c := context.Background()
+	var d PDFDecor
+	d.WM.On, d.WM.Kind, d.WM.Text = true, "text", "Черновик"
+	d.Num.On, d.Num.Format, d.Num.SkipFirst = true, "%p / %P", true
+	d.Crop.On, d.Crop.Top = true, 20
+	d.Pass.Mode, d.Pass.New = "set", "не применяется"
+	r, out := pdfDecorPage(c, src, "", d, 2)
+	if r.Error != "" || len(out) == 0 {
+		t.Fatalf("%+v", r)
+	}
+	n, err := api.PageCount(c, bytes.NewReader(out), nil)
+	if err != nil || n != 1 {
+		t.Fatalf("страница не прочиталась: %d %v", n, err)
+	}
+	// первая страница при «не ставить на первой»: номер пропускается, остальное есть
+	if r, out = pdfDecorPage(c, src, "", d, 1); r.Error != "" || len(out) == 0 {
+		t.Fatalf("%+v", r)
+	}
+	if r, _ = pdfDecorPage(c, src, "", d, 5); r.Error == "" {
+		t.Fatal("ждали ошибку")
+	}
+	a := pdfDecorOne(c, src, "", d, 3)
+	if a.ID == "" || pdfCmpGet(a.ID) == nil {
+		t.Fatalf("%+v", a)
+	}
+	pdfCmpDrop()
+}

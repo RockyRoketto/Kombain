@@ -142,8 +142,18 @@ func pdfAllPages(n int, skipFirst bool) types.IntSet {
 	return set
 }
 
-// pdfDecorApply: правки в открытом контексте (без записи и пароля)
-func pdfDecorApply(c context.Context, ctx *model.Context, d PDFDecor, conf *model.Configuration) error {
+// pdfDecorApply: правки в открытом контексте (без записи и пароля).
+// only > 0 — только эта страница (предпросмотр «после»): номер и «из N» остаются как во всём файле
+func pdfDecorApply(c context.Context, ctx *model.Context, d PDFDecor, conf *model.Configuration, only int) error {
+	pagesOf := func(skipFirst bool) types.IntSet {
+		if only > 0 {
+			if skipFirst && only == 1 {
+				return types.IntSet{}
+			}
+			return types.IntSet{only: true}
+		}
+		return pdfAllPages(ctx.PageCount, skipFirst)
+	}
 	if d.Meta.Clean {
 		pdfStrip(c, ctx)
 	}
@@ -165,7 +175,7 @@ func pdfDecorApply(c context.Context, ctx *model.Context, d PDFDecor, conf *mode
 		if err != nil {
 			return err
 		}
-		if err := ctx.Crop(c, pdfAllPages(ctx.PageCount, false), box); err != nil {
+		if err := ctx.Crop(c, pagesOf(false), box); err != nil {
 			return err
 		}
 	}
@@ -199,7 +209,7 @@ func pdfDecorApply(c context.Context, ctx *model.Context, d PDFDecor, conf *mode
 		if err != nil {
 			return err
 		}
-		if err := decorStamp(c, ctx, pdfAllPages(ctx.PageCount, false), wm); err != nil {
+		if err := decorStamp(c, ctx, pagesOf(false), wm); err != nil {
 			return err
 		}
 	}
@@ -218,8 +228,10 @@ func pdfDecorApply(c context.Context, ctx *model.Context, d PDFDecor, conf *mode
 		if err != nil {
 			return err
 		}
-		if err := decorStamp(c, ctx, pdfAllPages(ctx.PageCount, d.Num.SkipFirst), wm); err != nil {
-			return err
+		if set := pagesOf(d.Num.SkipFirst); len(set) > 0 {
+			if err := decorStamp(c, ctx, set, wm); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -247,7 +259,7 @@ func pdfDecor(c context.Context, src, dst, pw string, d PDFDecor) (repaired bool
 		return false, err
 	}
 	conf := pdfConf(pw)
-	if err := pdfDecorApply(c, ctx, d, conf); err != nil {
+	if err := pdfDecorApply(c, ctx, d, conf, 0); err != nil {
 		return false, err
 	}
 	if err := api.OptimizeContext(c, ctx); err != nil {
