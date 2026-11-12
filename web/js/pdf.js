@@ -3,17 +3,19 @@
 // прогон идёт через общий опрос, как у «Баннеров».
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
-const pdfSet = {mode: 'same', dir: '', op: 'compress', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
+const pdfSet = {mode: 'same', dir: '', op: 'compress', ras: {fmt: 'png', dpi: 150, q: 92, pages: 'all', range: '', transparent: false}, fix: {version: '', strip: false}, img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
   comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true, target: 10}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
   Object.assign(pdfSet.img, saved.img || {}); delete saved.img;
   Object.assign(pdfSet.comp, saved.comp || {}); delete saved.comp;
+  Object.assign(pdfSet.ras, saved.ras || {}); delete saved.ras;
+  Object.assign(pdfSet.fix, saved.fix || {}); delete saved.fix;
   Object.assign(pdfSet, saved);
 } catch (e) {}
 if (pdfSet.mode !== 'folder') pdfSet.mode = 'same';
-if (!['img2pdf', 'resave', 'compress'].includes(pdfSet.op)) pdfSet.op = 'compress';
+if (!['img2pdf', 'resave', 'compress', 'raster'].includes(pdfSet.op)) pdfSet.op = 'compress';
 function pdfSave() { try { localStorage.setItem('konv9000.pdf', JSON.stringify(pdfSet)); } catch (e) {} }
 
 const PDF_IMG = /\.(jpe?g|png|webp)$/i;
@@ -75,17 +77,28 @@ function pdfRender() {
   const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), kept:t('status.kept'), canceled:t('status.canceled')};
   const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf', cp = pdfSet.comp;
   document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp'}[op];
+  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp', raster: 'pdf.opRas'}[op];
   $('pdfOpSum').textContent = t(opKey);
   $('pdfOpNote').textContent = t(opKey + 'Sub');
   // разделы других действий прячутся; если открытый спрятался — открыть первый раздел этого
-  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard']}[op];
-  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfPassCard']) {
+  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfFixCard', 'pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard'], raster: ['pdfRasCard', 'pdfPassCard']}[op];
+  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfRasCard', 'pdfFixCard', 'pdfPassCard']) {
     if (show.includes(id)) continue;
     if ($(id).classList.contains('open')) { pdfAccOpen(id, false); pdfAccOpen(show[0], true); }
     $(id).classList.add('hide');
   }
   show.forEach(id => $(id).classList.remove('hide'));
+  // в картинки и пересборка
+  const rs = pdfSet.ras, fx = pdfSet.fix;
+  pdfChips('pdfRasFmt', rs.fmt); pdfChips('pdfRasDpi', rs.dpi); pdfChips('pdfRasQ', rs.q); pdfChips('pdfRasPages', rs.pages);
+  $('pdfRasQRow').classList.toggle('hide', rs.fmt === 'png');
+  $('pdfRasTranspRow').classList.toggle('hide', rs.fmt === 'jpg');
+  $('pdfRasTransp').checked = !!rs.transparent;
+  $('pdfRasRangeRow').classList.toggle('hide', rs.pages !== 'range');
+  if (document.activeElement !== $('pdfRasRange')) $('pdfRasRange').value = rs.range;
+  $('pdfRasRange').classList.toggle('bad', rs.pages === 'range' && !!rs.range.trim() && !pdfRangeOk(rs.range));
+  pdfChips('pdfFixVer', fx.version);
+  $('pdfFixStrip').checked = !!fx.strip;
   // сжатие
   pdfChips('pdfCompPreset', cp.preset); pdfChips('pdfCompDpi', cp.dpi); pdfChips('pdfCompColor', cp.color);
   const custom = cp.preset === 'custom';
@@ -109,7 +122,9 @@ function pdfRender() {
     im.separate ? t('pdf.sepShort') : ''].filter(Boolean).join(' · ');
   $('pdfCompSum').textContent = [custom ? `JPEG ${cp.quality} · ${cp.dpi ? cp.dpi + ' dpi' : chip('pdfCompDpi')}` : cp.preset === 'target' ? t('pdf.tgtSum', {n: pdfNum(cp.target)}) : chip('pdfCompPreset'),
     cp.color ? chip('pdfCompColor') : ''].filter(Boolean).join(' · ');
-  $('pdfPassSum').textContent =t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
+  $('pdfRasSum').textContent = [chip('pdfRasFmt'), rs.dpi + ' dpi', rs.pages === 'range' && rs.range.trim() ? rs.range.trim() : chip('pdfRasPages')].join(' · ');
+  $('pdfFixSum').textContent = chip('pdfFixVer');
+  $('pdfPassSum').textContent = t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
   $('pdfFolderRow').classList.toggle('hide', pdfSet.mode !== 'folder');
   if ($('pdfOutDir').value !== pdfSet.dir && document.activeElement !== $('pdfOutDir')) $('pdfOutDir').value = pdfSet.dir;
@@ -133,15 +148,17 @@ function pdfRender() {
       cls = s.status; status = labels[s.status] || '';
       if (s.status === 'error') sub = esc(s.hint || s.msg);
       else if (s.msg) sub = esc(s.msg);
+      else if (s.status === 'running' && s.pct) sub = Math.round(s.pct) + '%';
     }
     const badge = it.img
       ? `<div class="badge th" data-pprev="${esc(it.path)}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, 0, 120)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
-      : `<div class="badge" data-popen="${esc(it.path)}" title="${t('pdf.openDefault')}">pdf</div>`;
+      : pdfBadge(it);
     return `<div class="f sel ${cls}" title="${esc(it.path)}" data-pp="${esc(it.path)}">${badge}` +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
       `<div class="pill">${status}</div>` + (snap.running ? '' : `<button class="x" data-px="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
   pdfEstWatch();
+  pdfThumbWatch();
   $('pdfList').classList.toggle('kin-list', drag && pdfFiles.length > 1);
   if (list === pdfLast || pdfSort.busy()) return;   // опрос не сбрасывает наведение и выделение, перетаскиваемую строку не трогаем
   pdfLast = list;
@@ -246,10 +263,12 @@ function pdfMove(from, to) {
 }
 const pdfSort = kinSort($('pdfList'), {item: '.f', key: r => r.dataset.pp, done: pdfMove});
 
-// миниатюра картинки открывает быстрый просмотр, значок PDF — файл в программе по умолчанию
+// миниатюра картинки открывает быстрый просмотр, значок PDF — просмотр страниц (pdfraster.js), а битый или закрытый — файл в программе по умолчанию
 $('pdfList').addEventListener('click', async e => {
   const pv = e.target.closest('[data-pprev]');
   if (pv) { const it = pdfFiles.find(f => f.path === pv.dataset.pprev); if (it) openPreview(it); return; }
+  const vw = e.target.closest('[data-pview]');
+  if (vw) { const it = pdfFiles.find(f => f.path === vw.dataset.pview); if (it) pdfView(it); return; }
   const op = e.target.closest('[data-popen]');
   if (op) { const r = await api('open-file', {path: op.dataset.popen}); if (r.error) say('warn', t('pdf.openDefault'), r.error); }
 });
@@ -265,7 +284,7 @@ $('pdfAddFolder').onclick = () => dialog(async () => { const r = await api('pick
 $('pdfClear').onclick = () => { if (!snap.running) { pdfFiles = []; Object.keys(pdfRes).forEach(k => delete pdfRes[k]); pdfRender(); } };
 $('pdfOp').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b || snap.running) return;
-  pdfSet.op = b.dataset.op; pdfSave(); pdfRender();
+  pdfSet.op = b.dataset.op; pdfSave(); pdfRender(); renderSummary(snap);   // прогноз «Сжать» в панели — только у него
 });
 for (const [id, key] of [['pdfImgPage', 'page'], ['pdfImgOrient', 'orient'], ['pdfImgMargin', 'margin'], ['pdfImgQuality', 'quality']]) {
   $(id).addEventListener('click', e => {
@@ -301,6 +320,21 @@ $('pdfCompTgtV').addEventListener('blur', () => { $('pdfCompTgtV').value = pdfSe
 $('pdfCompQ').addEventListener('input', () => { pdfSet.comp.quality = +$('pdfCompQ').value; pdfSave(); pdfRender(); });
 $('pdfCompStrip').addEventListener('change', () => { pdfSet.comp.strip = $('pdfCompStrip').checked; pdfSave(); pdfRender(); });
 $('pdfImgSep').addEventListener('change', () => { pdfSet.img.separate = $('pdfImgSep').checked; pdfSave(); pdfRender(); });
+// в картинки: формат, dpi, качество, страницы, прозрачность; пересборка: совместимость, чистка
+for (const [id, key] of [['pdfRasFmt', 'fmt'], ['pdfRasDpi', 'dpi'], ['pdfRasQ', 'q'], ['pdfRasPages', 'pages']]) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    pdfSet.ras[key] = key === 'dpi' || key === 'q' ? +b.dataset.v : b.dataset.v; pdfSave(); pdfRender();
+    if (key === 'pages' && b.dataset.v === 'range') $('pdfRasRange').focus();
+  });
+}
+$('pdfRasRange').addEventListener('input', () => { pdfSet.ras.range = $('pdfRasRange').value; pdfSave(); pdfRender(); });
+$('pdfRasTransp').addEventListener('change', () => { pdfSet.ras.transparent = $('pdfRasTransp').checked; pdfSave(); pdfRender(); });
+$('pdfFixVer').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  pdfSet.fix.version = b.dataset.v; pdfSave(); pdfRender();
+});
+$('pdfFixStrip').addEventListener('change', () => { pdfSet.fix.strip = $('pdfFixStrip').checked; pdfSave(); pdfRender(); });
 $('pdfOutMode').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b) return;
   pdfSet.mode = b.dataset.m; pdfSave(); pdfRender();
@@ -313,34 +347,43 @@ $('pdfPickOut').onclick = () => dialog(async () => {
   if (r.path) { pdfSet.dir = r.path; pdfSet.mode = 'folder'; $('pdfOutDir').value = r.path; pdfSave(); pdfRender(); }
 });
 let pdfPassTimer = 0;
-$('pdfPass').addEventListener('input', () => { pdfRender(); clearTimeout(pdfPassTimer); pdfPassTimer = setTimeout(() => pdfCheck(true), 400); });
+$('pdfPass').addEventListener('input', () => { pdfRender(); clearTimeout(pdfPassTimer); pdfPassTimer = setTimeout(() => { for (const k in pdfThumbs) if (pdfThumbs[k] === 'fail') delete pdfThumbs[k]; pdfCheck(true); }, 400); });
 
 $('pdfStart').onclick = async () => {
   if (startSent || snap.running) return;
   const op = pdfSet.op, files = pdfFor(op);
   if (!files.length) { say('warn', t('start.emptyTitle'), t(op === 'img2pdf' ? 'pdf.emptyAddImg' : 'pdf.emptyAdd')); return; }
   if (pdfSet.mode === 'folder' && !pdfSet.dir) { say('warn', t('start.whereTitle'), t('start.where')); return; }
+  const ras = {...pdfSet.ras};
+  if (op === 'raster' && ras.pages === 'range' && !pdfRangeOk(ras.range)) { say('warn', t('pdf.rasRangeTitle'), t('pdf.rasRangeBad')); $('pdfRasRange').focus(); return; }
+  if (op === 'raster') try { await pdfjsLoad(); } catch (e) { say('err', t('start.failed'), e.message); return; }
   pdfFiles.forEach(f => delete pdfRes[f.path]);
   pdfRunOpts = op === 'compress' ? pdfEstOpts() : '';
+  pdfRunOp = op;
   snap.files = []; newBatch(); pdfLast = '';
   startSent = true;
-  const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, password: $('pdfPass').value,
+  const pw = $('pdfPass').value;
+  const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, fix: pdfSet.fix, password: pw,
     sameDir: pdfSet.mode === 'same', outDir: pdfSet.mode === 'folder' ? pdfSet.dir : ''});
   startSent = false;
-  if (r.error) say('err', t('start.failed'), r.error);
-  else { snap.running = true; pollSoon(); }
+  if (r.error) { say('err', t('start.failed'), r.error); return; }
+  snap.running = true; pollSoon();
+  if (op === 'raster') pdfRasRun(files, ras, pw);   // страницы рисует окно, сервер ведёт прогон
 };
+let pdfRunOp = '';
 
 function pdfDone(s) {
   pdfLast = '';
   pdfRender();
   const fl = s.files || [], er = fl.filter(f => f.status === 'error'), ok = fl.filter(f => f.status === 'ok' && f.dst);
   const stopped = fl.some(f => f.status === 'canceled');
-  const dirs = [...new Set(ok.map(f => dirOf(f.dst)))];
+  let dirs = [...new Set(ok.map(f => dirOf(f.dst)))];
+  // «В картинки»: у каждого PDF своя папка страниц; если их несколько, но лежат рядом — открыть общую
+  if (pdfRunOp === 'raster' && dirs.length > 1) { const up = [...new Set(dirs.map(d => dirOf(d.replace(/[\\/]+$/, ''))))]; if (up.length === 1) dirs = up; }
   const made = new Set(ok.map(f => f.dst.toLowerCase())).size;
   const kept = fl.filter(f => f.status === 'kept');   // «Сжать»: не стало меньше, оригинал как есть
   toast({id: 'done', type: er.length ? 'err' : stopped ? 'warn' : !made && kept.length ? 'info' : 'ok',
-    title: stopped ? t('done.stopped') : !made && kept.length ? t('pdf.compNothing') : t('pdf.doneTitle', {n: made}),
+    title: stopped ? t('done.stopped') : !made && kept.length ? t('pdf.compNothing') : t(pdfRunOp === 'raster' ? 'pdf.rasDoneTitle' : 'pdf.doneTitle', {n: made}),
     text: esc(s.summary || ''),
     list: [...er, ...kept, ...fl.filter(f => f.status === 'ok' && f.hint)].map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
     actions: dirs.length === 1 ? [{t: t('btn.openFolder'), primary: true, keep: true, fn: async () => {

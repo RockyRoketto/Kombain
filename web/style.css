@@ -1392,3 +1392,12 @@
   .pdf-q b{min-width:22px;text-align:right;font-variant-numeric:tabular-nums}
   #pdfImgCard .note+.sw{margin-top:8px}
   #pdfAccOp.open{min-height:0}   /* короткий раздел: без пустоты под пояснением */
+  /* просмотр PDF и миниатюры страниц (pdfraster.js) */
+  .pdf-stage{background:var(--s2);display:grid;place-items:center}
+  .pdf-stage canvas{display:block;max-width:100%;max-height:100%;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.35)}
+  .pdf-ctl{justify-content:center}
+  .f .badge.th.pdfth{background:#fff}
+  .badge.pdfth img{object-position:top}   /* верх страницы: заголовок узнаётся лучше середины */
+  .f .badge.pdfv{cursor:zoom-in}
+  #pdfRasCard .note+.sw,#pdfFixCard .note+.sw{margin-top:8px}
+  #pdfRasRange.bad{border-color:rgba(var(--err-rgb),.6)}

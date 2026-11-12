@@ -36,13 +36,14 @@ type PDFInfo struct {
 
 // PDFReq: запрос /api/pdf-run
 type PDFReq struct {
-	Files    []string    `json:"files"`
-	Op       string      `json:"op"`       // "resave" — пересобрать без потерь, "img2pdf" — картинки в PDF (pdf_images.go), "compress" — сжать (pdf_compress.go)
-	Img      ImgPDFOpts  `json:"img"`      // настройки для "img2pdf"
-	Comp     PDFCompress `json:"comp"`     // настройки для "compress"
-	Password string      `json:"password"` // для закрытых файлов, один на всю пачку
-	SameDir  bool        `json:"sameDir"`  // «Рядом с оригиналом»
-	OutDir   string      `json:"outDir"`   // своя папка, если не SameDir
+	Files    []string      `json:"files"`
+	Op       string        `json:"op"`       // "resave" — пересобрать без потерь, "img2pdf" — картинки в PDF (pdf_images.go), "compress" — сжать (pdf_compress.go), "raster" — PDF в картинки (pdf_raster.go)
+	Img      ImgPDFOpts    `json:"img"`      // настройки для "img2pdf"
+	Comp     PDFCompress   `json:"comp"`     // настройки для "compress"
+	Fix      PDFResaveOpts `json:"fix"`      // настройки для "resave"
+	Password string        `json:"password"` // для закрытых файлов, один на всю пачку
+	SameDir  bool          `json:"sameDir"`  // «Рядом с оригиналом»
+	OutDir   string        `json:"outDir"`   // своя папка, если не SameDir
 }
 
 func pdfConf(pw string) *model.Configuration {
@@ -131,25 +132,87 @@ func pdfList(paths []string) []FileInfo {
 	return infos(found)
 }
 
-// pdfResave: прочитать и записать заново без потерь (лишние и повторяющиеся объекты убираются)
-func pdfResave(c context.Context, src, dst, pw string) error {
-	ctx, err := pdfOpen(c, src, pw)
+// PDFResaveOpts: настройки «Пересобрать»
+type PDFResaveOpts struct {
+	Version string `json:"version"` // "" — обычный (pdfcpu пишет 1.7), "1.4" — для старых программ (без сжатых таблиц)
+	Strip   bool   `json:"strip"`   // убрать метаданные, миниатюры и служебные данные редакторов
+}
+
+// pdfPatchHeader: заменить версию в заголовке «%PDF-1.x» на v той же длины
+func pdfPatchHeader(path, v string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		return err
 	}
-	if err := api.OptimizeContext(c, ctx); err != nil {
+	defer f.Close()
+	head := make([]byte, 8)
+	if _, err := f.ReadAt(head, 0); err != nil {
 		return err
+	}
+	if !strings.HasPrefix(string(head), "%PDF-") || len(v) != 3 {
+		return errors.New("pdf header")
+	}
+	_, err = f.WriteAt([]byte(v), 5)
+	return err
+}
+
+// pdfOpenRepair: как pdfOpen, а если файл не проходит проверку (оборван, битая таблица ссылок),
+// читает его без строгой проверки: pdfcpu сам восстанавливает таблицу, перебрав объекты. repaired — так и вышло
+func pdfOpenRepair(c context.Context, path, pw string) (ctx *model.Context, repaired bool, err error) {
+	ctx, err = pdfOpen(c, path, pw)
+	if err == nil || errors.Is(err, errPDFPassword) || errors.Is(err, os.ErrNotExist) || c.Err() != nil {
+		return ctx, false, err
+	}
+	f, ferr := os.Open(path)
+	if ferr != nil {
+		return nil, false, ferr
+	}
+	defer f.Close()
+	conf := pdfConf(pw)
+	if ctx, rerr := api.ReadContext(c, f, conf); rerr == nil && ctx.PageCount > 0 {
+		return ctx, true, nil
+	}
+	return nil, false, err
+}
+
+// pdfResave: прочитать и записать заново без потерь (лишние и повторяющиеся объекты убираются, мелкие поломки чинятся).
+// repaired — файл пришлось чинить
+func pdfResave(c context.Context, src, dst, pw string, opt PDFResaveOpts) (repaired bool, err error) {
+	ctx, repaired, err := pdfOpenRepair(c, src, pw)
+	if err != nil {
+		return false, err
+	}
+	if opt.Strip {
+		pdfStrip(c, ctx)
+	}
+	if err := api.OptimizeContext(c, ctx); err != nil {
+		return false, err
+	}
+	old := opt.Version == "1.4"
+	if old {
+		// без сжатых таблиц и потоков объектов: их не знают программы до PDF 1.5
+		ctx.WriteObjectStream, ctx.WriteXRefStream = false, false
+		if root, err := ctx.XRefTable.Catalog(); err == nil && root != nil {
+			root.Delete("Version")
+		}
 	}
 	tmp := dst + ".part"
 	if err := api.WriteContextFile(c, ctx, tmp); err != nil {
 		os.Remove(tmp)
-		return err
+		return false, err
+	}
+	if old {
+		// pdfcpu всегда пишет заголовок %PDF-1.7; та же длина, поэтому меняем на месте, смещения не съезжают
+		if err := pdfPatchHeader(tmp, "1.4"); err != nil {
+			os.Remove(tmp)
+			return false, err
+		}
 	}
 	if err := os.Rename(tmp, dst); err != nil {
 		os.Remove(tmp)
-		return err
+		return false, err
 	}
-	return nil
+	return repaired, nil
 }
 
 // beginPDF: как begin, только ffmpeg не нужен
@@ -169,18 +232,41 @@ func (s *Server) beginPDF() error {
 	return nil
 }
 
-func (s *Server) runPDF(req PDFReq) {
+// pdfBatch: пачка, подготовленная pdfPrep
+type pdfBatch struct {
+	c      context.Context
+	cancel context.CancelFunc
+	states []*FileState
+	req    PDFReq
+	job    *rasterJob // для "raster"
+}
+
+// pdfPrep: список файлов и отмена; у "raster" сразу и прогон, чтобы окно могло слать страницы, как только получит ответ
+func (s *Server) pdfPrep(req PDFReq) *pdfBatch {
 	c, cancel := context.WithCancel(context.Background())
-	var states []*FileState
+	b := &pdfBatch{c: c, cancel: cancel, req: req}
 	for _, p := range req.Files {
-		states = append(states, &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p)})
+		b.states = append(b.states, &FileState{Path: p, Name: filepath.Base(p), Status: "pending", SrcSize: fileSize(p)})
 	}
 	s.mu.Lock()
-	s.files = states
+	s.files = b.states
 	s.batch = "pdf"
 	s.cancel = cancel
 	s.mu.Unlock()
+	if req.Op == "raster" {
+		b.job = newRasterJob(c, req, len(b.states))
+	}
+	return b
+}
 
+// startPDF: подготовить и запустить в фоне (ручка /api/pdf-run)
+func (s *Server) startPDF(req PDFReq) { go s.pdfWork(s.pdfPrep(req)) }
+
+// runPDF: то же, но дождаться конца (тесты)
+func (s *Server) runPDF(req PDFReq) { s.pdfWork(s.pdfPrep(req)) }
+
+func (s *Server) pdfWork(b *pdfBatch) {
+	c, cancel, states, req := b.c, b.cancel, b.states, b.req
 	var ok, bad int
 	var before, after int64
 	switch req.Op {
@@ -188,6 +274,8 @@ func (s *Server) runPDF(req PDFReq) {
 		ok, bad = s.runImg2PDF(c, states, req)
 	case "compress":
 		ok, bad, before, after = s.runCompress(c, states, req)
+	case "raster":
+		ok, bad = s.runRaster(b.job)
 	default:
 		ok, bad = s.runResave(c, states, req)
 	}
@@ -205,8 +293,11 @@ func (s *Server) runPDF(req PDFReq) {
 		title = tr("batch.stopped")
 	}
 	key := "pdf.summary"
-	if req.Op == "img2pdf" {
+	switch req.Op {
+	case "img2pdf":
 		key = "pdf.imgSummary"
+	case "raster":
+		key = "pdf.rasSummary"
 	}
 	s.summary = tr(key, title, ok, len(states), bad)
 	if req.Op == "compress" {
@@ -238,7 +329,7 @@ func (s *Server) runResave(c context.Context, states []*FileState, req PDFReq) (
 		}
 		s.set(i, func(fs *FileState) { fs.Status = "running" })
 		dst := pdfOutPath(st.Path, req, used) // копия из браузера уходит в папку по умолчанию (outPathNamed)
-		err := pdfResave(c, st.Path, dst, req.Password)
+		repaired, err := pdfResave(c, st.Path, dst, req.Password, req.Fix)
 		if c.Err() != nil {
 			os.Remove(dst)
 			break
@@ -253,6 +344,9 @@ func (s *Server) runResave(c context.Context, states []*FileState, req PDFReq) (
 		ok++
 		size := fileSize(dst)
 		msg := fmt.Sprintf("%s → %s", fmtKB(st.SrcSize), fmtKB(size))
+		if repaired {
+			msg += " · " + tr("pdf.repaired")
+		}
 		s.set(i, func(fs *FileState) { fs.Status = "ok"; fs.Pct = 100; fs.Dst = dst; fs.DstSize = size; fs.Msg = msg })
 		s.addLog("[pdf] %s → %s", st.Name, dst)
 	}

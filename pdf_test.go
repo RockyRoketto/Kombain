@@ -67,7 +67,7 @@ func TestPDFCyrillicName(t *testing.T) {
 	if dst != filepath.Join(dir, "Отчёт № 1 (итог) (1).pdf") {
 		t.Fatalf("pdfOutPath: %s", dst)
 	}
-	if err := pdfResave(c, src, dst, ""); err != nil {
+	if _, err := pdfResave(c, src, dst, "", PDFResaveOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	if inf := pdfInfo(c, dst, ""); inf.Pages != 3 {
@@ -105,10 +105,10 @@ func TestPDFPassword(t *testing.T) {
 	if inf := pdfInfo(c, enc, "секрет"); inf.NeedPass || inf.Pages != 2 || !inf.Encrypted {
 		t.Fatalf("right password: %+v", inf)
 	}
-	if err := pdfResave(c, enc, filepath.Join(dir, "out.pdf"), ""); err != errPDFPassword {
+	if _, err := pdfResave(c, enc, filepath.Join(dir, "out.pdf"), "", PDFResaveOpts{}); err != errPDFPassword {
 		t.Fatalf("resave without password: %v", err)
 	}
-	if err := pdfResave(c, enc, filepath.Join(dir, "out.pdf"), "секрет"); err != nil {
+	if _, err := pdfResave(c, enc, filepath.Join(dir, "out.pdf"), "секрет", PDFResaveOpts{}); err != nil {
 		t.Fatalf("resave with password: %v", err)
 	}
 }

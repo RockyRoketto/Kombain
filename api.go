@@ -61,6 +61,7 @@ func (s *Server) routes() *http.ServeMux {
 		w.Write(faviconPNG)
 	})
 
+	s.pdfRoutes(mux)
 	mux.HandleFunc("/thumb", s.thumbHandler)
 	mux.HandleFunc("/wave", s.waveHandler)
 	mux.HandleFunc("/media", s.mediaHandler)
@@ -804,7 +805,7 @@ func (s *Server) routes() *http.ServeMux {
 		case !req.SameDir && req.OutDir == "":
 			writeJSON(w, map[string]any{"error": tr("pdf.pickDir")})
 			return
-		case req.Op != "resave" && req.Op != "img2pdf" && req.Op != "compress":
+		case req.Op != "resave" && req.Op != "img2pdf" && req.Op != "compress" && req.Op != "raster":
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
 			return
 		}
@@ -812,7 +813,7 @@ func (s *Server) routes() *http.ServeMux {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		go s.runPDF(req)
+		s.startPDF(req)
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 

@@ -1148,7 +1148,7 @@ __CSS__
           <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="pdf.action"></span><span class="acc-s" id="pdfOpSum"></span></button>
           <div class="acc-b">
             <div class="chips" id="pdfOp">
-              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
+              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="raster" data-i18n="pdf.opRas"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
             </div>
             <div class="note" id="pdfOpNote"></div>
           </div>
@@ -1204,6 +1204,40 @@ __CSS__
           </div></div>
           <label class="sw"><span data-i18n="pdf.compStrip"></span><input type="checkbox" id="pdfCompStrip"><i></i></label>
           <div class="note" data-i18n="pdf.compKeptNote"></div>
+          </div>
+        </section>
+
+        <section class="acc hide" id="pdfRasCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.rasTitle"></span><span class="acc-s" id="pdfRasSum"></span></button>
+          <div class="acc-b">
+          <div class="fgroup"><small data-i18n="pdf.rasFmt"></small><div class="chips" id="pdfRasFmt">
+            <button class="chip" data-v="png">PNG</button><button class="chip" data-v="jpg">JPG</button><button class="chip" data-v="webp">WebP</button>
+          </div></div>
+          <div class="fgroup"><small data-i18n="pdf.rasDpi"></small><div class="chips" id="pdfRasDpi">
+            <button class="chip" data-v="72">72</button><button class="chip" data-v="96">96</button><button class="chip" data-v="150">150</button><button class="chip" data-v="200">200</button><button class="chip" data-v="300">300</button><button class="chip" data-v="600">600</button>
+          </div></div>
+          <div class="note" data-i18n="pdf.rasDpiNote"></div>
+          <div class="fgroup" id="pdfRasQRow"><small data-i18n="pdf.rasQ"></small><div class="chips" id="pdfRasQ">
+            <button class="chip" data-v="92" data-i18n="pdf.rasQHigh"></button><button class="chip" data-v="80" data-i18n="pdf.rasQMid"></button><button class="chip" data-v="65" data-i18n="pdf.rasQLow"></button>
+          </div></div>
+          <div class="fgroup"><small data-i18n="pdf.rasPages"></small><div class="chips" id="pdfRasPages">
+            <button class="chip" data-v="all" data-i18n="pdf.rasAll"></button><button class="chip" data-v="range" data-i18n="pdf.rasRange"></button>
+          </div>
+          <div class="rowf hide" id="pdfRasRangeRow" style="margin-top:6px"><input type="text" id="pdfRasRange" spellcheck="false" autocomplete="off" data-i18n-ph="pdf.rasRangePh" data-i18n-aria="pdf.rasPages"></div></div>
+          <label class="sw" id="pdfRasTranspRow"><span data-i18n="pdf.rasTransp"></span><input type="checkbox" id="pdfRasTransp"><i></i></label>
+          <div class="note" data-i18n="pdf.rasNote"></div>
+          </div>
+        </section>
+
+        <section class="acc hide" id="pdfFixCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.fixTitle"></span><span class="acc-s" id="pdfFixSum"></span></button>
+          <div class="acc-b">
+          <div class="fgroup"><small data-i18n="pdf.fixVer"></small><div class="chips" id="pdfFixVer">
+            <button class="chip" data-v="" data-i18n="pdf.fixVerNorm"></button><button class="chip" data-v="1.4" data-i18n="pdf.fixVer14"></button>
+          </div></div>
+          <div class="note" data-i18n="pdf.fixVerNote"></div>
+          <label class="sw"><span data-i18n="pdf.fixStrip"></span><input type="checkbox" id="pdfFixStrip"><i></i></label>
+          <div class="note" data-i18n="pdf.fixNote"></div>
           </div>
         </section>
 
@@ -1421,6 +1455,22 @@ __CSS__
   <div class="mcard kh-card">
     <div class="phead"><h3 id="khTitle" data-i18n="tk.keysTitle"></h3><button class="x" id="khClose" data-i18n-title="btn.close">✕</button></div>
     <div class="kh-body" id="khBody"></div>
+  </div>
+</div>
+
+<!-- просмотр PDF: web/js/pdfraster.js (pdf.js) -->
+<div id="pdfPv" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="pdfPvName">
+  <div class="mcard pcard">
+    <div class="phead"><h3 id="pdfPvName"></h3><button class="btn sm" id="pdfPvOpen" data-i18n="pdf.openApp" data-i18n-title="pdf.openDefault"></button><button class="x" id="pdfPvClose" data-i18n-title="btn.close">✕</button></div>
+    <div class="stage pdf-stage" id="pdfPvStage">
+      <canvas id="pdfPvCv"></canvas>
+      <div class="stage-note hide" id="pdfPvNote"></div>
+    </div>
+    <div class="ctl pdf-ctl">
+      <button class="ctl-b" id="pdfPvPrev" data-i18n-title="pdf.pvPrev" data-i18n-aria="pdf.pvPrev"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="ctl-t" id="pdfPvNum"></span>
+      <button class="ctl-b" id="pdfPvNext" data-i18n-title="pdf.pvNext" data-i18n-aria="pdf.pvNext"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
   </div>
 </div>
 
