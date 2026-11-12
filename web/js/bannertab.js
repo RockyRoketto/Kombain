@@ -30,6 +30,7 @@ function setTab(t) {
   $('playView').classList.toggle('hide', tab !== 'play');
   $('montView').classList.toggle('hide', tab !== 'mont');
   $('utilView').classList.toggle('hide', !ut);
+  document.body.classList.toggle('ut-on', ut);   // нижняя панель по ширине плиток (style.css)
   $('bannerView').classList.toggle('hide', tab !== 'banner');
   $('favView').classList.toggle('hide', tab !== 'util');
   $('pdfView').classList.toggle('hide', tab !== 'pdf');

@@ -177,10 +177,10 @@ buildFormats(); load(); applyKind(); renderOut();
 // «копия» и «перезаписать» друг друга исключают
 $('copyDup').addEventListener('change', () => { if ($('copyDup').checked) { $('overwrite').checked = false; save(); renderOut(); } });
 $('overwrite').addEventListener('change', () => { if ($('overwrite').checked) { $('copyDup').checked = false; save(); renderOut(); } });
-// разделы правой колонки: открыт только один
+// разделы правой колонки: открыт только один (у конвертера и у «PDF» свои колонки)
 document.querySelectorAll('.acc-h').forEach(h => h.addEventListener('click', () => {
   const was = h.parentElement.classList.contains('open');
-  document.querySelectorAll('.acc').forEach(a => {
+  h.closest('.col').querySelectorAll('.acc').forEach(a => {
     a.classList.remove('open');
     a.querySelector('.acc-h').setAttribute('aria-expanded', 'false');
   });

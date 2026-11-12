@@ -63,21 +63,37 @@ async function pdfCheck(all) {
   } finally { pdfChecking = false; }
 }
 
+function pdfAccOpen(id, on) {
+  $(id).classList.toggle('open', on);
+  $(id).querySelector('.acc-h').setAttribute('aria-expanded', String(on));
+}
 function pdfChips(id, v) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
 
 function pdfRender() {
   const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), canceled:t('status.canceled')};
   const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf';
-  document.querySelectorAll('#pdfOp .segb').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  $('pdfImgCard').classList.toggle('hide', !imgOp);
-  $('pdfPassCard').classList.toggle('hide', imgOp);
+  document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
+  $('pdfOpSum').textContent = t(imgOp ? 'pdf.opImg' : 'pdf.opResave');
+  $('pdfOpNote').textContent = t(imgOp ? 'pdf.opImgSub' : 'pdf.opResaveSub');
+  // раздел другого действия прячется; если он был открыт — открыть раздел этого
+  const [show, hide] = imgOp ? ['pdfImgCard', 'pdfPassCard'] : ['pdfPassCard', 'pdfImgCard'];
+  if ($(hide).classList.contains('open')) { pdfAccOpen(hide, false); pdfAccOpen(show, true); }
+  $(show).classList.remove('hide'); $(hide).classList.add('hide');
   pdfChips('pdfImgPage', im.page); pdfChips('pdfImgOrient', im.orient); pdfChips('pdfImgMargin', im.margin); pdfChips('pdfImgQuality', im.quality);
   $('pdfImgOrientRow').classList.toggle('hide', im.page === 'fit');
   $('pdfImgQNote').textContent = t({orig: 'pdf.qNote_orig', mid: 'pdf.qNote_mid', low: 'pdf.qNote_low'}[im.quality] || 'pdf.qNote_high');
   $('pdfImgSep').checked = !!im.separate;
+  // сводки в заголовках разделов: подписи выбранных чипов
+  const chip = id => document.querySelector(`#${id} .chip.on`)?.textContent || '';
+  $('pdfImgSum').textContent = [chip('pdfImgPage'), im.page === 'fit' ? '' : chip('pdfImgOrient'), chip('pdfImgMargin'), chip('pdfImgQuality'),
+    im.separate ? t('pdf.sepShort') : ''].filter(Boolean).join(' · ');
+  $('pdfPassSum').textContent = t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
   $('pdfFolderRow').classList.toggle('hide', pdfSet.mode !== 'folder');
   if ($('pdfOutDir').value !== pdfSet.dir && document.activeElement !== $('pdfOutDir')) $('pdfOutDir').value = pdfSet.dir;
+  const outName = base(pdfSet.dir.replace(/[\\/]+$/, '')) || pdfSet.dir;
+  $('pdfOutSum').textContent = pdfSet.mode === 'same' ? t('out.same') : pdfSet.dir ? t('out.sumFolder', {name: outName}) : t('out.noFolder');
+  $('pdfOutSum').title = pdfSet.mode === 'folder' ? pdfSet.dir : '';
   const drag = imgOp && !snap.running;
   $('pdfSortName').classList.toggle('hide', !drag || pdfFor('img2pdf').length < 2);
   let page = 0;
@@ -173,7 +189,7 @@ $('pdfAddFiles').onclick = () => dialog(async () => { const r = await api('pdf-p
 $('pdfAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'pdf'}); if (r.error) alert(r.error); pdfAdd(r.files); });
 $('pdfClear').onclick = () => { if (!snap.running) { pdfFiles = []; Object.keys(pdfRes).forEach(k => delete pdfRes[k]); pdfRender(); } };
 $('pdfOp').addEventListener('click', e => {
-  const b = e.target.closest('.segb'); if (!b || snap.running) return;
+  const b = e.target.closest('.chip'); if (!b || snap.running) return;
   pdfSet.op = b.dataset.op; pdfSave(); pdfRender();
 });
 for (const [id, key] of [['pdfImgPage', 'page'], ['pdfImgOrient', 'orient'], ['pdfImgMargin', 'margin'], ['pdfImgQuality', 'quality']]) {
@@ -188,14 +204,14 @@ $('pdfOutMode').addEventListener('click', e => {
   pdfSet.mode = b.dataset.m; pdfSave(); pdfRender();
   if (pdfSet.mode === 'folder' && !pdfSet.dir) $('pdfPickOut').click();
 });
-$('pdfOutDir').addEventListener('input', () => { pdfSet.dir = $('pdfOutDir').value.trim(); pdfSave(); });
+$('pdfOutDir').addEventListener('input', () => { pdfSet.dir = $('pdfOutDir').value.trim(); pdfSave(); pdfRender(); });
 $('pdfPickOut').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose:'out'});
   if (r.error) alert(r.error);
   if (r.path) { pdfSet.dir = r.path; pdfSet.mode = 'folder'; $('pdfOutDir').value = r.path; pdfSave(); pdfRender(); }
 });
 let pdfPassTimer = 0;
-$('pdfPass').addEventListener('input', () => { clearTimeout(pdfPassTimer); pdfPassTimer = setTimeout(() => pdfCheck(true), 400); });
+$('pdfPass').addEventListener('input', () => { pdfRender(); clearTimeout(pdfPassTimer); pdfPassTimer = setTimeout(() => pdfCheck(true), 400); });
 
 $('pdfStart').onclick = async () => {
   if (startSent || snap.running) return;

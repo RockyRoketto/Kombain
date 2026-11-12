@@ -1142,18 +1142,21 @@ __CSS__
         <div class="list hide" id="pdfList"></div>
       </section>
 
-      <div class="col one">
-        <section class="card">
-          <h2 data-i18n="pdf.action"></h2>
-          <div class="seg" id="pdfOp">
-            <button class="segb" data-op="img2pdf"><b data-i18n="pdf.opImg"></b><span data-i18n="pdf.opImgSub"></span></button>
-            <button class="segb on" data-op="resave"><b data-i18n="pdf.opResave"></b><span data-i18n="pdf.opResaveSub"></span></button>
+      <!-- правая колонка как у конвертера: разделы-аккордеоны, открыт один (settings.js) -->
+      <div class="col">
+        <section class="acc open" id="pdfAccOp">
+          <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="pdf.action"></span><span class="acc-s" id="pdfOpSum"></span></button>
+          <div class="acc-b">
+            <div class="chips" id="pdfOp">
+              <button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip on" data-op="resave" data-i18n="pdf.opResave"></button>
+            </div>
+            <div class="note" id="pdfOpNote"></div>
           </div>
-          <div class="note" data-i18n="pdf.moreSoon"></div>
         </section>
 
-        <section class="card hide" id="pdfImgCard">
-          <h2 data-i18n="pdf.imgTitle"></h2>
+        <section class="acc hide" id="pdfImgCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.imgTitle"></span><span class="acc-s" id="pdfImgSum"></span></button>
+          <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.page"></small><div class="chips" id="pdfImgPage">
             <button class="chip" data-v="a4">A4</button><button class="chip" data-v="a5">A5</button><button class="chip" data-v="fit" data-i18n="pdf.pageFit"></button>
           </div></div>
@@ -1169,16 +1172,20 @@ __CSS__
           <div class="note" id="pdfImgQNote"></div>
           <label class="sw"><span data-i18n="pdf.separate"></span><input type="checkbox" id="pdfImgSep"><i></i></label>
           <div class="note" data-i18n="pdf.orderNote"></div>
+          </div>
         </section>
 
-        <section class="card" id="pdfPassCard">
-          <h2 data-i18n="pdf.pass"></h2>
-          <div class="rowf"><input type="password" id="pdfPass" autocomplete="off" spellcheck="false" data-i18n-ph="pdf.passPh"></div>
-          <div class="note" data-i18n="pdf.passNote"></div>
+        <section class="acc" id="pdfPassCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.pass"></span><span class="acc-s" id="pdfPassSum"></span></button>
+          <div class="acc-b">
+            <div class="rowf"><input type="password" id="pdfPass" autocomplete="off" spellcheck="false" data-i18n-ph="pdf.passPh"></div>
+            <div class="note" data-i18n="pdf.passNote"></div>
+          </div>
         </section>
 
-        <section class="card">
-          <h2 data-i18n="acc.out"></h2>
+        <section class="acc" id="pdfAccOut">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="acc.out"></span><span class="acc-s" id="pdfOutSum"></span></button>
+          <div class="acc-b">
           <div class="seg" id="pdfOutMode">
             <button class="segb on" data-m="same"><b data-i18n="out.same"></b><span data-i18n="out.sameSub"></span></button>
             <button class="segb" data-m="folder"><b data-i18n="out.folder"></b><span data-i18n="out.folderSub"></span></button>
@@ -1188,6 +1195,7 @@ __CSS__
             <button class="btn" id="pdfPickOut" data-i18n="btn.pick"></button>
           </div>
           <div class="note" data-i18n="pdf.outNote"></div>
+          </div>
         </section>
       </div>
     </div>

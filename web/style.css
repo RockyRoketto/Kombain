@@ -147,7 +147,7 @@
   .acc-s{flex:1;min-width:0;text-align:right;font-size:13px;color:var(--acct2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .acc-h::after{content:"";flex:none;width:7px;height:7px;margin:-3px 3px 0 2px;border:solid var(--dim);border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
   .acc.open .acc-h::after{margin-top:3px;transform:rotate(-135deg)}
-  .acc-b{display:none;flex:0 1 auto;min-height:0;overflow:auto;padding:0 14px 10px}
+  .acc-b{display:none;flex:0 1 auto;min-height:0;overflow:auto;padding:4px 14px 10px}   /* сверху зазор, чтобы кнопки не прилипали к заголовку */
   .acc.open .acc-b{display:block}
   .acc-b>.note:first-child{margin-top:0}
 
@@ -990,7 +990,7 @@
     .fgroup small{line-height:24px}
     .pre{padding:4px 8px}
     .acc-h{padding:7px 12px}
-    .acc-b{padding:0 12px 8px}
+    .acc-b{padding:3px 12px 8px}
     .field{padding:4px 0}
     .field .hint,.segb span{display:none}
     input[type=number],input[type=text],select{padding:4px 8px}
@@ -1142,7 +1142,12 @@
   .cl-main{grid-template-columns:172px minmax(0,1fr) 224px;margin-bottom:10px}
   .cl-main>.card{min-height:0;overflow:hidden auto}
   /* ----- вкладка «Утилиты»: слева та же колонка инструментов, что у «Цвета» (.cl-tools), справа выбранный инструмент двумя колонками ----- */
-  .ut-main{grid-template-columns:172px minmax(0,1fr);margin-bottom:10px}
+  body{--ut-tools:172px}   /* ширина колонки инструментов «Утилит»: по ней же нижняя панель */
+  .ut-main{grid-template-columns:var(--ut-tools) minmax(0,1fr);margin-bottom:10px}
+  body:has(#dock:not(.hide)) .ut-main{margin-bottom:0}   /* под плитками нижняя панель: зазор как на других вкладках даёт её отступ */
+  /* на «Утилитах» нижняя панель и лог начинаются от плитки файлов, а не под колонкой инструментов: отступ окна 12 + колонка + зазор 10 */
+  body.ut-on .dock{padding-left:calc(22px + var(--ut-tools))}
+  body.ut-on .log{left:calc(22px + var(--ut-tools))}
   .ut-main>.cl-tools{min-height:0;overflow:hidden auto}
   .ut-pane{min-width:0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,34vw,520px);grid-template-rows:minmax(0,1fr);gap:10px}
   .cl-tools{display:flex;flex-direction:column;gap:2px;padding:10px 8px}
@@ -1286,7 +1291,7 @@
   .cl-rc:hover{box-shadow:inset 0 0 0 1px var(--line3),0 0 0 2px rgba(var(--acl-rgb),.5)}
   @media (max-width:1180px){
     .cl-main{grid-template-columns:52px minmax(0,1fr) 180px}
-    .ut-main{grid-template-columns:52px minmax(0,1fr)}
+    body{--ut-tools:52px}
     .cl-tools{padding:8px 5px}
     .cl-tools h2{display:none}
     .cl-tool{justify-content:center;padding:9px 0}
@@ -1382,3 +1387,4 @@
   #pdfList .f.drop-before{box-shadow:inset 0 2px 0 var(--acct)}
   #pdfList .f.drop-after{box-shadow:inset 0 -2px 0 var(--acct)}
   #pdfImgCard .note+.sw{margin-top:8px}
+  #pdfAccOp.open{min-height:0}   /* короткий раздел: без пустоты под пояснением */
