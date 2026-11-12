@@ -69,6 +69,7 @@ func TestPDFComparePage(t *testing.T) {
 
 // «После» для «Оформления»: одна страница с водяным знаком, номером «2 из 3» и обрезкой
 func TestPDFDecorPage(t *testing.T) {
+	needDecorFont(t)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "Отчёт.pdf")
 	pdfMiniW(t, src, 300, 300, 300)

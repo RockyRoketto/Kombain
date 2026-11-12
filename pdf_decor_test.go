@@ -11,6 +11,7 @@ import (
 )
 
 func TestPDFDecorAll(t *testing.T) {
+	needDecorFont(t)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "Отчёт.pdf")
 	pdfMiniW(t, src, 300, 300, 300)
@@ -36,6 +37,7 @@ func TestPDFDecorAll(t *testing.T) {
 }
 
 func TestPDFDecorPassword(t *testing.T) {
+	needDecorFont(t)
 	dir := t.TempDir()
 	src := filepath.Join(dir, "а.pdf")
 	pdfMiniW(t, src, 300, 300)
@@ -118,5 +120,13 @@ func TestPDFDecorImage(t *testing.T) {
 	d.WM.Image = ""
 	if _, err := pdfDecor(context.Background(), src, filepath.Join(dir, "x.pdf"), "", d); err == nil {
 		t.Fatal("empty watermark accepted")
+	}
+}
+
+// needDecorFont: тесты с текстом на странице нужен системный шрифт с кириллицей (Arial и т.п.); на Linux в CI его нет
+func needDecorFont(t *testing.T) {
+	t.Helper()
+	if _, err := pdfDecorFont(context.Background()); err != nil {
+		t.Skip("нет системного шрифта с кириллицей: " + err.Error())
 	}
 }
