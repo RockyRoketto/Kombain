@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 5.0
+
+- Utilities: new "PDF" tool. Compress (presets, custom quality, "To size", size forecast before you start and before / after), Images → PDF, To images (PNG, JPG, WebP), Pages (merge, split, reorder, rotate, delete and duplicate in a thumbnail grid), Layout (watermark, page numbers, margins, metadata, password), Repair for damaged files. Everything works offline.
+
 ## 4.0
 
 - New Color tab: gradients (linear, radial, conic) and mesh gradients with draggable points, noise, halftone, hatch, steps and pixel styles, export to PNG, SVG and CSS.
