@@ -1148,7 +1148,7 @@ __CSS__
           <button class="acc-h" aria-expanded="true"><span class="acc-t" data-i18n="pdf.action"></span><span class="acc-s" id="pdfOpSum"></span></button>
           <div class="acc-b">
             <div class="chips" id="pdfOp">
-              <button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip on" data-op="resave" data-i18n="pdf.opResave"></button>
+              <button class="chip on" data-op="compress" data-i18n="pdf.opComp"></button><button class="chip" data-op="img2pdf" data-i18n="pdf.opImg"></button><button class="chip" data-op="resave" data-i18n="pdf.opResave"></button>
             </div>
             <div class="note" id="pdfOpNote"></div>
           </div>
@@ -1175,6 +1175,29 @@ __CSS__
           <div class="note" id="pdfImgQNote"></div>
           <label class="sw"><span data-i18n="pdf.separate"></span><input type="checkbox" id="pdfImgSep"><i></i></label>
           <div class="note" data-i18n="pdf.orderNote"></div>
+          </div>
+        </section>
+
+        <section class="acc hide" id="pdfCompCard">
+          <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.compTitle"></span><span class="acc-s" id="pdfCompSum"></span></button>
+          <div class="acc-b">
+          <div class="fgroup"><small data-i18n="pdf.compPreset"></small><div class="chips" id="pdfCompPreset">
+            <button class="chip" data-v="strong" data-i18n="pdf.cStrong"></button><button class="chip" data-v="medium" data-i18n="pdf.cMedium"></button><button class="chip" data-v="light" data-i18n="pdf.cLight"></button><button class="chip" data-v="custom" data-i18n="pdf.cCustom"></button>
+          </div></div>
+          <div class="note" id="pdfCompNote"></div>
+          <div id="pdfCompCustom" class="hide">
+            <div class="fgroup"><small data-i18n="pdf.compQuality"></small><div class="pdf-q">
+              <input type="range" class="vol" id="pdfCompQ" data-origin="70" min="10" max="95" step="1" data-i18n-aria="pdf.compQuality"><b id="pdfCompQV"></b>
+            </div></div>
+            <div class="fgroup"><small data-i18n="pdf.compDpi"></small><div class="chips" id="pdfCompDpi">
+              <button class="chip" data-v="72">72</button><button class="chip" data-v="96">96</button><button class="chip" data-v="150">150</button><button class="chip" data-v="200">200</button><button class="chip" data-v="300">300</button><button class="chip" data-v="0" data-i18n="pdf.dpiKeep"></button>
+            </div></div>
+          </div>
+          <div class="fgroup"><small data-i18n="pdf.compColor"></small><div class="chips" id="pdfCompColor">
+            <button class="chip" data-v="" data-i18n="pdf.colorKeep"></button><button class="chip" data-v="gray" data-i18n="pdf.colorGray"></button><button class="chip" data-v="bw" data-i18n="pdf.colorBW"></button>
+          </div></div>
+          <label class="sw"><span data-i18n="pdf.compStrip"></span><input type="checkbox" id="pdfCompStrip"><i></i></label>
+          <div class="note" data-i18n="pdf.compKeptNote"></div>
           </div>
         </section>
 

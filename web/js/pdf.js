@@ -3,15 +3,17 @@
 // прогон идёт через общий опрос, как у «Баннеров».
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
-const pdfSet = {mode: 'same', dir: '', op: 'resave', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297}};   // сохраняется в localStorage
+const pdfSet = {mode: 'same', dir: '', op: 'compress', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297},
+  comp: {preset: 'medium', quality: 70, dpi: 150, color: '', strip: true}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
   Object.assign(pdfSet.img, saved.img || {}); delete saved.img;
+  Object.assign(pdfSet.comp, saved.comp || {}); delete saved.comp;
   Object.assign(pdfSet, saved);
 } catch (e) {}
 if (pdfSet.mode !== 'folder') pdfSet.mode = 'same';
-if (pdfSet.op !== 'img2pdf') pdfSet.op = 'resave';
+if (!['img2pdf', 'resave', 'compress'].includes(pdfSet.op)) pdfSet.op = 'compress';
 function pdfSave() { try { localStorage.setItem('konv9000.pdf', JSON.stringify(pdfSet)); } catch (e) {} }
 
 const PDF_IMG = /\.(jpe?g|png|webp)$/i;
@@ -35,7 +37,7 @@ function pdfAdd(list) {
   // добавили только картинки и их нечем пересобрать — сразу «Картинки → PDF», и наоборот
   if (added && !snap.running) {
     if (imgs === added && pdfSet.op !== 'img2pdf' && !pdfFor('resave').length) { pdfSet.op = 'img2pdf'; pdfSave(); }
-    else if (!imgs && pdfSet.op === 'img2pdf' && !pdfFor('img2pdf').length) { pdfSet.op = 'resave'; pdfSave(); }
+    else if (!imgs && pdfSet.op === 'img2pdf' && !pdfFor('img2pdf').length) { pdfSet.op = 'compress'; pdfSave(); }
   }
   pdfRender();
   pdfCheck();
@@ -70,15 +72,28 @@ function pdfAccOpen(id, on) {
 function pdfChips(id, v) { document.querySelectorAll(`#${id} .chip`).forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); }
 
 function pdfRender() {
-  const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), canceled:t('status.canceled')};
-  const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf';
+  const labels = {pending:t('status.pending'), running:'<span class="spin"></span>', ok:t('status.ok'), error:t('status.error'), kept:t('status.kept'), canceled:t('status.canceled')};
+  const op = pdfSet.op, im = pdfSet.img, imgOp = op === 'img2pdf', cp = pdfSet.comp;
   document.querySelectorAll('#pdfOp .chip').forEach(b => b.classList.toggle('on', b.dataset.op === op));
-  $('pdfOpSum').textContent = t(imgOp ? 'pdf.opImg' : 'pdf.opResave');
-  $('pdfOpNote').textContent = t(imgOp ? 'pdf.opImgSub' : 'pdf.opResaveSub');
-  // раздел другого действия прячется; если он был открыт — открыть раздел этого
-  const [show, hide] = imgOp ? ['pdfImgCard', 'pdfPassCard'] : ['pdfPassCard', 'pdfImgCard'];
-  if ($(hide).classList.contains('open')) { pdfAccOpen(hide, false); pdfAccOpen(show, true); }
-  $(show).classList.remove('hide'); $(hide).classList.add('hide');
+  const opKey = {img2pdf: 'pdf.opImg', resave: 'pdf.opResave', compress: 'pdf.opComp'}[op];
+  $('pdfOpSum').textContent = t(opKey);
+  $('pdfOpNote').textContent = t(opKey + 'Sub');
+  // разделы других действий прячутся; если открытый спрятался — открыть первый раздел этого
+  const show = {img2pdf: ['pdfImgCard'], resave: ['pdfPassCard'], compress: ['pdfCompCard', 'pdfPassCard']}[op];
+  for (const id of ['pdfImgCard', 'pdfCompCard', 'pdfPassCard']) {
+    if (show.includes(id)) continue;
+    if ($(id).classList.contains('open')) { pdfAccOpen(id, false); pdfAccOpen(show[0], true); }
+    $(id).classList.add('hide');
+  }
+  show.forEach(id => $(id).classList.remove('hide'));
+  // сжатие
+  pdfChips('pdfCompPreset', cp.preset); pdfChips('pdfCompDpi', cp.dpi); pdfChips('pdfCompColor', cp.color);
+  const custom = cp.preset === 'custom';
+  $('pdfCompCustom').classList.toggle('hide', !custom);
+  $('pdfCompNote').textContent = t({strong: 'pdf.cNote_strong', light: 'pdf.cNote_light', custom: 'pdf.cNote_custom'}[cp.preset] || 'pdf.cNote_medium');
+  if (document.activeElement !== $('pdfCompQ')) $('pdfCompQ').value = cp.quality;
+  $('pdfCompQV').textContent = cp.quality;
+  $('pdfCompStrip').checked = !!cp.strip;
   pdfChips('pdfImgPage', im.page); pdfChips('pdfImgOrient', im.orient); pdfChips('pdfImgMargin', im.margin); pdfChips('pdfImgQuality', im.quality);
   $('pdfImgOrientRow').classList.toggle('hide', im.page === 'fit');
   $('pdfImgSize').classList.toggle('hide', im.page !== 'custom');
@@ -89,7 +104,9 @@ function pdfRender() {
   const chip = id => document.querySelector(`#${id} .chip.on`)?.textContent || '';
   $('pdfImgSum').textContent = [im.page === 'custom' ? `${im.pageW}×${im.pageH} ${t('pdf.mm')}` : chip('pdfImgPage'),im.page === 'fit' ? '' : chip('pdfImgOrient'), chip('pdfImgMargin'), chip('pdfImgQuality'),
     im.separate ? t('pdf.sepShort') : ''].filter(Boolean).join(' · ');
-  $('pdfPassSum').textContent = t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
+  $('pdfCompSum').textContent = [custom ? `JPEG ${cp.quality} · ${cp.dpi ? cp.dpi + ' dpi' : chip('pdfCompDpi')}` : chip('pdfCompPreset'),
+    cp.color ? chip('pdfCompColor') : ''].filter(Boolean).join(' · ');
+  $('pdfPassSum').textContent =t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
   $('pdfFolderRow').classList.toggle('hide', pdfSet.mode !== 'folder');
   if ($('pdfOutDir').value !== pdfSet.dir && document.activeElement !== $('pdfOutDir')) $('pdfOutDir').value = pdfSet.dir;
@@ -179,6 +196,15 @@ for (const [id, k] of [['pdfImgW', 'pageW'], ['pdfImgH', 'pageH']]) {
   });
   $(id).addEventListener('blur', () => { $(id).value = pdfSet.img[k]; });
 }
+// сжатие: пресет, качество и DPI для «Своего», цвет, чистка
+for (const [id, key] of [['pdfCompPreset', 'preset'], ['pdfCompDpi', 'dpi'], ['pdfCompColor', 'color']]) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    pdfSet.comp[key] = key === 'dpi' ? +b.dataset.v : b.dataset.v; pdfSave(); pdfRender();
+  });
+}
+$('pdfCompQ').addEventListener('input', () => { pdfSet.comp.quality = +$('pdfCompQ').value; pdfSave(); pdfRender(); });
+$('pdfCompStrip').addEventListener('change', () => { pdfSet.comp.strip = $('pdfCompStrip').checked; pdfSave(); pdfRender(); });
 $('pdfImgSep').addEventListener('change', () => { pdfSet.img.separate = $('pdfImgSep').checked; pdfSave(); pdfRender(); });
 $('pdfOutMode').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b) return;
@@ -202,7 +228,7 @@ $('pdfStart').onclick = async () => {
   pdfFiles.forEach(f => delete pdfRes[f.path]);
   snap.files = []; newBatch(); pdfLast = '';
   startSent = true;
-  const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, password: $('pdfPass').value,
+  const r = await api('pdf-run', {files: files.map(f => f.path), op, img: pdfSet.img, comp: pdfSet.comp, password: $('pdfPass').value,
     sameDir: pdfSet.mode === 'same', outDir: pdfSet.mode === 'folder' ? pdfSet.dir : ''});
   startSent = false;
   if (r.error) say('err', t('start.failed'), r.error);
@@ -216,10 +242,11 @@ function pdfDone(s) {
   const stopped = fl.some(f => f.status === 'canceled');
   const dirs = [...new Set(ok.map(f => dirOf(f.dst)))];
   const made = new Set(ok.map(f => f.dst.toLowerCase())).size;
-  toast({id: 'done', type: er.length ? 'err' : stopped ? 'warn' : 'ok',
-    title: stopped ? t('done.stopped') : t('pdf.doneTitle', {n: made}),
+  const kept = fl.filter(f => f.status === 'kept');   // «Сжать»: не стало меньше, оригинал как есть
+  toast({id: 'done', type: er.length ? 'err' : stopped ? 'warn' : !made && kept.length ? 'info' : 'ok',
+    title: stopped ? t('done.stopped') : !made && kept.length ? t('pdf.compNothing') : t('pdf.doneTitle', {n: made}),
     text: esc(s.summary || ''),
-    list: er.map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
+    list: [...er, ...kept].map(f => `<b style="display:inline;font-size:12.5px;color:var(--tx-em)">${esc(f.name)}</b> — ${esc(f.hint || f.msg)}`),
     actions: dirs.length === 1 ? [{t: t('btn.openFolder'), primary: true, keep: true, fn: async () => {
       const r = await api('open-dir', {path: dirs[0]}); if (r.error) say('warn', t('folder.title'), r.error);
     }}] : [],

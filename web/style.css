@@ -1385,5 +1385,8 @@
   #pdfList .f .badge.th[data-pprev],#pdfList .f .badge[data-popen]{cursor:pointer}
   .pdf-size{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--tx2,inherit);font-size:12px}
   .pdf-size input[type=number]{width:64px}
+  .pdf-q{display:flex;align-items:center;gap:10px}
+  .pdf-q input[type=range].vol{flex:1;width:auto;min-width:80px}
+  .pdf-q b{min-width:22px;text-align:right;font-variant-numeric:tabular-nums}
   #pdfImgCard .note+.sw{margin-top:8px}
   #pdfAccOp.open{min-height:0}   /* короткий раздел: без пустоты под пояснением */

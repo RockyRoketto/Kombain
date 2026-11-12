@@ -36,12 +36,13 @@ type PDFInfo struct {
 
 // PDFReq: запрос /api/pdf-run
 type PDFReq struct {
-	Files    []string   `json:"files"`
-	Op       string     `json:"op"`       // "resave" — пересобрать без потерь, "img2pdf" — картинки в PDF (pdf_images.go)
-	Img      ImgPDFOpts `json:"img"`      // настройки для "img2pdf"
-	Password string     `json:"password"` // для закрытых файлов, один на всю пачку
-	SameDir  bool       `json:"sameDir"`  // «Рядом с оригиналом»
-	OutDir   string     `json:"outDir"`   // своя папка, если не SameDir
+	Files    []string    `json:"files"`
+	Op       string      `json:"op"`       // "resave" — пересобрать без потерь, "img2pdf" — картинки в PDF (pdf_images.go), "compress" — сжать (pdf_compress.go)
+	Img      ImgPDFOpts  `json:"img"`      // настройки для "img2pdf"
+	Comp     PDFCompress `json:"comp"`     // настройки для "compress"
+	Password string      `json:"password"` // для закрытых файлов, один на всю пачку
+	SameDir  bool        `json:"sameDir"`  // «Рядом с оригиналом»
+	OutDir   string      `json:"outDir"`   // своя папка, если не SameDir
 }
 
 func pdfConf(pw string) *model.Configuration {
@@ -181,9 +182,13 @@ func (s *Server) runPDF(req PDFReq) {
 	s.mu.Unlock()
 
 	var ok, bad int
-	if req.Op == "img2pdf" {
+	var before, after int64
+	switch req.Op {
+	case "img2pdf":
 		ok, bad = s.runImg2PDF(c, states, req)
-	} else {
+	case "compress":
+		ok, bad, before, after = s.runCompress(c, states, req)
+	default:
 		ok, bad = s.runResave(c, states, req)
 	}
 
@@ -204,6 +209,19 @@ func (s *Server) runPDF(req PDFReq) {
 		key = "pdf.imgSummary"
 	}
 	s.summary = tr(key, title, ok, len(states), bad)
+	if req.Op == "compress" {
+		// итог по пачке: «было 180 МБ → стало 42 МБ», не сжатые считаются как были
+		kept := 0
+		for _, fs := range s.files {
+			if fs.Status == "kept" {
+				kept++
+			}
+		}
+		s.summary = tr("pdf.compSummary", title, ok, len(states), kept, bad)
+		if before > 0 {
+			s.summary += "; " + tr("pdf.compTotal", pdfSaved(before, after))
+		}
+	}
 	s.running = false
 	s.cancel = nil
 	s.mu.Unlock()
