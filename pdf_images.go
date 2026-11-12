@@ -28,11 +28,13 @@ import (
 
 // ImgPDFOpts: настройки «Картинки → PDF»
 type ImgPDFOpts struct {
-	Page     string `json:"page"`     // "a4", "a5" или "fit" (страница по размеру картинки)
-	Orient   string `json:"orient"`   // "auto", "portrait", "landscape" (для A4 и A5)
-	Margin   int    `json:"margin"`   // поля, мм
-	Quality  string `json:"quality"`  // "orig" как есть, "high", "mid", "low"
-	Separate bool   `json:"separate"` // каждая картинка отдельным PDF
+	Page     string  `json:"page"`     // "a4", "a5", "custom" (свой размер) или "fit" (страница по размеру картинки)
+	PageW    float64 `json:"pageW"`    // ширина своей страницы, мм (портрет)
+	PageH    float64 `json:"pageH"`    // высота своей страницы, мм
+	Orient   string  `json:"orient"`   // "auto", "portrait", "landscape" (для A4, A5 и своего размера)
+	Margin   int     `json:"margin"`   // поля, мм
+	Quality  string  `json:"quality"`  // "orig" как есть, "high", "mid", "low"
+	Separate bool    `json:"separate"` // каждая картинка отдельным PDF
 }
 
 var imgPDFExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
@@ -231,13 +233,23 @@ func orientMatrix(o int) (u0, us, ut, v0, vs, vt float64) {
 // pageLayout: размер страницы (pt) и прямоугольник картинки на ней
 func pageLayout(o ImgPDFOpts, dw, dh float64) (pw, ph, x, y, w, h float64) {
 	m := float64(max(0, min(o.Margin, 50))) * 72 / 25.4
-	if o.Page != "a4" && o.Page != "a5" {
+	if o.Page != "a4" && o.Page != "a5" && o.Page != "custom" {
 		w, h = dw*0.75, dh*0.75 // 96 точек на дюйм
 		return w + 2*m, h + 2*m, m, m, w, h
 	}
 	pw, ph = 595.276, 841.890
-	if o.Page == "a5" {
+	switch o.Page {
+	case "a5":
 		pw, ph = 419.528, 595.276
+	case "custom":
+		// от 20 мм до 5000 мм (предел страницы PDF 14400 pt); не задано или вне границ — как у A4
+		if o.PageW >= 20 && o.PageW <= 5000 && o.PageH >= 20 && o.PageH <= 5000 {
+			pw, ph = o.PageW*72/25.4, o.PageH*72/25.4
+			if pw > ph {
+				pw, ph = ph, pw // дальше ориентация решает, как повернуть
+			}
+		}
+		m = min(m, pw/2-1, ph/2-1) // поля не должны съесть страницу
 	}
 	if o.Orient == "landscape" || (o.Orient != "portrait" && dw > dh) {
 		pw, ph = ph, pw

@@ -127,7 +127,7 @@
 | `api.go` | `routes` (все ручки), `api` (проверка токена и Host), `writeJSON` |
 | `web.go` | сборка страницы на каждом языке `pages`, `buildPage`, `localize`, порядок скриптов `webJS` |
 | `pdf.go` | инструмент «PDF»: чтение и пароль (pdfcpu), путь результата, прогон пачки |
-| `pdf_images.go` | «Картинки → PDF»: подготовка JPG/PNG/WebP, поворот по EXIF, раскладка на странице, запись PDF |
+| `pdf_images.go` | «Картинки → PDF» (страница A4/A5/свой размер/по картинке в `pageLayout`): подготовка JPG/PNG/WebP, поворот по EXIF, раскладка на странице, запись PDF |
 | `favicon.go` | `buildICO` (favicon.ico из PNG), `writeFavZip` (архив; имена только простые), `writeFavFolder`, `favFreePath`, `pngSize`; ручки `favicon-save` и `fav-read`, диалог `pickZipSave` в `ui_windows.go` |
 | `color.go` | вкладка «Цвет»: проверка файла от страницы `colorFileBytes` (PNG в base64, SVG текстом, ASE из JSON — `aseBytes`), имя `colorFileName`, запись `saveColorFile`; ручка `color-save`, диалог `pickColorSave` в `ui_windows.go` |
 | `banner.go` | `runBanners`, `shrinkPNG`, `replaceFile`, `bannerNames`, `bannerWanted`, `bannerDims`, `bannerBase`, `bannerFind`, `bannerDirs` (где папки JPEG и WebP), `rememberBannerDirs`, `ffQuiet` |
@@ -207,7 +207,7 @@
 | `js/colormesh.js` | вкладка «Цвет», инструмент «Меш-градиент»: `cl.mesh` {cols, rows, mix, pts [{x, y, c}], fx — стиль как у градиента} (проверка `meshValid`/`meshOk` и `meshDefault` в color.js); поверхность Катмулла — Рома `meshCr`, `meshAt`, частая сетка `meshBuild`, свой растеризатор `meshRaster` (просмотр и PNG; плитки ступеней), стили `meshPaint`, карта цвета `meshField`, SVG треугольниками `meshSvg` и `meshNoOut`, значок для «Моих цветов» `meshThumb`; тяга точек `meshHit`, `meshDrag`, смена сетки `meshResize`, `meshEven`, `meshRandom`, `meshFill` (набор из «Отправить в»), `meshSetSel`, `meshNode`; панель `meshRender`, секция `#meshWork` |
 | `js/colormix.js` | вкладка «Цвет», инструмент «Смешать»: `cl.mix` {a, b, k, n, mode} (проверка `mixOk` в color.js), `mixAt`/`mixRow` на `clMix`, крупный результат, ряд плиток, копирование; секция `#mixWork` |
 | `js/favicon.js` | вкладка «Фавиконы», проверка, видна ли иконка на светлой и тёмной вкладке (`fvReadCheck`, `fvMedian`, `fvBestBack`, кнопка «Подложка» в `#fvRead`), выбор файла окном Windows (`fvPick`, чтобы знать папку оригинала), состояние `fv` (`FV_DEF`), иконки `fvImg` (светлая и тёмная), приём файла `fvTake` и `fvDrop` (из `drop.js`), рисование `fvDraw`, `fvSvg` (обёртка со сменой темы), `fvManifest`, `fvHtml`, отрисовка вкладки `fvPaint`, сохранение по `#fvSave`; память в localStorage `konv9000.fav2`, `konv9000.favImg` |
-| `js/pdf.js` | инструмент «PDF»: список файлов, пароль, куда сохранять, запуск и итог |
+| `js/pdf.js` | инструмент «PDF»: список файлов (порядок через `kinSort`, просмотр картинок `openPreview`, значок PDF → `open-file`), пароль, свой размер страницы, куда сохранять, запуск и итог |
 | `js/bannertab.js` | «Баннеры» и переключение вкладок и инструментов «Утилит»: `setTab`, `bAdd`, `bRender`, `bRenderDirs`, `bSyncDirs` (поиск папок), `bBadSize` и `bCheckSizes` (проверка размеров), `bDone` |
 | `js/boot.js` | первый запуск отрисовки и опроса |
 
@@ -219,7 +219,7 @@
 |---|---|
 | Пачка | `start`, `banners`, `banner-dirs`, `cancel`, `state` |
 | Звуки | `sounds`, `pick-sound` |
-| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `favicon-save`, `fav-read`, `pdf-pick`, `pdf-list`, `pdf-info`, `pdf-run`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data` |
+| Файлы | `pick-files`, `pick-folder`, `project-save`, `project-open`, `subs-pick`, `subs-read`, `subs-save`, `favicon-save`, `fav-read`, `pdf-pick`, `pdf-list`, `pdf-info`, `pdf-run`, `whisper-info`, `whisper-start`, `whisper-state`, `whisper-cancel`, `fonts`, `text-png`, `upload`, `discard`, `info`, `proxy`, `proxy-stop`, `proxy-usage`, `proxy-clear`, `snapshot`, `snapshot-montage`, `open-output`, `open-dir`, `open-data`, `open-file` |
 | ffmpeg | `download-ffmpeg`, `ffmpeg-skip` |
 | Фигуры | `shape-seq` (кадры прорисовки линии: страница шлёт PNG, Go кладёт `seq-<сумма>-%04d.png` в кэш текста, `shapes.go`) |
 | Программа | `settings`, `app-update`, `app-skip`, `news-seen`, `install`, `setup-later`, `exit`, `storage`, `storage-clear`, `storage-remove` |

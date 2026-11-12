@@ -858,6 +858,18 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/open-file", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if err := openWithDefault(body.Path); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
 	mux.HandleFunc("/api/open-data", s.api(func(w http.ResponseWriter, r *http.Request) {
 		os.MkdirAll(dataDir(), 0o755)
 		openFolder(dataDir())

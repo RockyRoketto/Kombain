@@ -3,6 +3,7 @@ package main
 // Файлы и папки: где что лежит, поиск ffmpeg, разбор выбранных путей, имя результата.
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -187,6 +188,26 @@ func openFolder(dir string) {
 		cmd = exec.Command("xdg-open", dir)
 	}
 	cmd.Start()
+}
+
+// openWithDefault открывает файл программой по умолчанию (только PDF: больше ничего отсюда не запускаем)
+func openWithDefault(path string) error {
+	if !strings.EqualFold(filepath.Ext(path), ".pdf") {
+		return errors.New(tr("err.openType"))
+	}
+	if st, err := os.Stat(path); err != nil || st.IsDir() {
+		return errors.New(tr("err.noFile"))
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
 }
 
 var badName = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)

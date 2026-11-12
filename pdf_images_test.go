@@ -99,6 +99,29 @@ func TestPageLayout(t *testing.T) {
 	}
 }
 
+// «Свой размер»: 100×150 мм, поля 5 мм
+func TestPageLayoutCustom(t *testing.T) {
+	mm := 72 / 25.4
+	pw, ph, x, y, w, h := pageLayout(ImgPDFOpts{Page: "custom", PageW: 100, PageH: 150, Orient: "portrait", Margin: 5}, 400, 300)
+	if math.Abs(pw-100*mm) > .01 || math.Abs(ph-150*mm) > .01 {
+		t.Fatalf("custom portrait: %v×%v", pw, ph)
+	}
+	if x < 5*mm-.01 || y < 5*mm-.01 || x+w > pw-5*mm+.01 || y+h > ph-5*mm+.01 || math.Abs(w/h-4.0/3) > 1e-6 {
+		t.Fatalf("custom layout %v %v %v %v", x, y, w, h)
+	}
+	// «авто» и альбомная картинка: страница ложится набок; ширина больше высоты в полях не мешает
+	if pw, ph, _, _, _, _ := pageLayout(ImgPDFOpts{Page: "custom", PageW: 150, PageH: 100, Orient: "auto"}, 400, 300); math.Abs(pw-150*mm) > .01 || math.Abs(ph-100*mm) > .01 {
+		t.Fatalf("custom auto: %v×%v", pw, ph)
+	}
+	// не задан или вне границ — A4
+	if pw, ph, _, _, _, _ := pageLayout(ImgPDFOpts{Page: "custom", Orient: "portrait"}, 400, 300); math.Abs(pw-595.276) > .01 || math.Abs(ph-841.890) > .01 {
+		t.Fatalf("custom default: %v×%v", pw, ph)
+	}
+	if pw, _, _, _, _, _ := pageLayout(ImgPDFOpts{Page: "custom", PageW: 9000, PageH: 100, Orient: "portrait"}, 400, 300); math.Abs(pw-595.276) > .01 {
+		t.Fatalf("custom out of range: %v", pw)
+	}
+}
+
 // 20 картинок разных видов в один PDF: порядок, страницы, кириллица, битая картинка пропускается
 func TestImg2PDF(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "Отпуск 2026")

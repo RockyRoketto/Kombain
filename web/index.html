@@ -1158,7 +1158,10 @@ __CSS__
           <button class="acc-h" aria-expanded="false"><span class="acc-t" data-i18n="pdf.imgTitle"></span><span class="acc-s" id="pdfImgSum"></span></button>
           <div class="acc-b">
           <div class="fgroup"><small data-i18n="pdf.page"></small><div class="chips" id="pdfImgPage">
-            <button class="chip" data-v="a4">A4</button><button class="chip" data-v="a5">A5</button><button class="chip" data-v="fit" data-i18n="pdf.pageFit"></button>
+            <button class="chip" data-v="a4">A4</button><button class="chip" data-v="a5">A5</button><button class="chip" data-v="custom" data-i18n="pdf.pageCustom"></button><button class="chip" data-v="fit" data-i18n="pdf.pageFit"></button>
+          </div>
+          <div class="pdf-size hide" id="pdfImgSize">
+            <input type="number" id="pdfImgW" min="20" max="5000" step="1" inputmode="decimal" aria-label="width"><span>×</span><input type="number" id="pdfImgH" min="20" max="5000" step="1" inputmode="decimal" aria-label="height"><span data-i18n="pdf.sizeMm"></span>
           </div></div>
           <div class="fgroup" id="pdfImgOrientRow"><small data-i18n="pdf.orient"></small><div class="chips" id="pdfImgOrient">
             <button class="chip" data-v="auto" data-i18n="pdf.orientAuto"></button><button class="chip" data-v="portrait" data-i18n="pdf.orientPortrait"></button><button class="chip" data-v="landscape" data-i18n="pdf.orientLandscape"></button>

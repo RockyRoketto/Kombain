@@ -3,7 +3,7 @@
 // прогон идёт через общий опрос, как у «Баннеров».
 let pdfFiles = [];        // {name, dir, path, size, img, info}; info — ответ /api/pdf-info (страницы, нужен ли пароль, ошибка)
 const pdfRes = {};        // путь -> состояние с сервера (последний прогон PDF)
-const pdfSet = {mode: 'same', dir: '', op: 'resave', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false}};   // сохраняется в localStorage
+const pdfSet = {mode: 'same', dir: '', op: 'resave', img: {page: 'a4', orient: 'auto', margin: 5, quality: 'high', separate: false, pageW: 210, pageH: 297}};   // сохраняется в localStorage
 let pdfLast = '';
 try {
   const saved = JSON.parse(localStorage.getItem('konv9000.pdf') || '{}');
@@ -81,11 +81,13 @@ function pdfRender() {
   $(show).classList.remove('hide'); $(hide).classList.add('hide');
   pdfChips('pdfImgPage', im.page); pdfChips('pdfImgOrient', im.orient); pdfChips('pdfImgMargin', im.margin); pdfChips('pdfImgQuality', im.quality);
   $('pdfImgOrientRow').classList.toggle('hide', im.page === 'fit');
+  $('pdfImgSize').classList.toggle('hide', im.page !== 'custom');
+  for (const [id, k] of [['pdfImgW', 'pageW'], ['pdfImgH', 'pageH']]) if (document.activeElement !== $(id)) $(id).value = im[k];
   $('pdfImgQNote').textContent = t({orig: 'pdf.qNote_orig', mid: 'pdf.qNote_mid', low: 'pdf.qNote_low'}[im.quality] || 'pdf.qNote_high');
   $('pdfImgSep').checked = !!im.separate;
   // сводки в заголовках разделов: подписи выбранных чипов
   const chip = id => document.querySelector(`#${id} .chip.on`)?.textContent || '';
-  $('pdfImgSum').textContent = [chip('pdfImgPage'), im.page === 'fit' ? '' : chip('pdfImgOrient'), chip('pdfImgMargin'), chip('pdfImgQuality'),
+  $('pdfImgSum').textContent = [im.page === 'custom' ? `${im.pageW}×${im.pageH} ${t('pdf.mm')}` : chip('pdfImgPage'),im.page === 'fit' ? '' : chip('pdfImgOrient'), chip('pdfImgMargin'), chip('pdfImgQuality'),
     im.separate ? t('pdf.sepShort') : ''].filter(Boolean).join(' · ');
   $('pdfPassSum').textContent = t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
@@ -112,13 +114,14 @@ function pdfRender() {
       else if (s.msg) sub = esc(s.msg);
     }
     const badge = it.img
-      ? `<div class="badge th"><img src="${thumbUrl(it.path, 0, 120)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
-      : '<div class="badge">pdf</div>';
-    return `<div class="f sel ${cls}" title="${esc(it.path)}" data-pp="${esc(it.path)}"${drag && !off ? ' data-mv' : ''}>${badge}` +
+      ? `<div class="badge th" data-pprev="${esc(it.path)}" title="${t('list.preview')}"><img src="${thumbUrl(it.path, 0, 120)}" alt="" draggable="false" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext(it.name))}</span></div>`
+      : `<div class="badge" data-popen="${esc(it.path)}" title="${t('pdf.openDefault')}">pdf</div>`;
+    return `<div class="f sel ${cls}" title="${esc(it.path)}" data-pp="${esc(it.path)}">${badge}` +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
       `<div class="pill">${status}</div>` + (snap.running ? '' : `<button class="x" data-px="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
-  if (list === pdfLast) return;   // опрос не сбрасывает наведение и выделение
+  $('pdfList').classList.toggle('kin-list', drag && pdfFiles.length > 1);
+  if (list === pdfLast || pdfSort.busy()) return;   // опрос не сбрасывает наведение и выделение, перетаскиваемую строку не трогаем
   pdfLast = list;
   $('pdfList').innerHTML = list;
   $('pdfEmpty').classList.toggle('hide', pdfFiles.length > 0);
@@ -132,52 +135,22 @@ $('pdfList').addEventListener('click', e => {
   if (x && !snap.running) { pdfFiles = pdfFiles.filter(f => f.path !== x.dataset.px); delete pdfRes[x.dataset.px]; pdfRender(); }
 });
 
-// порядок картинок перетаскиванием строк (только для «Картинки → PDF»). На указателе, не HTML5:
-// перетаскивание браузера в окне отключено (drop.js), а файлы извне ловит само окно
-let pdfDrag = null;   // {path, y, on, row}
-$('pdfList').addEventListener('pointerdown', e => {
-  const row = e.target.closest('[data-pp][data-mv]');
-  if (!row || e.button !== 0 || e.target.closest('.x')) return;
-  pdfDrag = {path: row.dataset.pp, y: e.clientY, on: false, row};
-  try { $('pdfList').setPointerCapture(e.pointerId); } catch (err) {}
-});
-function pdfDropMark() { document.querySelectorAll('#pdfList .drop-before, #pdfList .drop-after').forEach(r => r.classList.remove('drop-before', 'drop-after')); }
-$('pdfList').addEventListener('pointermove', e => {
-  if (!pdfDrag) return;
-  if (!pdfDrag.on) {
-    if (Math.abs(e.clientY - pdfDrag.y) < 5) return;
-    pdfDrag.on = true;
-    pdfDrag.row.classList.add('dragging');
-  }
-  pdfDropMark();
-  const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('#pdfList [data-mv]');
-  pdfDrag.to = null;
-  if (row && row.dataset.pp !== pdfDrag.path) {
-    const r = row.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
-    row.classList.add(after ? 'drop-after' : 'drop-before');
-    pdfDrag.to = {path: row.dataset.pp, after};
-  }
-  // у краёв списка — прокрутка
-  const lr = $('pdfList').getBoundingClientRect();
-  if (e.clientY < lr.top + 30) $('pdfList').scrollTop -= 12;
-  else if (e.clientY > lr.bottom - 30) $('pdfList').scrollTop += 12;
-});
-function pdfDragEnd(apply) {
-  const d = pdfDrag;
-  pdfDrag = null;
-  if (!d || !d.on) return;
-  pdfDropMark();
-  if (apply && d.to) {
-    const it = pdfFiles.find(f => f.path === d.path);
-    pdfFiles = pdfFiles.filter(f => f !== it);
-    const at = pdfFiles.findIndex(f => f.path === d.to.path);
-    pdfFiles.splice(at + (d.to.after ? 1 : 0), 0, it);
-  }
+// порядок картинок: строка идёт за курсором, остальные расступаются, как в очереди плеера (kinSort из kinetic.js).
+// На указателе, не HTML5: перетаскивание браузера в окне отключено (drop.js), а файлы извне ловит само окно
+function pdfMove(from, to) {
+  pdfFiles.splice(to, 0, pdfFiles.splice(from, 1)[0]);
   pdfLast = '';
   pdfRender();
 }
-$('pdfList').addEventListener('pointerup', () => pdfDragEnd(true));
-$('pdfList').addEventListener('pointercancel', () => pdfDragEnd(false));
+const pdfSort = kinSort($('pdfList'), {item: '.f', key: r => r.dataset.pp, done: pdfMove});
+
+// миниатюра картинки открывает быстрый просмотр, значок PDF — файл в программе по умолчанию
+$('pdfList').addEventListener('click', async e => {
+  const pv = e.target.closest('[data-pprev]');
+  if (pv) { const it = pdfFiles.find(f => f.path === pv.dataset.pprev); if (it) openPreview(it); return; }
+  const op = e.target.closest('[data-popen]');
+  if (op) { const r = await api('open-file', {path: op.dataset.popen}); if (r.error) say('warn', t('pdf.openDefault'), r.error); }
+});
 $('pdfSortName').onclick = () => {
   if (snap.running) return;
   const coll = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
@@ -197,6 +170,14 @@ for (const [id, key] of [['pdfImgPage', 'page'], ['pdfImgOrient', 'orient'], ['p
     const b = e.target.closest('.chip'); if (!b) return;
     pdfSet.img[key] = key === 'margin' ? +b.dataset.v : b.dataset.v; pdfSave(); pdfRender();
   });
+}
+// свой размер страницы, мм: вне 20…5000 не принимаем (пустое поле — как у A4, смотрит pageLayout)
+for (const [id, k] of [['pdfImgW', 'pageW'], ['pdfImgH', 'pageH']]) {
+  $(id).addEventListener('input', () => {
+    const v = parseFloat($(id).value.replace(',', '.'));
+    if (v >= 20 && v <= 5000) { pdfSet.img[k] = Math.round(v * 10) / 10; pdfSave(); pdfRender(); }
+  });
+  $(id).addEventListener('blur', () => { $(id).value = pdfSet.img[k]; });
 }
 $('pdfImgSep').addEventListener('change', () => { pdfSet.img.separate = $('pdfImgSep').checked; pdfSave(); pdfRender(); });
 $('pdfOutMode').addEventListener('click', e => {

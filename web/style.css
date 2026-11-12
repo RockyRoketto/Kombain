@@ -1382,9 +1382,8 @@
 
   /* PDF: «Картинки → PDF» — файлы не для выбранного действия, порядок перетаскиванием */
   #pdfList .f.off{opacity:.45}
-  #pdfList .f[data-mv]{cursor:grab;touch-action:none;user-select:none}
-  #pdfList .f.dragging{opacity:.5;cursor:grabbing}
-  #pdfList .f.drop-before{box-shadow:inset 0 2px 0 var(--acct)}
-  #pdfList .f.drop-after{box-shadow:inset 0 -2px 0 var(--acct)}
+  #pdfList .f .badge.th[data-pprev],#pdfList .f .badge[data-popen]{cursor:pointer}
+  .pdf-size{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--tx2,inherit);font-size:12px}
+  .pdf-size input[type=number]{width:64px}
   #pdfImgCard .note+.sw{margin-top:8px}
   #pdfAccOp.open{min-height:0}   /* короткий раздел: без пустоты под пояснением */
