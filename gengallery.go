@@ -321,6 +321,7 @@ func (s *Server) genGalleryRoutes(mux *http.ServeMux) {
 		Paths []string `json:"paths"`
 		Fav   bool     `json:"fav"`
 		Fmt   string   `json:"format"`
+		Text  string   `json:"text"`
 	}
 	read := func(r *http.Request) pathsBody {
 		var b pathsBody
@@ -378,6 +379,20 @@ func (s *Server) genGalleryRoutes(mux *http.ServeMux) {
 			return
 		}
 		if err := copyImage(data, genDIB(img)); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	}))
+
+	// gen-copy-text: текст (промт, настройки) в буфер обмена
+	mux.HandleFunc("/api/gen-copy-text", s.api(func(w http.ResponseWriter, r *http.Request) {
+		b := read(r)
+		if b.Text == "" {
+			bad(w)
+			return
+		}
+		if err := copyText(b.Text); err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}

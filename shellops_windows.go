@@ -117,3 +117,33 @@ func copyImage(pngData []byte, dib []byte) error {
 	}
 	return nil
 }
+
+// copyText кладёт текст в буфер обмена (CF_UNICODETEXT). navigator.clipboard в окне программы не всегда пускает.
+func copyText(text string) error {
+	u, err := windows.UTF16FromString(text)
+	if err != nil {
+		return err
+	}
+	b := make([]byte, len(u)*2)
+	for i, c := range u {
+		b[2*i], b[2*i+1] = byte(c), byte(c>>8)
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	var ok uintptr
+	for i := 0; i < 10; i++ {
+		if ok, _, _ = procOpenClipboard.Call(0); ok != 0 {
+			break
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	if ok == 0 {
+		return errors.New(tr("err.clipboard"))
+	}
+	defer procCloseClipboard.Call()
+	procEmptyClipboard.Call()
+	if !clipPut(13, b) { // CF_UNICODETEXT
+		return errors.New(tr("err.clipboard"))
+	}
+	return nil
+}

@@ -17,3 +17,4 @@ func moveToTrash(paths []string) error {
 func revealFile(path string) {}
 
 func copyImage(pngData []byte, dib []byte) error { return errT("dlg.onlyWindows") }
+func copyText(text string) error                 { return errT("dlg.onlyWindows") }

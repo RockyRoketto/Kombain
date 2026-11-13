@@ -84,7 +84,7 @@ function ggRender(reset) {
   sel.value = gg.model;
   $('gnGalN').textContent = (gg.q || gg.fav || gg.model) ? t('gg.found', {n: r.total}) : '';
   const tiles = gg.items.map((x, i) =>
-    `<button type="button" class="gn-gt" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
+    `<button type="button" class="gn-gt" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="cp" title="${esc(t('gg.cpTile'))}">⧉</span><span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
   const more = gg.items.length < r.total ? `<button type="button" class="btn sm gn-gal-more" id="gnGalMore">${esc(t('gg.showMore', {n: Math.min(GG_PAGE, r.total - gg.items.length)}))}</button>` : '';
   grid.innerHTML = tiles + more;
   if (reset) grid.scrollTop = 0;
@@ -106,7 +106,9 @@ $('gnGalF').addEventListener('click', e => { const b = e.target.closest('button'
 $('gnGalModel').addEventListener('change', () => { gg.model = $('gnGalModel').value; ggLoad(true); });
 $('gnGalGrid').addEventListener('click', e => {
   if (e.target.closest('#gnGalMore')) { ggLoad(false); return; }
-  const b = e.target.closest('.gn-gt'); if (b) ggLb(gg.items, +b.dataset.i);
+  const b = e.target.closest('.gn-gt'); if (!b) return;
+  if (e.target.closest('.cp')) { e.stopPropagation(); ggCopyText(ggCpText(gg.items[+b.dataset.i], 'exp')); return; }
+  ggLb(gg.items, +b.dataset.i);
 });
 
 // ---- окно просмотра ----
@@ -136,6 +138,7 @@ function ggLbRender() {
   $('gnLbT').textContent = isNaN(d) ? '' : d.toLocaleString(lang, {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
   $('gnLbFav').setAttribute('aria-pressed', String(!!m.fav));
   $('gnLbPrompt').textContent = ggPrompt(x);
+  $('gnLbCp').querySelector('[data-cp=req]').classList.toggle('hide', !rq.prompt || rq.prompt === p.prompt);
   const full = p.prompt !== ggPrompt(x);
   $('gnLbFullD').classList.toggle('hide', !full && !p.negative);
   $('gnLbFull').textContent = p.prompt + (p.negative ? '\n\n' + t('gn.negative') + ': ' + p.negative : '');
@@ -219,6 +222,26 @@ async function ggCopy() {
   toast({type: 'ok', title: t('gg.copied'), ttl: 2500});
 }
 
+// ggCpText: текст промта и настроек картинки x; kind: exp (развёрнутый), req (что вписал сам), all (всё)
+function ggCpText(x, kind) {
+  const m = x.meta, p = m.params, rq = m.request || {};
+  if (kind === 'exp') return p.prompt;
+  if (kind === 'req') return rq.prompt || p.prompt;
+  const lines = [p.prompt];
+  if (p.negative) lines.push('', t('gn.negative') + ': ' + p.negative);
+  lines.push('');
+  if (rq.preset) lines.push(t('gn.style') + ': ' + (I18N[lang]['gn.pre.' + rq.preset] || rq.preset));
+  lines.push(t('gn.model') + ': ' + ggModelName(m.model), t('gg.size') + ': ' + p.width + '×' + p.height,
+    t('gn.steps') + ': ' + p.steps, t('gn.cfg') + ': ' + p.cfg, t('gn.seed') + ': ' + p.seed);
+  return lines.join('\n');
+}
+
+// копирование через Go: navigator.clipboard в окне программы не всегда пускает
+async function ggCopyText(text) {
+  if (ggErr(await api('gen-copy-text', {text}))) return;
+  toast({type: 'ok', title: t('gg.cpDone'), text: esc(t('gg.cpDoneS')), ttl: 2000});
+}
+
 // «Отправить в…»: вкладка получает файл так же, как если бы его туда бросили
 async function ggSend(to) {
   const x = ggCur(); if (!x) return;
@@ -248,6 +271,7 @@ $('gnLbUse').addEventListener('click', () => ggUse('use'));
 $('gnLbMore').addEventListener('click', () => ggUse('more'));
 $('gnLbVar').addEventListener('click', () => ggUse('var'));
 $('gnLbCopy').addEventListener('click', ggCopy);
+$('gnLbCp').addEventListener('click', e => { const b = e.target.closest('[data-cp]'), x = ggCur(); if (b && x) ggCopyText(ggCpText(x, b.dataset.cp)); });
 $('gnLbReveal').addEventListener('click', () => { const x = ggCur(); if (x) api('gen-reveal', {path: x.path}).then(ggErr); });
 $('gnLbSave').addEventListener('click', e => { const b = e.target.closest('[data-fmt]'); if (b) ggExport(b.dataset.fmt); });
 $('gnLbSend').addEventListener('click', e => { const b = e.target.closest('[data-to]'); if (b) ggSend(b.dataset.to); });
