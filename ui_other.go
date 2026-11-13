@@ -59,6 +59,10 @@ func pickZipSave() (string, error) {
 	return "", errT("dlg.onlyWindows")
 }
 
+func pickGenSave(ext, name string) (string, error) {
+	return "", errT("dlg.onlyWindows")
+}
+
 func pickColorSave(ext, name string) (string, error) {
 	return "", errT("dlg.onlyWindows")
 }

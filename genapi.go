@@ -113,8 +113,13 @@ type genAddReq struct {
 	Seed     int64   `json:"seed"` // -1 — случайное
 	Steps    int     `json:"steps"`
 	CFG      float64 `json:"cfg"`
-	Preview  bool    `json:"preview"` // показывать сборку картинки
+	Preview  bool    `json:"preview"`        // показывать сборку картинки
+	Init     string  `json:"init,omitempty"` // «Вариации»: картинка из галереи, по которой рисовать
 }
+
+// genVarStrength: насколько вариация уходит от исходной картинки (0 — копия, 1 — с нуля). 0,5 сохраняет
+// композицию и цвета, но меняет детали.
+const genVarStrength = 0.5
 
 // genBuild: из запроса страницы — параметры движка
 func genBuild(r genAddReq, m genModelInfo) GenParams {
@@ -141,6 +146,7 @@ func genBuild(r genAddReq, m genModelInfo) GenParams {
 }
 
 func (s *Server) genRoutes(mux *http.ServeMux) {
+	s.genGalleryRoutes(mux)
 	mux.HandleFunc("/api/gen-info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		engine := fileExists(newSDServer().exe)
 		models := genModels()
@@ -168,7 +174,15 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			return
 		}
 		p := genBuild(body, m)
-		id := genQueueGet().Add(m.ID, p, body.Count)
+		if body.Init != "" {
+			png, iw, ih, err := genReadInit(body.Init)
+			if err != nil {
+				writeJSON(w, map[string]any{"error": err.Error()})
+				return
+			}
+			p.Init, p.Strength, p.Width, p.Height = png, genVarStrength, iw, ih
+		}
+		id := genQueueGet().Add(m.ID, p, body.Count, body)
 		writeJSON(w, map[string]any{"id": id, "width": p.Width, "height": p.Height})
 	}))
 

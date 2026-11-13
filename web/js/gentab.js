@@ -6,7 +6,6 @@ const gn = {
   tasks: [],          // очередь с сервера
   view: 0,            // id задачи на холсте
   timer: 0,
-  prompts: {},        // id → запрос, как его написал человек (на сервере уже с шаблоном стиля)
   speed: {},          // 'id:картинка' → {t0, s0}: от чего считать секунды на шаг
   hist: {gpu: [], vram: [], cpu: [], ram: []},
   hw: null, model: '', gpu: '',
@@ -124,19 +123,38 @@ $('gnCount').addEventListener('click', e => {
 });
 for (const id of ['gnPrompt', 'gnNeg'])
   $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); gnGo(); } });
-$('gnGo').addEventListener('click', gnGo);
+$('gnGo').addEventListener('click', () => gnGo());
 $('gnFolder').addEventListener('click', () => { if (gn.info) api('open-dir', {path: gn.info.gallery}).then(r => { if (r.error) say('warn', t('warn.title'), r.error); }); });
 $('gnHwToggle').addEventListener('click', () => { gn.set.hwMin = !gn.set.hwMin; gnSave(); gnFields(); gnHwRender(); });
 
-async function gnGo() {
+async function gnGo(extra) {
   if ($('gnGo').disabled) return;
   const s = gn.set, seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, prompt: s.prompt, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
-    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build});
+    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {})});
   if (r.error) { say('warn', t('warn.title'), r.error); return; }
-  gn.prompts[r.id] = s.prompt.trim();
   gn.view = r.id;
   gnPoll();
+}
+
+// gnApply: настройки картинки из галереи или брошенного PNG — в поля. fresh: зерно случайное («ещё такие же», «вариации»).
+function gnApply(r, fresh) {
+  const s = gn.set, inf = gn.info || {presets: [], ratios: [], models: []};
+  s.prompt = r.prompt || '';
+  s.neg = r.negative || '';
+  s.preset = inf.presets.includes(r.preset) ? r.preset : inf.presets.includes('none') ? 'none' : s.preset;
+  if (inf.ratios.includes(r.ratio)) s.ratio = r.ratio;
+  if (inf.models.some(m => m.id === r.model)) s.model = r.model;
+  s.steps = r.steps > 0 ? String(r.steps) : '';
+  s.cfg = r.cfg > 0 ? String(r.cfg) : '';
+  s.seed = fresh ? '' : String(r.seed);
+  gnSave();
+  if (!fresh) $('gnMore').open = true;   // зерно и шаги видны, иначе не понять, что вернулось
+  document.querySelectorAll('#gnPresets .gn-pre').forEach(x => x.classList.toggle('on', x.dataset.v === s.preset));
+  document.querySelectorAll('#gnRatio .gn-ratio').forEach(x => x.classList.toggle('on', x.dataset.v === s.ratio));
+  $('gnModel').value = s.model;
+  gnFields();
+  gnGoState();
 }
 
 // ---- опрос ----
@@ -146,6 +164,7 @@ function gnTabChanged() {
   if (tab !== 'gen') return;
   gnInfo();
   gnPoll();
+  ggStripLoad();
 }
 
 async function gnPoll() {
@@ -160,6 +179,7 @@ async function gnPoll() {
     gnQueue();
     gnStage();
     gnHwRender();
+    ggOnPoll();
   }
   if (tab === 'gen') gn.timer = setTimeout(gnPoll, document.hidden ? 2000 : 700);
 }
@@ -183,7 +203,7 @@ function gnQueue() {
   const live = x => !['done', 'failed', 'cancelled'].includes(x.status);
   const rows = gn.tasks.slice().reverse().map(x =>
     `<div class="gn-q${x.id === gn.view ? ' cur' : ''}" data-id="${x.id}" title="${esc(x.params.prompt)}">
-      <span class="p">${esc(gn.prompts[x.id] || x.params.prompt)}</span>
+      <span class="p">${esc(x.req.prompt || x.params.prompt)}</span>
       <span class="s${x.status === 'failed' ? ' err' : ''}">${esc(gnStatus(x))}</span>
       ${live(x) ? `<button type="button" class="x" data-cancel="${x.id}" title="${esc(t('gn.cancel'))}" aria-label="${esc(t('gn.cancel'))}">×</button>` : ''}
     </div>`).join('');
@@ -258,7 +278,7 @@ function gnStage() {
     if (tg.textContent !== tag) tg.textContent = tag;
     c.title = img ? t('gn.open') : '';
   });
-  $('gnStageT').textContent = [gn.prompts[x.id] || '', t('gn.size', {w: x.params.width, h: x.params.height}), gnStatus(x, true)].filter(Boolean).join(' · ');
+  $('gnStageT').textContent = [x.req.prompt || '', t('gn.size', {w: x.params.width, h: x.params.height}), gnStatus(x, true)].filter(Boolean).join(' · ');
 }
 
 // gnShow: новый кадр ложится поверх старого и плавно проявляется; ранние кадры размыты сильнее.
@@ -281,8 +301,7 @@ function gnShow(cell, src, p, fin) {
 }
 
 $('gnGrid').addEventListener('click', e => {
-  const c = e.target.closest('.gn-cell.done'); if (!c) return;
-  api('open-file', {path: c.gn.fin}).then(r => { if (r.error) say('warn', t('warn.title'), r.error); });
+  const c = e.target.closest('.gn-cell.done'); if (c) ggLbPath(c.gn.fin);
 });
 
 // ---- плашка железа ----

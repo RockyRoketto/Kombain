@@ -121,7 +121,7 @@ func waitStatus(t *testing.T, q *genQueue, id int, status string) {
 func TestQueueRuns(t *testing.T) {
 	e := &fakeEngine{}
 	q, dir := testQueue(t, e)
-	id := q.Add("sdxl", GenParams{Prompt: "fox", Seed: 100}, 3)
+	id := q.Add("sdxl", GenParams{Prompt: "fox", Seed: 100}, 3, genAddReq{})
 	task := waitTask(t, q, id)
 	if task.Status != "done" || len(task.Images) != 3 {
 		t.Fatalf("%+v", task)
@@ -148,8 +148,8 @@ func TestQueueRuns(t *testing.T) {
 	}
 
 	// тот же набор моделей не грузится заново, другой — грузится
-	waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "cat"}, 1))
-	waitTask(t, q, q.Add("flux", GenParams{Prompt: "dog"}, 1))
+	waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "cat"}, 1, genAddReq{}))
+	waitTask(t, q, q.Add("flux", GenParams{Prompt: "dog"}, 1, genAddReq{}))
 	if e.loads != 2 {
 		t.Errorf("%d loads, want 2", e.loads)
 	}
@@ -161,7 +161,7 @@ func TestQueueRuns(t *testing.T) {
 
 func TestQueueRandomSeed(t *testing.T) {
 	q, _ := testQueue(t, &fakeEngine{})
-	task := waitTask(t, q, q.Add("sdxl", GenParams{Seed: -1}, 1))
+	task := waitTask(t, q, q.Add("sdxl", GenParams{Seed: -1}, 1, genAddReq{}))
 	if task.Params.Seed < 0 {
 		t.Errorf("seed %d", task.Params.Seed)
 	}
@@ -170,8 +170,8 @@ func TestQueueRandomSeed(t *testing.T) {
 func TestQueueCancel(t *testing.T) {
 	e := &fakeEngine{block: make(chan struct{})}
 	q, _ := testQueue(t, e)
-	a := q.Add("sdxl", GenParams{Prompt: "a"}, 2)
-	b := q.Add("sdxl", GenParams{Prompt: "b"}, 1)
+	a := q.Add("sdxl", GenParams{Prompt: "a"}, 2, genAddReq{})
+	b := q.Add("sdxl", GenParams{Prompt: "b"}, 1, genAddReq{})
 	waitStatus(t, q, a, "running")
 	if img, seq := q.Preview(a); string(img) != "frame" || seq == 0 {
 		t.Errorf("preview %q %d", img, seq)
@@ -190,7 +190,7 @@ func TestQueueCancel(t *testing.T) {
 
 	// очередь живёт дальше
 	close(e.block)
-	if tc := waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "c"}, 1)); tc.Status != "done" {
+	if tc := waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "c"}, 1, genAddReq{})); tc.Status != "done" {
 		t.Errorf("c: %+v", tc)
 	}
 }
@@ -198,13 +198,13 @@ func TestQueueCancel(t *testing.T) {
 func TestQueueFail(t *testing.T) {
 	e := &fakeEngine{}
 	q, _ := testQueue(t, e)
-	if task := waitTask(t, q, q.Add("missing", GenParams{}, 1)); task.Status != "failed" || task.Err == "" {
+	if task := waitTask(t, q, q.Add("missing", GenParams{}, 1, genAddReq{})); task.Status != "failed" || task.Err == "" {
 		t.Errorf("%+v", task)
 	}
 	e.mu.Lock()
 	e.fail = errors.New("boom")
 	e.mu.Unlock()
-	if task := waitTask(t, q, q.Add("sdxl", GenParams{}, 1)); task.Status != "failed" || task.Err != "boom" {
+	if task := waitTask(t, q, q.Add("sdxl", GenParams{}, 1, genAddReq{})); task.Status != "failed" || task.Err != "boom" {
 		t.Errorf("%+v", task)
 	}
 }
@@ -220,7 +220,7 @@ func TestQueueIdleUnload(t *testing.T) {
 	done := make(chan struct{})
 	go func() { q.Run(ctx); close(done) }()
 	defer func() { cancel(); <-done }()
-	waitTask(t, q, q.Add("sdxl", GenParams{}, 1))
+	waitTask(t, q, q.Add("sdxl", GenParams{}, 1, genAddReq{}))
 	if gpu.holder() != "sd" {
 		t.Errorf("gpu holder %q", gpu.holder())
 	}

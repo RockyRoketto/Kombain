@@ -1403,11 +1403,24 @@ __CSS__
         <div class="gn-stage-bar">
           <span class="gn-stage-t" id="gnStageT"></span>
           <button type="button" class="btn sm" id="gnFolder" data-i18n="gn.folder"></button>
+          <button type="button" class="btn sm" id="gnGalBtn" data-i18n="gg.open"></button>
         </div>
       </div>
+      <div class="gn-strip hide" id="gnStrip"></div>
       <div class="card gn-hw" id="gnHw">
         <button type="button" class="gn-hw-h" id="gnHwToggle" aria-expanded="true"><span class="gn-hw-t" data-i18n="gn.hw"></span><span class="gn-hw-line" id="gnHwLine"></span></button>
         <div class="gn-hw-b" id="gnHwBody"></div>
+      </div>
+      <div class="card gn-gal hide" id="gnGal">
+        <div class="gn-gal-bar">
+          <button type="button" class="btn sm" id="gnGalBack" data-i18n="gg.back"></button>
+          <input type="search" id="gnGalQ" class="gn-gal-q" maxlength="200" spellcheck="false" data-i18n-ph="gg.search">
+          <div class="cl-seg" id="gnGalF"><button type="button" data-v="all" class="on"><span data-i18n="gg.all"></span> <i></i></button><button type="button" data-v="fav"><span data-i18n="gg.favs"></span> <i></i></button></div>
+          <select id="gnGalModel" class="hide"></select>
+          <span class="gn-gal-n" id="gnGalN"></span>
+        </div>
+        <div class="gn-gal-grid" id="gnGalGrid"></div>
+        <div class="gn-empty hide" id="gnGalEmpty"><b id="gnGalEmptyT"></b><span id="gnGalEmptyS"></span></div>
       </div>
     </section>
   </div>
@@ -1721,6 +1734,43 @@ __CSS__
       <button class="linkbtn" id="stLater" data-i18n="setup.later"></button>
       <button class="btn primary" id="stGo" data-i18n="install.btn"></button>
     </div>
+  </div>
+</div>
+
+<!-- просмотр картинки из галереи генератора: web/js/gengallery.js -->
+<div id="gnLb" class="modal hide gn-lb" role="dialog" aria-modal="true" aria-labelledby="gnLbT">
+  <div class="gn-lb-card">
+    <div class="gn-lb-img" id="gnLbStage">
+      <img id="gnLbImg" alt="">
+      <button type="button" class="gn-lb-nav prev" id="gnLbPrev" data-i18n-aria="gg.prev" data-i18n-title="gg.prev">‹</button>
+      <button type="button" class="gn-lb-nav next" id="gnLbNext" data-i18n-aria="gg.next" data-i18n-title="gg.next">›</button>
+    </div>
+    <aside class="gn-lb-side">
+      <div class="phead"><h3 id="gnLbT"></h3>
+        <button type="button" class="gn-star" id="gnLbFav" aria-pressed="false" data-i18n-title="gg.fav" data-i18n-aria="gg.fav">★</button>
+        <button type="button" class="x" id="gnLbClose" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>
+      <div class="gn-lb-scroll">
+        <div class="gn-lb-prompt" id="gnLbPrompt"></div>
+        <details class="gn-lb-full" id="gnLbFullD"><summary data-i18n="gg.full"></summary><div id="gnLbFull"></div></details>
+        <dl class="gn-lb-meta" id="gnLbMeta"></dl>
+        <div class="gn-lb-acts">
+          <button type="button" class="btn primary" id="gnLbMore"><span data-i18n="gg.more"></span><small data-i18n="gg.moreS"></small></button>
+          <button type="button" class="btn" id="gnLbVar"><span data-i18n="gg.var"></span><small data-i18n="gg.varS"></small></button>
+          <button type="button" class="btn" id="gnLbUse"><span data-i18n="gg.use"></span><small data-i18n="gg.useS"></small></button>
+        </div>
+        <h4 class="gn-cap" data-i18n="gg.save"></h4>
+        <div class="gn-lb-row" id="gnLbSave">
+          <button type="button" class="btn sm" data-fmt="png">PNG</button><button type="button" class="btn sm" data-fmt="jpg">JPG</button><button type="button" class="btn sm" data-fmt="webp">WebP</button>
+          <button type="button" class="btn sm" id="gnLbCopy" data-i18n="gg.copy"></button>
+          <button type="button" class="btn sm" id="gnLbReveal" data-i18n="gg.reveal"></button>
+        </div>
+        <h4 class="gn-cap" data-i18n="gg.send"></h4>
+        <div class="gn-lb-row" id="gnLbSend">
+          <button type="button" class="btn sm" data-to="conv" data-i18n="tab.conv"></button><button type="button" class="btn sm" data-to="mont" data-i18n="tab.mont"></button><button type="button" class="btn sm" data-to="banner" data-i18n="ut.tBanner"></button><button type="button" class="btn sm" data-to="color" data-i18n="tab.color"></button>
+        </div>
+      </div>
+      <div class="gn-lb-foot"><span class="gn-lb-n" id="gnLbN"></span><button type="button" class="btn sm gn-lb-del" id="gnLbDel" data-i18n="gg.del"></button></div>
+    </aside>
   </div>
 </div>
 

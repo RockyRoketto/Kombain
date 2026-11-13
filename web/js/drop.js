@@ -11,7 +11,7 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : 'drop');
+const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
@@ -35,6 +35,11 @@ window.addEventListener('drop', e => {
   if (tab === 'mont') mtDropHide();
   if (tab === 'color') { csDrop(e); return; }   // на вкладку «Цвет» — картинка в «Из фото»
   if (tab === 'util') { fvDrop(e); return; }   // фавиконам нужен сам файл в окне, путь на диске не нужен
+  if (tab === 'gen') {   // картинка с настройками внутри: вернуть их в поля (gengallery.js), нужен путь на диске
+    if (NATIVE_DROP) { try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {} }
+    say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
+    return;
+  }
   if (snap.running &&tab !== 'play' && tab !== 'mont') return;   // смотреть и монтировать можно и во время конвертации
   if (NATIVE_DROP) {
     try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); dropAim = aim; return; } catch (err) {}
@@ -58,6 +63,7 @@ window.addEventListener('drop', e => {
 window.__konvDrop = (list, raw) => {
   const aim = dropAim;
   dropAim = null;
+  if (tab === 'gen') { gnDropPaths(list); return; }
   if (tab === 'pdf') pdfAddPaths(raw || list.map(f => f.path));   // из папок нужны PDF, а list — только медиафайлы
   else if (tab === 'mont' && aim) mtAddAt(list, aim);
   else if (tab === 'banner') bAdd(list);

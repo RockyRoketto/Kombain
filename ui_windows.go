@@ -842,6 +842,18 @@ func pickZipSave() (string, error) {
 	return p[0], nil
 }
 
+// pickGenSave: куда сохранить картинку из галереи генератора; ext — png, jpg или webp
+func pickGenSave(ext, name string) (string, error) {
+	typeName := map[string]string{"png": tr("dlg.pngFiles"), "jpg": tr("dlg.jpgFiles"), "webp": tr("dlg.webpFiles")}[ext]
+	p, err := ownerDialog(func(owner uintptr) ([]string, error) {
+		return showSaveDialog(owner, tr("dlg.saveGen"), typeName, "*."+ext, ext, name)
+	})
+	if err != nil || len(p) == 0 {
+		return "", err
+	}
+	return p[0], nil
+}
+
 // pickColorSave: куда сохранить файл с вкладки «Цвет»; ext — png, svg или ase, name — имя, которое диалог предложит
 func pickColorSave(ext, name string) (string, error) {
 	typeName := tr("dlg.pngFiles")

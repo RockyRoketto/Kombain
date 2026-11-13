@@ -65,6 +65,7 @@ type GenTask struct {
 	Images     []string    `json:"images"`     // готовые файлы
 	Err        string      `json:"err,omitempty"`
 	Added      time.Time   `json:"added"`
+	Req        genAddReq   `json:"req"` // как попросил человек: запрос без шаблона стиля, стиль, пропорция
 }
 
 func (t *GenTask) finished() bool {
@@ -103,13 +104,13 @@ func (q *genQueue) poke() {
 }
 
 // Add ставит запрос в очередь. Случайное зерно выбирается здесь, чтобы его можно было записать и повторить картинку.
-func (q *genQueue) Add(model string, p GenParams, count int) int {
+func (q *genQueue) Add(model string, p GenParams, count int, req genAddReq) int {
 	if p.Seed < 0 {
 		p.Seed = rand.Int64N(1 << 32)
 	}
 	q.mu.Lock()
 	q.nextID++
-	t := &GenTask{ID: q.nextID, Model: model, Params: p, Count: min(max(count, 1), 16), Status: "queued", Images: []string{}, Added: time.Now()}
+	t := &GenTask{ID: q.nextID, Model: model, Params: p, Count: min(max(count, 1), 16), Status: "queued", Images: []string{}, Added: time.Now(), Req: req}
 	q.tasks = append(q.tasks, t)
 	q.mu.Unlock()
 	q.poke()
@@ -296,13 +297,16 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 
 // GenMeta: .json рядом с картинкой. По нему галерея ищет по промту, а «ещё такие же» повторяет настройки.
 type GenMeta struct {
-	Model   string    `json:"model"`
-	Params  GenParams `json:"params"` // Seed — зерно именно этой картинки
-	Created time.Time `json:"created"`
-	App     string    `json:"app"`
+	Model   string     `json:"model"`
+	Params  GenParams  `json:"params"` // Seed — зерно именно этой картинки
+	Request *genAddReq `json:"request,omitempty"`
+	Created time.Time  `json:"created"`
+	App     string     `json:"app"`
+	Fav     bool       `json:"fav,omitempty"` // избранное в галерее
 }
 
-// genSave кладёт картинку в gallery\ГГГГ-ММ\ под именем «дата-время-задача-зерно.png» и .json рядом
+// genSave кладёт картинку в gallery\ГГГГ-ММ\ под именем «дата-время-задача-зерно.png» и .json рядом.
+// Параметры дублируются внутри PNG (genpng.go): картинку можно унести, а настройки останутся с ней.
 func genSave(root func(time.Time) string) func(GenTask, int, []byte) (string, error) {
 	return func(t GenTask, i int, png []byte) (string, error) {
 		now := time.Now()
@@ -312,12 +316,18 @@ func genSave(root func(time.Time) string) func(GenTask, int, []byte) (string, er
 		}
 		p := t.Params
 		p.Seed += int64(i)
+		req := t.Req
+		m := GenMeta{Model: t.Model, Params: p, Request: &req, Created: now, App: "Kombain " + appVersion}
+		inner, _ := json.Marshal(m)
+		if b, err := pngWithText(png, [][2]string{{"parameters", genA1111(m)}, {"kombain", string(inner)}}); err == nil {
+			png = b
+		}
 		name := fmt.Sprintf("%s-%d-%d", now.Format("20060102-150405"), t.ID, p.Seed)
 		img := filepath.Join(dir, name+".png")
 		if err := os.WriteFile(img, png, 0o644); err != nil {
 			return "", err
 		}
-		meta, _ := json.MarshalIndent(GenMeta{Model: t.Model, Params: p, Created: now, App: "Kombain " + appVersion}, "", "  ")
+		meta, _ := json.MarshalIndent(m, "", "  ")
 		if err := os.WriteFile(filepath.Join(dir, name+".json"), meta, 0o644); err != nil {
 			os.Remove(img)
 			return "", err
