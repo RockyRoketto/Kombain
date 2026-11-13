@@ -257,6 +257,32 @@ func genErrKind(err error, phase string) string {
 // genRetryPause: пауза перед повтором упавшего кадра (в проверках обнуляется)
 var genRetryPause = 4 * time.Second
 
+// genFreeWait: сколько самое большее ждать, пока драйвер вернёт видеопамять закрытого помощника (он занимает 3–4 ГБ)
+var (
+	genFreeWait = 5 * time.Second
+	genVRAMUsed = func() float64 { return hwMonitor.Get().VRAMUsed }
+)
+
+// genWaitFree: процесс помощника уже закрыт; ждём, пока занятая видеопамять упадёт хотя бы на 0,5 ГБ от before.
+// Замер обновляется раз в секунду. Счётчиков нет — короткая пауза наугад.
+func genWaitFree(ctx context.Context, before float64) {
+	end := time.Now().Add(genFreeWait)
+	blind := before < 0
+	if blind && genFreeWait > 1500*time.Millisecond {
+		end = time.Now().Add(1500 * time.Millisecond)
+	}
+	for time.Now().Before(end) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(250 * time.Millisecond):
+		}
+		if u := genVRAMUsed(); !blind && u >= 0 && before-u >= 512 {
+			return
+		}
+	}
+}
+
 func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
@@ -289,8 +315,16 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		return
 	}
 	// помощник запросов на картах от 14 ГБ живёт рядом с моделью (минуту после запроса) и съедает память,
-	// которой потом не хватает на кадр: sd-server падает с «generate_image returned no results». Перед рисованием выгружаем его.
-	llmSrv.Stop()
+	// которой потом не хватает на кадр: sd-server падает с «generate_image returned no results». Перед рисованием выгружаем его
+	// и ждём, пока драйвер вернёт память (страница показывает этап «Освобождаю память»).
+	q.set(t, func(t *GenTask) { t.Progress = GenProgress{Stage: "unload"} })
+	if llmSrv.running() {
+		before := genVRAMUsed()
+		llmSrv.Stop() // ждёт выхода процесса
+		genWaitFree(ctx, before)
+	}
+	llmSrv.Stop() // и без процесса: отпускает видеокарту в aiGPU
+	q.set(t, func(t *GenTask) { t.Progress = GenProgress{Stage: "load"} })
 	q.gpu.take("sd", q.engine.Stop)
 	if err := q.engine.Load(ctx, set); err != nil {
 		fail(err, "load")

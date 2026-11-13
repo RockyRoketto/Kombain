@@ -88,6 +88,13 @@ func (l *llmServer) Stop() {
 	aiGPU.drop("llm")
 }
 
+// running: процесс помощника запущен (может ещё держать видеопамять)
+func (l *llmServer) running() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.cmd != nil
+}
+
 // llmShareGPU: карте хватает места и на модель картинок, и на LLM (SDXL 10–11 ГБ на пике + 3–4 ГБ)
 func llmShareGPU() bool { return hwVRAMTotal() >= 14*1024 }
 

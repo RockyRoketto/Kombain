@@ -289,6 +289,42 @@ func TestGPUGate(t *testing.T) {
 	}
 }
 
+func TestGenWaitFree(t *testing.T) {
+	oldWait, oldUsed := genFreeWait, genVRAMUsed
+	defer func() { genFreeWait, genVRAMUsed = oldWait, oldUsed }()
+	genFreeWait = 3 * time.Second
+	used := []float64{9000, 8800, 5200} // память уходит не сразу
+	genVRAMUsed = func() float64 {
+		v := used[0]
+		if len(used) > 1 {
+			used = used[1:]
+		}
+		return v
+	}
+	start := time.Now()
+	genWaitFree(context.Background(), 9100)
+	if d := time.Since(start); d < 700*time.Millisecond || d > 2*time.Second {
+		t.Errorf("freed after %v, want ~0.75s", d)
+	}
+	// память не уходит: ждём до предела, не дольше
+	genFreeWait = 600 * time.Millisecond
+	genVRAMUsed = func() float64 { return 9000 }
+	start = time.Now()
+	genWaitFree(context.Background(), 9100)
+	if d := time.Since(start); d < 500*time.Millisecond || d > 1500*time.Millisecond {
+		t.Errorf("timeout after %v", d)
+	}
+	// отмена прерывает ожидание
+	genFreeWait = 3 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start = time.Now()
+	genWaitFree(ctx, 9100)
+	if time.Since(start) > 500*time.Millisecond {
+		t.Error("not cancelled")
+	}
+}
+
 func TestGenErrKind(t *testing.T) {
 	for _, c := range []struct {
 		err   string

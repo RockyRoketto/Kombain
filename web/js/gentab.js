@@ -158,11 +158,13 @@ $('gnVSplit').addEventListener('pointerdown', e => {
   bar.addEventListener('pointercancel', up);
 });
 
+// gnBusy: помощник пишет промт или выгружается — «Создать» ждёт, иначе новый запрос снова поднимет помощника
+const gnBusy = () => !!gn.writing || gn.tasks.some(q => q.status === 'loading' && q.progress?.stage === 'unload');
 function gnGoState() {
-  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !gn.writing;
+  const busy = gnBusy();
+  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !busy;
   $('gnGo').disabled = !ok;
-  $('gnGo').classList.toggle('busy', gn.writing);
-  $('gnGo').firstElementChild.textContent = t(gn.writing ? 'gn.writing' : 'gn.go');
+  $('gnGo').classList.toggle('busy', busy);
   const why = !gn.info ? '' : !gn.info.engine ? t('gn.noEngine') : !gnModel() ? t('gn.noModel') : '';
   $('gnEmptyS').textContent = why || t('gn.emptyS');
 }
@@ -313,11 +315,12 @@ $('gnOwn').addEventListener('change', () => { gn.set.own = $('gnOwn').checked; g
 
 // gnWrite: промты от помощника, по одному на картинку (каждый со своим ракурсом и светом, поэтому повторное
 // «Создать» и картинки одной пачки выходят разными); null — не вышло (всплывашка уже показана)
+// gn.writing держит экран ожидания «Придумываю описание», его снимает gnGo, когда задача уже в очереди
 async function gnWrite(prompt, count) {
-  gn.writing = true; gnGoState();
+  gn.writing = prompt; gnGoState(); gnStage();
   const r = await api('gen-enhance', {prompt, preset: gn.set.preset, count});
-  gn.writing = false; gnGoState();
   if (!r.error) return r.prompts?.length ? r.prompts : [r.prompt];
+  gn.writing = ''; gnGoState(); gnStage();
   // помощник упал: рисовать можно и по запросу как есть
   gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
   return null;
@@ -347,7 +350,9 @@ async function gnGo(extra, asIs) {
   const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
     seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {}), prompt, expanded, variants});
-  if (r.error) { say('warn', t('warn.title'), r.error); return; }
+  const wrote = gn.writing;
+  gn.writing = '';
+  if (r.error) { if (wrote) { gnGoState(); gnStage(); } say('warn', t('warn.title'), r.error); return; }
   gn.view = r.id;
   gnPoll();
 }
@@ -466,6 +471,7 @@ async function gnPoll() {
     if (!gn.tasks.some(x => x.id === gn.view)) gn.view = gn.tasks.length ? gn.tasks[gn.tasks.length - 1].id : 0;
     gnQueue();
     gnStage();
+    gnGoState();   // «Создать» ждёт, пока помощник выгружается
     gnHwRender();
     ggOnPoll();
     gnFailWatch();
@@ -551,12 +557,41 @@ function gnLayout() {
 // сетка тоже: её высота меняется, когда под картинкой появляется или раскрывается «Какой промт получился»
 { const ro = new ResizeObserver(gnLayout); ro.observe($('gnStage')); ro.observe($('gnGrid')); }
 
+// gnPhase: этап задачи для экрана ожидания: i — номер в полосе «описание → память → рисую → собираю»
+function gnPhase(x) {
+  const pr = x.progress || {};
+  if (x.status === 'queued') return {i: 1, t: t('gn.ph.queued'), tip: t('gn.tip.queued')};
+  if (x.status === 'loading') return pr.stage === 'unload' ? {i: 1, t: t('gn.ph.free'), tip: t('gn.tip.free')} : {i: 2, t: t('gn.loading'), tip: t('gn.tip.load')};
+  const n = x.count > 1 ? ` ${x.index + 1}/${x.count}` : '';
+  // стадии движка: '' (подготовка), sampling, vae_decode; потом saving от очереди
+  if (pr.stage === 'vae_decode' || pr.stage === 'saving' || (pr.total && pr.step >= pr.total)) return {i: 3, t: t('gn.ph.build') + n, tip: t('gn.tip.build')};
+  return {i: 2, t: t('gn.ph.draw') + n + (pr.total ? ' · ' + t('gn.step', {s: pr.step, t: pr.total}) : ''), tip: t('gn.tip.draw')};
+}
+
+// gnWsRender: экран ожидания вместо пустоты. ph — этап или null (спрятать)
+function gnWsRender(ph, prompt) {
+  const ws = $('gnWs');
+  ws.classList.toggle('hide', !ph);
+  if (!ph) return;
+  [...$('gnPh').children].forEach((li, k) => { li.className = k < ph.i ? 'ok' : k === ph.i ? 'on' : ''; });
+  const set = (id, v) => { if ($(id).textContent !== v) $(id).textContent = v; };
+  set('gnWsT', ph.t); set('gnWsS', prompt || ''); set('gnWsTip', ph.tip || '');
+}
+
 function gnStage() {
+  if (gn.writing) {
+    // задачи ещё нет: помощник пишет промт
+    $('gnEmpty').classList.add('hide'); $('gnGrid').classList.add('hide');
+    gnUsedRender(null);
+    gnWsRender({i: 0, t: t('gn.ph.write'), tip: t('gn.tip.write')}, gn.writing);
+    $('gnStageT').textContent = '';
+    return;
+  }
   const x = gn.tasks.find(q => q.id === gn.view);
   $('gnEmpty').classList.toggle('hide', !!x);
   $('gnGrid').classList.toggle('hide', !x);
   gnUsedRender(x);
-  if (!x) { gn.gridKey = ''; $('gnStageT').textContent = ''; return; }
+  if (!x) { gn.gridKey = ''; $('gnStageT').textContent = ''; gnWsRender(null); return; }
   const grid = $('gnGrid'), key = x.id + ':' + x.count;
   if (gn.gridKey !== key) {
     gn.gridKey = key;
@@ -602,6 +637,10 @@ function gnStage() {
     if (tg.textContent !== tag) tg.textContent = tag;
     c.title = img ? t('gn.open') : '';
   });
+  // пока ни одного кадра нет, вместо пустых плиток — экран ожидания с этапами
+  const wait = !['done', 'failed', 'cancelled'].includes(x.status) && ![...grid.children].some(c => c.gn.top);
+  grid.classList.toggle('hide', wait);
+  gnWsRender(wait ? gnPhase(x) : null, x.req.prompt);
   $('gnStageT').textContent = [x.req.prompt || '', t('gn.size', {w: x.params.width, h: x.params.height}), gnStatus(x, true)].filter(Boolean).join(' · ');
 }
 
