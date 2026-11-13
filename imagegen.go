@@ -224,6 +224,9 @@ func (q *genQueue) unload() {
 	q.gpu.drop("sd")
 }
 
+// genRetryPause: пауза перед повтором упавшего кадра (в проверках обнуляется)
+var genRetryPause = 4 * time.Second
+
 func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
@@ -271,7 +274,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		p := t.Params
 		p.Seed += int64(i)
 		q.set(t, func(t *GenTask) { t.Index, t.Progress = i, GenProgress{} })
-		png, err := q.engine.Generate(ctx, p, func(g GenProgress) {
+		onProgress := func(g GenProgress) {
 			q.mu.Lock()
 			if g.Preview != nil {
 				q.preview[t.ID] = g.Preview
@@ -280,7 +283,28 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 			g.Preview = nil
 			t.Progress = g
 			q.mu.Unlock()
-		})
+		}
+		png, err := q.engine.Generate(ctx, p, onProgress)
+		// Нехватка видеопамяти на старте кадра (в логе sd-server: свободно 0.6–1.1 ГБ из 16, нужно 1.5 ГБ) бывает случайной:
+		// другие программы или драйвер ещё не вернули память. Повтор через паузу, потом ещё раз в экономном режиме
+		// (часть модели в обычной памяти, VAE по плиткам).
+		for try := 1; err != nil && ctx.Err() == nil && try <= 2; try++ {
+			select {
+			case <-ctx.Done():
+			case <-time.After(genRetryPause):
+			}
+			if try == 2 {
+				if set.LowVRAM {
+					break
+				}
+				set.LowVRAM = true
+				if lerr := q.engine.Load(ctx, set); lerr != nil {
+					break
+				}
+			}
+			q.set(t, func(t *GenTask) { t.Progress = GenProgress{} })
+			png, err = q.engine.Generate(ctx, p, onProgress)
+		}
 		if err != nil {
 			fail(err)
 			return

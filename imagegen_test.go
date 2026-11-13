@@ -23,6 +23,7 @@ type fakeEngine struct {
 	seeds  []int64
 	block  chan struct{}
 	fail   error
+	failN  int // первые failN кадров падают (повтор после нехватки памяти)
 }
 
 func (e *fakeEngine) Load(ctx context.Context, m ModelSet) error {
@@ -40,6 +41,10 @@ func (e *fakeEngine) Generate(ctx context.Context, p GenParams, progress func(Ge
 	progress(GenProgress{Stage: "sampling", Step: 1, Total: 2, Preview: []byte("frame")})
 	e.mu.Lock()
 	block, fail := e.block, e.fail
+	if e.failN > 0 {
+		e.failN--
+		fail = errors.New("no results")
+	}
 	e.mu.Unlock()
 	if block != nil {
 		select {
@@ -195,7 +200,24 @@ func TestQueueCancel(t *testing.T) {
 	}
 }
 
+func TestQueueRetry(t *testing.T) {
+	genRetryPause = 0
+	// один сбой: второй заход на той же загрузке
+	e := &fakeEngine{failN: 1}
+	q, _ := testQueue(t, e)
+	if task := waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "r"}, 1, genAddReq{})); task.Status != "done" || e.loads != 1 {
+		t.Errorf("1 сбой: %+v, загрузок %d", task, e.loads)
+	}
+	// два сбоя: третий заход после перезагрузки в экономном режиме
+	e = &fakeEngine{failN: 2}
+	q, _ = testQueue(t, e)
+	if task := waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "r"}, 1, genAddReq{})); task.Status != "done" || e.loads != 2 || !e.loaded.LowVRAM {
+		t.Errorf("2 сбоя: %+v, загрузок %d, %+v", task, e.loads, e.loaded)
+	}
+}
+
 func TestQueueFail(t *testing.T) {
+	genRetryPause = 0
 	e := &fakeEngine{}
 	q, _ := testQueue(t, e)
 	if task := waitTask(t, q, q.Add("missing", GenParams{}, 1, genAddReq{})); task.Status != "failed" || task.Err == "" {
