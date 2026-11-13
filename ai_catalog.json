@@ -43,6 +43,20 @@
       "needs": ["taesdxl"]
     },
     {
+      "id": "zimage-turbo", "kind": "image", "arch": "zimage",
+      "name": {"ru": "Z-Image Turbo", "en": "Z-Image Turbo"},
+      "purpose": {"ru": "Универсальная, быстрая (8 шагов): фото, иллюстрации, предметы, фоны. Точнее следует запросу, меньше видеопамяти, чем SDXL. Понимает английский и китайский.", "en": "General purpose, fast (8 steps): photos, illustrations, objects, backgrounds. Follows the prompt more closely, needs less VRAM than SDXL. Understands English and Chinese."},
+      "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
+      "licenseUrl": "https://huggingface.co/leejet/Z-Image-Turbo-GGUF",
+      "commercial": true, "vram": 4,
+      "files": [
+        {"name": "z_image_turbo-Q8_0.gguf", "cat": "diffusion_models", "role": "diffusion", "url": "https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q8_0.gguf", "size": 6577440704, "sha256": "df1c5baa86d1398c979495a6072dbcee79444fdb884a2445582ba0769c44e9a1"},
+        {"name": "zimage_ae.safetensors", "cat": "vae", "role": "vae", "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"},
+        {"name": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "cat": "text_encoders", "role": "llm", "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "size": 2497281120, "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"}
+      ],
+      "defaults": {"steps": 8, "cfg": 1, "width": 1024, "height": 1024}
+    },
+    {
       "id": "taesdxl", "kind": "tae", "arch": "sdxl",
       "name": {"ru": "Предпросмотр SDXL (TAESDXL)", "en": "SDXL preview (TAESDXL)"},
       "purpose": {"ru": "Показывает, как картинка собирается шаг за шагом. Ставится вместе с моделью.", "en": "Shows the picture building up step by step. Installed with the model."},

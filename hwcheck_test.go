@@ -66,8 +66,8 @@ func TestAISteps(t *testing.T) {
 		}
 	}
 	plan, err := aiPlan(c, Installed{Version: 1}, aiFirstImage)
-	if err != nil || len(plan) != 2 || plan[0].ID != "taesdxl" {
-		t.Fatalf("план SDXL: %v %v", plan, err)
+	if err != nil || len(plan) != 1 || plan[0].ID != aiFirstImage {
+		t.Fatalf("план Z-Image: %v %v", plan, err)
 	}
 	for _, r := range aiModelRows(c, Installed{Version: 1}) {
 		if r.Kind == "tae" {

@@ -19,7 +19,7 @@ import (
 
 // aiFirstRun: что ставится в окне первого запуска. LLM для «Улучшить» — по галочке (включена).
 var (
-	aiFirstImage = "sdxl-base"
+	aiFirstImage = "zimage-turbo"
 	aiFirstLLM   = "gemma3-4b"
 )
 
