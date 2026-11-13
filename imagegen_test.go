@@ -276,3 +276,24 @@ func TestGPUGate(t *testing.T) {
 		t.Error("not dropped")
 	}
 }
+
+func TestGenErrKind(t *testing.T) {
+	for _, c := range []struct {
+		err   string
+		phase string
+		want  string
+	}{
+		{"Картинка не получилась: generate_image returned no results", "gen", "vram"},
+		{"z_image segment failed during workspace capacity check", "gen", "vram"},
+		{"CUDA error: out of memory", "load", "vram"},
+		{"write x.png: There is not enough space on the disk.", "save", "disk"},
+		{"что-то", "save", "disk"},
+		{"что-то", "model", "model"},
+		{"что-то", "load", "engine"},
+		{"что-то", "gen", "other"},
+	} {
+		if got := genErrKind(errors.New(c.err), c.phase); got != c.want {
+			t.Errorf("%q/%s: %s, want %s", c.err, c.phase, got, c.want)
+		}
+	}
+}

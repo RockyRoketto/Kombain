@@ -333,7 +333,11 @@ async function gnEnhance() {
   gn.enhBusy = false;
   if (!r.error) { gn.set.exp = r.prompt; gn.set.expFor = prompt; gnSave(); $('gnExp').value = r.prompt; }
   gnExpState(); gnGoState();
-  if (r.error) { say('warn', t('gn.enh'), r.error); return false; }
+  if (r.error) {
+    // помощник упал: рисовать можно и по запросу как есть
+    gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
+    return false;
+  }
   return true;
 }
 $('gnEnh').addEventListener('click', () => gnEnhance());
@@ -342,11 +346,12 @@ $('gnEnhAl').addEventListener('change', () => { gn.set.enhAl = $('gnEnhAl').chec
 $('gnExp').addEventListener('input', () => { gn.set.exp = $('gnExp').value; gn.set.expFor = gn.set.prompt.trim(); gnSave(); gnExpState(); });
 $('gnExpX').addEventListener('click', () => { gn.set.exp = gn.set.expFor = ''; gnSave(); $('gnExp').value = ''; gnExpState(); });
 
-async function gnGo(extra) {
+async function gnGo(extra, asIs) {
   if ($('gnGo').disabled) return;
   const s = gn.set;
   // «Улучшать всегда»: промт пишется заново, если его нет или он для прежнего запроса. Вариации рисуют по картинке.
-  if (s.enhAl && gn.info?.llm && !extra?.init && !gnExpFresh() && !(await gnEnhance())) return;
+  // asIs: помощник упал, рисуем по запросу как есть.
+  if (s.enhAl && !asIs && gn.info?.llm && !extra?.init && !gnExpFresh() && !(await gnEnhance())) return;
   const expanded = gnExpFresh() ? s.exp.trim() : '';
   const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, prompt: s.prompt, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
@@ -378,6 +383,43 @@ function gnApply(r, fresh) {
   gnGoState();
 }
 
+// ---- понятные ошибки ----
+
+// gnErrToast: всплывашка вместо английского текста движка. Технический текст прячется под «Подробности».
+function gnErrText(kind) {
+  return {
+    vram: {t: t('gn.err.vram.t'), x: t('gn.err.vram.x')},
+    disk: {t: t('gn.err.disk.t'), x: t('gn.err.disk.x')},
+    model: {t: t('gn.err.model.t'), x: t('gn.err.model.x')},
+    engine: {t: t('gn.err.engine.t'), x: t('gn.err.engine.x')},
+    llm: {t: t('gn.err.llm.t'), x: t('gn.err.llm.x')},
+    other: {t: t('gn.err.other.t'), x: t('gn.err.other.x')},
+  }[kind] || {t: t('gn.err.other.t'), x: t('gn.err.other.x')};
+}
+function gnErrToast(kind, raw, actions) {
+  const m = gnErrText(kind);
+  toast({id: 'gnerr', type: 'err', title: m.t,
+    text: esc(m.x) +(raw ? `<details><summary>${esc(t('gn.err.details'))}</summary><pre>${esc(raw)}</pre></details>` : ''),
+    actions});
+}
+
+// gnFailWatch: про каждую упавшую задачу говорим один раз. Те, что упали до открытия вкладки, молчат.
+function gnFailWatch() {
+  const failed = gn.tasks.filter(x => x.status === 'failed');
+  if (!gn.seenFail) { gn.seenFail = new Set(failed.map(x => x.id)); return; }
+  const fresh = failed.filter(x => !gn.seenFail.has(x.id));
+  fresh.forEach(x => gn.seenFail.add(x.id));
+  const x = fresh[fresh.length - 1];
+  if (!x) return;
+  const acts = [{t: t('btn.retry'), primary: true, fn: async () => {
+    const r = await api('gen-add', x.req);
+    if (r.error) { say('warn', t('warn.title'), r.error); return; }
+    gn.view = r.id; gnPoll();
+  }}];
+  if (['model', 'engine', 'disk'].includes(x.errKind)) acts.push({t: t('gn.err.models'), fn: () => gmOpen(true)});
+  gnErrToast(x.errKind, x.err, acts);
+}
+
 // ---- опрос ----
 
 function gnTabChanged() {
@@ -404,6 +446,7 @@ async function gnPoll() {
     gnStage();
     gnHwRender();
     ggOnPoll();
+    gnFailWatch();
   }
   if (tab === 'gen') gn.timer = setTimeout(gnPoll, document.hidden ? 2000 : 700);
 }
@@ -417,7 +460,7 @@ function gnStatus(x, short) {
     case 'loading': return t('gn.loading');
     case 'running': return t('gn.running', {i: x.index + 1, n}) + (x.progress.total ? ' · ' + t('gn.step', {s: x.progress.step, t: x.progress.total}) : '');
     case 'done': return short ? t('gn.done') : t('gn.done') + ' · ' + t('gn.size', {w: x.params.width, h: x.params.height});
-    case 'failed': return t('gn.failed') + (x.err ? ': ' + x.err : '');
+    case 'failed': return t('gn.failed') + (x.err ? ': ' + gnErrText(x.errKind).t : '');
     case 'cancelled': return t('gn.cancelled');
   }
   return x.status;

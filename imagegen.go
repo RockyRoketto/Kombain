@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -61,9 +62,10 @@ type GenTask struct {
 	Status     string      `json:"status"` // queued, loading, running, done, failed, cancelled
 	Index      int         `json:"index"`  // какая картинка рисуется (с 0)
 	Progress   GenProgress `json:"progress"`
-	PreviewSeq int         `json:"previewSeq"` // растёт с каждым новым кадром
-	Images     []string    `json:"images"`     // готовые файлы
-	Err        string      `json:"err,omitempty"`
+	PreviewSeq int         `json:"previewSeq"`        // растёт с каждым новым кадром
+	Images     []string    `json:"images"`            // готовые файлы
+	Err        string      `json:"err,omitempty"`     // технический текст ошибки («Подробности»)
+	ErrKind    string      `json:"errKind,omitempty"` // vram, disk, model, engine, other: страница по нему пишет понятный текст
 	Added      time.Time   `json:"added"`
 	Req        genAddReq   `json:"req"` // как попросил человек: запрос без шаблона стиля, стиль, пропорция
 }
@@ -224,6 +226,32 @@ func (q *genQueue) unload() {
 	q.gpu.drop("sd")
 }
 
+// genErrKind: вид ошибки для страницы. phase: model (выбор модели), load (запуск движка), gen (кадр), save (запись файла).
+func genErrKind(err error, phase string) string {
+	s := strings.ToLower(err.Error())
+	has := func(w ...string) bool {
+		for _, x := range w {
+			if strings.Contains(s, x) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case has("out of memory", "capacity check", "no results", "cudamalloc", "failed to allocate", "not enough memory"):
+		return "vram"
+	case has("no space left", "not enough space", "disk full"):
+		return "disk"
+	case phase == "model", has(strings.ToLower(tr("ai.noModel"))):
+		return "model"
+	case phase == "load", has(strings.ToLower(tr("ai.noEngine"))):
+		return "engine"
+	case phase == "save":
+		return "disk"
+	}
+	return "other"
+}
+
 // genRetryPause: пауза перед повтором упавшего кадра (в проверках обнуляется)
 var genRetryPause = 4 * time.Second
 
@@ -244,18 +272,18 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		q.mu.Unlock()
 	}()
 
-	fail := func(err error) {
+	fail := func(err error, phase string) {
 		q.set(t, func(t *GenTask) {
 			if errors.Is(err, context.Canceled) || ctx.Err() != nil {
 				t.Status = "cancelled"
 			} else {
-				t.Status, t.Err = "failed", err.Error()
+				t.Status, t.Err, t.ErrKind = "failed", err.Error(), genErrKind(err, phase)
 			}
 		})
 	}
 	set, err := q.resolve(t.Model)
 	if err != nil {
-		fail(err)
+		fail(err, "model")
 		return
 	}
 	// помощник «Улучшить» на картах от 14 ГБ живёт рядом с моделью (минуту после запроса) и съедает память,
@@ -263,7 +291,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 	llmSrv.Stop()
 	q.gpu.take("sd", q.engine.Stop)
 	if err := q.engine.Load(ctx, set); err != nil {
-		fail(err)
+		fail(err, "load")
 		return
 	}
 	q.mu.Lock()
@@ -306,7 +334,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 			png, err = q.engine.Generate(ctx, p, onProgress)
 		}
 		if err != nil {
-			fail(err)
+			fail(err, "gen")
 			return
 		}
 		q.mu.Lock()
@@ -314,7 +342,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		q.mu.Unlock()
 		path, err := q.save(snap, i, png)
 		if err != nil {
-			fail(err)
+			fail(err, "save")
 			return
 		}
 		q.set(t, func(t *GenTask) { t.Images = append(t.Images, path) })
