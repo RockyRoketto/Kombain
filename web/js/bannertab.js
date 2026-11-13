@@ -35,6 +35,7 @@ function setTab(t) {
   $('favView').classList.toggle('hide', tab !== 'util');
   $('pdfView').classList.toggle('hide', tab !== 'pdf');
   $('colorView').classList.toggle('hide', tab !== 'color');
+  document.body.classList.toggle('cl-on', tab === 'color');   // нижняя панель по ширине рабочего поля (style.css)
   $('genView').classList.toggle('hide', tab !== 'gen');
   if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
