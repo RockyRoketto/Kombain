@@ -896,6 +896,7 @@
   .trnote b{font-variant-numeric:tabular-nums;word-break:normal}
   .chip:hover{border-color:var(--line2);color:var(--tx)}
   .chip.on{background:var(--accbg);border-color:rgba(var(--acl-rgb),.55);color:var(--acct2);font-weight:600}
+  .chip:focus-visible{outline:2px solid var(--accs);outline-offset:1px}
 
   /* ----- поля ----- */
   .field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
@@ -908,11 +909,12 @@
   .soundc{display:flex;align-items:center;gap:6px;min-width:0}
   .soundc select{width:176px;min-width:0;text-overflow:ellipsis}
   .soundc .btn{flex:none}
-  input[type=number],input[type=text],input[type=password],select{background:var(--s2);color:var(--tx);border:1px solid var(--line2);border-radius:10px;
-    padding:7px 10px;font:inherit;outline:none;transition:.12s}
+  input[type=number],input[type=text],input[type=password],input[type=search],select{background:var(--s2);color:var(--tx);border:1px solid var(--line2);border-radius:10px;
+    padding:7px 10px;font:inherit;outline:none;transition:.12s;-webkit-appearance:none;appearance:none}
   input[type=number]{width:92px;text-align:right}
   input[type=text]{width:100%}
   input[type=password]{width:100%}
+  input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
   input:focus,select:focus{border-color:rgba(var(--acl-rgb),.6);box-shadow:0 0 0 3px rgba(var(--acl-rgb),.1)}
   .stack{display:block;padding:9px 0;border-top:1px solid var(--line)}
   .stack .lb{margin-bottom:6px;display:block;color:var(--tx2)}
@@ -1523,15 +1525,33 @@
   .gn-how-b p{margin:4px 0}
   .gn-how-b s{color:var(--dim)}
   .gn-how-b b{font-weight:500;color:var(--tx)}
-  .gn-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px}
-  .gn-pre{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:58px;padding:6px 8px;border-radius:11px;border:1px solid var(--line);
+  .gn-caprow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px}
+  .gn-caprow .gn-cap{margin:0}
+  .gn-caprow .chip{font-size:12px;padding:1px 10px}
+  .gn-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .gn-pin{position:absolute;top:3px;right:4px;z-index:2;font-size:13px;line-height:1;color:#fff;opacity:0;text-shadow:0 1px 3px rgba(0,0,0,.8);cursor:pointer;transition:.12s}
+  .gn-pre:hover .gn-pin,.gn-pin.on{opacity:1}
+  .gn-pin.on{color:var(--accs)}
+  .gn-more-t{align-items:center;justify-content:center;text-align:center;background:transparent;border-style:dashed}
+  .gn-more-t::before,.gn-more-t::after{display:none}
+  .gn-more-t b{text-shadow:none;color:var(--acct)}
+  .gn-more-t:hover{border-color:var(--accs)}
+  .gn-st-card{max-width:640px}
+  .gn-st-card input[type=search]{width:100%;margin:2px 0 4px}
+  .gn-st-body h4{margin:14px 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .gn-st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+  .gn-st-grid .gn-pre{height:76px}
+  .gn-pre{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:54px;padding:5px 7px;border-radius:11px;border:1px solid var(--line);
     background:var(--s2);text-align:left;overflow:hidden;transition:.15s}
   .gn-pre::before{content:"";position:absolute;inset:0;background:var(--g);opacity:.55;transition:.15s}
   .gn-pre::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,rgba(0,0,0,.55))}
-  .gn-pre b{position:relative;z-index:1;font-size:12.5px;font-weight:600;color:var(--ex-tx);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  .gn-pre b{position:relative;z-index:1;display:block;font-size:10.5px;line-height:1.2;font-weight:600;color:var(--ex-tx);text-shadow:0 1px 3px rgba(0,0,0,.6);
+    white-space:normal;word-break:break-word;min-width:0;max-width:100%;text-wrap:balance}
   .gn-pre:hover::before{opacity:.8}
   .gn-pre.on{border-color:var(--accs);box-shadow:0 0 0 1px var(--accs) inset}
   .gn-pre.on::before{opacity:.95}
+  .gn-pre:focus-visible{outline:2px solid var(--accs);outline-offset:1px}
+  .gn-pin:focus-visible{outline:1px solid #fff;outline-offset:1px;opacity:1}
   .gn-ratios{display:flex;flex-wrap:wrap;gap:5px}
   .gn-ratio{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:9px;border:1px solid var(--line);background:var(--s2);color:var(--tx2);font-size:12.5px;transition:.12s}
   .gn-ratio i{display:block;border:1.5px solid currentColor;border-radius:2px;opacity:.8}

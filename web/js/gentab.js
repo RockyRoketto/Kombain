@@ -1,19 +1,6 @@
 // Вкладка «Картинки»: запрос, стили, пропорции и очередь слева; в центре холст, где картинка проявляется из шума
 // (кадры предпросмотра плавно перетекают друг в друга, ранние размыты), под ним плашка нагрузки на железо.
 // Сервер: genapi.go (gen-info, gen-add, gen-state раз в 0,7 с, пока вкладка открыта, кадр — /gen-frame).
-const gn = {
-  info: null,         // ответ gen-info
-  tasks: [],          // очередь с сервера
-  view: 0,            // id задачи на холсте
-  timer: 0,
-  speed: {},          // 'id:картинка' → {t0, s0}: от чего считать секунды на шаг
-  hist: {gpu: [], vram: [], cpu: [], ram: []},
-  hw: null, model: '', gpu: '',
-  gridKey: '',
-  set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false,
-    exp: '', expFor: '', enhAl: false},   // exp — промт от «Улучшить», expFor — для какого запроса он сделан
-  enhBusy: false,
-};
 const GN_KEY = 'kb.gen';
 // образцы стилей, пока нет картинок-примеров из каталога
 const GN_GRAD = {
@@ -25,6 +12,42 @@ const GN_GRAD = {
   flat: 'linear-gradient(135deg,#ffd166 0 33%,#06d6a0 33% 66%,#118ab2 66%)',
   anime: 'linear-gradient(135deg,#ff9ac1,#8ec5ff 60%,#fff1a8)',
   water: 'radial-gradient(circle at 30% 40%,#a8d8ea,#f6c6ea 55%,#fdf6e3)',
+  product: 'linear-gradient(160deg,#f2f2f4,#b9bcc4 70%,#8a8d96)',
+  retro: 'linear-gradient(135deg,#c9a66b,#8c5a3c 60%,#3b2a22)',
+  oil: 'linear-gradient(135deg,#b5651d,#e0b15a 50%,#3f5a6b)',
+  sketch: 'linear-gradient(135deg,#e8e6df,#9a9a96 70%,#4a4a48)',
+  comic: 'linear-gradient(135deg,#ffd23f,#ee4266 55%,#3bceac)',
+  fantasy: 'linear-gradient(160deg,#2b1b4a,#7a4fb5 55%,#f0b27a)',
+  lowpoly: 'linear-gradient(135deg,#7fd1ae,#4d9de0 55%,#e15554)',
+  pixel: 'linear-gradient(135deg,#5b6ee1,#37946e 55%,#fbf236)',
+  neon: 'linear-gradient(135deg,#120a2a,#ff2bd6 55%,#00e5ff)',
+  minimal: 'linear-gradient(135deg,#f1ede4,#d8cfc0 60%,#b7a58a)',
+};
+// стили, для которых есть картинка-пример web/styles/<id>.jpg (остальные показываются градиентом)
+const GN_IMG = new Set();
+// группы в окне «Ещё стили…»
+const GN_GROUPS = {
+  photo: ['photo', 'cinema', 'product', 'retro'],
+  art: ['illus', 'anime', 'water', 'oil', 'sketch', 'comic', 'fantasy'],
+  gfx: ['icon3d', 'flat', 'lowpoly', 'pixel', 'neon', 'minimal'],
+};
+const GN_VIS = 5;                                    // сколько стилей видно плитками, шестая плитка — «Ещё стили…»
+const GN_VIS_DEF = ['photo', 'cinema', 'illus', 'icon3d', 'anime'];
+
+const gn = {
+  info: null,         // ответ gen-info
+  tasks: [],          // очередь с сервера
+  view: 0,            // id задачи на холсте
+  timer: 0,
+  speed: {},          // 'id:картинка' → {t0, s0}: от чего считать секунды на шаг
+  hist: {gpu: [], vram: [], cpu: [], ram: []},
+  hw: null, model: '', gpu: '',
+  gridKey: '',
+  set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false,
+    exp: '', expFor: '', enhAl: false,
+    // vis — стили на плитках, pins — закреплённые, use — когда стиль выбирали в последний раз
+    vis: GN_VIS_DEF.slice(), pins: [], use: {}},
+  enhBusy: false,
 };
 
 try { Object.assign(gn.set, JSON.parse(localStorage.getItem(GN_KEY) || '{}')); } catch (e) {}
@@ -39,8 +62,7 @@ async function gnInfo() {
   if (!r.presets.includes(gn.set.preset)) gn.set.preset = r.presets[0];
   if (!r.ratios.includes(gn.set.ratio)) gn.set.ratio = r.ratios[0];
   if (!r.models.some(m => m.id === gn.set.model)) gn.set.model = r.models.length ? r.models[0].id : '';
-  $('gnPresets').innerHTML = r.presets.map(p =>
-    `<button type="button" class="gn-pre${p === gn.set.preset ? ' on' : ''}" data-v="${esc(p)}" title="${esc(I18N[lang]['gn.preHint.' + p] || '')}" style="--g:${GN_GRAD[p] || GN_GRAD.none}"><b>${esc(I18N[lang]['gn.pre.' + p] || p)}</b></button>`).join('');
+  gnStyleRender();
   $('gnRatio').innerHTML = r.ratios.map(q => {
     const [a, b] = q.split(':').map(Number), k = 14 / Math.max(a, b);
     return `<button type="button" class="gn-ratio${q === gn.set.ratio ? ' on' : ''}" data-v="${q}"><i style="width:${Math.round(a * k)}px;height:${Math.round(b * k)}px"></i>${q}</button>`;
@@ -111,11 +133,99 @@ $('gnTips').addEventListener('click', e => {
   gn.set.prompt = p ? (/[,.;]$/.test(p) ? p + ' ' : p + ', ') + b.textContent : b.textContent;
   $('gnPrompt').value = gn.set.prompt; gnSave(); gnTips(); gnGoState(); gnExpState(); $('gnPrompt').focus();
 });
+// ---- стили: плитки, закрепление и окно «Ещё стили…» ----
+
+const gnPreName = p => I18N[lang]['gn.pre.' + p] || p;
+const gnPreTile = (p, pin) => {
+  const g = GN_IMG.has(p) ? `url(styles/${p}.jpg) center/cover` : (GN_GRAD[p] || GN_GRAD.none);
+  const pinned = gn.set.pins.includes(p);
+  return `<button type="button" class="gn-pre${p === gn.set.preset ? ' on' : ''}" data-v="${esc(p)}" title="${esc(I18N[lang]['gn.preHint.' + p] || '')}" style="--g:${g}"><b>${esc(gnPreName(p))}</b>` +
+    (pin ? `<span class="gn-pin${pinned ? ' on' : ''}" role="button" title="${esc(t(pinned ? 'gn.unpin' : 'gn.pin'))}">${pinned ? '★' : '☆'}</span>` : '') + `</button>`;
+};
+
+// gnStyleVis: чинит список плиток (вдруг стиль убрали из программы или список испортился)
+function gnStyleVis() {
+  const all = (gn.info?.presets || []).filter(p => p !== 'none');
+  const s = gn.set;
+  s.pins = (s.pins || []).filter(p => all.includes(p)).slice(0, GN_VIS - 1);
+  const vis = [];
+  for (const p of [...(s.vis || []), ...GN_VIS_DEF, ...all]) if (all.includes(p) && !vis.includes(p) && vis.length < GN_VIS) vis.push(p);
+  for (const p of s.pins) if (!vis.includes(p)) vis[vis.findIndex(x => !s.pins.includes(x))] = p;
+  if (s.preset !== 'none' && all.includes(s.preset) && !vis.includes(s.preset)) gnStyleShow(s.preset, vis);
+  s.vis = vis;
+}
+
+// gnStyleShow: ставит стиль на плитку вместо того, которым дольше всего не пользовались (закреплённые и выбранный не трогаем)
+function gnStyleShow(id, vis = gn.set.vis) {
+  if (vis.includes(id)) return;
+  const s = gn.set;
+  let at = -1, best = Infinity;
+  vis.forEach((p, i) => {
+    if (s.pins.includes(p) || p === s.preset) return;
+    const u = s.use[p] || 0;
+    if (u < best) { best = u; at = i; }
+  });
+  if (at < 0) at = vis.length - 1;
+  vis[at] = id;
+}
+
+function gnStylePick(id) {
+  gn.set.preset = id;
+  if (id !== 'none') { gn.set.use[id] = Date.now(); gnStyleShow(id); }
+  gnSave(); gnStyleRender();
+}
+
+function gnStyleRender() {
+  if (!gn.info) return;
+  gnStyleVis();
+  $('gnPresets').innerHTML = gn.set.vis.map(p => gnPreTile(p, true)).join('') +
+    `<button type="button" class="gn-pre gn-more-t" id="gnStylesBtn"><b>${esc(t('gn.moreStyles'))}</b></button>`;
+  $('gnNoStyle').classList.toggle('on', gn.set.preset === 'none');
+}
+
+function gnStylesOpen() {
+  $('gnStylesQ').value = '';
+  gnStylesList();
+  $('gnStyles').classList.remove('hide');
+  $('gnStylesQ').focus();
+}
+const gnStylesClose = () => $('gnStyles').classList.add('hide');
+
+function gnStylesList() {
+  const q = $('gnStylesQ').value.trim().toLowerCase();
+  const hit = p => !q || (gnPreName(p) + ' ' + (I18N[lang]['gn.preHint.' + p] || '')).toLowerCase().includes(q);
+  const known = new Set(Object.values(GN_GROUPS).flat());
+  const grpNames = {photo: t('gn.grp.photo'), art: t('gn.grp.art'), gfx: t('gn.grp.gfx')};
+  const groups = Object.entries(GN_GROUPS).map(([g, ids]) => [grpNames[g] || g, ids]);
+  const rest = (gn.info?.presets || []).filter(p => p !== 'none' && !known.has(p));
+  if (rest.length) groups.push(['', rest]);
+  const html = groups.map(([name, ids]) => {
+    const list = ids.filter(p => (gn.info?.presets || []).includes(p) && hit(p));
+    return list.length ? `<h4>${esc(name)}</h4><div class="gn-st-grid">${list.map(p => gnPreTile(p, false)).join('')}</div>` : '';
+  }).join('');
+  $('gnStylesBody').innerHTML = html || `<div class="gn-tip">${esc(t('gn.moreNone'))}</div>`;
+}
+
 $('gnPresets').addEventListener('click', e => {
+  if (e.target.closest('#gnStylesBtn')) { gnStylesOpen(); return; }
   const b = e.target.closest('.gn-pre'); if (!b) return;
-  gn.set.preset = b.dataset.v; gnSave();
-  document.querySelectorAll('#gnPresets .gn-pre').forEach(x => x.classList.toggle('on', x === b));
+  const id = b.dataset.v;
+  if (e.target.closest('.gn-pin')) {            // звёздочка: закрепить или открепить, выбор не меняется
+    const pins = gn.set.pins, i = pins.indexOf(id);
+    if (i >= 0) pins.splice(i, 1); else if (pins.length < GN_VIS - 1) pins.push(id);
+    gnSave(); gnStyleRender(); return;
+  }
+  gnStylePick(id);
 });
+$('gnNoStyle').addEventListener('click', () => gnStylePick(gn.set.preset === 'none' ? (gn.set.vis[0] || 'photo') : 'none'));
+$('gnStylesBody').addEventListener('click', e => {
+  const b = e.target.closest('.gn-pre'); if (!b) return;
+  gnStylePick(b.dataset.v); gnStylesClose();
+});
+$('gnStylesQ').addEventListener('input', gnStylesList);
+$('gnStylesX').addEventListener('click', gnStylesClose);
+$('gnStyles').addEventListener('click', e => { if (e.target === $('gnStyles')) gnStylesClose(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('gnStyles').classList.contains('hide')) { e.stopPropagation(); gnStylesClose(); } });
 $('gnRatio').addEventListener('click', e => {
   const b = e.target.closest('.gn-ratio'); if (!b) return;
   gn.set.ratio = b.dataset.v; gnSave();

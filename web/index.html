@@ -1383,8 +1383,15 @@ __CSS__
         <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
         <details class="gn-how"><summary data-i18n="gn.how"></summary><div class="gn-how-b" data-i18n="gn.howBody"></div></details>
 
-        <h3 class="gn-cap" data-i18n="gn.style"></h3>
+        <div class="gn-caprow"><h3 class="gn-cap" data-i18n="gn.style"></h3><button type="button" class="chip" id="gnNoStyle" data-i18n="gn.pre.none" data-i18n-title="gn.preHint.none"></button></div>
         <div class="gn-presets" id="gnPresets"></div>
+        <div id="gnStyles" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="gnStylesT">
+          <div class="mcard gn-st-card">
+            <div class="phead"><h3 id="gnStylesT" data-i18n="gn.moreTitle"></h3><button class="x" id="gnStylesX" data-i18n-title="btn.close">✕</button></div>
+            <input type="search" id="gnStylesQ" data-i18n-ph="gn.moreSearch" autocomplete="off">
+            <div class="gn-st-body" id="gnStylesBody"></div>
+          </div>
+        </div>
 
         <h3 class="gn-cap" data-i18n="gn.ratio"></h3>
         <div class="gn-ratios" id="gnRatio"></div>

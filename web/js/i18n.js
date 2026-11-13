@@ -25,5 +25,7 @@ function applyLang() {
   newsBanner(snap); appBanner(snap); ffBanner(snap); renderSetup(snap); renderInstallBtn(snap);
   render(); bLast = ''; bRender(); pdfLast = ''; pdfRender(); updateButtons(); renderSummary(snap);
   storeRender(); aboutRender(snap); fvRender();
+  if (typeof gnStyleRender === 'function') gnStyleRender();
+  if (typeof gmRender === 'function') gmRender();        // экран первого запуска / панель «Модели» во вкладке «Картинки»
 }
 
