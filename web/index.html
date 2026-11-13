@@ -34,8 +34,8 @@ __CSS__
       <button class="tab" data-t="play" data-i18n="tab.play"></button>
       <button class="tab" data-t="mont" data-i18n="tab.mont"></button>
       <button class="tab" data-t="color" data-i18n="tab.color"></button>
+      <button class="tab" data-t="gen" data-i18n="tab.gen" id="genTabBtn"></button>
       <button class="tab" data-t="util" data-i18n="tab.util"></button>
-      <button class="tab hide" data-t="gen" data-i18n="tab.gen" id="genTabBtn"></button>
     </nav>
     <div class="hero-right">
       <button class="instb hide" id="installBtn" data-i18n-title="install.title" data-i18n="install.btn"></button>
@@ -119,6 +119,8 @@ __CSS__
           </div>
           <h2 data-i18n="store.speech"></h2>
           <div id="stModels"></div>
+          <h2 data-i18n="store.ai"></h2>
+          <div id="stAI"></div>
           <div class="setp-btns">
             <button class="btn sm" id="openData" data-i18n="setp.openData" data-i18n-title="setp.openDataTitle"></button>
           </div>
@@ -1368,6 +1370,15 @@ __CSS__
       <div class="gn-scroll">
         <h3 class="gn-cap"><span data-i18n="gn.prompt"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.promptHelp"></span></button></h3>
         <textarea id="gnPrompt" class="gn-prompt" rows="5" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
+        <div class="gn-enh">
+          <button type="button" class="btn sm" id="gnEnh" data-i18n-title="gn.enhTitle"><span data-i18n="gn.enh"></span></button>
+          <label class="sw gn-enh-al" id="gnEnhAlRow" data-i18n-title="gn.enhAlwaysHint"><span data-i18n="gn.enhAlways"></span><input type="checkbox" id="gnEnhAl"><i></i></label>
+        </div>
+        <div class="gn-exp hide" id="gnExpBox">
+          <span class="lb gn-neg-lb"><span data-i18n="gn.enhLb"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.enhHelp"></span></button><button type="button" class="linkb gn-exp-x" id="gnExpX" data-i18n="gn.enhClear"></button></span>
+          <textarea id="gnExp" class="gn-prompt gn-neg" rows="4" maxlength="3000" spellcheck="false"></textarea>
+          <div class="gn-tip hide" id="gnExpStale" data-i18n="gn.enhStale"></div>
+        </div>
         <div class="gn-tip hide" id="gnLangTip" data-i18n="gn.langTip"></div>
         <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
         <details class="gn-how"><summary data-i18n="gn.how"></summary><div class="gn-how-b" data-i18n="gn.howBody"></div></details>
@@ -1378,7 +1389,7 @@ __CSS__
         <h3 class="gn-cap" data-i18n="gn.ratio"></h3>
         <div class="gn-ratios" id="gnRatio"></div>
 
-        <div class="gn-row"><span class="lb" data-i18n="gn.model"></span><select id="gnModel"></select></div>
+        <div class="gn-row"><span class="lb" data-i18n="gn.model"></span><span class="gn-model"><select id="gnModel"></select><button type="button" class="btn sm" id="gnModelsBtn" data-i18n="gn.models" data-i18n-title="gn.modelsTitle"></button></span></div>
         <div class="gn-row"><span class="lb" data-i18n="gn.count"></span><div class="cl-seg" id="gnCount"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div></div>
 
         <details class="gn-more" id="gnMore">
@@ -1397,6 +1408,16 @@ __CSS__
     </section>
 
     <section class="gn-center">
+      <div class="card gn-setup hide" id="gnSetup"></div>
+      <div class="card gn-mods hide" id="gnMods">
+        <div class="gn-gal-bar">
+          <button type="button" class="btn sm" id="gmBack" data-i18n="gm.back"></button>
+          <b class="gm-title" data-i18n="gm.title"></b>
+          <span class="gm-folder" id="gmFolder"></span>
+          <button type="button" class="btn sm" id="gmChange" data-i18n="gm.change"></button>
+        </div>
+        <div class="gm-list" id="gmList"></div>
+      </div>
       <div class="card gn-stage" id="gnStage">
         <div class="gn-empty" id="gnEmpty"><b data-i18n="gn.emptyT"></b><span id="gnEmptyS" data-i18n="gn.emptyS"></span></div>
         <div class="gn-grid hide" id="gnGrid"></div>

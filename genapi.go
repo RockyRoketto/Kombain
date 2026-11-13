@@ -39,6 +39,7 @@ func genQueueGet() *genQueue {
 
 // genShutdown: при выходе из программы. Движок и так в объекте задания, но выгрузить его сразу — вежливо.
 func genShutdown() {
+	llmSrv.Stop()
 	if genCancel != nil {
 		genCancel()
 		genEng.Stop()
@@ -113,8 +114,9 @@ type genAddReq struct {
 	Seed     int64   `json:"seed"` // -1 — случайное
 	Steps    int     `json:"steps"`
 	CFG      float64 `json:"cfg"`
-	Preview  bool    `json:"preview"`        // показывать сборку картинки
-	Init     string  `json:"init,omitempty"` // «Вариации»: картинка из галереи, по которой рисовать
+	Preview  bool    `json:"preview"`            // показывать сборку картинки
+	Init     string  `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
+	Expanded string  `json:"expanded,omitempty"` // промт от «Улучшить» (правится руками); пусто — модель получает запрос как есть
 }
 
 // genVarStrength: насколько вариация уходит от исходной картинки (0 — копия, 1 — с нуля). 0,5 сохраняет
@@ -123,7 +125,11 @@ const genVarStrength = 0.5
 
 // genBuild: из запроса страницы — параметры движка
 func genBuild(r genAddReq, m genModelInfo) GenParams {
-	prompt, neg := genPreset(r.Preset).apply(r.Prompt, r.Negative)
+	src := r.Prompt
+	if e := strings.TrimSpace(r.Expanded); e != "" {
+		src = e
+	}
+	prompt, neg := genPreset(r.Preset).apply(src, r.Negative)
 	if m.Def.Negative != "" {
 		neg += ", " + m.Def.Negative
 	}
@@ -155,7 +161,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			presets = append(presets, p.ID)
 		}
 		writeJSON(w, map[string]any{
-			"show": engine || len(models) > 0, "engine": engine, "models": models, "presets": presets,
+			"show": true, "ready": engine && len(models) > 0, "llm": llmReady(), "setup": !aiRootChosen() && !engine, "engine": engine, "models": models, "presets": presets,
 			"ratios": genRatios, "gallery": filepath.Dir(aiGalleryDir(time.Now())),
 		})
 	}))

@@ -213,8 +213,8 @@ function setPanel(open) {
 // ---------- раздел «Хранилище»: что сколько весит ----------
 let storeData = null;
 // части полосы: модели и их недокачанные хвосты одной частью, копии просмотра вместе с остальным кэшем
-const STORE_GROUP = {app: 'app', ffmpeg: 'ffmpeg', model: 'model', models: 'model', tools: 'tools', preview: 'cache', cache: 'cache', webview: 'webview', other: 'other'};
-const STORE_ORDER = ['model', 'cache', 'ffmpeg', 'app', 'tools', 'webview', 'other'];
+const STORE_GROUP = {ai: 'ai', aiengine: 'ai', aigallery: 'aigal', app: 'app', ffmpeg: 'ffmpeg', model: 'model', models: 'model', tools: 'tools', preview: 'cache', cache: 'cache', webview: 'webview', other: 'other'};
+const STORE_ORDER = ['ai', 'aigal', 'model', 'cache', 'ffmpeg', 'app', 'tools', 'webview', 'other'];
 async function storeLoad() {
   const r = await api('storage');
   if (r.error) return;
@@ -242,6 +242,11 @@ function storeRender() {
       `<button class="x" data-del="${esc(p.kind === 'tools' ? '' : p.name)}" title="${esc(t('store.del'))}" aria-label="${esc(t('store.del') + ': ' + name)}">✕</button></div>`;
   });
   $('stModels').innerHTML = rows.length ? rows.join('') : `<div class="st-empty">${esc(t('store.noModels'))}</div>`;
+  // генератор картинок: модели по одной (движки и галерея только в полосе)
+  const ai = parts.filter(p => p.kind === "ai").map(p =>
+    `<div class="st-row"><div><span class="lb">${esc(p.label || p.name)}</span><span class="hint">${fmtSize(p.bytes)}</span></div>` +
+    `<button class="x" data-ai="${esc(p.name)}" data-label="${esc(p.label || p.name)}" title="${esc(t("store.del"))}" aria-label="${esc(t("store.del") + ": " + (p.label || p.name))}">✕</button></div>`);
+  $("stAI").innerHTML = ai.length ? ai.join("") : `<div class="st-empty">${esc(t("store.noAI"))}</div>`;
 }
 $('stModels').addEventListener('click', async e => {
   const b = e.target.closest('[data-del]');
@@ -251,6 +256,15 @@ $('stModels').addEventListener('click', async e => {
   const r = await api('storage-remove', {name: b.dataset.del});
   if (r.error) { say('warn', t('store.del'), r.error); return; }
   storeData = r; storeRender();
+});
+$("stAI").addEventListener("click", async e => {
+  const b = e.target.closest("[data-ai]");
+  if (!b) return;
+  if (!confirm(t("store.aiDelAsk", {name: b.dataset.label}))) return;
+  const r = await api("storage-remove", {ai: b.dataset.ai});
+  if (r.error) { say("warn", t("store.del"), r.error); return; }
+  storeData = r; storeRender();
+  if (typeof gnInfo === "function" && tab === "gen") gnInfo();
 });
 $('stClear').onclick = async () => {
   if (snap.running) { say('warn', t('store.clear'), t('store.busyPage')); return; }

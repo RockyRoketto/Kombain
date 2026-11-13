@@ -10,7 +10,9 @@ const gn = {
   hist: {gpu: [], vram: [], cpu: [], ram: []},
   hw: null, model: '', gpu: '',
   gridKey: '',
-  set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false},
+  set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false,
+    exp: '', expFor: '', enhAl: false},   // exp — промт от «Улучшить», expFor — для какого запроса он сделан
+  enhBusy: false,
 };
 const GN_KEY = 'kb.gen';
 // образцы стилей, пока нет картинок-примеров из каталога
@@ -34,8 +36,6 @@ async function gnInfo() {
   const r = await api('gen-info');
   if (r.error) return;
   gn.info = r;
-  $('genTabBtn').classList.toggle('hide', !r.show);
-  if (!r.show && tab === 'gen') { setTab('conv'); return; }
   if (!r.presets.includes(gn.set.preset)) gn.set.preset = r.presets[0];
   if (!r.ratios.includes(gn.set.ratio)) gn.set.ratio = r.ratios[0];
   if (!r.models.some(m => m.id === gn.set.model)) gn.set.model = r.models.length ? r.models[0].id : '';
@@ -51,6 +51,7 @@ async function gnInfo() {
   gnFields();
   gnGoState();
   gnStage();
+  gmSync(r);
 }
 
 function gnFields() {
@@ -60,6 +61,9 @@ function gnFields() {
   $('gnCfg').value = gn.set.cfg;
   $('gnSeed').value = gn.set.seed;
   $('gnShowBuild').checked = gn.set.build;
+  $('gnExp').value = gn.set.exp;
+  $('gnEnhAl').checked = gn.set.enhAl;
+  gnExpState();
   document.querySelectorAll('#gnCount button').forEach(b => b.classList.toggle('on', +b.dataset.v === gn.set.count));
   $('gnHw').classList.toggle('min', !!gn.set.hwMin);
   $('gnHwToggle').setAttribute('aria-expanded', String(!gn.set.hwMin));
@@ -69,7 +73,7 @@ function gnFields() {
 function gnModel() { return (gn.info?.models || []).find(m => m.id === gn.set.model); }
 
 function gnGoState() {
-  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '';
+  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !gn.enhBusy;
   $('gnGo').disabled = !ok;
   const why = !gn.info ? '' : !gn.info.engine ? t('gn.noEngine') : !gnModel() ? t('gn.noModel') : '';
   $('gnEmptyS').textContent = why || t('gn.emptyS');
@@ -94,7 +98,7 @@ function gnTips() {
     $('gnTips').innerHTML = t('gn.tips').split('|').map(x => `<button type="button" class="chip">${esc(x)}</button>`).join('');
 }
 
-$('gnPrompt').addEventListener('input', () => { gn.set.prompt = $('gnPrompt').value; gnSave(); gnTips(); gnGoState(); });
+$('gnPrompt').addEventListener('input', () => { gn.set.prompt = $('gnPrompt').value; gnSave(); gnTips(); gnGoState(); gnExpState(); });
 $('gnNeg').addEventListener('input', () => { gn.set.neg = $('gnNeg').value; gnSave(); });
 for (const [id, k] of [['gnSteps', 'steps'], ['gnCfg', 'cfg'], ['gnSeed', 'seed']])
   $(id).addEventListener('input', () => { gn.set[k] = $(id).value; gnSave(); });
@@ -105,7 +109,7 @@ $('gnTips').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const p = gn.set.prompt.trimEnd();
   gn.set.prompt = p ? (/[,.;]$/.test(p) ? p + ' ' : p + ', ') + b.textContent : b.textContent;
-  $('gnPrompt').value = gn.set.prompt; gnSave(); gnTips(); gnGoState(); $('gnPrompt').focus();
+  $('gnPrompt').value = gn.set.prompt; gnSave(); gnTips(); gnGoState(); gnExpState(); $('gnPrompt').focus();
 });
 $('gnPresets').addEventListener('click', e => {
   const b = e.target.closest('.gn-pre'); if (!b) return;
@@ -127,11 +131,49 @@ $('gnGo').addEventListener('click', () => gnGo());
 $('gnFolder').addEventListener('click', () => { if (gn.info) api('open-dir', {path: gn.info.gallery}).then(r => { if (r.error) say('warn', t('warn.title'), r.error); }); });
 $('gnHwToggle').addEventListener('click', () => { gn.set.hwMin = !gn.set.hwMin; gnSave(); gnFields(); gnHwRender(); });
 
+// ---- «Улучшить»: помощник пишет английский промт, он виден и правится; устаревший (запрос изменили) не используется ----
+
+function gnExpFresh() { return gn.set.exp.trim() !== '' && gn.set.expFor === gn.set.prompt.trim(); }
+function gnExpState() {
+  const has = gn.set.exp.trim() !== '';
+  $('gnExpBox').classList.toggle('hide', !has);
+  $('gnExpBox').classList.toggle('stale', has && !gnExpFresh());
+  $('gnExpStale').classList.toggle('hide', !has || gnExpFresh());
+  $('gnEnhAlRow').classList.toggle('hide', !gn.info?.llm);
+  const b = $('gnEnh');
+  b.disabled = gn.enhBusy || !gn.set.prompt.trim();
+  b.firstElementChild.textContent = t(gn.enhBusy ? 'gn.enhBusy' : 'gn.enh');
+  b.classList.toggle('busy', gn.enhBusy);
+}
+
+// gnEnhance: true — промт готов
+async function gnEnhance() {
+  if (!gn.info?.llm) { say('info', t('gn.enh'), t('gn.enhNeed')); gmOpen(true); return false; }
+  const prompt = gn.set.prompt.trim();
+  if (!prompt || gn.enhBusy) return false;
+  gn.enhBusy = true; gnExpState(); gnGoState();
+  const r = await api('gen-enhance', {prompt, preset: gn.set.preset});
+  gn.enhBusy = false;
+  if (!r.error) { gn.set.exp = r.prompt; gn.set.expFor = prompt; gnSave(); $('gnExp').value = r.prompt; }
+  gnExpState(); gnGoState();
+  if (r.error) { say('warn', t('gn.enh'), r.error); return false; }
+  return true;
+}
+$('gnEnh').addEventListener('click', () => gnEnhance());
+$('gnEnhAl').addEventListener('change', () => { gn.set.enhAl = $('gnEnhAl').checked; gnSave(); });
+// правка руками делает промт своим для текущего запроса
+$('gnExp').addEventListener('input', () => { gn.set.exp = $('gnExp').value; gn.set.expFor = gn.set.prompt.trim(); gnSave(); gnExpState(); });
+$('gnExpX').addEventListener('click', () => { gn.set.exp = gn.set.expFor = ''; gnSave(); $('gnExp').value = ''; gnExpState(); });
+
 async function gnGo(extra) {
   if ($('gnGo').disabled) return;
-  const s = gn.set, seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
+  const s = gn.set;
+  // «Улучшать всегда»: промт пишется заново, если его нет или он для прежнего запроса. Вариации рисуют по картинке.
+  if (s.enhAl && gn.info?.llm && !extra?.init && !gnExpFresh() && !(await gnEnhance())) return;
+  const expanded = gnExpFresh() ? s.exp.trim() : '';
+  const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, prompt: s.prompt, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
-    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {})});
+    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, expanded, ...(extra || {})});
   if (r.error) { say('warn', t('warn.title'), r.error); return; }
   gn.view = r.id;
   gnPoll();
@@ -148,6 +190,8 @@ function gnApply(r, fresh) {
   s.steps = r.steps > 0 ? String(r.steps) : '';
   s.cfg = r.cfg > 0 ? String(r.cfg) : '';
   s.seed = fresh ? '' : String(r.seed);
+  s.exp = r.expanded || '';
+  s.expFor = s.exp ? s.prompt.trim() : '';
   gnSave();
   if (!fresh) $('gnMore').open = true;   // зерно и шаги видны, иначе не понять, что вернулось
   document.querySelectorAll('#gnPresets .gn-pre').forEach(x => x.classList.toggle('on', x.dataset.v === s.preset));
@@ -161,6 +205,7 @@ function gnApply(r, fresh) {
 
 function gnTabChanged() {
   clearTimeout(gn.timer);
+  clearTimeout(gm.timer);
   if (tab !== 'gen') return;
   gnInfo();
   gnPoll();

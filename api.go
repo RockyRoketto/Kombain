@@ -140,9 +140,14 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/storage-remove", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Name string `json:"name"`
+			AI   string `json:"ai"` // модель генератора картинок
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		if err := whisperRemove(body.Name); err != nil {
+		remove := func() error { return whisperRemove(body.Name) }
+		if body.AI != "" {
+			remove = func() error { return aiRemove(body.AI) }
+		}
+		if err := remove(); err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
@@ -948,5 +953,6 @@ func (s *Server) routes() *http.ServeMux {
 		}()
 	}))
 	s.genRoutes(mux)
+	s.aiRoutes(mux)
 	return mux
 }

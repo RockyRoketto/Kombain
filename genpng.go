@@ -217,6 +217,7 @@ type genRestore struct {
 	Seed     int64   `json:"seed"`
 	Width    int     `json:"width"`
 	Height   int     `json:"height"`
+	Expanded string  `json:"expanded,omitempty"`
 	Exact    bool    `json:"exact"`
 }
 
@@ -289,7 +290,7 @@ func genRestoreMeta(m GenMeta) genRestore {
 	r := genRestore{Prompt: p.Prompt, Negative: "", Preset: "none", Model: m.Model, Steps: p.Steps, CFG: p.CFG, Seed: p.Seed,
 		Width: p.Width, Height: p.Height, Ratio: genNearestRatio(p.Width, p.Height)}
 	if q := m.Request; q != nil {
-		r.Prompt, r.Negative, r.Preset, r.Steps, r.CFG, r.Exact = q.Prompt, q.Negative, q.Preset, q.Steps, q.CFG, true
+		r.Prompt, r.Negative, r.Preset, r.Steps, r.CFG, r.Exact, r.Expanded = q.Prompt, q.Negative, q.Preset, q.Steps, q.CFG, true, q.Expanded
 		if q.Ratio != "" && q.Init == "" {
 			r.Ratio = q.Ratio
 		}

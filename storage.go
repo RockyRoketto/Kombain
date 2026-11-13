@@ -17,6 +17,7 @@ import (
 type StoragePart struct {
 	Kind  string `json:"kind"`
 	Name  string `json:"name,omitempty"`
+	Label string `json:"label,omitempty"` // подпись, если имя не из словаря страницы (модели ИИ)
 	Bytes int64  `json:"bytes"`
 }
 
@@ -40,7 +41,7 @@ func storageParts() []StoragePart {
 	var parts []StoragePart
 	add := func(kind, name string, n int64) {
 		if n > 0 {
-			parts = append(parts, StoragePart{kind, name, n})
+			parts = append(parts, StoragePart{Kind: kind, Name: name, Bytes: n})
 		}
 	}
 	if exe, err := os.Executable(); err == nil {
@@ -73,7 +74,7 @@ func storageParts() []StoragePart {
 		}
 	}
 	add("other", "", top)
-	return parts
+	return append(parts, aiStorageParts()...)
 }
 
 // cacheClear стирает то, что программа сделает заново: копии для просмотра, картинки надписей,
@@ -167,4 +168,41 @@ func readStats() Stats {
 	statsMu.Lock()
 	defer statsMu.Unlock()
 	return loadStats()
+}
+
+// aiStorageParts: генератор картинок. Папка ИИ может лежать на другом диске, поэтому считается отдельно.
+// Модели идут строками (их можно удалить), движки и служебное (TAE) одной частью, галерея своей.
+func aiStorageParts() []StoragePart {
+	var parts []StoragePart
+	in := aiLoadInstalled()
+	cat, _ := aiCatalog()
+	var extra int64
+	for _, m := range in.Models {
+		var n int64
+		for _, f := range m.Files {
+			n += fileSize(filepath.Join(aiModelsDir(), filepath.FromSlash(f.Path)))
+		}
+		if m.Kind == "tae" {
+			extra += n
+			continue
+		}
+		label := m.Name
+		if cm, ok := cat.model(m.ID); ok {
+			label = cm.Name.String()
+		}
+		if label == "" {
+			label = m.ID
+		}
+		if n > 0 {
+			parts = append(parts, StoragePart{Kind: "ai", Name: m.ID, Label: label, Bytes: n})
+		}
+	}
+	extra += dirSize(filepath.Join(aiRoot(), "engines"))
+	if extra > 0 {
+		parts = append(parts, StoragePart{Kind: "aiengine", Bytes: extra})
+	}
+	if n := dirSize(filepath.Join(aiRoot(), "gallery")); n > 0 {
+		parts = append(parts, StoragePart{Kind: "aigallery", Bytes: n})
+	}
+	return parts
 }

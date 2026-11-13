@@ -1,5 +1,68 @@
 {
   "version": 1,
-  "engines": [],
-  "models": []
+  "engines": [
+    {
+      "id": "sd-cuda", "kind": "sd", "flavor": "cuda", "tag": "master-1086-465adf3", "exe": "sd-server.exe",
+      "files": [
+        {"name": "sd-master-465adf3-bin-win-cuda12-x64.zip", "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-1086-465adf3/sd-master-465adf3-bin-win-cuda12-x64.zip", "size": 367151447, "sha256": "d775bff22f7677af664c198d0d978098990bf45525aa538bb7f630f8329ea5ad"},
+        {"name": "cudart-sd-bin-win-cu12-x64.zip", "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-1086-465adf3/cudart-sd-bin-win-cu12-x64.zip", "size": 563452046, "sha256": "fe20366827d357c00797eebb58244dddab7fd9a348d70090c3871004c320f38d"}
+      ]
+    },
+    {
+      "id": "sd-vulkan", "kind": "sd", "flavor": "vulkan", "tag": "master-1086-465adf3", "exe": "sd-server.exe",
+      "files": [
+        {"name": "sd-master-465adf3-bin-win-vulkan-x64.zip", "url": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-1086-465adf3/sd-master-465adf3-bin-win-vulkan-x64.zip", "size": 30023026, "sha256": "f468c6c4c1130e7d7facafe2163139e259739f480ef2413d968057e1e691c817"}
+      ]
+    },
+    {
+      "id": "llm-cuda", "kind": "llm", "flavor": "cuda", "tag": "b12110", "exe": "llama-server.exe",
+      "files": [
+        {"name": "llama-b12110-bin-win-cuda-12.4-x64.zip", "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-win-cuda-12.4-x64.zip", "size": 287014657, "sha256": "1ce755bc3a061889234048f88e33328e17971eaad73c4666cfeb26026b317fee"},
+        {"name": "cudart-llama-bin-win-cuda-12.4-x64.zip", "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12110/cudart-llama-bin-win-cuda-12.4-x64.zip", "size": 391443627, "sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6"}
+      ]
+    },
+    {
+      "id": "llm-vulkan", "kind": "llm", "flavor": "vulkan", "tag": "b12110", "exe": "llama-server.exe",
+      "files": [
+        {"name": "llama-b12110-bin-win-vulkan-x64.zip", "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-win-vulkan-x64.zip", "size": 37661146, "sha256": "9732a5e48887ca54d0bfe4af4324dc85fd56cd8cda19b52df3542fa6ebe6874f"}
+      ]
+    }
+  ],
+  "models": [
+    {
+      "id": "sdxl-base", "kind": "image", "arch": "sdxl",
+      "name": {"ru": "SDXL base 1.0", "en": "SDXL base 1.0"},
+      "purpose": {"ru": "Универсальная: фото, иллюстрации, предметы, фоны. Понимает английский.", "en": "General purpose: photos, illustrations, objects, backgrounds. Understands English."},
+      "license": {"ru": "CreativeML Open RAIL++-M: картинки можно использовать и продавать. Нельзя делать с её помощью запрещённое лицензией: обман, вред людям и т. п.", "en": "CreativeML Open RAIL++-M: you can use and sell the images. Don't use it for what the license forbids: deception, harming people and so on."},
+      "licenseUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md",
+      "commercial": true, "vram": 6,
+      "files": [
+        {"name": "sd_xl_base_1.0.safetensors", "cat": "checkpoints", "role": "checkpoint", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "size": 6938078334, "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b"}
+      ],
+      "defaults": {"steps": 20, "cfg": 7, "width": 1024, "height": 1024},
+      "needs": ["taesdxl"]
+    },
+    {
+      "id": "taesdxl", "kind": "tae", "arch": "sdxl",
+      "name": {"ru": "Предпросмотр SDXL (TAESDXL)", "en": "SDXL preview (TAESDXL)"},
+      "purpose": {"ru": "Показывает, как картинка собирается шаг за шагом. Ставится вместе с моделью.", "en": "Shows the picture building up step by step. Installed with the model."},
+      "license": {"ru": "MIT: можно всё.", "en": "MIT: no restrictions."},
+      "licenseUrl": "https://huggingface.co/madebyollin/taesdxl",
+      "commercial": true, "vram": 0,
+      "files": [
+        {"name": "taesdxl.safetensors", "cat": "tae", "role": "tae", "url": "https://huggingface.co/madebyollin/taesdxl/resolve/main/diffusion_pytorch_model.safetensors", "size": 9793292, "sha256": "ff4824aca94dd6111e0340fa749347fb74101060d9712cb5ef1ca8f1cf17502f"}
+      ]
+    },
+    {
+      "id": "gemma3-4b", "kind": "llm", "arch": "gemma3",
+      "name": {"ru": "Помощник запросов (Gemma 3 4B)", "en": "Prompt helper (Gemma 3 4B)"},
+      "purpose": {"ru": "Кнопка «Улучшить»: из короткого запроса на любом языке пишет подробный английский промт.", "en": "The Enhance button: turns a short request in any language into a detailed English prompt."},
+      "license": {"ru": "Gemma Terms of Use: текст, который она пишет, твой, можно использовать в работе. Нельзя применять для запрещённого правилами Google (обман, вред людям и т. п.).", "en": "Gemma Terms of Use: the text it writes is yours to use at work. Don't use it for what Google's policy forbids (deception, harming people and so on)."},
+      "licenseUrl": "https://ai.google.dev/gemma/terms",
+      "commercial": true, "vram": 3,
+      "files": [
+        {"name": "gemma-3-4b-it-Q4_K_M.gguf", "cat": "llm", "role": "llm", "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf", "size": 2489757856, "sha256": "882e8d2db44dc554fb0ea5077cb7e4bc49e7342a1f0da57901c0802ea21a0863"}
+      ]
+    }
+  ]
 }
