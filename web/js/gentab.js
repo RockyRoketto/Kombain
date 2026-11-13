@@ -563,3 +563,14 @@ function gnSpark(cv, data, el) {
 }
 
 gnInfo();
+
+// gnRelang: после смены языка заново собрать то, что вкладка рисует кодом (названия стилей, галерея, окно просмотра)
+function gnRelang() {
+  gnStyleRender();
+  if (!$('gnStyles').classList.contains('hide')) gnStylesList();
+  if (typeof ggStripRender === 'function') {
+    ggStripRender();
+    if (gg.open && gg.page) ggRender(false);
+    if (gg.lb) ggLbRender();
+  }
+}

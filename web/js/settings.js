@@ -368,7 +368,7 @@ $('langSeg').addEventListener('click', async e => {
   const b = e.target.closest('.segb');
   if (!b || b.dataset.v === lang) return;
   lang = b.dataset.v;
-  applyLang(); renderLang(); tkRender(); mtRender(); mtPanel(); clRelang();
+  applyLang(); renderLang(); tkRender(); mtRender(); mtPanel(); clRelang(); gnRelang();
   pdfLast = ''; pdfPv.key = ''; pdfRender();   // строки списка и подписи просмотра PDF собираются в коде
   const r = await api('settings', {lang});
   if (r.error) say('warn', t('lang.saveFailed'), r.error);
