@@ -1366,25 +1366,33 @@ __CSS__
   </div>
 
   <div class="main gn-main hide" id="genView">
-    <section class="card gn-side">
-      <div class="gn-scroll">
+    <section class="card gn-side" id="gnSide">
+      <div class="gn-top">
         <h3 class="gn-cap"><span data-i18n="gn.prompt"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.promptHelp"></span></button></h3>
-        <textarea id="gnPrompt" class="gn-prompt" rows="5" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
+        <textarea id="gnPrompt" class="gn-prompt" rows="4" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
         <div class="gn-enh">
           <button type="button" class="btn sm" id="gnEnh" data-i18n-title="gn.enhTitle"><span data-i18n="gn.enh"></span></button>
           <label class="sw gn-enh-al" id="gnEnhAlRow" data-i18n-title="gn.enhAlwaysHint"><span data-i18n="gn.enhAlways"></span><input type="checkbox" id="gnEnhAl"><i></i></label>
         </div>
-        <div class="gn-exp hide" id="gnExpBox">
-          <span class="lb gn-neg-lb"><span data-i18n="gn.enhLb"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.enhHelp"></span></button><button type="button" class="linkb gn-exp-x" id="gnExpX" data-i18n="gn.enhClear"></button></span>
-          <textarea id="gnExp" class="gn-prompt gn-neg" rows="4" maxlength="3000" spellcheck="false"></textarea>
-          <div class="gn-tip hide" id="gnExpStale" data-i18n="gn.enhStale"></div>
-        </div>
         <div class="gn-tip hide" id="gnLangTip" data-i18n="gn.langTip"></div>
         <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
+      </div>
+      <div class="gn-scroll">
+        <details class="gn-sec hide" id="gnExpBox" data-sec="exp" open>
+          <summary><span class="gn-sec-t" data-i18n="gn.enhLb"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.enhHelp"></span></button><button type="button" class="linkb gn-exp-x" id="gnExpX" data-i18n="gn.enhClear"></button></summary>
+          <div class="gn-sec-b">
+            <textarea id="gnExp" class="gn-prompt gn-neg" rows="4" maxlength="3000" spellcheck="false"></textarea>
+            <div class="gn-tip hide" id="gnExpStale" data-i18n="gn.enhStale"></div>
+          </div>
+        </details>
         <details class="gn-how"><summary data-i18n="gn.how"></summary><div class="gn-how-b" data-i18n="gn.howBody"></div></details>
 
-        <div class="gn-caprow"><h3 class="gn-cap" data-i18n="gn.style"></h3><button type="button" class="chip" id="gnNoStyle" data-i18n="gn.pre.none" data-i18n-title="gn.preHint.none"></button></div>
-        <div class="gn-presets" id="gnPresets"></div>
+        <details class="gn-sec" data-sec="style" open>
+          <summary><span class="gn-sec-t" data-i18n="gn.style"></span><span class="gn-sec-v" id="gnSv_style"></span><button type="button" class="chip" id="gnNoStyle" data-i18n="gn.pre.none" data-i18n-title="gn.preHint.none"></button></summary>
+          <div class="gn-sec-b">
+            <div class="gn-presets" id="gnPresets"></div>
+          </div>
+        </details>
         <div id="gnStyles" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="gnStylesT">
           <div class="mcard gn-st-card">
             <div class="phead"><h3 id="gnStylesT" data-i18n="gn.moreTitle"></h3><button class="x" id="gnStylesX" data-i18n-title="btn.close">✕</button></div>
@@ -1393,26 +1401,35 @@ __CSS__
           </div>
         </div>
 
-        <h3 class="gn-cap" data-i18n="gn.ratio"></h3>
-        <div class="gn-ratios" id="gnRatio"></div>
+        <details class="gn-sec" data-sec="fmt" open>
+          <summary><span class="gn-sec-t" data-i18n="gn.fmt"></span><span class="gn-sec-v" id="gnSv_fmt"></span></summary>
+          <div class="gn-sec-b">
+            <div class="gn-ratios" id="gnRatio"></div>
+            <div class="gn-row"><span class="lb" data-i18n="gn.model"></span><span class="gn-model"><select id="gnModel"></select><button type="button" class="btn sm" id="gnModelsBtn" data-i18n="gn.models" data-i18n-title="gn.modelsTitle"></button></span></div>
+            <div class="gn-row"><span class="lb" data-i18n="gn.count"></span><div class="cl-seg" id="gnCount"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div></div>
+          </div>
+        </details>
 
-        <div class="gn-row"><span class="lb" data-i18n="gn.model"></span><span class="gn-model"><select id="gnModel"></select><button type="button" class="btn sm" id="gnModelsBtn" data-i18n="gn.models" data-i18n-title="gn.modelsTitle"></button></span></div>
-        <div class="gn-row"><span class="lb" data-i18n="gn.count"></span><div class="cl-seg" id="gnCount"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div></div>
-
-        <details class="gn-more" id="gnMore">
-          <summary data-i18n="gn.more"></summary>
-          <div class="gn-row"><span class="lb"><span data-i18n="gn.steps"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.stepsHelp"></span></button></span><input type="number" id="gnSteps" min="1" max="150" step="1" data-i18n-ph="gn.auto"></div>
-          <div class="gn-row"><span class="lb"><span data-i18n="gn.cfg"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.cfgHelp"></span></button></span><input type="number" id="gnCfg" min="0" max="30" step="0.5" data-i18n-ph="gn.auto"></div>
-          <div class="gn-row"><span class="lb"><span data-i18n="gn.seed"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.seedHelp"></span></button></span>
-            <span class="gn-seed"><input type="number" id="gnSeed" min="0" max="4294967295" step="1" data-i18n-ph="gn.seedRandom"><button type="button" class="btn sm" id="gnSeedRnd" data-i18n-title="gn.seedRandom" data-i18n-aria="gn.seedRandom">⟳</button></span></div>
-          <span class="lb gn-neg-lb"><span data-i18n="gn.negative"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.negHelp"></span></button></span>
-          <textarea id="gnNeg" class="gn-prompt gn-neg" rows="2" maxlength="1000" spellcheck="false" data-i18n-ph="gn.negPh"></textarea>
-          <label class="sw"><span data-i18n="gn.showBuild"></span><input type="checkbox" id="gnShowBuild" checked><i></i></label>
+        <details class="gn-sec" id="gnMore" data-sec="more">
+          <summary><span class="gn-sec-t" data-i18n="gn.more"></span></summary>
+          <div class="gn-sec-b">
+            <div class="gn-row"><span class="lb"><span data-i18n="gn.steps"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.stepsHelp"></span></button></span><input type="number" id="gnSteps" min="1" max="150" step="1" data-i18n-ph="gn.auto"></div>
+            <div class="gn-row"><span class="lb"><span data-i18n="gn.cfg"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.cfgHelp"></span></button></span><input type="number" id="gnCfg" min="0" max="30" step="0.5" data-i18n-ph="gn.auto"></div>
+            <div class="gn-row"><span class="lb"><span data-i18n="gn.seed"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.seedHelp"></span></button></span>
+              <span class="gn-seed"><input type="number" id="gnSeed" min="0" max="4294967295" step="1" data-i18n-ph="gn.seedRandom"><button type="button" class="btn sm" id="gnSeedRnd" data-i18n-title="gn.seedRandom" data-i18n-aria="gn.seedRandom">⟳</button></span></div>
+            <span class="lb gn-neg-lb"><span data-i18n="gn.negative"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.negHelp"></span></button></span>
+            <textarea id="gnNeg" class="gn-prompt gn-neg" rows="2" maxlength="1000" spellcheck="false" data-i18n-ph="gn.negPh"></textarea>
+            <label class="sw"><span data-i18n="gn.showBuild"></span><input type="checkbox" id="gnShowBuild" checked><i></i></label>
+          </div>
         </details>
       </div>
       <button type="button" class="btn primary gn-go" id="gnGo"><span data-i18n="gn.go"></span><kbd>Ctrl+Enter</kbd></button>
-      <div class="gn-queue" id="gnQueue"></div>
+      <details class="gn-sec gn-log" id="gnLog" data-sec="log">
+        <summary><span class="gn-sec-t" data-i18n="gn.log"></span><span class="gn-sec-v" id="gnLogV"></span></summary>
+        <div class="gn-queue" id="gnQueue"></div>
+      </details>
     </section>
+    <div class="gn-vsplit" id="gnVSplit" data-i18n-title="gn.vsplitTip"></div>
 
     <section class="gn-center">
       <div class="card gn-setup hide" id="gnSetup"></div>

@@ -164,25 +164,13 @@ func (l *llmServer) start(ctx context.Context) (string, error) {
 // llmSystem: указания модели. Выводы сессии 2: без запрета шаблонных тегов Gemma дописывает «8k, masterpiece» даже
 // логотипу, иногда меняет возраст и число объектов («котёнок» вместо «кот»), а размытый запрос додумывает сюжетом.
 const llmSystem = `You write prompts for a text-to-image model (Stable Diffusion XL). The user gives a short request, possibly in Russian or another language.
-Rewrite it as ONE detailed English image prompt of 40-70 words: the main subject first, then setting, composition, camera or viewpoint, lighting, colors, mood.
+Rewrite it as ONE detailed English image prompt of 40-70 words: the main subject first, then setting, composition, viewpoint, lighting, colors, mood.
 Rules:
 - Keep every fact from the request. Do not change the number, age, gender or kind of objects (a cat stays a cat, not a kitten).
 - Do not add text, letters, captions or logos.
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
-- %s
+- Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
 - Output only the prompt: no quotes, no explanations, no lists.`
-
-// llmStyleHint: стиль вкладки подсказывает модели, в какую сторону писать
-var llmStyleHint = map[string]string{
-	"none":   "Choose a fitting visual style yourself.",
-	"photo":  "The image is a realistic photograph: describe lens, light and camera like a photographer.",
-	"cinema": "The image is a cinematic film still: describe it like a cinematographer.",
-	"illus":  "The image is a digital illustration: describe shapes, colors and artistic style, not a photo.",
-	"icon3d": "The image is a stylized 3D-rendered icon, NOT a photograph: one centered object with soft clay or glossy plastic material, simple solid background, soft studio light. Do not use photo terms (camera, lens, bokeh, depth of field, realistic, photorealistic, real-world scene, hands, people) and do not describe a real environment.",
-	"flat":   "The image is a flat vector illustration: simple shapes, limited palette, no photo terms.",
-	"anime":  "The image is anime artwork: describe it in anime terms, not a photo.",
-	"water":  "The image is a watercolor painting: describe paint, paper and brushwork, not a photo.",
-}
 
 type llmChatReq struct {
 	Messages    []map[string]string `json:"messages"`
@@ -193,7 +181,7 @@ type llmChatReq struct {
 var reLLMClean = regexp.MustCompile(`(?is)^\s*(?:prompt\s*:\s*)?["'«“]?(.*?)["'»”]?\s*$`)
 
 // llmEnhance: развёрнутый английский промт из запроса человека
-func llmEnhance(ctx context.Context, request, preset string) (string, error) {
+func llmEnhance(ctx context.Context, request, _ string) (string, error) {
 	request = strings.TrimSpace(request)
 	if request == "" {
 		return "", errT("ai.noPrompt")
@@ -205,12 +193,8 @@ func llmEnhance(ctx context.Context, request, preset string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	hint := llmStyleHint[preset]
-	if hint == "" {
-		hint = llmStyleHint["none"]
-	}
 	body, _ := json.Marshal(llmChatReq{
-		Messages:    []map[string]string{{"role": "system", "content": fmt.Sprintf(llmSystem, hint)}, {"role": "user", "content": request}},
+		Messages:    []map[string]string{{"role": "system", "content": llmSystem}, {"role": "user", "content": request}},
 		Temperature: 0.7, MaxTokens: 200,
 	})
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)

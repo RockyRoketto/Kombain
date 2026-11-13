@@ -255,6 +255,9 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		fail(err)
 		return
 	}
+	// помощник «Улучшить» на картах от 14 ГБ живёт рядом с моделью (минуту после запроса) и съедает память,
+	// которой потом не хватает на кадр: sd-server падает с «generate_image returned no results». Перед рисованием выгружаем его.
+	llmSrv.Stop()
 	q.gpu.take("sd", q.engine.Stop)
 	if err := q.engine.Load(ctx, set); err != nil {
 		fail(err)

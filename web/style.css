@@ -1509,9 +1509,28 @@
   .pdf-pvt.big .pvt-n{font-size:14px;color:var(--tx)}
 
   /* ----- вкладка «Картинки» (gentab.js): слева запрос, в центре холст сборки, под ним плашка железа ----- */
-  .gn-main{grid-template-columns:clamp(300px,27vw,370px) minmax(0,1fr);margin-bottom:10px}
+  .gn-main{grid-template-columns:var(--gn-left,clamp(300px,27vw,370px)) minmax(0,1fr);margin-bottom:10px;position:relative}
   .gn-side{display:flex;flex-direction:column;min-height:0;padding:12px 12px 10px}
+  .gn-top{flex:none}
   .gn-scroll{flex:1;min-height:0;overflow:auto;margin:0 -6px;padding:0 6px}
+  .gn-vsplit{position:absolute;z-index:3;width:10px;cursor:ew-resize;touch-action:none}
+  .gn-vsplit::after{content:"";position:absolute;top:50%;left:3px;width:4px;height:48px;margin-top:-24px;border-radius:2px;background:var(--line3)}
+  .gn-vsplit:hover::after,.gn-vsplit.on::after{background:var(--acc)}
+  /* сворачиваемые разделы панели: каждый сам по себе, открытыми могут быть любые */
+  .gn-sec{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+  .gn-sec>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:3px 0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600;user-select:none}
+  .gn-sec>summary::-webkit-details-marker{display:none}
+  .gn-sec>summary::before{content:"";flex:none;width:6px;height:6px;border:solid var(--dim);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s;margin:0 2px 0 1px}
+  .gn-sec[open]>summary::before{transform:rotate(45deg)}
+  .gn-sec>summary:hover{color:var(--tx2)}
+  .gn-sec-t{flex:none}
+  .gn-sec-v{flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:500;color:var(--tx2)}
+  .gn-sec[open]>summary .gn-sec-v{display:none}
+  .gn-sec>summary .chip{margin-left:auto;font-size:12px;padding:1px 10px;text-transform:none;letter-spacing:0}
+  .gn-sec>summary .linkb{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400}
+  .gn-sec>summary .cl-q{text-transform:none;letter-spacing:0}
+  .gn-sec-b{padding-top:4px}
+  .gn-log .gn-queue{max-height:min(240px,32vh);margin-top:6px}
   .gn-cap{display:flex;align-items:center;gap:8px;margin:12px 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
   .gn-cap:first-child{margin-top:2px}
   .gn-cap .cl-q,.gn-row .cl-q,.gn-neg-lb .cl-q{margin-left:0;text-transform:none;letter-spacing:0}
@@ -1564,15 +1583,12 @@
   .gn-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
   .gn-row .lb{display:flex;align-items:center;gap:6px;color:var(--tx2);font-size:13px}
   .gn-row select{max-width:62%}
-  .gn-more{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
-  .gn-more summary{cursor:pointer;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
-  .gn-more .sw{margin-top:10px}
   .gn-neg-lb{display:flex;align-items:center;gap:6px;margin-top:10px;color:var(--tx2);font-size:13px}
   .gn-seed{display:flex;gap:4px}
   .gn-seed input{width:118px}
   .gn-go{flex:none;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:11px 16px;font-size:15px}
   .gn-go kbd{font:500 11px/1 inherit;opacity:.6;padding:3px 5px;border-radius:5px;background:rgba(0,0,0,.12)}
-  .gn-queue{flex:none;max-height:30%;overflow:auto;margin-top:8px;display:flex;flex-direction:column;gap:4px}
+  .gn-queue{flex:none;overflow:auto;display:flex;flex-direction:column;gap:4px}
   .gn-queue:empty{display:none}
   .gn-q{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;padding:6px 8px;border-radius:9px;background:var(--s2);font-size:12.5px;cursor:pointer}
   .gn-q.cur{box-shadow:0 0 0 1px rgba(var(--acl-rgb),.5) inset}

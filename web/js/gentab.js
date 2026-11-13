@@ -45,6 +45,7 @@ const gn = {
   gridKey: '',
   set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false,
     exp: '', expFor: '', enhAl: false,
+    fold: {},           // разделы панели: id → true, если свёрнут (у «Дополнительно» и «Журнала» наоборот: true — развёрнут)
     // vis — стили на плитках, pins — закреплённые, use — когда стиль выбирали в последний раз
     vis: GN_VIS_DEF.slice(), pins: [], use: {}},
   enhBusy: false,
@@ -86,6 +87,7 @@ function gnFields() {
   $('gnExp').value = gn.set.exp;
   $('gnEnhAl').checked = gn.set.enhAl;
   gnExpState();
+  gnSecSums();
   document.querySelectorAll('#gnCount button').forEach(b => b.classList.toggle('on', +b.dataset.v === gn.set.count));
   $('gnHw').classList.toggle('min', !!gn.set.hwMin);
   $('gnHwToggle').setAttribute('aria-expanded', String(!gn.set.hwMin));
@@ -93,6 +95,68 @@ function gnFields() {
 }
 
 function gnModel() { return (gn.info?.models || []).find(m => m.id === gn.set.model); }
+
+// ---- разделы панели: сворачиваются по одному, состояние запоминается ----
+
+const GN_OPEN_DEF = {more: false, log: false};   // остальные по умолчанию развёрнуты
+function gnSecInit() {
+  const f = gn.set.fold || (gn.set.fold = {});
+  document.querySelectorAll('#gnSide details.gn-sec').forEach(d => {
+    const k = d.dataset.sec;
+    d.open = k in f ? !!f[k] : (GN_OPEN_DEF[k] ?? true);
+  });
+}
+document.querySelectorAll('#gnSide details.gn-sec').forEach(d => {
+  d.addEventListener('toggle', () => { (gn.set.fold || (gn.set.fold = {}))[d.dataset.sec] = d.open; gnSave(); });
+  // кнопки и «?» в заголовке не должны сворачивать раздел
+  d.firstElementChild.addEventListener('click', e => { if (e.target.closest('button')) e.preventDefault(); });
+});
+
+// gnSecSums: что выбрано, видно в свёрнутом заголовке
+function gnSecSums() {
+  const m = gnModel();
+  $('gnSv_style').textContent = gn.set.preset === 'none' ? t('gn.pre.none') : gnPreName(gn.set.preset);
+  $('gnSv_fmt').textContent = [gn.set.ratio, m ? m.name : '', gn.set.count > 1 ? '× ' + gn.set.count : ''].filter(Boolean).join(' · ');
+}
+
+// ---- ширина левой панели: полоса между панелью и холстом, как в монтаже; двойной щелчок возвращает как было ----
+
+const GN_W_KEY = 'konv9000.gnLeftW';
+function gnVSplitPlace() {
+  const s = $('gnSide'), c = document.querySelector('.gn-center'), b = $('gnVSplit');
+  if (!s.offsetWidth) return;
+  const gap = c.offsetLeft - (s.offsetLeft + s.offsetWidth);
+  Object.assign(b.style, {left: Math.round(s.offsetLeft + s.offsetWidth + gap / 2 - 5) + 'px', top: s.offsetTop + 'px', height: s.offsetHeight + 'px'});
+}
+function gnVSplitSet(w) {
+  const view = $('genView').clientWidth;
+  const v = Math.round(Math.min(Math.max(w, 280), Math.max(view - 420, 280)));
+  $('genView').style.setProperty('--gn-left', v + 'px');
+  return v;
+}
+function gnVSplitLoad() { const w = +storeGet(GN_W_KEY); if (w > 0) gnVSplitSet(w); gnVSplitPlace(); }
+new ResizeObserver(() => { gnVSplitPlace(); gnLayout(); }).observe($('gnSide'));
+window.addEventListener('resize', () => { if (tab === 'gen') gnVSplitLoad(); });
+$('gnVSplit').addEventListener('dblclick', () => { $('genView').style.removeProperty('--gn-left'); storeSet(GN_W_KEY, ''); gnVSplitPlace(); });
+$('gnVSplit').addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const bar = $('gnVSplit'), x0 = e.clientX, w0 = $('gnSide').offsetWidth;
+  let cur = w0;
+  bar.setPointerCapture(e.pointerId);
+  bar.classList.add('on');
+  const move = ev => { cur = gnVSplitSet(w0 + (ev.clientX - x0)); gnVSplitPlace(); };
+  const up = () => {
+    bar.removeEventListener('pointermove', move);
+    bar.removeEventListener('pointerup', up);
+    bar.removeEventListener('pointercancel', up);
+    bar.classList.remove('on');
+    storeSet(GN_W_KEY, cur);
+  };
+  bar.addEventListener('pointermove', move);
+  bar.addEventListener('pointerup', up);
+  bar.addEventListener('pointercancel', up);
+});
 
 function gnGoState() {
   const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !gn.enhBusy;
@@ -113,7 +177,8 @@ function gnVague(s) {
 }
 function gnTips() {
   const p = gn.set.prompt;
-  $('gnLangTip').classList.toggle('hide', !GN_CYR.test(p));
+  // подсказка про английский не нужна, если промт уже улучшен или улучшается сам
+  $('gnLangTip').classList.toggle('hide', !GN_CYR.test(p) || gnExpFresh() || (gn.set.enhAl && !!gn.info?.llm));
   const vague = gnVague(p);
   $('gnVague').classList.toggle('hide', !vague);
   if (vague)
@@ -126,7 +191,7 @@ for (const [id, k] of [['gnSteps', 'steps'], ['gnCfg', 'cfg'], ['gnSeed', 'seed'
   $(id).addEventListener('input', () => { gn.set[k] = $(id).value; gnSave(); });
 $('gnSeedRnd').addEventListener('click', () => { gn.set.seed = ''; $('gnSeed').value = ''; gnSave(); });
 $('gnShowBuild').addEventListener('change', () => { gn.set.build = $('gnShowBuild').checked; gnSave(); });
-$('gnModel').addEventListener('change', () => { gn.set.model = $('gnModel').value; gnSave(); gnGoState(); });
+$('gnModel').addEventListener('change', () => { gn.set.model = $('gnModel').value; gnSave(); gnGoState(); gnSecSums(); });
 $('gnTips').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const p = gn.set.prompt.trimEnd();
@@ -181,6 +246,7 @@ function gnStyleRender() {
   $('gnPresets').innerHTML = gn.set.vis.map(p => gnPreTile(p, true)).join('') +
     `<button type="button" class="gn-pre gn-more-t" id="gnStylesBtn"><b>${esc(t('gn.moreStyles'))}</b></button>`;
   $('gnNoStyle').classList.toggle('on', gn.set.preset === 'none');
+  gnSecSums();
 }
 
 function gnStylesOpen() {
@@ -228,7 +294,7 @@ $('gnStyles').addEventListener('click', e => { if (e.target === $('gnStyles')) g
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('gnStyles').classList.contains('hide')) { e.stopPropagation(); gnStylesClose(); } });
 $('gnRatio').addEventListener('click', e => {
   const b = e.target.closest('.gn-ratio'); if (!b) return;
-  gn.set.ratio = b.dataset.v; gnSave();
+  gn.set.ratio = b.dataset.v; gnSave(); gnSecSums();
   document.querySelectorAll('#gnRatio .gn-ratio').forEach(x => x.classList.toggle('on', x === b));
 });
 $('gnCount').addEventListener('click', e => {
@@ -254,6 +320,7 @@ function gnExpState() {
   b.disabled = gn.enhBusy || !gn.set.prompt.trim();
   b.firstElementChild.textContent = t(gn.enhBusy ? 'gn.enhBusy' : 'gn.enh');
   b.classList.toggle('busy', gn.enhBusy);
+  gnTips();
 }
 
 // gnEnhance: true — промт готов
@@ -317,6 +384,8 @@ function gnTabChanged() {
   clearTimeout(gn.timer);
   clearTimeout(gm.timer);
   if (tab !== 'gen') return;
+  gnSecInit();
+  gnVSplitLoad();
   gnInfo();
   gnPoll();
   ggStripLoad();
@@ -365,6 +434,11 @@ function gnQueue() {
   const clear = gn.tasks.some(x => !live(x)) ? `<button type="button" class="gn-q-clear" id="gnClear">${esc(t('gn.clear'))}</button>` : '';
   const html = rows + clear;
   if ($('gnQueue').dataset.html !== html) { $('gnQueue').innerHTML = html; $('gnQueue').dataset.html = html; }
+  // в свёрнутом заголовке «Журнала»: как закончилась последняя задача, без длинного текста ошибки
+  const last = gn.tasks[gn.tasks.length - 1];
+  const lv = $('gnLogV');
+  lv.textContent = last ? gnStatus(last, true).split(':')[0] : '';
+  lv.style.color = last?.status === 'failed' ? 'var(--err)' : '';
 }
 
 $('gnQueue').addEventListener('click', async e => {
