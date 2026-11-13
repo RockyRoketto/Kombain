@@ -3,6 +3,15 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.0
+
+- New tool: the «AI images» tab. Pictures from a text prompt right on your graphics card, no internet or subscriptions. On first launch the program checks your hardware, offers a folder and downloads the engine and the Z-Image Turbo model by itself (about 10 GB, once); downloads resume where they stopped.
+- AI images: 18 styles with sample pictures, aspect ratios, up to 4 pictures at a time, an «Improve» button (the helper writes a detailed prompt), the picture appears on the canvas step by step, a graphics card load panel.
+- AI images: a gallery with search and favorites, «More like this», «Variations», repeat settings, copying the prompt, the request and all settings to the clipboard. Settings are stored inside the PNG and come back when you drop the picture on the tab.
+- AI images: a model manager with plain-language licenses, models listed in «Storage».
+- Banners: JPEG and WebP are encoded from the original PNG with the highest quality that keeps the file within 500 KB (WebP used to look noticeably worse). A recompressed PNG from the AI gallery keeps its generation settings.
+- Color: the bottom render panel now sits under the work area. The README is shorter and clearer.
+
 ## 5.0
 
 - Utilities: new "PDF" tool. Compress (presets, custom quality, "To size", size forecast before you start and before / after), Images → PDF, To images (PNG, JPG, WebP), Pages (merge, split, reorder, rotate, delete and duplicate in a thumbnail grid), Layout (watermark, page numbers, margins, metadata, password), Repair for damaged files. Everything works offline.
