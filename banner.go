@@ -7,6 +7,7 @@ package main
 // 3) эти JPG → WebP в другую папку.
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -256,6 +257,10 @@ func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 		}
 		done, out = done+tr("banner.colors"), tmp2
 	}
+	// пережатие теряет текстовые куски (parameters, kombain из галереи): переносим их в новый файл
+	if err := copyPNGText(src, out); err != nil {
+		return "", err
+	}
 	if err := replaceFile(ctx, out, src); err != nil {
 		return "", err
 	}
@@ -376,3 +381,50 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 }
 
 func fmtKB(n int64) string { return tr("unit.kb", (n+512)>>10) }
+
+// copyPNGText переносит текстовые куски (tEXt, zTXt, iTXt) из PNG from в PNG to сразу после IHDR.
+// Нужен, чтобы пережатая картинка из галереи не теряла записанные в ней настройки генерации.
+// Если в from кусков нет или он не читается как PNG, to не меняется.
+func copyPNGText(from, to string) error {
+	src, err := os.ReadFile(from)
+	if err != nil {
+		return err
+	}
+	var texts [][]byte
+	if pngEach(src, func(typ string, data, raw []byte) bool {
+		if pngTextKey(typ, data) != "" {
+			texts = append(texts, raw)
+		}
+		return true
+	}) != nil || len(texts) == 0 {
+		return nil
+	}
+	dst, err := os.ReadFile(to)
+	if err != nil {
+		return err
+	}
+	var out bytes.Buffer
+	out.Grow(len(dst) + 4096)
+	out.Write(pngSig)
+	done := false
+	if pngEach(dst, func(typ string, data, raw []byte) bool {
+		if pngTextKey(typ, data) != "" { // тот же кусок, что уже есть, не дублируем
+			for _, t := range texts {
+				if bytes.Equal(t, raw) {
+					return true
+				}
+			}
+		}
+		out.Write(raw)
+		if typ == "IHDR" && !done {
+			done = true
+			for _, t := range texts {
+				out.Write(t)
+			}
+		}
+		return true
+	}) != nil || !done {
+		return nil // странный результат ffmpeg: оставляем как есть
+	}
+	return os.WriteFile(to, out.Bytes(), 0o644)
+}

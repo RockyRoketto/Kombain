@@ -240,3 +240,37 @@ func TestFitUnderLimit(t *testing.T) {
 		t.Errorf("не влезает: fit=%v q=%d", fit, cur)
 	}
 }
+
+// пережатие PNG из галереи не теряет parameters и kombain
+func TestShrinkPNGKeepsText(t *testing.T) {
+	ffm, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg не найден")
+	}
+	dir := t.TempDir()
+	noise := filepath.Join(dir, "noise.bin")
+	b := make([]byte, 1600*520*3)
+	rand.Read(b)
+	os.WriteFile(noise, b, 0o644)
+	big := filepath.Join(dir, "800x260_R.png")
+	if out, err := exec.Command(ffm, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "1600x520", "-i", noise, "-frames:v", "1", big).CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	data, _ := os.ReadFile(big)
+	data, err = pngWithText(data, [][2]string{{"parameters", "кошка, Steps: 20"}, {"kombain", `{"x":1}`}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(big, data, 0o644)
+	if _, err := shrinkPNG(context.Background(), ffm, big); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(big)
+	tx, err := pngTexts(after)
+	if err != nil || tx["parameters"] != "кошка, Steps: 20" || tx["kombain"] != `{"x":1}` {
+		t.Errorf("куски потеряны: %v %v", tx, err)
+	}
+	if mi := getMediaInfo(ffm, big); mi.W != 800 || mi.H != 260 {
+		t.Errorf("PNG %dx%d, want 800x260", mi.W, mi.H)
+	}
+}
