@@ -16,6 +16,16 @@ newest=$(printf '%s\n%s\n' "$cur" "$ver" | sort -V | tail -1)
 [ "$ver" != "$cur" ] && [ "$newest" = "$ver" ] || die "новая версия $ver должна быть больше текущей $cur"
 ! git rev-parse -q --verify "refs/tags/v$ver" >/dev/null || die "тег v$ver уже есть"
 
+# проверки до любых правок: на них раньше падала сборка на GitHub (gofmt, Linux, расхождение с origin)
+export PATH="/c/Program Files/Go/bin:$PATH"
+command -v go >/dev/null || die "go не найден в PATH"
+git fetch -q || die "git fetch не удался"
+git merge-base --is-ancestor origin/main HEAD || die "на GitHub есть коммиты, которых нет здесь: git rebase origin/main"
+bad=$(gofmt -l .) && [ -z "$bad" ] || die "gofmt не прошёл (gofmt -w *.go): $bad"
+GOOS=linux go vet . 2>&1 | grep -v -E 'unsafe.Pointer|^#' && die "go vet под Linux нашёл проблемы" || true
+GOOS=linux go test -c -o /dev/null . || die "тесты не собираются под Linux"
+go test ./... || die "go test не прошёл"
+
 # что нового на обоих языках: из аргументов или в Блокноте
 ask_notes() {
   local tmp
