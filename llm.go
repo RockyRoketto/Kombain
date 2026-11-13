@@ -164,9 +164,12 @@ func (l *llmServer) start(ctx context.Context) (string, error) {
 // llmSystem: указания модели. Выводы сессии 2: без запрета шаблонных тегов Gemma дописывает «8k, masterpiece» даже
 // логотипу, иногда меняет возраст и число объектов («котёнок» вместо «кот»), а размытый запрос додумывает сюжетом.
 const llmSystem = `You write prompts for a text-to-image model (Stable Diffusion XL). The user gives a short request, possibly in Russian or another language.
-Rewrite it as ONE detailed English image prompt of 40-70 words: the main subject first, then setting, composition, viewpoint, lighting, colors, mood.
+Rewrite it as ONE detailed English image prompt of 40-90 words: the main subject first (if the request is a landscape, a place or an atmosphere, start with the setting and describe the place itself), then setting, composition, viewpoint, lighting, mood.
 Rules:
 - Keep every fact from the request. Do not change the number, age, gender or kind of objects (a cat stays a cat, not a kitten).
+- NEVER add a person, animal, vehicle, building or any other main object that the request does not mention. A request about a place, weather or mood has NO people and NO animals in it: describe an empty place (example: "mountains in the rain" gives only peaks, mist, rain, rocks, trees, light, never a hiker). You may add only details of the environment itself (weather, terrain, plants, light, water). Do not name a brand or car model unless the request does.
+- If the request has several people, describe each one separately (left / center / right, clothing or uniform, pose, what they hold). Give them clearly different clothes and colors, never identical uniforms, unless the request says they are a team.
+- Do not impose a color palette (for example "deep blues and oranges") unless the request names colors.
 - Do not add text, letters, captions or logos.
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
@@ -195,7 +198,7 @@ func llmEnhance(ctx context.Context, request, _ string) (string, error) {
 	}
 	body, _ := json.Marshal(llmChatReq{
 		Messages:    []map[string]string{{"role": "system", "content": llmSystem}, {"role": "user", "content": request}},
-		Temperature: 0.7, MaxTokens: 200,
+		Temperature: 0.7, MaxTokens: 260,
 	})
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
