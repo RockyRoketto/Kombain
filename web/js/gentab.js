@@ -2,7 +2,7 @@
 // (кадры предпросмотра плавно перетекают друг в друга, ранние размыты), под ним плашка нагрузки на железо.
 // Сервер: genapi.go (gen-info, gen-add, gen-state раз в 0,7 с, пока вкладка открыта, кадр — /gen-frame).
 const GN_KEY = 'kb.gen';
-// образцы стилей, пока нет картинок-примеров из каталога
+// запасные образцы стилей (градиенты), если картинки-примера нет
 const GN_GRAD = {
   none: 'linear-gradient(135deg,#4a4a55,#1d1d22)',
   photo: 'linear-gradient(160deg,#9fb4c7 0%,#d9b27c 55%,#4b5a3c 100%)',
@@ -23,8 +23,8 @@ const GN_GRAD = {
   neon: 'linear-gradient(135deg,#120a2a,#ff2bd6 55%,#00e5ff)',
   minimal: 'linear-gradient(135deg,#f1ede4,#d8cfc0 60%,#b7a58a)',
 };
-// стили, для которых есть картинка-пример web/styles/<id>.jpg (остальные показываются градиентом)
-const GN_IMG = new Set();
+// стили с картинкой-примером web/styles/<id>.jpg (её отдаёт /styles/ из genapi.go); без файла плитка показывает градиент
+const GN_IMG = new Set(['anime', 'cinema', 'comic', 'fantasy', 'flat', 'icon3d', 'illus', 'lowpoly', 'minimal', 'neon', 'none', 'oil', 'photo', 'pixel', 'product', 'retro', 'sketch', 'water']);
 // группы в окне «Ещё стили…»
 const GN_GROUPS = {
   photo: ['photo', 'cinema', 'product', 'retro'],

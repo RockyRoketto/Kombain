@@ -211,6 +211,23 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
+	// картинки-примеры стилей (web/styles/<id>.jpg); отдаём только для известных стилей
+	mux.HandleFunc("/styles/", func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/styles/"), ".jpg")
+		if r.Host != s.host || genPreset(id).ID != id {
+			http.NotFound(w, r)
+			return
+		}
+		b, err := webFS.ReadFile("web/styles/" + id + ".jpg")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(b)
+	})
+
 	mux.HandleFunc("/gen-frame", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		if r.Host != s.host || q.Get("t") != s.token {
