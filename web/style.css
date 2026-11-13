@@ -1680,6 +1680,7 @@
   .gn-used[open] .gn-used-v{display:none}
   .gn-used textarea{margin-top:6px;max-height:120px}
   .gn-used-a{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  .gn-used-n{margin-right:auto}
   .gn-go.busy{cursor:progress}
   .gn-model{display:flex;align-items:center;gap:6px;min-width:0;max-width:70%}
   .gn-model select{min-width:0;flex:1}

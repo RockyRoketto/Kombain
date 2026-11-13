@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestHWJudge(t *testing.T) {
 	const gb = 1 << 30
@@ -37,13 +40,19 @@ func TestHWJudge(t *testing.T) {
 
 func TestLLMClean(t *testing.T) {
 	for in, want := range map[string]string{
-		`"A red fox in snow, golden light"`:      "A red fox in snow, golden light",
-		"Prompt: a cat on a sofa,\n soft light ": "a cat on a sofa, soft light",
-		"«a lighthouse at dusk»":                 "a lighthouse at dusk",
+		`"A red fox in snow, golden light"`:                                             "A red fox in snow, golden light",
+		"Prompt: a cat on a sofa,\n soft light ":                                        "a cat on a sofa, soft light",
+		"«a lighthouse at dusk»":                                                        "a lighthouse at dusk",
+		"Seen from far away, peaks in fog. Camera: wide shot from far away, backlight.": "Seen from far away, peaks in fog.",
 	} {
 		if got := llmClean(in); got != want {
 			t.Errorf("llmClean(%q) = %q, want %q", in, got, want)
 		}
+	}
+	// подсказки разнообразия в одной пачке не повторяются
+	vs := llmVariations(4)
+	if len(vs) != 4 || len(slices.Compact(slices.Sorted(slices.Values(vs)))) != 4 {
+		t.Errorf("variations %q", vs)
 	}
 }
 

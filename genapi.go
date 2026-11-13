@@ -105,18 +105,33 @@ func genModelByID(id string) (genModelInfo, bool) {
 
 // genAddReq: запрос со страницы. Нули — «как задумано моделью».
 type genAddReq struct {
-	Model    string  `json:"model"`
-	Prompt   string  `json:"prompt"`
-	Negative string  `json:"negative"`
-	Preset   string  `json:"preset"`
-	Ratio    string  `json:"ratio"`
-	Count    int     `json:"count"`
-	Seed     int64   `json:"seed"` // -1 — случайное
-	Steps    int     `json:"steps"`
-	CFG      float64 `json:"cfg"`
-	Preview  bool    `json:"preview"`            // показывать сборку картинки
-	Init     string  `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
-	Expanded string  `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
+	Model    string   `json:"model"`
+	Prompt   string   `json:"prompt"`
+	Negative string   `json:"negative"`
+	Preset   string   `json:"preset"`
+	Ratio    string   `json:"ratio"`
+	Count    int      `json:"count"`
+	Seed     int64    `json:"seed"` // -1 — случайное
+	Steps    int      `json:"steps"`
+	CFG      float64  `json:"cfg"`
+	Preview  bool     `json:"preview"`            // показывать сборку картинки
+	Init     string   `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
+	Expanded string   `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
+	Variants []string `json:"variants,omitempty"` // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
+}
+
+// genVariant: промт и запрос i-й картинки задачи. Готовая картинка запоминает только свой промт.
+func genVariant(t GenTask, i int) (GenParams, genAddReq) {
+	p, r := t.Params, t.Req
+	p.Seed += int64(i)
+	if i < len(t.Prompts) {
+		p.Prompt = t.Prompts[i]
+	}
+	if i < len(r.Variants) && strings.TrimSpace(r.Variants[i]) != "" {
+		r.Expanded = r.Variants[i]
+	}
+	r.Variants = nil
+	return p, r
 }
 
 // genVarStrength: насколько вариация уходит от исходной картинки (0 — копия, 1 — с нуля). 0,5 сохраняет
@@ -179,7 +194,16 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			writeJSON(w, map[string]any{"error": tr("ai.noModel")})
 			return
 		}
+		if len(body.Variants) > 0 {
+			body.Expanded = body.Variants[0]
+		}
 		p := genBuild(body, m)
+		var prompts []string
+		for _, v := range body.Variants {
+			one := body
+			one.Expanded = v
+			prompts = append(prompts, genBuild(one, m).Prompt)
+		}
 		if body.Init != "" {
 			png, iw, ih, err := genReadInit(body.Init)
 			if err != nil {
@@ -188,7 +212,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			}
 			p.Init, p.Strength, p.Width, p.Height = png, genVarStrength, iw, ih
 		}
-		id := genQueueGet().Add(m.ID, p, body.Count, body)
+		id := genQueueGet().Add(m.ID, p, body.Count, body, prompts...)
 		writeJSON(w, map[string]any{"id": id, "width": p.Width, "height": p.Height})
 	}))
 

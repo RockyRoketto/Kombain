@@ -152,6 +152,18 @@ func TestQueueRuns(t *testing.T) {
 		t.Error("preview frames not counted")
 	}
 
+	// у каждой картинки свой промт от помощника; в .json — только её собственный
+	req := genAddReq{Prompt: "горы", Expanded: "peaks", Variants: []string{"peaks", "valley"}}
+	vt := waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "peaks"}, 2, req, "photo peaks", "photo valley"))
+	for i, want := range []string{"peaks", "valley"} {
+		b, _ := os.ReadFile(vt.Images[i])
+		var meta GenMeta
+		mb, _ := os.ReadFile(strings.TrimSuffix(vt.Images[i], ".png") + ".json")
+		if string(b) != "png:photo "+want || json.Unmarshal(mb, &meta) != nil || meta.Request.Expanded != want || meta.Request.Variants != nil {
+			t.Errorf("variant %d: %q %s", i, b, mb)
+		}
+	}
+
 	// тот же набор моделей не грузится заново, другой — грузится
 	waitTask(t, q, q.Add("sdxl", GenParams{Prompt: "cat"}, 1, genAddReq{}))
 	waitTask(t, q, q.Add("flux", GenParams{Prompt: "dog"}, 1, genAddReq{}))

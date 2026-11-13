@@ -68,6 +68,7 @@ type GenTask struct {
 	ErrKind    string      `json:"errKind,omitempty"` // vram, disk, model, engine, other: страница по нему пишет понятный текст
 	Added      time.Time   `json:"added"`
 	Req        genAddReq   `json:"req"` // как попросил человек: запрос без шаблона стиля, стиль, пропорция
+	Prompts    []string    `json:"-"`   // готовые промты каждой картинки (со стилем), если помощник написал разные; иначе Params.Prompt
 }
 
 func (t *GenTask) finished() bool {
@@ -106,13 +107,14 @@ func (q *genQueue) poke() {
 }
 
 // Add ставит запрос в очередь. Случайное зерно выбирается здесь, чтобы его можно было записать и повторить картинку.
-func (q *genQueue) Add(model string, p GenParams, count int, req genAddReq) int {
+// prompts — свой промт каждой картинки (необязательно).
+func (q *genQueue) Add(model string, p GenParams, count int, req genAddReq, prompts ...string) int {
 	if p.Seed < 0 {
 		p.Seed = rand.Int64N(1 << 32)
 	}
 	q.mu.Lock()
 	q.nextID++
-	t := &GenTask{ID: q.nextID, Model: model, Params: p, Count: min(max(count, 1), 16), Status: "queued", Images: []string{}, Added: time.Now(), Req: req}
+	t := &GenTask{ID: q.nextID, Model: model, Params: p, Count: min(max(count, 1), 16), Status: "queued", Images: []string{}, Added: time.Now(), Req: req, Prompts: prompts}
 	q.tasks = append(q.tasks, t)
 	q.mu.Unlock()
 	q.poke()
@@ -298,9 +300,11 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 	q.loaded = t.Model
 	q.mu.Unlock()
 	q.set(t, func(t *GenTask) { t.Status = "running" })
-	for i := 0; i < t.Count; i++ {
-		p := t.Params
-		p.Seed += int64(i)
+	q.mu.Lock()
+	base := *t
+	q.mu.Unlock()
+	for i := 0; i < base.Count; i++ {
+		p, _ := genVariant(base, i)
 		q.set(t, func(t *GenTask) { t.Index, t.Progress = i, GenProgress{} })
 		onProgress := func(g GenProgress) {
 			q.mu.Lock()
@@ -370,9 +374,7 @@ func genSave(root func(time.Time) string) func(GenTask, int, []byte) (string, er
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "", err
 		}
-		p := t.Params
-		p.Seed += int64(i)
-		req := t.Req
+		p, req := genVariant(t, i)
 		m := GenMeta{Model: t.Model, Params: p, Request: &req, Created: now, App: "Kombain " + appVersion}
 		inner, _ := json.Marshal(m)
 		if b, err := pngWithText(png, [][2]string{{"parameters", genA1111(m)}, {"kombain", string(inner)}}); err == nil {

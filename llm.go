@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"os/exec"
@@ -173,32 +174,81 @@ Rules:
 - Do not add text, letters, captions or logos.
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
+- The user message may end with a "Camera:" line. Name that viewpoint in your own words in the first sentence (for example, for "wide shot from far away": "Seen from far away, ..."), and do not repeat the "Camera:" line itself. Use its light only if the request does not set the time of day or weather. The camera line only changes how the same scene is seen: it never adds objects, never invents a place or background the request does not give, and never replaces the separate description of each person.
 - Output only the prompt: no quotes, no explanations, no lists.`
+
+// Разнообразие при повторном «Создать» (турбо-модели почти не меняют композицию от зерна, поэтому меняем сам промт):
+// к запросу дописывается случайная пара «ракурс + свет». Новых объектов они не добавляют, свет — только если запрос его не задал.
+var llmViews = []string{
+	"wide shot from far away",
+	"low angle from near the ground",
+	"high angle looking down",
+	"close-up that fills the frame",
+	"off-center framing",
+	"straight-on centered framing",
+	"three-quarter side view",
+	"diagonal framing",
+}
+
+var llmLights = []string{
+	"soft diffused light",
+	"low warm sunlight",
+	"cool morning light",
+	"strong light and shadow",
+	"backlight",
+	"even overcast light",
+}
+
+// llmVariations: n разных подсказок для одной пачки картинок
+func llmVariations(n int) []string {
+	views, lights := rand.Perm(len(llmViews)), rand.Perm(len(llmLights))
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("Camera: %s, %s.", llmViews[views[i%len(views)]], llmLights[lights[i%len(lights)]])
+	}
+	return out
+}
 
 type llmChatReq struct {
 	Messages    []map[string]string `json:"messages"`
 	Temperature float64             `json:"temperature"`
 	MaxTokens   int                 `json:"max_tokens"`
+	Seed        int64               `json:"seed"`
 }
 
 var reLLMClean = regexp.MustCompile(`(?is)^\s*(?:prompt\s*:\s*)?["'«“]?(.*?)["'»”]?\s*$`)
 
-// llmEnhance: развёрнутый английский промт из запроса человека
-func llmEnhance(ctx context.Context, request, _ string) (string, error) {
+// llmEnhance: n развёрнутых английских промтов из запроса человека, у каждого своя подсказка разнообразия
+// (картинки одной пачки и повторные «Создать» выходят разными)
+func llmEnhance(ctx context.Context, request, _ string, n int) ([]string, error) {
 	request = strings.TrimSpace(request)
 	if request == "" {
-		return "", errT("ai.noPrompt")
+		return nil, errT("ai.noPrompt")
 	}
+	n = min(max(n, 1), 16)
 	l := llmSrv
 	l.busy.Lock()
 	defer l.busy.Unlock()
 	base, err := l.start(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	out := make([]string, 0, n)
+	for _, v := range llmVariations(n) {
+		p, err := l.ask(ctx, base, request+"\n\n"+v)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// ask: один ответ помощника
+func (l *llmServer) ask(ctx context.Context, base, user string) (string, error) {
 	body, _ := json.Marshal(llmChatReq{
-		Messages:    []map[string]string{{"role": "system", "content": llmSystem}, {"role": "user", "content": request}},
-		Temperature: 0.7, MaxTokens: 260,
+		Messages:    []map[string]string{{"role": "system", "content": llmSystem}, {"role": "user", "content": user}},
+		Temperature: 0.9, MaxTokens: 260, Seed: rand.Int64N(1 << 31),
 	})
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
@@ -228,8 +278,11 @@ func llmEnhance(ctx context.Context, request, _ string) (string, error) {
 	return llmClean(out.Choices[0].Message.Content), nil
 }
 
-// llmClean: без кавычек, «Prompt:» и переводов строк
+// llmClean: без кавычек, «Prompt:», переводов строк и повтора подсказки «Camera:» (Gemma иногда дописывает её в конец)
 func llmClean(s string) string {
+	if i := strings.Index(s, "Camera:"); i > 0 {
+		s = s[:i]
+	}
 	s = strings.Join(strings.Fields(s), " ")
 	if m := reLLMClean.FindStringSubmatch(s); m != nil {
 		s = m[1]

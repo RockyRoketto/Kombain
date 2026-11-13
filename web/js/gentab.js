@@ -311,12 +311,13 @@ $('gnHwToggle').addEventListener('click', () => { gn.set.hwMin = !gn.set.hwMin; 
 
 $('gnOwn').addEventListener('change', () => { gn.set.own = $('gnOwn').checked; gnSave(); });
 
-// gnWrite: промт от помощника; null — не вышло (всплывашка уже показана)
-async function gnWrite(prompt) {
+// gnWrite: промты от помощника, по одному на картинку (каждый со своим ракурсом и светом, поэтому повторное
+// «Создать» и картинки одной пачки выходят разными); null — не вышло (всплывашка уже показана)
+async function gnWrite(prompt, count) {
   gn.writing = true; gnGoState();
-  const r = await api('gen-enhance', {prompt, preset: gn.set.preset});
+  const r = await api('gen-enhance', {prompt, preset: gn.set.preset, count});
   gn.writing = false; gnGoState();
-  if (!r.error) return r.prompt;
+  if (!r.error) return r.prompts?.length ? r.prompts : [r.prompt];
   // помощник упал: рисовать можно и по запросу как есть
   gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
   return null;
@@ -327,13 +328,15 @@ async function gnWrite(prompt) {
 async function gnGo(extra, asIs) {
   const s = gn.set, prompt = (extra?.prompt ?? s.prompt).trim();
   if (gn.writing || !prompt || !gnModel() || !gn.info?.engine) return;
-  let expanded = extra?.expanded;
+  let expanded = extra?.expanded, variants;
   if (expanded === undefined) {
     expanded = '';
     if (!asIs && !s.own) {
       if (gn.info.llm) {
-        expanded = await gnWrite(prompt);
-        if (expanded === null) return;
+        variants = await gnWrite(prompt, s.count);
+        if (variants === null) return;
+        expanded = variants[0];
+        if (variants.length < 2) variants = undefined;
       } else if (!gn.llmTold) {
         // помощника нет: рисуем по запросу, один раз за сеанс говорим, что с ним выйдет лучше
         gn.llmTold = true;
@@ -343,7 +346,7 @@ async function gnGo(extra, asIs) {
   }
   const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
-    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {}), prompt, expanded});
+    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {}), prompt, expanded, variants});
   if (r.error) { say('warn', t('warn.title'), r.error); return; }
   gn.view = r.id;
   gnPoll();
@@ -351,16 +354,27 @@ async function gnGo(extra, asIs) {
 
 // gnUsedRender: под картинкой свёрнутая строка «Какой промт получился» (смотреть, править, копировать, нарисовать заново).
 // Текст меняется только при смене задачи, чтобы опрос не стирал правку.
-function gnUsedRender(x) {
-  const box = $('gnUsed');
+// У пачки с разными промтами — переключатель номера картинки (gnUsedN).
+function gnUsedRender(x, i) {
+  const box = $('gnUsed'), n = $('gnUsedN');
   box.classList.toggle('hide', !x);
   if (!x) { box.dataset.id = ''; return; }
-  if (box.dataset.id === String(x.id)) return;
+  const vs = x.req.variants || [];
+  if (i === undefined) {
+    if (box.dataset.id === String(x.id)) return;
+    i = 0;
+  }
   box.dataset.id = x.id;
-  const p = (x.req.expanded || x.req.prompt || '').trim();
+  n.classList.toggle('hide', vs.length < 2);
+  n.innerHTML = vs.length < 2 ? '' : vs.map((_, k) => `<button type="button" data-i="${k}"${k === i ? ' class="on"' : ''}>${k + 1}</button>`).join('');
+  const p = (vs[i] || x.req.expanded || x.req.prompt || '').trim();
   $('gnUsedT').value = p;
   $('gnUsedV').textContent = p;
 }
+$('gnUsedN').addEventListener('click', e => {
+  const b = e.target.closest('button[data-i]'); if (!b) return;
+  gnUsedRender(gn.tasks.find(q => q.id === +$('gnUsed').dataset.id), +b.dataset.i);
+});
 $('gnUsed').addEventListener('toggle', () => { gn.set.usedOpen = $('gnUsed').open; gnSave(); });
 $('gnUsedT').addEventListener('input', () => { $('gnUsedV').textContent = $('gnUsedT').value; });
 $('gnUsedCopy').addEventListener('click', () => { const v = $('gnUsedT').value.trim(); if (v) ggCopyText(v); });

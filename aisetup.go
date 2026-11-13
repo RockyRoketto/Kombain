@@ -432,13 +432,14 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 		var body struct {
 			Prompt string `json:"prompt"`
 			Preset string `json:"preset"`
+			Count  int    `json:"count"` // сколько картинок: у каждой свой промт
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		p, err := llmEnhance(r.Context(), body.Prompt, body.Preset)
+		p, err := llmEnhance(r.Context(), body.Prompt, body.Preset, body.Count)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, map[string]any{"prompt": p})
+		writeJSON(w, map[string]any{"prompt": p[0], "prompts": p})
 	}))
 }
