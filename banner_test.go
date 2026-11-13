@@ -146,6 +146,12 @@ func TestRunBanners(t *testing.T) {
 			t.Errorf("нет %s", p)
 		}
 	}
+	// шум не сжимается: JPG и WebP подобраны под лимит, а не оставлены на максимуме или худшем
+	for _, p := range []string{filepath.Join(jpg, "800x260_R.jpg"), filepath.Join(webp, "800x260_R.webp")} {
+		if n := fileSize(p); n > bannerLimit || n < bannerLimit/3 {
+			t.Errorf("%s: %d байт, ждали близко к %d", p, n, bannerLimit)
+		}
+	}
 	if fileExists(filepath.Join(jpg, "logo.jpg")) {
 		t.Error("logo.png не из списка, JPG не нужен")
 	}
@@ -204,5 +210,33 @@ func TestReplaceFileBusy(t *testing.T) {
 	}
 	if content(to) != "new" || fileExists(from) {
 		t.Errorf("после замены: to=%q, from есть: %v", content(to), fileExists(from))
+	}
+}
+
+// fitUnderLimit: берёт самое высокое качество из влезающих, не больше семи кодирований
+func TestFitUnderLimit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "f")
+	// размер растёт с качеством: q КБ·6
+	mk := func(calls *int, cur *int) func(q int) error {
+		return func(q int) error {
+			*calls++
+			*cur = q
+			return os.WriteFile(path, make([]byte, q*6<<10), 0o644)
+		}
+	}
+	var calls, cur int
+	fit, err := fitUnderLimit(context.Background(), [2]int{100, 45}, mk(&calls, &cur), path)
+	if err != nil || !fit || cur < 78 || cur > 83 || fileSize(path) > bannerLimit || calls > 7 {
+		t.Errorf("fit=%v err=%v q=%d calls=%d size=%d", fit, err, cur, calls, fileSize(path))
+	}
+	calls = 0
+	fit, _ = fitUnderLimit(context.Background(), [2]int{70, 45}, mk(&calls, &cur), path)
+	if !fit || cur != 70 || calls != 1 {
+		t.Errorf("влезает сразу: fit=%v q=%d calls=%d", fit, cur, calls)
+	}
+	calls = 0
+	fit, _ = fitUnderLimit(context.Background(), [2]int{200, 150}, mk(&calls, &cur), path)
+	if fit || cur != 150 {
+		t.Errorf("не влезает: fit=%v q=%d", fit, cur)
 	}
 }

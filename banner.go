@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -175,6 +176,64 @@ func replaceFile(ctx context.Context, from, to string) error {
 	}
 }
 
+// Границы подбора качества: от лучшего к худшему разумному. JPG: -q:v (меньше = лучше), WebP: -quality (больше = лучше).
+var (
+	bannerJpgQ  = [2]int{2, 12}
+	bannerWebpQ = [2]int{100, 45}
+)
+
+// fitUnderLimit подбирает самое высокое качество, при котором файл path ≤ bannerLimit.
+// best и worst — лучшее и худшее допустимое значение параметра (в любом порядке). enc кодирует с этим значением в path.
+// Проб не больше 6 плюс финальное кодирование; сначала пробуем лучшее, большинство баннеров влезает сразу. Не влезло даже на худшем → false,
+// файл остаётся с худшим качеством. Цель «не больше 500 КБ», а не «пожать посильнее».
+func fitUnderLimit(ctx context.Context, rng [2]int, enc func(q int) error, path string) (bool, error) {
+	dir := 1
+	if rng[1] < rng[0] {
+		dir = -1
+	}
+	// шаг i от 0 (лучшее) до n (худшее)
+	n := (rng[1] - rng[0]) * dir
+	at := func(i int) int { return rng[0] + i*dir }
+	last := -1
+	try := func(i int) (bool, error) {
+		if err := enc(at(i)); err != nil {
+			return false, err
+		}
+		last = i
+		return fileSize(path) <= bannerLimit, nil
+	}
+	if fits, err := try(0); err != nil || fits {
+		return fits, err
+	}
+	if fits, err := try(n); err != nil {
+		return false, err
+	} else if !fits {
+		return false, nil // осталось худшее качество
+	}
+	lo, hi := 0, n // lo не влезает, hi влезает
+	for probes := 0; probes < 4 && hi-lo > 1; probes++ {
+		mid := (lo + hi) / 2
+		fits, err := try(mid)
+		if err != nil {
+			return false, err
+		}
+		if fits {
+			hi = mid
+		} else {
+			lo = mid
+		}
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+	}
+	if last != hi {
+		if err := enc(at(hi)); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 // shrinkPNG уменьшает PNG до размера из имени и перезаписывает его. Возвращает, что сделано.
 func shrinkPNG(ctx context.Context, ffm, src string) (string, error) {
 	w, h, ok := bannerDims(src)
@@ -261,13 +320,20 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 		if st.Dst != "" {
 			stem := strings.TrimSuffix(st.Name, filepath.Ext(st.Name))
 			webp := filepath.Join(req.WebpDir, stem+".webp")
-			if err := ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-q:v", "2", st.Dst); err != nil {
+			// JPG и WebP кодируем из исходного PNG, не друг из друга
+			jfit, err := fitUnderLimit(ctx, bannerJpgQ, func(q int) error {
+				return ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-q:v", strconv.Itoa(q), st.Dst)
+			}, st.Dst)
+			if err != nil {
 				if ctx.Err() == nil {
 					fail(i, tr("banner.jpgFailed"), err)
 				}
 				continue
 			}
-			if err := ffQuiet(ctx, ffm, "-i", st.Dst, "-frames:v", "1", "-c:v", "libwebp", "-quality", "80", webp); err != nil {
+			wfit, err := fitUnderLimit(ctx, bannerWebpQ, func(q int) error {
+				return ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-c:v", "libwebp", "-quality", strconv.Itoa(q), webp)
+			}, webp)
+			if err != nil {
 				if ctx.Err() == nil {
 					fail(i, tr("banner.webpFailed"), err)
 				}
@@ -275,6 +341,12 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 			}
 			ok++
 			notes = append(notes, fmt.Sprintf("JPG %s · WebP %s", fmtKB(fileSize(st.Dst)), fmtKB(fileSize(webp))))
+			if !jfit {
+				notes = append(notes, tr("banner.jpgBig"))
+			}
+			if !wfit {
+				notes = append(notes, tr("banner.webpBig"))
+			}
 			s.addLog("[ok] %s → JPG + WebP", st.Name)
 		} else if bannerWanted(st.Path) == "" {
 			notes = append(notes, tr("banner.notListed"))
