@@ -349,53 +349,39 @@ function gnHwRender() {
   const h = gn.hw, body = $('gnHwBody');
   if (!h) return;
   const g = gnGen();
-  const line = [];
-  if (h.gpuUtil >= 0) line.push(`${t('gn.gpu')} ${Math.round(h.gpuUtil)}%`);
-  if (h.vramUsed >= 0) line.push(h.vramTotal > 0 ? t('gn.gb', {u: gnGB(h.vramUsed), t: gnGB(h.vramTotal)}) : gnGB(h.vramUsed) + ' GB');
-  if (h.temp >= 0) line.push(Math.round(h.temp) + '°');
-  if (h.power >= 0) line.push(Math.round(h.power) + ' W');
-  if (h.cpu >= 0) line.push(`${t('gn.cpu')} ${Math.round(h.cpu)}%`);
-  if (h.ramTotal > 0) line.push(`${t('gn.ram')} ${t('gn.gb', {u: gnGB(h.ramUsed), t: gnGB(h.ramTotal)})}`);
-  if (g.short) line.push(g.short);
-  $('gnHwLine').textContent = line.join(' · ') || t('gn.na');
+  // строка всегда на виду: показатели через вертикальные линии, у каждого свой цвет; тревога перекрашивает в жёлтый/красный
+  const seg = [];
+  const add = (label, val, col, lvl) => seg.push(`<span class="hs${lvl ? ' ' + lvl : ''}" style="--hc:${col}">${label ? `<i>${esc(label)}</i>` : ''}<b>${esc(val)}</b></span>`);
+  const vramPct = h.vramTotal > 0 && h.vramUsed >= 0 ? h.vramUsed / h.vramTotal * 100 : -1;
+  const ramPct = h.ramTotal > 0 ? h.ramUsed / h.ramTotal * 100 : -1;
+  if (h.gpuUtil >= 0) add(t('gn.gpu'), Math.round(h.gpuUtil) + '%', '#e9b872');
+  if (h.vramUsed >= 0) add(t('gn.vram'), h.vramTotal > 0 ? t('gn.gb', {u: gnGB(h.vramUsed), t: gnGB(h.vramTotal)}) : gnGB(h.vramUsed) + ' GB', '#7fb4e8', gnLevel(vramPct, 92, 98));
+  if (h.temp >= 0) add(t('gn.temp'), Math.round(h.temp) + '°C', '#e8946f', gnLevel(h.temp, 75, 85));
+  if (h.power >= 0) add(t('gn.power'), Math.round(h.power) + ' W', '#c79be8');
+  if (h.cpu >= 0) add(t('gn.cpu'), Math.round(h.cpu) + '%', '#6fcfc0', gnLevel(h.cpu, 90, 98));
+  if (h.ramTotal > 0) add(t('gn.ram'), t('gn.gb', {u: gnGB(h.ramUsed), t: gnGB(h.ramTotal)}), '#b5d36f', gnLevel(ramPct, 85, 95));
+  add('', g.short || g.v, 'var(--tx)', 'gen');
+  $('gnHwLine').innerHTML = seg.join('');
   if (gn.set.hwMin) return;
 
+  // в развёрнутом виде под строкой только графики за последнюю минуту
   const m = [];
-  const card = (k, v, small, opt) => m.push({k, v, small, ...opt});
-  if (h.gpuUtil >= 0) card(t('gn.gpu'), Math.round(h.gpuUtil) + '%', '', {spark: 'gpu', title: h.gpu});
-  else card(t('gn.gpu'), t('gn.na'), '', {title: h.gpu});
-  if (h.vramUsed >= 0) {
-    const pct = h.vramTotal > 0 ? h.vramUsed / h.vramTotal * 100 : -1;
-    card(t('gn.vram'), h.vramTotal > 0 ? t('gn.gb', {u: gnGB(h.vramUsed), t: gnGB(h.vramTotal)}) : gnGB(h.vramUsed) + ' GB', '',
-      {bar: pct, lvl: gnLevel(pct, 92, 98), spark: pct >= 0 ? 'vram' : ''});
-  }
-  if (h.temp >= 0) card(t('gn.temp'), Math.round(h.temp) + '°C', '', {bar: Math.min(100, h.temp), lvl: gnLevel(h.temp, 75, 85)});
-  if (h.power >= 0) card(t('gn.power'), Math.round(h.power), 'W', {});
-  if (h.cpu >= 0) card(t('gn.cpu'), Math.round(h.cpu) + '%', '', {spark: 'cpu', lvl: gnLevel(h.cpu, 90, 98)});
-  if (h.ramTotal > 0) {
-    const pct = h.ramUsed / h.ramTotal * 100;
-    card(t('gn.ram'), t('gn.gb', {u: gnGB(h.ramUsed), t: gnGB(h.ramTotal)}), '', {bar: pct, lvl: gnLevel(pct, 85, 95), spark: 'ram'});
-  }
-  const sig = m.map(x => x.k + (x.spark ? 's' : '') + (x.bar !== undefined ? 'b' : '')).join('|');
+  if (h.gpuUtil >= 0) m.push({k: t('gn.gpu'), spark: 'gpu', col: '#e9b872', title: h.gpu});
+  if (vramPct >= 0) m.push({k: t('gn.vram'), spark: 'vram', col: '#7fb4e8'});
+  if (h.cpu >= 0) m.push({k: t('gn.cpu'), spark: 'cpu', col: '#6fcfc0'});
+  if (ramPct >= 0) m.push({k: t('gn.ram'), spark: 'ram', col: '#b5d36f'});
+  const sig = m.map(x => x.spark).join('|');
   if (body.dataset.sig !== sig) {
     body.dataset.sig = sig;
-    body.innerHTML = m.map(x => `<div class="gn-m"><div class="k"></div><div class="v"></div>${x.bar !== undefined ? '<div class="mb"><b></b></div>' : ''}${x.spark ? '<canvas></canvas>' : ''}</div>`).join('') +
-      '<div class="gn-m gen"><div class="k"></div><div class="v"></div><div class="sub"></div></div>';
+    body.innerHTML = m.map(() => '<div class="gn-m"><div class="k"></div><canvas></canvas></div>').join('');
   }
-  const els = body.children;
   m.forEach((x, i) => {
-    const el = els[i];
-    el.className = 'gn-m' + (x.lvl ? ' ' + x.lvl : '');
+    const el = body.children[i];
+    el.style.setProperty('--c', x.col);
     el.title = x.title || '';
     el.querySelector('.k').textContent = x.k;
-    el.querySelector('.v').innerHTML = esc(String(x.v)) + (x.small ? `<small>${esc(x.small)}</small>` : '');
-    if (x.bar !== undefined) el.querySelector('.mb b').style.width = Math.max(0, Math.min(100, x.bar)) + '%';
-    if (x.spark) gnSpark(el.querySelector('canvas'), gn.hist[x.spark], el);
+    gnSpark(el.querySelector('canvas'), gn.hist[x.spark], el);
   });
-  const ge = els[m.length];
-  ge.querySelector('.k').textContent = t('gn.gen');
-  ge.querySelector('.v').textContent = g.v;
-  ge.querySelector('.sub').textContent = g.sub;
 }
 
 // мини-график за последнюю минуту, 0–100

@@ -1598,27 +1598,22 @@
   .gn-hw-h::after{content:"";flex:none;width:7px;height:7px;margin:3px 3px 0 2px;border:solid var(--dim);border-width:0 1.5px 1.5px 0;transform:rotate(-135deg)}
   .gn-hw.min .gn-hw-h::after{margin-top:-3px;transform:rotate(45deg)}
   .gn-hw-t{flex:none;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
-  .gn-hw-line{flex:1;min-width:0;font-size:12.5px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .2s}
-  .gn-hw.min .gn-hw-line{opacity:1}
-  /* одна плашка в одну строку: показатели идут подряд, лишнее обрезается, графики прячутся в узком окне */
-  .gn-hw-b{display:flex;flex-wrap:nowrap;margin:0 12px 10px;border-radius:10px;background:var(--s2);overflow:hidden;container-type:inline-size}
+  /* строка показателей: сегменты через вертикальные линии, цифры цветные, лишнее справа обрезается */
+  .gn-hw-line{flex:1;min-width:0;display:flex;align-items:center;font-size:12.5px;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+  .gn-hw-line .hs{flex:none;display:flex;align-items:baseline;gap:6px;padding:0 14px;border-left:1px solid var(--line2)}
+  .gn-hw-line .hs:first-child{padding-left:0;border-left:0}
+  .gn-hw-line .hs i{font-style:normal;color:var(--dim)}
+  .gn-hw-line .hs b{font-weight:600;color:var(--lc,var(--hc))}
+  .gn-hw-line .hs.warn{--lc:var(--warn)}
+  .gn-hw-line .hs.hot{--lc:var(--err)}
+  .gn-hw-line .hs.gen{flex:1 1 0;min-width:0;overflow:hidden}
+  .gn-hw-line .hs.gen b{font-weight:500;color:var(--tx2);overflow:hidden;text-overflow:ellipsis}
+  /* развёрнуто: под строкой ряд графиков за минуту */
+  .gn-hw-b{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:4px 14px 12px;padding-top:12px;border-top:1px solid var(--line)}
   .gn-hw.min .gn-hw-b{display:none}
-  .gn-m{position:relative;display:flex;align-items:baseline;gap:6px;flex:0 1 auto;padding:7px 12px 8px;min-width:0;border-left:1px solid var(--line);--c:var(--accs)}
-  .gn-m:first-child{border-left:0}
-  .gn-m.warn{--c:var(--warn)}
-  .gn-m.hot{--c:var(--err)}
-  .gn-m .k{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .gn-m .v{font-size:15px;font-weight:600;color:var(--tx);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .gn-m .v small{font-size:11.5px;font-weight:400;color:var(--dim);margin-left:4px}
-  .gn-m.warn .v,.gn-m.hot .v{color:var(--c)}
-  .gn-m canvas{display:block;flex:none;align-self:center;width:44px;height:16px}
-  .gn-m .mb{position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;background:var(--track);overflow:hidden}
-  .gn-m .mb b{display:block;height:100%;background:var(--c);transition:width .5s ease,background .3s}
-  .gn-m.gen{flex:1 1 0;min-width:90px}
-  .gn-m.gen .v{font-size:13px;font-weight:500;flex:none}
-  .gn-m.gen .sub{flex:1;min-width:0;font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @container (max-width:820px){.gn-m canvas{display:none}}
-  @container (max-width:560px){.gn-m.gen .sub{display:none}}
+  .gn-m{--c:var(--accs);min-width:0;padding:8px 10px 6px;border-radius:10px;background:var(--s2)}
+  .gn-m .k{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gn-m canvas{display:block;width:100%;height:30px;margin-top:6px}
   @media (prefers-reduced-motion:reduce){.gn-wait,.gn-wait::after{animation:none}.gn-cell.done img.fin{animation:none}}
 
   /* ----- галерея генератора (gengallery.js): лента под холстом, сетка вместо холста, окно просмотра ----- */
