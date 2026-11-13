@@ -1545,12 +1545,6 @@
   .gn-tip .chips{margin-top:6px}
   .gn-tip .chip{font-size:12px;padding:2px 9px}
   @keyframes gnIn{from{opacity:0;transform:translateY(-3px)}}
-  .gn-how{margin-top:6px;font-size:12.5px;color:var(--dim)}
-  .gn-how summary{cursor:pointer;color:var(--acct);width:max-content}
-  .gn-how-b{margin-top:4px;color:var(--tx2)}
-  .gn-how-b p{margin:4px 0}
-  .gn-how-b s{color:var(--dim)}
-  .gn-how-b b{font-weight:500;color:var(--tx)}
   .gn-caprow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px}
   .gn-caprow .gn-cap{margin:0}
   .gn-caprow .chip{font-size:12px;padding:1px 10px}
@@ -1675,14 +1669,18 @@
   .gn-gal{flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 10px 0}
   .gn-gal-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:10px}
   .gn-gal-q{flex:1 1 200px;min-width:140px}
-  /* «Улучшить» под запросом (gentab.js) */
-  .gn-enh{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
-  .gn-enh .btn.busy{opacity:.75;cursor:progress}
-  .gn-enh-al{flex:1;min-width:0;margin:0;font-size:12.5px;color:var(--tx2)}
-  .gn-exp{margin-top:8px;animation:gnIn .25s ease}
-  .gn-exp .gn-neg-lb{display:flex;align-items:center;gap:6px}
-  .gn-exp-x{margin-left:auto;font-size:12px}
-  .gn-exp.stale textarea{opacity:.55}
+  /* «Какой промт получился» под картинкой (gentab.js, gnUsedRender): свёрнут в строку, раскрывается с правкой */
+  .gn-used{flex:none;margin-top:6px;font-size:12.5px}
+  .gn-used summary{display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0;color:var(--tx2)}
+  .gn-used summary::-webkit-details-marker{display:none}
+  .gn-used summary::before{content:"▸";color:var(--dim);transition:transform .15s}
+  .gn-used[open] summary::before{transform:rotate(90deg)}
+  .gn-used-t{flex:none;color:var(--acct)}
+  .gn-used-v{flex:1;min-width:0;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gn-used[open] .gn-used-v{display:none}
+  .gn-used textarea{margin-top:6px;max-height:120px}
+  .gn-used-a{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  .gn-go.busy{cursor:progress}
   .gn-model{display:flex;align-items:center;gap:6px;min-width:0;max-width:70%}
   .gn-model select{min-width:0;flex:1}
   /* экран первого запуска и панель «Модели» (genmodels.js) вместо холста */

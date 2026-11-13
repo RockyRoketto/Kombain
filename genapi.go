@@ -116,7 +116,7 @@ type genAddReq struct {
 	CFG      float64 `json:"cfg"`
 	Preview  bool    `json:"preview"`            // показывать сборку картинки
 	Init     string  `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
-	Expanded string  `json:"expanded,omitempty"` // промт от «Улучшить» (правится руками); пусто — модель получает запрос как есть
+	Expanded string  `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
 }
 
 // genVarStrength: насколько вариация уходит от исходной картинки (0 — копия, 1 — с нуля). 0,5 сохраняет

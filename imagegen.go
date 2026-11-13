@@ -286,7 +286,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		fail(err, "model")
 		return
 	}
-	// помощник «Улучшить» на картах от 14 ГБ живёт рядом с моделью (минуту после запроса) и съедает память,
+	// помощник запросов на картах от 14 ГБ живёт рядом с моделью (минуту после запроса) и съедает память,
 	// которой потом не хватает на кадр: sd-server падает с «generate_image returned no results». Перед рисованием выгружаем его.
 	llmSrv.Stop()
 	q.gpu.take("sd", q.engine.Stop)
@@ -337,6 +337,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 			fail(err, "gen")
 			return
 		}
+		q.set(t, func(t *GenTask) { t.Progress.Stage = "saving" })
 		q.mu.Lock()
 		snap := *t
 		q.mu.Unlock()

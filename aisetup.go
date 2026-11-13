@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// aiFirstRun: что ставится в окне первого запуска. LLM для «Улучшить» — по галочке (включена).
+// aiFirstRun: что ставится в окне первого запуска. Помощник запросов (LLM) — по галочке (включена).
 var (
 	aiFirstImage = "zimage-turbo"
 	aiFirstLLM   = "gemma3-4b"

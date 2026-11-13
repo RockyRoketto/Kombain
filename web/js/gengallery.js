@@ -205,7 +205,8 @@ async function ggUse(mode) {
   if (gg.open) ggOpen(false);
   gnApply(r, mode !== 'use');
   if (mode === 'use') { toast({type: 'ok', title: t('gg.restored'), text: esc(t('gg.restoredS')), ttl: 4000}); $('gnPrompt').focus(); return; }
-  gnGo(mode === 'var' ? {init: x.path} : {});
+  // «Ещё такие же» и «Вариации» рисуют с прежним промтом, помощник не зовётся
+  gnGo({...(mode === 'var' ? {init: x.path} : {}), expanded: r.expanded || ''});
 }
 
 async function ggExport(fmt) {

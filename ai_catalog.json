@@ -70,7 +70,7 @@
     {
       "id": "gemma3-4b", "kind": "llm", "arch": "gemma3",
       "name": {"ru": "Помощник запросов (Gemma 3 4B)", "en": "Prompt helper (Gemma 3 4B)"},
-      "purpose": {"ru": "Кнопка «Улучшить»: из короткого запроса на любом языке пишет подробный английский промт.", "en": "The Enhance button: turns a short request in any language into a detailed English prompt."},
+      "purpose": {"ru": "При «Создать» переписывает короткий запрос на любом языке подробным английским промтом. Без него модель получает запрос как есть.", "en": "When you press Create, it rewrites a short request in any language as a detailed English prompt. Without it the model gets the request as is."},
       "license": {"ru": "Gemma Terms of Use: текст, который она пишет, твой, можно использовать в работе. Нельзя применять для запрещённого правилами Google (обман, вред людям и т. п.).", "en": "Gemma Terms of Use: the text it writes is yours to use at work. Don't use it for what Google's policy forbids (deception, harming people and so on)."},
       "licenseUrl": "https://ai.google.dev/gemma/terms",
       "commercial": true, "vram": 3,

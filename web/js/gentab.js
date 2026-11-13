@@ -44,14 +44,15 @@ const gn = {
   hw: null, model: '', gpu: '',
   gridKey: '',
   set: {prompt: '', preset: 'photo', ratio: '1:1', count: 1, model: '', steps: '', cfg: '', seed: '', neg: '', build: true, hwMin: false,
-    exp: '', expFor: '', enhAl: false,
+    own: false,         // «Писать промт самому»: помощник не зовётся, модель получает запрос как есть
     fold: {},           // разделы панели: id → true, если свёрнут (у «Дополнительно» и «Журнала» наоборот: true — развёрнут)
     // vis — стили на плитках, pins — закреплённые, use — когда стиль выбирали в последний раз
     vis: GN_VIS_DEF.slice(), pins: [], use: {}},
-  enhBusy: false,
+  writing: false,     // помощник пишет промт: «Создать» ждёт
 };
 
 try { Object.assign(gn.set, JSON.parse(localStorage.getItem(GN_KEY) || '{}')); } catch (e) {}
+for (const k of ['exp', 'expFor', 'enhAl']) delete gn.set[k];   // остатки «Улучшить» (до 6.2)
 function gnSave() { try { localStorage.setItem(GN_KEY, JSON.stringify(gn.set)); } catch (e) {} }
 
 // ---- сведения и поля слева ----
@@ -84,9 +85,8 @@ function gnFields() {
   $('gnCfg').value = gn.set.cfg;
   $('gnSeed').value = gn.set.seed;
   $('gnShowBuild').checked = gn.set.build;
-  $('gnExp').value = gn.set.exp;
-  $('gnEnhAl').checked = gn.set.enhAl;
-  gnExpState();
+  $('gnOwn').checked = gn.set.own;
+  $('gnUsed').open = !!gn.set.usedOpen;
   gnSecSums();
   document.querySelectorAll('#gnCount button').forEach(b => b.classList.toggle('on', +b.dataset.v === gn.set.count));
   $('gnHw').classList.toggle('min', !!gn.set.hwMin);
@@ -159,17 +159,18 @@ $('gnVSplit').addEventListener('pointerdown', e => {
 });
 
 function gnGoState() {
-  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !gn.enhBusy;
+  const ok = !!gnModel() && gn.info?.engine && gn.set.prompt.trim() !== '' && !gn.writing;
   $('gnGo').disabled = !ok;
+  $('gnGo').classList.toggle('busy', gn.writing);
+  $('gnGo').firstElementChild.textContent = t(gn.writing ? 'gn.writing' : 'gn.go');
   const why = !gn.info ? '' : !gn.info.engine ? t('gn.noEngine') : !gnModel() ? t('gn.noModel') : '';
   $('gnEmptyS').textContent = why || t('gn.emptyS');
 }
 
-// подсказки под полем: запрос по-русски (модель понимает английский) и слишком общий запрос
+// подсказка под полем: слишком общий запрос
 // слова без смысла для картинки: русские из словаря берутся всегда, на любом языке интерфейса
 const GN_FILLER = new Set((I18N.ru['gn.filler'] + ' ' + I18N.en['gn.filler']).split(' '));
 const GN_RU = String.fromCharCode(0x430) + '-' + String.fromCharCode(0x44f) + String.fromCharCode(0x451);   // кириллица без букв в коде (TestNoStrayRussian)
-const GN_CYR = new RegExp('[' + GN_RU + ']', 'i');
 const GN_SPLIT = new RegExp('[^a-z0-9' + GN_RU + '-]+');
 function gnVague(s) {
   const w = s.toLowerCase().split(GN_SPLIT).filter(Boolean);
@@ -177,15 +178,13 @@ function gnVague(s) {
 }
 function gnTips() {
   const p = gn.set.prompt;
-  // подсказка про английский не нужна, если промт уже улучшен или улучшается сам
-  $('gnLangTip').classList.toggle('hide', !GN_CYR.test(p) || gnExpFresh() || (gn.set.enhAl && !!gn.info?.llm));
   const vague = gnVague(p);
   $('gnVague').classList.toggle('hide', !vague);
   if (vague)
     $('gnTips').innerHTML = t('gn.tips').split('|').map(x => `<button type="button" class="chip">${esc(x)}</button>`).join('');
 }
 
-$('gnPrompt').addEventListener('input', () => { gn.set.prompt = $('gnPrompt').value; gnSave(); gnTips(); gnGoState(); gnExpState(); });
+$('gnPrompt').addEventListener('input', () => { gn.set.prompt = $('gnPrompt').value; gnSave(); gnTips(); gnGoState(); });
 $('gnNeg').addEventListener('input', () => { gn.set.neg = $('gnNeg').value; gnSave(); });
 for (const [id, k] of [['gnSteps', 'steps'], ['gnCfg', 'cfg'], ['gnSeed', 'seed']])
   $(id).addEventListener('input', () => { gn.set[k] = $(id).value; gnSave(); });
@@ -196,7 +195,7 @@ $('gnTips').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const p = gn.set.prompt.trimEnd();
   gn.set.prompt = p ? (/[,.;]$/.test(p) ? p + ' ' : p + ', ') + b.textContent : b.textContent;
-  $('gnPrompt').value = gn.set.prompt; gnSave(); gnTips(); gnGoState(); gnExpState(); $('gnPrompt').focus();
+  $('gnPrompt').value = gn.set.prompt; gnSave(); gnTips(); gnGoState(); $('gnPrompt').focus();
 });
 // ---- стили: плитки, закрепление и окно «Ещё стили…» ----
 
@@ -307,59 +306,70 @@ $('gnGo').addEventListener('click', () => gnGo());
 $('gnFolder').addEventListener('click', () => { if (gn.info) api('open-dir', {path: gn.info.gallery}).then(r => { if (r.error) say('warn', t('warn.title'), r.error); }); });
 $('gnHwToggle').addEventListener('click', () => { gn.set.hwMin = !gn.set.hwMin; gnSave(); gnFields(); gnHwRender(); });
 
-// ---- «Улучшить»: помощник пишет английский промт, он виден и правится; устаревший (запрос изменили) не используется ----
+// ---- промт: при каждом «Создать» его пишет помощник (английский, подробный, без стиля: стиль добавляется при рисовании).
+// Что получилось, видно под картинкой (gnUsedRender). Галочка «Писать промт самому» отдаёт модели запрос как есть.
 
-function gnExpFresh() { return gn.set.exp.trim() !== '' && gn.set.expFor === gn.set.prompt.trim(); }
-function gnExpState() {
-  const has = gn.set.exp.trim() !== '';
-  $('gnExpBox').classList.toggle('hide', !has);
-  $('gnExpBox').classList.toggle('stale', has && !gnExpFresh());
-  $('gnExpStale').classList.toggle('hide', !has || gnExpFresh());
-  $('gnEnhAlRow').classList.toggle('hide', !gn.info?.llm);
-  const b = $('gnEnh');
-  b.disabled = gn.enhBusy || !gn.set.prompt.trim();
-  b.firstElementChild.textContent = t(gn.enhBusy ? 'gn.enhBusy' : 'gn.enh');
-  b.classList.toggle('busy', gn.enhBusy);
-  gnTips();
-}
+$('gnOwn').addEventListener('change', () => { gn.set.own = $('gnOwn').checked; gnSave(); });
 
-// gnEnhance: true — промт готов
-async function gnEnhance() {
-  if (!gn.info?.llm) { say('info', t('gn.enh'), t('gn.enhNeed')); gmOpen(true); return false; }
-  const prompt = gn.set.prompt.trim();
-  if (!prompt || gn.enhBusy) return false;
-  gn.enhBusy = true; gnExpState(); gnGoState();
+// gnWrite: промт от помощника; null — не вышло (всплывашка уже показана)
+async function gnWrite(prompt) {
+  gn.writing = true; gnGoState();
   const r = await api('gen-enhance', {prompt, preset: gn.set.preset});
-  gn.enhBusy = false;
-  if (!r.error) { gn.set.exp = r.prompt; gn.set.expFor = prompt; gnSave(); $('gnExp').value = r.prompt; }
-  gnExpState(); gnGoState();
-  if (r.error) {
-    // помощник упал: рисовать можно и по запросу как есть
-    gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
-    return false;
-  }
-  return true;
+  gn.writing = false; gnGoState();
+  if (!r.error) return r.prompt;
+  // помощник упал: рисовать можно и по запросу как есть
+  gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
+  return null;
 }
-$('gnEnh').addEventListener('click', () => gnEnhance());
-$('gnEnhAl').addEventListener('change', () => { gn.set.enhAl = $('gnEnhAl').checked; gnSave(); });
-// правка руками делает промт своим для текущего запроса
-$('gnExp').addEventListener('input', () => { gn.set.exp = $('gnExp').value; gn.set.expFor = gn.set.prompt.trim(); gnSave(); gnExpState(); });
-$('gnExpX').addEventListener('click', () => { gn.set.exp = gn.set.expFor = ''; gnSave(); $('gnExp').value = ''; gnExpState(); });
 
+// gnGo: «Создать». extra.expanded (даже пустой) — промт уже есть («Ещё такие же», «Нарисовать с этим промтом»), помощник не нужен.
+// asIs: помощник упал, рисуем по запросу как есть.
 async function gnGo(extra, asIs) {
-  if ($('gnGo').disabled) return;
-  const s = gn.set;
-  // «Улучшать всегда»: промт пишется заново, если его нет или он для прежнего запроса. Вариации рисуют по картинке.
-  // asIs: помощник упал, рисуем по запросу как есть.
-  if (s.enhAl && !asIs && gn.info?.llm && !extra?.init && !gnExpFresh() && !(await gnEnhance())) return;
-  const expanded = gnExpFresh() ? s.exp.trim() : '';
+  const s = gn.set, prompt = (extra?.prompt ?? s.prompt).trim();
+  if (gn.writing || !prompt || !gnModel() || !gn.info?.engine) return;
+  let expanded = extra?.expanded;
+  if (expanded === undefined) {
+    expanded = '';
+    if (!asIs && !s.own) {
+      if (gn.info.llm) {
+        expanded = await gnWrite(prompt);
+        if (expanded === null) return;
+      } else if (!gn.llmTold) {
+        // помощника нет: рисуем по запросу, один раз за сеанс говорим, что с ним выйдет лучше
+        gn.llmTold = true;
+        toast({type: 'info', title: t('gn.llmNone'), text: esc(t('gn.enhNeed')), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => gmOpen(true)}]});
+      }
+    }
+  }
   const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
-  const r = await api('gen-add', {model: s.model, prompt: s.prompt, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
-    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, expanded, ...(extra || {})});
+  const r = await api('gen-add', {model: s.model, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
+    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {}), prompt, expanded});
   if (r.error) { say('warn', t('warn.title'), r.error); return; }
   gn.view = r.id;
   gnPoll();
 }
+
+// gnUsedRender: под картинкой свёрнутая строка «Какой промт получился» (смотреть, править, копировать, нарисовать заново).
+// Текст меняется только при смене задачи, чтобы опрос не стирал правку.
+function gnUsedRender(x) {
+  const box = $('gnUsed');
+  box.classList.toggle('hide', !x);
+  if (!x) { box.dataset.id = ''; return; }
+  if (box.dataset.id === String(x.id)) return;
+  box.dataset.id = x.id;
+  const p = (x.req.expanded || x.req.prompt || '').trim();
+  $('gnUsedT').value = p;
+  $('gnUsedV').textContent = p;
+}
+$('gnUsed').addEventListener('toggle', () => { gn.set.usedOpen = $('gnUsed').open; gnSave(); });
+$('gnUsedT').addEventListener('input', () => { $('gnUsedV').textContent = $('gnUsedT').value; });
+$('gnUsedCopy').addEventListener('click', () => { const v = $('gnUsedT').value.trim(); if (v) ggCopyText(v); });
+$('gnUsedGo').addEventListener('click', () => {
+  const x = gn.tasks.find(q => q.id === +$('gnUsed').dataset.id), v = $('gnUsedT').value.trim();
+  if (!v) return;
+  // запрос остаётся прежним (для журнала и галереи), стиль и остальное берутся из полей слева
+  gnGo({prompt: x?.req.prompt || gn.set.prompt || v, expanded: v});
+});
 
 // gnApply: настройки картинки из галереи или брошенного PNG — в поля. fresh: зерно случайное («ещё такие же», «вариации»).
 function gnApply(r, fresh) {
@@ -372,8 +382,6 @@ function gnApply(r, fresh) {
   s.steps = r.steps > 0 ? String(r.steps) : '';
   s.cfg = r.cfg > 0 ? String(r.cfg) : '';
   s.seed = fresh ? '' : String(r.seed);
-  s.exp = r.expanded || '';
-  s.expFor = s.exp ? s.prompt.trim() : '';
   gnSave();
   if (!fresh) $('gnMore').open = true;   // зерно и шаги видны, иначе не понять, что вернулось
   document.querySelectorAll('#gnPresets .gn-pre').forEach(x => x.classList.toggle('on', x.dataset.v === s.preset));
@@ -526,12 +534,14 @@ function gnLayout() {
   grid.style.gridTemplateColumns = `repeat(${best.cols}, ${cw}px)`;
   grid.style.gridAutoRows = `${Math.floor(cw / asp)}px`;
 }
-new ResizeObserver(gnLayout).observe($('gnStage'));
+// сетка тоже: её высота меняется, когда под картинкой появляется или раскрывается «Какой промт получился»
+{ const ro = new ResizeObserver(gnLayout); ro.observe($('gnStage')); ro.observe($('gnGrid')); }
 
 function gnStage() {
   const x = gn.tasks.find(q => q.id === gn.view);
   $('gnEmpty').classList.toggle('hide', !!x);
   $('gnGrid').classList.toggle('hide', !x);
+  gnUsedRender(x);
   if (!x) { gn.gridKey = ''; $('gnStageT').textContent = ''; return; }
   const grid = $('gnGrid'), key = x.id + ':' + x.count;
   if (gn.gridKey !== key) {
@@ -545,16 +555,28 @@ function gnStage() {
   [...grid.children].forEach((c, i) => {
     const st = c.gn, img = x.images[i];
     let tag = '';
-    if (img) {
-      if (st.fin !== img) { st.fin = img; gnShow(c, mediaUrl(img), 0, true); }
+    if (img && st.finOk === img) {
+      // «готово» только когда готовая картинка реально отрисована в плитке
       c.className = 'gn-cell done';
-      tag = t('gn.seedOf', {s: x.params.seed + i});
+      tag = performance.now() < (st.okUntil || 0) ? t('gn.done') : t('gn.seedOf', {s: x.params.seed + i});
+    } else if (img) {
+      if (st.fin !== img) { st.fin = img; gnShow(c, mediaUrl(img), 0, true); }
+      c.className = 'gn-cell';
+      tag = t('gn.saving');
+      c.querySelector('.gn-bar b').style.width = '98%';
     } else if (i === x.index && (x.status === 'running' || x.status === 'loading')) {
       const live = x.status === 'running' && x.previewSeq > 0 && st.seq !== x.previewSeq;
       if (live) { st.seq = x.previewSeq; gnShow(c, `/gen-frame?t=${TOKEN}&id=${x.id}&s=${x.previewSeq}`, pr.total ? pr.previewStep / pr.total : 0, false); }
       c.className = 'gn-cell' + (st.top ? '' : ' wait');
-      tag = x.status === 'loading' ? t('gn.loading') : pr.total && pr.step < pr.total ? t('gn.step', {s: pr.step, t: pr.total}) : t('gn.encoding');
-      c.querySelector('.gn-bar b').style.width = (x.status === 'loading' || !pr.total ? 2 : Math.min(100, pr.step / pr.total * 100)) + '%';
+      // шаги занимают полосу до 85%, дальше этапы: сборка картинки 92%, сохранение 98%
+      const sampling = pr.total && pr.step < pr.total && (!pr.stage || pr.stage === 'sampling');
+      let w = 2;
+      if (x.status === 'loading') tag = t('gn.loading');
+      else if (sampling) { tag = t('gn.step', {s: pr.step, t: pr.total}); w = Math.max(2, pr.step / pr.total * 85); }
+      else if (pr.stage === 'saving') { tag = t('gn.saving'); w = 98; }
+      else if (pr.total) { tag = t('gn.encoding'); w = 92; }
+      else tag = t('gn.encoding');
+      c.querySelector('.gn-bar b').style.width = w + '%';
     } else if (x.status === 'failed' || x.status === 'cancelled' || x.status === 'done') {
       c.className = 'gn-cell err' + (st.top ? '' : ' wait queued');
       tag = t(x.status === 'failed' ? 'gn.failed' : 'gn.cancelled');
@@ -582,6 +604,7 @@ function gnShow(cell, src, p, fin) {
     next.style.filter = fin ? '' : `blur(${(10 * (1 - p) * (1 - p)).toFixed(1)}px)`;
     next.classList.toggle('fin', fin);
     next.classList.add('on');
+    if (fin) { cell.gn.finOk = cell.gn.fin; cell.gn.okUntil = performance.now() + 2500; setTimeout(gnStage, 2600); gnStage(); }
     if (prev) { prev.style.zIndex = 1; setTimeout(() => { if (st.top !== prev) prev.classList.remove('on', 'fin'); }, 800); }
     st.top = next;
   };
@@ -618,6 +641,7 @@ function gnGen() {
   if (!x) return {v: t('gn.idle'), sub: vram, short: ''};
   if (x.status === 'loading') return {v: t('gn.loading'), sub: vram, short: t('gn.loading')};
   const p = x.progress || {}, key = x.id + ':' + x.index, now = performance.now();
+  if (p.stage === 'saving') return {v: t('gn.saving'), sub: vram, short: t('gn.saving')};
   if (!p.total || p.step >= p.total) return {v: t('gn.encoding'), sub: vram, short: t('gn.encoding')};
   let sp = gn.speed[key];
   if (!sp || p.step < sp.s0) sp = gn.speed[key] = {t0: now, s0: p.step};

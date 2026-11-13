@@ -1370,23 +1370,9 @@ __CSS__
       <div class="gn-top">
         <h3 class="gn-cap"><span data-i18n="gn.prompt"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.promptHelp"></span></button></h3>
         <textarea id="gnPrompt" class="gn-prompt" rows="4" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
-        <div class="gn-enh">
-          <button type="button" class="btn sm" id="gnEnh" data-i18n-title="gn.enhTitle"><span data-i18n="gn.enh"></span></button>
-          <label class="sw gn-enh-al" id="gnEnhAlRow" data-i18n-title="gn.enhAlwaysHint"><span data-i18n="gn.enhAlways"></span><input type="checkbox" id="gnEnhAl"><i></i></label>
-        </div>
-        <div class="gn-tip hide" id="gnLangTip" data-i18n="gn.langTip"></div>
         <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
       </div>
       <div class="gn-scroll">
-        <details class="gn-sec hide" id="gnExpBox" data-sec="exp" open>
-          <summary><span class="gn-sec-t" data-i18n="gn.enhLb"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.enhHelp"></span></button><button type="button" class="linkb gn-exp-x" id="gnExpX" data-i18n="gn.enhClear"></button></summary>
-          <div class="gn-sec-b">
-            <textarea id="gnExp" class="gn-prompt gn-neg" rows="4" maxlength="3000" spellcheck="false"></textarea>
-            <div class="gn-tip hide" id="gnExpStale" data-i18n="gn.enhStale"></div>
-          </div>
-        </details>
-        <details class="gn-how"><summary data-i18n="gn.how"></summary><div class="gn-how-b" data-i18n="gn.howBody"></div></details>
-
         <details class="gn-sec" data-sec="style" open>
           <summary><span class="gn-sec-t" data-i18n="gn.style"></span><span class="gn-sec-v" id="gnSv_style"></span><button type="button" class="chip" id="gnNoStyle" data-i18n="gn.pre.none" data-i18n-title="gn.preHint.none"></button></summary>
           <div class="gn-sec-b">
@@ -1420,6 +1406,7 @@ __CSS__
             <span class="lb gn-neg-lb"><span data-i18n="gn.negative"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.negHelp"></span></button></span>
             <textarea id="gnNeg" class="gn-prompt gn-neg" rows="2" maxlength="1000" spellcheck="false" data-i18n-ph="gn.negPh"></textarea>
             <label class="sw"><span data-i18n="gn.showBuild"></span><input type="checkbox" id="gnShowBuild" checked><i></i></label>
+            <label class="sw" data-i18n-title="gn.ownHint"><span data-i18n="gn.own"></span><input type="checkbox" id="gnOwn"><i></i></label>
           </div>
         </details>
       </div>
@@ -1450,6 +1437,14 @@ __CSS__
           <button type="button" class="btn sm" id="gnFolder" data-i18n="gn.folder"></button>
           <button type="button" class="btn sm" id="gnGalBtn" data-i18n="gg.open"></button>
         </div>
+        <details class="gn-used hide" id="gnUsed">
+          <summary><span class="gn-used-t" data-i18n="gn.used"></span><span class="gn-used-v" id="gnUsedV"></span></summary>
+          <textarea id="gnUsedT" class="gn-prompt gn-neg" rows="3" maxlength="3000" spellcheck="false"></textarea>
+          <div class="gn-used-a">
+            <button type="button" class="btn sm" id="gnUsedCopy" data-i18n="gn.usedCopy"></button>
+            <button type="button" class="btn sm" id="gnUsedGo" data-i18n="gn.usedGo" data-i18n-title="gn.usedGoHint"></button>
+          </div>
+        </details>
       </div>
       <div class="gn-strip hide" id="gnStrip"></div>
       <div class="card gn-hw" id="gnHw">
