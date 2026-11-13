@@ -468,14 +468,29 @@ function gnStatus(x, short) {
 
 function gnQueue() {
   const live = x => !['done', 'failed', 'cancelled'].includes(x.status);
-  const rows = gn.tasks.slice().reverse().map(x =>
-    `<div class="gn-q${x.id === gn.view ? ' cur' : ''}" data-id="${x.id}" title="${esc(x.params.prompt)}">
-      <span class="p">${esc(x.req.prompt || x.params.prompt)}</span>
+  // готовые уходят сами (картинки в ленте), остаются идущие, ошибки и открытая сейчас
+  const shown = gn.tasks.slice().reverse().filter(x => x.status !== 'done' || x.id === gn.view);
+  // одинаковые запросы с одной ошибкой или отменой схлопываются в «×N»
+  const groups = [];
+  for (const x of shown) {
+    const key = live(x) || x.status === 'done' ? '' : (x.req.prompt || x.params.prompt) + '|' + x.status + '|' + (x.errKind || '');
+    const g = key && groups.find(y => y.key === key);
+    if (g) g.items.push(x); else groups.push({key, items: [x]});
+  }
+  const LIM = 3;
+  const vis = gn.qAll ? groups : groups.slice(0, LIM);
+  const rows = vis.map(g => {
+    const x = g.items[0], n = g.items.length;
+    const cur = g.items.some(y => y.id === gn.view);
+    return `<div class="gn-q${cur ? ' cur' : ''}" data-id="${x.id}" title="${esc(x.params.prompt)}">
+      <span class="p">${esc(x.req.prompt || x.params.prompt)}${n > 1 ? ` <b class="n">×${n}</b>` : ''}</span>
       <span class="s${x.status === 'failed' ? ' err' : ''}">${esc(gnStatus(x))}</span>
       ${live(x) ? `<button type="button" class="x" data-cancel="${x.id}" title="${esc(t('gn.cancel'))}" aria-label="${esc(t('gn.cancel'))}">×</button>` : ''}
-    </div>`).join('');
-  const clear = gn.tasks.some(x => !live(x)) ? `<button type="button" class="gn-q-clear" id="gnClear">${esc(t('gn.clear'))}</button>` : '';
-  const html = rows + clear;
+    </div>`;
+  }).join('');
+  const more = groups.length > LIM ? `<button type="button" class="gn-q-clear" id="gnQMore">${esc(gn.qAll ? t('gn.qLess') : t('gn.qMore', {n: groups.length - LIM}))}</button>` : '';
+  const clear = gn.tasks.some(x => !live(x) && x.status !== 'done') ? `<button type="button" class="gn-q-clear" id="gnClear">${esc(t('gn.clear'))}</button>` : '';
+  const html = rows + more + clear;
   if ($('gnQueue').dataset.html !== html) { $('gnQueue').innerHTML = html; $('gnQueue').dataset.html = html; }
   // в свёрнутом заголовке «Журнала»: как закончилась последняя задача, без длинного текста ошибки
   const last = gn.tasks[gn.tasks.length - 1];
@@ -487,6 +502,7 @@ function gnQueue() {
 $('gnQueue').addEventListener('click', async e => {
   const c = e.target.closest('[data-cancel]');
   if (c) { await api('gen-cancel', {id: +c.dataset.cancel}); gnPoll(); return; }
+  if (e.target.closest('#gnQMore')) { gn.qAll = !gn.qAll; gnQueue(); return; }
   if (e.target.closest('#gnClear')) { await api('gen-clear'); gnPoll(); return; }
   const row = e.target.closest('.gn-q');
   if (row) { gn.view = +row.dataset.id; gnQueue(); gnStage(); }
