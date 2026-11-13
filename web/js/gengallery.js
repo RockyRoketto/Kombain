@@ -12,6 +12,7 @@ const gg = {
   items: [],          // что показано в сетке
   seq: 0,             // последний запрос сетки (ответы на старые отбрасываются)
   lb: null,           // окно просмотра: {list, i}
+  pick: false,        // сетка открыта, чтобы выбрать референс: щелчок по картинке кладёт её в референсы
 };
 const GG_STRIP = 30, GG_PAGE = 120;
 
@@ -57,6 +58,7 @@ function ggOnPoll() {
 
 function ggOpen(on) {
   gg.open = on;
+  if (!on) gg.pick = false;   // выбор референса (genrefs.js) заканчивается вместе с сеткой
   document.querySelector('.gn-center').classList.toggle('gal', on);
   $('gnGal').classList.toggle('hide', !on);
   if (on) { ggLoad(true); $('gnGalQ').focus(); } else ggStripLoad();
@@ -84,7 +86,7 @@ function ggRender(reset) {
   sel.value = gg.model;
   $('gnGalN').textContent = (gg.q || gg.fav || gg.model) ? t('gg.found', {n: r.total}) : '';
   const tiles = gg.items.map((x, i) =>
-    `<button type="button" class="gn-gt" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="cp" title="${esc(t('gg.cpTile'))}">⧉</span><span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
+    `<button type="button" class="gn-gt" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="cp" title="${esc(t('gg.cpTile'))}"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>${esc(t('gg.cpTileS'))}</span><span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
   const more = gg.items.length < r.total ? `<button type="button" class="btn sm gn-gal-more" id="gnGalMore">${esc(t('gg.showMore', {n: Math.min(GG_PAGE, r.total - gg.items.length)}))}</button>` : '';
   grid.innerHTML = tiles + more;
   if (reset) grid.scrollTop = 0;
@@ -108,6 +110,7 @@ $('gnGalGrid').addEventListener('click', e => {
   if (e.target.closest('#gnGalMore')) { ggLoad(false); return; }
   const b = e.target.closest('.gn-gt'); if (!b) return;
   if (e.target.closest('.cp')) { e.stopPropagation(); ggCopyText(ggCpText(gg.items[+b.dataset.i], 'exp')); return; }
+  if (gg.pick) { const p = gg.items[+b.dataset.i].path; ggOpen(false); gnRefFromGallery(p); return; }
   ggLb(gg.items, +b.dataset.i);
 });
 

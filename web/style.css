@@ -1549,6 +1549,33 @@
   .gn-caprow .gn-cap{margin:0}
   .gn-caprow .chip{font-size:12px;padding:1px 10px}
   .gn-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  /* референсы (genrefs.js) */
+  .gn-refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+  #gnRefsSec.over .gn-refs{outline:2px dashed var(--accs);outline-offset:3px;border-radius:12px}
+  .gn-ref{position:relative;display:flex;flex-direction:column;gap:4px;padding:4px;border-radius:11px;border:1px solid var(--line);background:var(--s2);min-width:0}
+  .gn-ref img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--s3)}
+  .gn-ref-at,.gn-ref-x{position:absolute;top:7px;z-index:1;font-size:11px;line-height:1;padding:3px 6px;border-radius:99px;background:rgba(0,0,0,.6);color:#fff;border:0;cursor:pointer}
+  .gn-ref-at{left:7px;font-weight:600}
+  .gn-ref-x{right:7px;opacity:0;transition:opacity .12s}
+  .gn-ref:hover .gn-ref-x,.gn-ref-x:focus-visible{opacity:1}
+  .gn-ref-at:hover,.gn-ref-x:hover{background:rgba(0,0,0,.85)}
+  .gn-ref-role{font-size:12px;padding:2px 6px;border-radius:99px;border:1px solid var(--line2);background:var(--s1);color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gn-ref-role:hover{border-color:var(--accs);color:var(--tx)}
+  .gn-ref-role.base{border-color:rgba(var(--acl-rgb),.55);color:var(--acct2)}
+  .gn-ref.blind img{opacity:.45}
+  .gn-ref.blind .gn-ref-role{text-decoration:line-through}
+  .gn-ref input[type=range].vol{width:100%;flex:none;margin:2px 0 1px}
+  .gn-ref-add{align-items:center;justify-content:center;gap:2px;min-height:118px;border-style:dashed;background:transparent;color:var(--dim);text-align:center}
+  .gn-ref-add b{font-size:24px;font-weight:400;line-height:1;color:var(--acct)}
+  .gn-ref-add small{font-size:11px;line-height:1.3;padding:0 2px}
+  .gn-ref-add span{display:flex;gap:8px;margin-top:4px}
+  .gn-ref-add .linkb{font-size:12px}
+  .gn-ref-eyes{margin-top:6px;font-size:12px;line-height:1.4;color:var(--tx2)}
+  .gn-top{position:relative}
+  .gn-at{position:absolute;left:0;right:0;z-index:20;display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;padding:6px;border-radius:10px;border:1px solid var(--line2);background:var(--s1);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .gn-at button{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 3px;border-radius:8px;border:1px solid var(--line);background:var(--s2);color:var(--tx);font-size:12px}
+  .gn-at button.on,.gn-at button:hover{border-color:var(--accs)}
+  .gn-at img{width:28px;height:28px;object-fit:cover;border-radius:5px}
   .gn-pin{position:absolute;top:3px;right:4px;z-index:2;font-size:13px;line-height:1;color:#fff;opacity:0;text-shadow:0 1px 3px rgba(0,0,0,.8);cursor:pointer;transition:.12s}
   .gn-pre:hover .gn-pin,.gn-pin.on{opacity:1}
   .gn-pin.on{color:var(--accs)}
@@ -1762,8 +1789,10 @@
   .gn-gt .p{position:absolute;left:0;right:0;bottom:0;padding:16px 8px 6px;font-size:11.5px;line-height:1.3;color:#fff;text-align:left;
     background:linear-gradient(transparent,rgba(0,0,0,.75));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;opacity:0;transition:opacity .2s}
   .gn-gt:hover .p,.gn-gt:focus-visible .p{opacity:1}
-  .gn-gt .cp{position:absolute;top:5px;left:5px;width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;opacity:0;transition:opacity .15s;cursor:pointer}
-  .gn-gt:hover .cp,.gn-gt:focus-within .cp{opacity:1}
+  .gn-gt .cp{position:absolute;top:6px;left:6px;height:24px;padding:0 8px 0 6px;display:flex;align-items:center;gap:5px;border-radius:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11.5px;line-height:1;opacity:0;pointer-events:none;transition:opacity .15s;cursor:pointer}
+  .gn-gt .cp svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+  .gn-gt:hover .cp{opacity:1;pointer-events:auto}
+  body:has(.modal:not(.hide)) .gn-gt .cp{opacity:0;pointer-events:none}
   .gn-gt .cp:hover{background:var(--acc);color:#1a1206}
   .gn-lb-cp{margin:8px 0 2px}
   .gn-gal-more{grid-column:1/-1;justify-self:center;margin:4px 0 6px}
