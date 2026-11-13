@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.1
+
+- AI images: the tooltip behind the «?» icon now appears next to the icon instead of the top left corner of the window.
+
 ## 6.0
 
 - New tool: the «AI images» tab. Pictures from a text prompt right on your graphics card, no internet or subscriptions. On first launch the program checks your hardware, offers a folder and downloads the engine and the Z-Image Turbo model by itself (about 10 GB, once); downloads resume where they stopped.
