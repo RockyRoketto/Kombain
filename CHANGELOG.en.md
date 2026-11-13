@@ -3,6 +3,14 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.2
+
+- The "AI images" tab is now called "Generator".
+- Generator: panel with collapsible sections, a log and adjustable panel width; the task list is more compact ("N more", ×N, finished ones clear themselves).
+- Generator: the assistant writes the prompt itself on "Create" (the "Improve" button is gone), no longer invents a plot or forces a palette; each image in a batch has its own prompt and different frames on repeat.
+- Generator: on low video memory the frame is retried, then a low-memory mode kicks in; the assistant unloads before drawing and waits for video memory to free up.
+- Generator: a waiting screen with stages, clear pop-ups instead of English errors, retry and "draw as is".
+
 ## 6.1
 
 - AI images: the tooltip behind the «?» icon now appears next to the icon instead of the top left corner of the window.
