@@ -32,7 +32,7 @@ var genPresets = []GenPreset{
 		Negative: "photo, photorealistic"},
 	{ID: "icon3d",
 		Template: "3d icon of {p}, isometric, soft clay render, smooth glossy plastic, soft studio lighting, simple solid background, centered, single object",
-		Negative: "photo, busy background, multiple objects"},
+		Negative: "photo, photograph, photorealistic, realistic, depth of field, bokeh, busy background, multiple objects"},
 	{ID: "flat",
 		Template: "flat vector illustration of {p}, minimal, geometric shapes, limited color palette, clean background",
 		Negative: "photo, photorealistic, gradient noise, 3d"},

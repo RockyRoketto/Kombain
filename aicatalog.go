@@ -279,7 +279,7 @@ func aiFetch(ctx context.Context, f CatFile, dst string, progress func(done int6
 	}
 	part := dst + ".part"
 	h := sha256.New()
-	n, err := downloadCtx(ctx, f.URL, part, f.Size, f.Size+1, h, func(pct float64) { progress(int64(pct / 100 * float64(f.Size))) })
+	n, err := downloadResume(ctx, f.URL, part, f.Size, f.Size+1, h, func(pct float64) { progress(int64(pct / 100 * float64(f.Size))) })
 	if err != nil {
 		return err
 	}
@@ -332,6 +332,42 @@ func aiPlanSize(plan []CatModel, in Installed) int64 {
 		}
 	}
 	return total
+}
+
+// aiPartLeft: сколько уже лежит в недокачанном .part файла f (докачка продолжит с этого места)
+func aiPartLeft(f CatFile, dst string) int64 {
+	if st, err := os.Stat(dst + ".part"); err == nil && st.Size() < f.Size {
+		return st.Size()
+	}
+	return 0
+}
+
+// aiPlanNeed: сколько места на диске ещё понадобится под модели плана: размер минус уже докачанное
+func aiPlanNeed(plan []CatModel, in Installed) int64 {
+	var total int64
+	seen := map[string]bool{}
+	for _, m := range plan {
+		for _, f := range m.Files {
+			p := f.Cat + "/" + f.Name
+			if !seen[p] && in.usedBy(p, "") == 0 {
+				total += f.Size - aiPartLeft(f, filepath.Join(aiModelsDir(), filepath.FromSlash(p)))
+			}
+			seen[p] = true
+		}
+	}
+	return total
+}
+
+// aiEngineNeed: место под установку движка. Архив и распакованное лежат рядом, пока архив не удалён,
+// поэтому к докачиваемому добавляем распаковку (примерно размер архивов).
+func aiEngineNeed(e CatEngine) int64 {
+	var total, left int64
+	dl := aiEngineDir(e.Kind) + ".dl"
+	for _, f := range e.Files {
+		total += f.Size
+		left += aiPartLeft(f, filepath.Join(dl, f.Name))
+	}
+	return total - left + total
 }
 
 // aiInstallModel ставит модель из каталога вместе с зависимостями. progress получает скачанное и всего, в байтах.
@@ -485,12 +521,17 @@ func aiInstallEngine(ctx context.Context, e CatEngine, progress func(done, total
 	if err := os.MkdirAll(fresh, 0o755); err != nil {
 		return err
 	}
+	// архивы лежат в отдельной папке: при обрыве недокачанное остаётся, и следующая установка продолжит с этого места
+	dl := dir + ".dl"
+	if err := os.MkdirAll(dl, 0o755); err != nil {
+		return err
+	}
 	var total, done int64
 	for _, f := range e.Files {
 		total += f.Size
 	}
 	for _, f := range e.Files {
-		archive := filepath.Join(fresh, f.Name)
+		archive := filepath.Join(dl, f.Name)
 		base := done
 		if err := aiFetch(ctx, f, archive, func(d int64) { progress(base+d, total) }); err != nil {
 			os.RemoveAll(fresh)
@@ -501,9 +542,11 @@ func aiInstallEngine(ctx context.Context, e CatEngine, progress func(done, total
 		os.Remove(archive)
 		if err != nil {
 			os.RemoveAll(fresh)
+			os.RemoveAll(dl)
 			return err
 		}
 	}
+	os.RemoveAll(dl)
 	if !fileExists(filepath.Join(fresh, e.Exe)) {
 		os.RemoveAll(fresh)
 		return errT("ai.badFile", e.Exe)

@@ -178,7 +178,7 @@ var llmStyleHint = map[string]string{
 	"photo":  "The image is a realistic photograph: describe lens, light and camera like a photographer.",
 	"cinema": "The image is a cinematic film still: describe it like a cinematographer.",
 	"illus":  "The image is a digital illustration: describe shapes, colors and artistic style, not a photo.",
-	"icon3d": "The image is a single 3D icon on a simple background: keep it to one centered object.",
+	"icon3d": "The image is a stylized 3D-rendered icon, NOT a photograph: one centered object with soft clay or glossy plastic material, simple solid background, soft studio light. Do not use photo terms (camera, lens, bokeh, depth of field, realistic, photorealistic, real-world scene, hands, people) and do not describe a real environment.",
 	"flat":   "The image is a flat vector illustration: simple shapes, limited palette, no photo terms.",
 	"anime":  "The image is anime artwork: describe it in anime terms, not a photo.",
 	"water":  "The image is a watercolor painting: describe paint, paper and brushwork, not a photo.",

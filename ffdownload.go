@@ -45,29 +45,76 @@ func download(url, path string, size, limit int64, extra io.Writer, progress fun
 
 // downloadCtx: то же, но скачивание можно прервать через parent
 func downloadCtx(parent context.Context, url, path string, size, limit int64, extra io.Writer, progress func(float64)) (int64, error) {
+	return downloadOpt(parent, url, path, size, limit, extra, progress, false)
+}
+
+// downloadResume: как downloadCtx, но недокачанный path (size известен) продолжается с места обрыва через Range.
+// Уже лежащие байты сразу идут в extra (контрольную сумму), при обрыве файл остаётся для следующей попытки.
+// Сервер не умеет докачку — качаем сначала. Возвращает размер всего файла.
+func downloadResume(parent context.Context, url, path string, size, limit int64, extra io.Writer, progress func(float64)) (int64, error) {
+	return downloadOpt(parent, url, path, size, limit, extra, progress, true)
+}
+
+func downloadOpt(parent context.Context, url, path string, size, limit int64, extra io.Writer, progress func(float64), resume bool) (int64, error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	stall := time.AfterFunc(dlStall, cancel)
 	defer stall.Stop()
 
+	var have int64
+	if resume && size > 0 {
+		if st, err := os.Stat(path); err == nil && st.Size() > 0 && st.Size() < size {
+			have = st.Size()
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return 0, err
 	}
 	req.Header.Set("User-Agent", "Konvertor9000/"+appVersion)
+	if have > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", have))
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0, stallErr(ctx, err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+	if have > 0 && resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
+		os.Remove(path)
+		return downloadOpt(parent, url, path, size, limit, extra, progress, false)
+	}
+	partial := have > 0 && resp.StatusCode == http.StatusPartialContent &&
+		strings.HasPrefix(resp.Header.Get("Content-Range"), fmt.Sprintf("bytes %d-", have))
+	if !partial {
+		have = 0 // сервер отдал всё с начала (или кусок не тот): пишем заново
+		if resp.StatusCode != 200 {
+			return 0, fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
 	}
 	total := resp.ContentLength
-	if total <= 0 {
+	if total > 0 {
+		total += have
+	} else {
 		total = size
 	}
-	out, err := os.Create(path)
+	var out *os.File
+	if have > 0 {
+		if extra != nil {
+			f, err := os.Open(path)
+			if err != nil {
+				return 0, err
+			}
+			_, err = io.CopyN(extra, f, have)
+			f.Close()
+			if err != nil {
+				return 0, err
+			}
+		}
+		out, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0o644)
+	} else {
+		out, err = os.Create(path)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -75,19 +122,21 @@ func downloadCtx(parent context.Context, url, path string, size, limit int64, ex
 	if extra != nil {
 		dst = io.MultiWriter(out, extra)
 	}
-	cr := &countReader{r: resp.Body, total: total, cb: func(p float64) {
+	cr := &countReader{r: resp.Body, n: have, total: total, cb: func(p float64) {
 		stall.Reset(dlStall)
 		progress(p)
 	}}
-	n, err := io.Copy(dst, io.LimitReader(cr, limit))
+	n, err := io.Copy(dst, io.LimitReader(cr, limit-have))
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		os.Remove(path)
+		if !resume {
+			os.Remove(path)
+		}
 		return 0, stallErr(ctx, err)
 	}
-	return n, nil
+	return have + n, nil
 }
 
 func stallErr(ctx context.Context, err error) error {

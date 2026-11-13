@@ -90,7 +90,8 @@ func aiEngineFor(c Catalog, kind string) (CatEngine, bool) {
 type aiStep struct {
 	ID     string
 	Engine *CatEngine
-	Size   int64
+	Size   int64 // сколько всего скачать (для прогресса)
+	Need   int64 // сколько места на диске ещё нужно: без докачанного, с учётом распаковки
 }
 
 func aiSteps(c Catalog, in Installed, ids []string) ([]aiStep, error) {
@@ -117,7 +118,7 @@ func aiSteps(c Catalog, in Installed, ids []string) ([]aiStep, error) {
 			for _, f := range e.Files {
 				size += f.Size
 			}
-			steps = append(steps, aiStep{ID: "engine:" + k, Engine: &e, Size: size})
+			steps = append(steps, aiStep{ID: "engine:" + k, Engine: &e, Size: size, Need: aiEngineNeed(e)})
 		}
 	}
 	for _, id := range ids {
@@ -126,10 +127,19 @@ func aiSteps(c Catalog, in Installed, ids []string) ([]aiStep, error) {
 			return nil, err
 		}
 		if len(plan) > 0 {
-			steps = append(steps, aiStep{ID: id, Size: aiPlanSize(plan, in)})
+			steps = append(steps, aiStep{ID: id, Size: aiPlanSize(plan, in), Need: aiPlanNeed(plan, in)})
 		}
 	}
 	return steps, nil
+}
+
+// aiStepsNeed: место на диске под набор шагов
+func aiStepsNeed(steps []aiStep) int64 {
+	var n int64
+	for _, s := range steps {
+		n += s.Need
+	}
+	return n
 }
 
 func aiStepsSize(steps []aiStep) int64 {
@@ -154,7 +164,7 @@ func (j *aiJob) start(ids []string) error {
 		return err
 	}
 	total := aiStepsSize(steps)
-	if free := diskFreeAt(aiRoot()); free >= 0 && free < total {
+	if free := diskFreeAt(aiRoot()); free >= 0 && free < aiStepsNeed(steps) {
 		return errT("hw.diskNo")
 	}
 	j.mu.Lock()
@@ -324,7 +334,7 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 		root := aiRoot()
 		return map[string]any{
 			"root": root, "chosen": aiRootChosen(), "default": aiDefaultRoot(),
-			"check":  hwCheckNow(root, aiStepsSize(stepsAll)),
+			"check": hwCheckNow(root, aiStepsNeed(stepsAll)), "checkImg": hwCheckNow(root, aiStepsNeed(stepsImg)),
 			"need":   map[string]int64{"all": aiStepsSize(stepsAll), "image": aiStepsSize(stepsImg)},
 			"first":  first,
 			"models": aiModelRows(c, in), "job": aiInstaller.state(),

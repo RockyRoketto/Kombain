@@ -64,7 +64,7 @@ const GS_IC = {
 
 function gsRender() {
   const d = gm.data; if (!d) return;
-  const c = d.check, j = d.job;
+  const c = !gm.llm && d.checkImg ? d.checkImg : d.check, j = d.job; // без галочки помощника места нужно меньше
   const need = gm.llm ? d.need.all : d.need.image;
   const disk = c.disk.value >= 0 ? t("gm.free", {size: fmtSize(c.disk.value)}) : "—";
   const gpu = c.gpu ? `${c.gpu}${c.vram.value > 0 ? ', ' + gmGB(c.vram.value * 1048576) : ''}` : t('gs.unknownGPU');

@@ -101,7 +101,7 @@ func whisperFetch(ctx context.Context, f whisperFile, dst string, progress func(
 	}
 	part := dst + ".part"
 	h := sha256.New()
-	n, err := downloadCtx(ctx, f.url, part, f.size, f.size+1, h, progress)
+	n, err := downloadResume(ctx, f.url, part, f.size, f.size+1, h, progress)
 	if err != nil {
 		return err
 	}
