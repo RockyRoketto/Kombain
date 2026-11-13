@@ -947,5 +947,6 @@ func (s *Server) routes() *http.ServeMux {
 			os.Exit(0)
 		}()
 	}))
+	s.genRoutes(mux)
 	return mux
 }

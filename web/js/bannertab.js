@@ -35,9 +35,11 @@ function setTab(t) {
   $('favView').classList.toggle('hide', tab !== 'util');
   $('pdfView').classList.toggle('hide', tab !== 'pdf');
   $('colorView').classList.toggle('hide', tab !== 'color');
+  $('genView').classList.toggle('hide', tab !== 'gen');
   if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
   plTabChanged();
+  gnTabChanged();
   updateButtons(); bRender();
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t === 'util' ? utl : b.dataset.t); });

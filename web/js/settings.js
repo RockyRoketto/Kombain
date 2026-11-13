@@ -27,7 +27,7 @@ function load() {
     const o = JSON.parse(localStorage.getItem('konv9000') || '{}');
     if (!NEW_RUN && o.fmt && FORMATS[o.fmt]) fmt = o.fmt;
     if (o.outMode === 'folder' || o.outMode === 'same') outMode = o.outMode;
-    if (!NEW_RUN && ['conv', 'play', 'mont', 'color', 'banner', 'util', 'pdf'].includes(o.tab)) tab = o.tab;
+    if (!NEW_RUN && ['conv', 'play', 'mont', 'color', 'banner', 'util', 'pdf', 'gen'].includes(o.tab)) tab = o.tab;
     if (['banner', 'util', 'pdf'].includes(o.utl)) utl = o.utl;
     if (typeof o.dropOut === 'string') dropOut = o.dropOut;
     FIELDS.filter(k => !NEW_RUN || FIELDS_KEEP.includes(k)).forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; });

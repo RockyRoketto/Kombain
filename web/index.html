@@ -35,6 +35,7 @@ __CSS__
       <button class="tab" data-t="mont" data-i18n="tab.mont"></button>
       <button class="tab" data-t="color" data-i18n="tab.color"></button>
       <button class="tab" data-t="util" data-i18n="tab.util"></button>
+      <button class="tab hide" data-t="gen" data-i18n="tab.gen" id="genTabBtn"></button>
     </nav>
     <div class="hero-right">
       <button class="instb hide" id="installBtn" data-i18n-title="install.title" data-i18n="install.btn"></button>
@@ -1360,6 +1361,55 @@ __CSS__
         </section>
       </div>
     </div>
+  </div>
+
+  <div class="main gn-main hide" id="genView">
+    <section class="card gn-side">
+      <div class="gn-scroll">
+        <h3 class="gn-cap"><span data-i18n="gn.prompt"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.promptHelp"></span></button></h3>
+        <textarea id="gnPrompt" class="gn-prompt" rows="5" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
+        <div class="gn-tip hide" id="gnLangTip" data-i18n="gn.langTip"></div>
+        <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
+        <details class="gn-how"><summary data-i18n="gn.how"></summary><div class="gn-how-b" data-i18n="gn.howBody"></div></details>
+
+        <h3 class="gn-cap" data-i18n="gn.style"></h3>
+        <div class="gn-presets" id="gnPresets"></div>
+
+        <h3 class="gn-cap" data-i18n="gn.ratio"></h3>
+        <div class="gn-ratios" id="gnRatio"></div>
+
+        <div class="gn-row"><span class="lb" data-i18n="gn.model"></span><select id="gnModel"></select></div>
+        <div class="gn-row"><span class="lb" data-i18n="gn.count"></span><div class="cl-seg" id="gnCount"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div></div>
+
+        <details class="gn-more" id="gnMore">
+          <summary data-i18n="gn.more"></summary>
+          <div class="gn-row"><span class="lb"><span data-i18n="gn.steps"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.stepsHelp"></span></button></span><input type="number" id="gnSteps" min="1" max="150" step="1" data-i18n-ph="gn.auto"></div>
+          <div class="gn-row"><span class="lb"><span data-i18n="gn.cfg"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.cfgHelp"></span></button></span><input type="number" id="gnCfg" min="0" max="30" step="0.5" data-i18n-ph="gn.auto"></div>
+          <div class="gn-row"><span class="lb"><span data-i18n="gn.seed"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.seedHelp"></span></button></span>
+            <span class="gn-seed"><input type="number" id="gnSeed" min="0" max="4294967295" step="1" data-i18n-ph="gn.seedRandom"><button type="button" class="btn sm" id="gnSeedRnd" data-i18n-title="gn.seedRandom" data-i18n-aria="gn.seedRandom">⟳</button></span></div>
+          <span class="lb gn-neg-lb"><span data-i18n="gn.negative"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.negHelp"></span></button></span>
+          <textarea id="gnNeg" class="gn-prompt gn-neg" rows="2" maxlength="1000" spellcheck="false" data-i18n-ph="gn.negPh"></textarea>
+          <label class="sw"><span data-i18n="gn.showBuild"></span><input type="checkbox" id="gnShowBuild" checked><i></i></label>
+        </details>
+      </div>
+      <button type="button" class="btn primary gn-go" id="gnGo"><span data-i18n="gn.go"></span><kbd>Ctrl+Enter</kbd></button>
+      <div class="gn-queue" id="gnQueue"></div>
+    </section>
+
+    <section class="gn-center">
+      <div class="card gn-stage" id="gnStage">
+        <div class="gn-empty" id="gnEmpty"><b data-i18n="gn.emptyT"></b><span id="gnEmptyS" data-i18n="gn.emptyS"></span></div>
+        <div class="gn-grid hide" id="gnGrid"></div>
+        <div class="gn-stage-bar">
+          <span class="gn-stage-t" id="gnStageT"></span>
+          <button type="button" class="btn sm" id="gnFolder" data-i18n="gn.folder"></button>
+        </div>
+      </div>
+      <div class="card gn-hw" id="gnHw">
+        <button type="button" class="gn-hw-h" id="gnHwToggle" aria-expanded="true"><span class="gn-hw-t" data-i18n="gn.hw"></span><span class="gn-hw-line" id="gnHwLine"></span></button>
+        <div class="gn-hw-b" id="gnHwBody"></div>
+      </div>
+    </section>
   </div>
 
   <div class="main" id="convView">

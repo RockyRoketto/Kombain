@@ -46,6 +46,7 @@ func (s *Server) stopAll() {
 			}
 		}
 	}
+	genShutdown()
 	if s.ownsDrop {
 		os.RemoveAll(dropDir())
 		os.RemoveAll(subsDir())
