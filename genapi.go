@@ -118,6 +118,7 @@ type genAddReq struct {
 	Init     string   `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
 	Expanded string   `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
 	Variants []string `json:"variants,omitempty"` // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
+	Refs     []GenRef `json:"refs,omitempty"`     // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
 }
 
 // genVariant: промт и запрос i-й картинки задачи. Готовая картинка запоминает только свой промт.
@@ -168,6 +169,7 @@ func genBuild(r genAddReq, m genModelInfo) GenParams {
 
 func (s *Server) genRoutes(mux *http.ServeMux) {
 	s.genGalleryRoutes(mux)
+	s.genRefRoutes(mux)
 	mux.HandleFunc("/api/gen-info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		engine := fileExists(newSDServer().exe)
 		models := genModels()
@@ -176,7 +178,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			presets = append(presets, p.ID)
 		}
 		writeJSON(w, map[string]any{
-			"show": true, "ready": engine && len(models) > 0, "llm": llmReady(), "setup": !aiRootChosen() && !engine, "engine": engine, "models": models, "presets": presets,
+			"show": true, "ready": engine && len(models) > 0, "llm": llmReady(), "eyes": llmEyesReady(), "setup": !aiRootChosen() && !engine, "engine": engine, "models": models, "presets": presets,
 			"ratios": genRatios, "gallery": filepath.Dir(aiGalleryDir(time.Now())),
 		})
 	}))
@@ -197,6 +199,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 		if len(body.Variants) > 0 {
 			body.Expanded = body.Variants[0]
 		}
+		body.Refs = genRefsClean(body.Refs)
 		p := genBuild(body, m)
 		var prompts []string
 		for _, v := range body.Variants {
@@ -211,6 +214,13 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				return
 			}
 			p.Init, p.Strength, p.Width, p.Height = png, genVarStrength, iw, ih
+		} else if b, ok := genRefBaseOf(body.Refs); ok {
+			png, err := genRefBase(b.ID, p.Width, p.Height)
+			if err != nil {
+				writeJSON(w, map[string]any{"error": err.Error()})
+				return
+			}
+			p.Init, p.Strength = png, genRefStrength(b.Weight)
 		}
 		id := genQueueGet().Add(m.ID, p, body.Count, body, prompts...)
 		writeJSON(w, map[string]any{"id": id, "width": p.Width, "height": p.Height})

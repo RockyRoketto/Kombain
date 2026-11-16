@@ -209,7 +209,8 @@ async function ggUse(mode) {
   gnApply(r, mode !== 'use');
   if (mode === 'use') { toast({type: 'ok', title: t('gg.restored'), text: esc(t('gg.restoredS')), ttl: 4000}); $('gnPrompt').focus(); return; }
   // «Ещё такие же» и «Вариации» рисуют с прежним промтом, помощник не зовётся
-  gnGo({...(mode === 'var' ? {init: x.path} : {}), expanded: r.expanded || ''});
+  // референсы из блока слева сюда не идут: картинка повторяется такой, какой была
+  gnGo({...(mode === 'var' ? {init: x.path} : {}), expanded: r.expanded || '', refs: []});
 }
 
 async function ggExport(fmt) {

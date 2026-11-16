@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +34,7 @@ type llmServer struct {
 	done  chan struct{}
 	base  string
 	model string
+	eyes  bool // запущен с проектором картинок (--mmproj)
 	timer *time.Timer
 	busy  sync.Mutex // один запрос за раз: модель маленькая, очередь не нужна
 }
@@ -61,6 +64,26 @@ func llmModelPath() string {
 // llmReady: помощник скачан и может писать промт
 func llmReady() bool { return fileExists(llmExe()) && llmModelPath() != "" }
 
+// llmEyesPath: проектор картинок («Глаза помощника»); пусто — помощник картинок не видит
+func llmEyesPath() string {
+	for _, m := range aiLoadInstalled().Models {
+		if m.Kind == "llm" {
+			for _, f := range m.Files {
+				if f.Role == "mmproj" {
+					p := filepath.Join(aiModelsDir(), filepath.FromSlash(f.Path))
+					if fileExists(p) {
+						return p
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// llmEyesReady: помощник может описывать референсы
+func llmEyesReady() bool { return llmReady() && llmEyesPath() != "" }
+
 func (l *llmServer) alive() bool {
 	if l.base == "" || l.done == nil {
 		return false
@@ -76,7 +99,7 @@ func (l *llmServer) alive() bool {
 func (l *llmServer) Stop() {
 	l.mu.Lock()
 	cmd, done := l.cmd, l.done
-	l.cmd, l.done, l.base, l.model = nil, nil, "", ""
+	l.cmd, l.done, l.base, l.model, l.eyes = nil, nil, "", "", false
 	if l.timer != nil {
 		l.timer.Stop()
 	}
@@ -98,14 +121,21 @@ func (l *llmServer) running() bool {
 // llmShareGPU: карте хватает места и на модель картинок, и на LLM (SDXL 10–11 ГБ на пике + 3–4 ГБ)
 func llmShareGPU() bool { return hwVRAMTotal() >= 14*1024 }
 
-// start поднимает сервер, если он не запущен
-func (l *llmServer) start(ctx context.Context) (string, error) {
+// start поднимает сервер, если он не запущен. eyes: нужен проектор картинок; без нужды он не грузится
+// (лишние ~0,9 ГБ видеопамяти), а уже запущенный с ним сервер годится и для обычных запросов.
+func (l *llmServer) start(ctx context.Context, eyes bool) (string, error) {
 	model := llmModelPath()
 	if model == "" || !fileExists(llmExe()) {
 		return "", errT("llm.notInstalled")
 	}
+	mmproj := ""
+	if eyes {
+		if mmproj = llmEyesPath(); mmproj == "" {
+			return "", errT("llm.notInstalled")
+		}
+	}
 	l.mu.Lock()
-	if l.alive() && l.model == model {
+	if l.alive() && l.model == model && (l.eyes || !eyes) {
 		base := l.base
 		l.mu.Unlock()
 		return base, nil
@@ -124,7 +154,11 @@ func (l *llmServer) start(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	cmd := exec.Command(llmExe(), "-m", model, "--host", "127.0.0.1", "--port", strconv.Itoa(port), "-ngl", "99", "-c", "4096", "--no-webui")
+	args := []string{"-m", model, "--host", "127.0.0.1", "--port", strconv.Itoa(port), "-ngl", "99", "-c", "4096", "--no-webui"}
+	if mmproj != "" {
+		args = append(args, "--mmproj", mmproj)
+	}
+	cmd := exec.Command(llmExe(), args...)
 	cmd.Dir = filepath.Dir(llmExe())
 	cmd.Stdout, cmd.Stderr = logf, logf
 	hide(cmd)
@@ -141,7 +175,7 @@ func (l *llmServer) start(ctx context.Context) (string, error) {
 	}()
 	base := "http://127.0.0.1:" + strconv.Itoa(port)
 	l.mu.Lock()
-	l.cmd, l.done, l.base, l.model = cmd, done, base, model
+	l.cmd, l.done, l.base, l.model, l.eyes = cmd, done, base, model, mmproj != ""
 	l.mu.Unlock()
 	// готовность: /health отвечает 200, когда модель загружена (503 — ещё грузится)
 	wait, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -182,7 +216,139 @@ Rules:
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
 - The user message may end with a "Camera:" line. Name that viewpoint in your own words in the first sentence (for example, for "wide shot from far away": "Seen from far away, ..."), and do not repeat the "Camera:" line itself. Use its light only if the request does not set the time of day or weather. The camera line only changes how the same scene is seen: it never adds objects, never invents a place or background the request does not give, and never replaces the separate description of each person.
-- Output only the prompt: no quotes, no explanations, no lists.`
+- Output only the prompt: no quotes, no explanations, no lists.
+- The user message may have a "References:" block: images the user attached, already described in words. "@N" in the request means reference N: write what that reference shows instead, never the "@N" itself.
+- A "character" reference: put that same character into the scene of the request with the looks from its description (kind, age, face, hair, body, clothes and their colors). The request decides the pose, action and place.
+- A "base" reference: the picture is drawn over that image. Keep its composition, main objects and colors and change only what the request asks.
+- "follow closely" means keep almost every detail of the reference, "follow loosely" keep its main features, "light hint" borrow only a little.`
+
+// llmLook: что спросить у помощника про картинку-референс каждой роли
+var llmLook = map[string]string{
+	"style":     "Describe only the visual style of this image so another picture can be made in the same style: medium, technique, color palette, lighting, texture, mood. Do not describe the objects or the scene. One line of 25-50 English words, no lists.",
+	"character": "Describe the main character of this image (person, animal, creature or mascot) so it can be drawn again in another scene: kind, age, gender if visible, face, hair, body, clothes and their colors, distinctive features. Do not describe the background, the pose or the art style. One line of 30-60 English words, no lists.",
+	"base":      "Describe what this image shows: main objects, where they are in the frame, setting and main colors. One line of 30-60 English words, no lists.",
+}
+
+const llmHasChar = "Is there a person, an animal, a creature or a mascot clearly visible in this image? Answer only yes or no."
+
+// llmLooks: описания референсов, чтобы одну картинку не описывать при каждом «Создать» (ключ: id|роль)
+var llmLooks = struct {
+	sync.Mutex
+	m map[string]string
+}{m: map[string]string{}}
+
+// llmCloseness: «насколько похоже» словами для помощника
+func llmCloseness(w float64) string {
+	switch {
+	case w >= 0.67:
+		return "follow closely"
+	case w >= 0.34:
+		return "follow loosely"
+	}
+	return "light hint"
+}
+
+// llmRefBlock: блок «References:» для помощника. desc[i] — описание refs[i]; без описания референс пропускается.
+// Номер @N — место в списке, как на плитках. Замеры 2026-11-13 на Gemma 4B: предложение о стиле она в промт
+// не дописывает, а персонажа, на которого запрос не ссылается через @N, теряет даже с прямым указанием
+// и исключением из правила «не добавляй животных». Поэтому сюда идут только основа и персонажи из запроса,
+// а стиль и остальных персонажей дописывает llmTail.
+func llmRefBlock(request string, refs []GenRef, desc []string) string {
+	var b strings.Builder
+	for i, r := range refs {
+		if i >= len(desc) || desc[i] == "" || r.Role == "style" || r.Role == "character" && !llmMentions(request, i+1) {
+			continue
+		}
+		if b.Len() == 0 {
+			b.WriteString("References:")
+		}
+		fmt.Fprintf(&b, "\n@%d %s, %s: %s", i+1, r.Role, llmCloseness(r.Weight), desc[i])
+	}
+	return b.String()
+}
+
+// llmMentions: в запросе есть ссылка @n (и не начало @12 при n = 1)
+func llmMentions(request string, n int) bool {
+	tag := "@" + strconv.Itoa(n)
+	for s := request; ; {
+		i := strings.Index(s, tag)
+		if i < 0 {
+			return false
+		}
+		s = s[i+len(tag):]
+		if s == "" || s[0] < '0' || s[0] > '9' {
+			return true
+		}
+	}
+}
+
+// llmTail: что дописываем к промту сами: персонажей, на которых запрос не ссылается (mention — ссылка есть,
+// помощник уже вплёл), и стили. «Лёгкий намёк» — только первая фраза описания.
+func llmTail(refs []GenRef, desc []string, mention func(n int) bool) string {
+	var chars, styles []string
+	for i, r := range refs {
+		if i >= len(desc) || desc[i] == "" {
+			continue
+		}
+		d := strings.TrimRight(desc[i], ". ")
+		if r.Weight < 0.34 {
+			if k := strings.Index(d, ". "); k > 0 {
+				d = d[:k]
+			}
+		}
+		switch {
+		case r.Role == "character" && !mention(i+1):
+			chars = append(chars, d+".")
+		case r.Role == "style":
+			styles = append(styles, d)
+		}
+	}
+	out := strings.Join(chars, " ")
+	if len(styles) > 0 {
+		out = strings.TrimSpace(out + " Style: " + strings.Join(styles, ". ") + ".")
+	}
+	return out
+}
+
+// llmDescribe: описания референсов словами (помощник должен быть запущен с глазами). Порядок как у refs.
+func (l *llmServer) llmDescribe(ctx context.Context, base string, refs []GenRef) ([]string, error) {
+	out := make([]string, len(refs))
+	for i, r := range refs {
+		key := r.ID + "|" + r.Role
+		llmLooks.Lock()
+		d, ok := llmLooks.m[key]
+		llmLooks.Unlock()
+		if !ok {
+			png, err := genRefRead(r.ID, llmLookSide)
+			if err != nil {
+				return nil, err
+			}
+			// Gemma 4B на просьбу описать персонажа выдумывает его и там, где его нет (пейзаж — «девушка в тумане»),
+			// а на прямой вопрос «есть ли» отвечает верно (замер 2026-11-13). Нет персонажа — пустое описание.
+			seen := true
+			if r.Role == "character" {
+				yes, err := l.look(ctx, base, llmHasChar, png, 0, 3)
+				if err != nil {
+					return nil, err
+				}
+				seen = !strings.HasPrefix(strings.ToLower(yes), "no")
+			}
+			if seen {
+				if d, err = l.look(ctx, base, llmLook[r.Role], png, 0.2, 160); err != nil {
+					return nil, err
+				}
+			}
+			llmLooks.Lock()
+			llmLooks.m[key] = d
+			llmLooks.Unlock()
+		}
+		out[i] = d
+	}
+	return out, nil
+}
+
+// llmLookSide: до какой стороны уменьшать картинку для помощника (проектор Gemma 3 всё равно видит 896×896)
+const llmLookSide = 896
 
 // Разнообразие при повторном «Создать» (турбо-модели почти не меняют композицию от зерна, поэтому меняем сам промт):
 // к запросу дописывается случайная пара «ракурс + свет». Новых объектов они не добавляют, свет — только если запрос его не задал.
@@ -217,46 +383,107 @@ func llmVariations(n int) []string {
 }
 
 type llmChatReq struct {
-	Messages    []map[string]string `json:"messages"`
-	Temperature float64             `json:"temperature"`
-	MaxTokens   int                 `json:"max_tokens"`
-	Seed        int64               `json:"seed"`
+	Messages    []map[string]any `json:"messages"`
+	Temperature float64          `json:"temperature"`
+	MaxTokens   int              `json:"max_tokens"`
+	Seed        int64            `json:"seed"`
 }
 
 var reLLMClean = regexp.MustCompile(`(?is)^\s*(?:prompt\s*:\s*)?["'«“]?(.*?)["'»”]?\s*$`)
 
 // llmEnhance: n развёрнутых английских промтов из запроса человека, у каждого своя подсказка разнообразия
-// (картинки одной пачки и повторные «Создать» выходят разными)
-func llmEnhance(ctx context.Context, request, _ string, n int) ([]string, error) {
+// (картинки одной пачки и повторные «Создать» выходят разными). refs — референсы: помощник (если у него
+// есть глаза) описывает их словами и вплетает в промт. own — «Писать промт самому»: запрос не переписывается,
+// к нему только дописываются описания персонажа и стиля. noChar — id референсов «Персонаж», на которых персонажа не нашлось.
+func llmEnhance(ctx context.Context, request string, n int, refs []GenRef, own bool) (prompts, noChar []string, err error) {
 	request = strings.TrimSpace(request)
 	if request == "" {
-		return nil, errT("ai.noPrompt")
+		return nil, nil, errT("ai.noPrompt")
 	}
 	n = min(max(n, 1), 16)
+	if own { // своему промту описание основы не нужно: она и так в картинке
+		refs = slices.DeleteFunc(slices.Clone(refs), func(r GenRef) bool { return r.Role == "base" })
+	}
+	eyes := len(refs) > 0 && llmEyesPath() != ""
+	if own && !eyes {
+		return []string{request}, nil, nil
+	}
 	l := llmSrv
 	l.busy.Lock()
 	defer l.busy.Unlock()
-	base, err := l.start(ctx)
+	base, err := l.start(ctx, eyes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	block := ""
+	var desc []string
+	if eyes {
+		if desc, err = l.llmDescribe(ctx, base, refs); err != nil {
+			return nil, nil, err
+		}
+		block = llmRefBlock(request, refs, desc)
+		for i, r := range refs {
+			if r.Role == "character" && desc[i] == "" {
+				noChar = append(noChar, r.ID)
+			}
+		}
+	}
+	if own { // свой промт: помощник его не трогает, описания персонажей и стиля дописываются в конец
+		return []string{llmJoin(request, llmTail(refs, desc, func(int) bool { return false }))}, noChar, nil
+	}
+	mention := func(n int) bool { return llmMentions(request, n) }
 	out := make([]string, 0, n)
 	for _, v := range llmVariations(n) {
-		p, err := l.ask(ctx, base, request+"\n\n"+v)
-		if err != nil {
-			return nil, err
+		user := request + "\n\n" + v
+		if block != "" {
+			user += "\n\n" + block
 		}
-		out = append(out, p)
+		p, err := l.ask(ctx, base, user)
+		if err != nil {
+			return nil, nil, err
+		}
+		out = append(out, llmJoin(p, llmTail(refs, desc, mention)))
 	}
-	return out, nil
+	return out, noChar, nil
 }
 
-// ask: один ответ помощника
+// llmJoin: промт и дописанный хвост через точку
+func llmJoin(p, tail string) string {
+	if tail == "" {
+		return p
+	}
+	return strings.TrimRight(p, ". ") + ". " + tail
+}
+
+// ask: один промт от помощника
 func (l *llmServer) ask(ctx context.Context, base, user string) (string, error) {
-	body, _ := json.Marshal(llmChatReq{
-		Messages:    []map[string]string{{"role": "system", "content": llmSystem}, {"role": "user", "content": user}},
-		Temperature: 0.9, MaxTokens: 260, Seed: rand.Int64N(1 << 31),
-	})
+	s, err := l.chat(ctx, base, []map[string]any{{"role": "system", "content": llmSystem}, {"role": "user", "content": user}}, 0.9, 260)
+	return llmClean(s), err
+}
+
+// look: помощник описывает картинку (нужен сервер с глазами)
+func (l *llmServer) look(ctx context.Context, base, ask string, png []byte, temp float64, maxTok int) (string, error) {
+	content := []map[string]any{
+		{"type": "text", "text": ask},
+		{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)}},
+	}
+	s, err := l.chat(ctx, base, []map[string]any{{"role": "user", "content": content}}, temp, maxTok)
+	return strings.Join(strings.Fields(strings.Trim(s, "\"' \n")), " "), err
+}
+
+// idle: сервер погаснет после минуты простоя
+func (l *llmServer) idle() {
+	l.mu.Lock()
+	if l.timer != nil {
+		l.timer.Stop()
+	}
+	l.timer = time.AfterFunc(llmIdle, l.Stop)
+	l.mu.Unlock()
+}
+
+// chat: один ответ модели как есть
+func (l *llmServer) chat(ctx context.Context, base string, msgs []map[string]any, temp float64, maxTok int) (string, error) {
+	body, _ := json.Marshal(llmChatReq{Messages: msgs, Temperature: temp, MaxTokens: maxTok, Seed: rand.Int64N(1 << 31)})
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(cctx, "POST", base+"/v1/chat/completions", bytes.NewReader(body))
@@ -276,13 +503,8 @@ func (l *llmServer) ask(ctx context.Context, base, user string) (string, error) 
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || len(out.Choices) == 0 {
 		return "", errT("llm.failed", fmt.Sprintf("HTTP %d", resp.StatusCode))
 	}
-	l.mu.Lock()
-	if l.timer != nil {
-		l.timer.Stop()
-	}
-	l.timer = time.AfterFunc(llmIdle, l.Stop)
-	l.mu.Unlock()
-	return llmClean(out.Choices[0].Message.Content), nil
+	l.idle()
+	return out.Choices[0].Message.Content, nil
 }
 
 // llmClean: без кавычек, «Prompt:», переводов строк и повтора подсказки «Camera:» (Gemma иногда дописывает её в конец)

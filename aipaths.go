@@ -83,6 +83,7 @@ func aiModelsDir() string            { return filepath.Join(aiRoot(), "models") 
 func aiPreviewsDir() string          { return filepath.Join(aiModelsDir(), "_previews") }
 func aiLogDir() string               { return filepath.Join(aiRoot(), "logs") }
 func aiCatalogPath() string          { return filepath.Join(aiRoot(), "catalog.json") }
+func aiRefsDir() string              { return filepath.Join(aiRoot(), "refs") }
 
 // aiModelDir: папка одного вида моделей; неизвестный вид — пусто, чтобы опечатка не создала лишнюю папку
 func aiModelDir(cat string) string {

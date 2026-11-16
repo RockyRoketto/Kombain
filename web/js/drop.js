@@ -19,12 +19,13 @@ window.addEventListener('dragover', e => {
   e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
   if (tab === 'util') fvDropHover(e);   // подсвечивается ячейка иконки, а не всё окно
   if (tab === 'mont') dropEl().classList.toggle('over', !mtDropHover(e));   // над дорожкой файл встанет на неё, окно файлов не подсвечивается
+  if (tab === 'gen') gnRefOver(e);   // над блоком «Референсы» картинка станет референсом
 });
 window.addEventListener('dragleave', e => {
   if (!hasFiles(e)) return;
   dragDepth = Math.max(0, dragDepth - 1);
   if (dragDepth) return;
-  dropEl().classList.remove('over'); fvDropHover(null);
+  dropEl().classList.remove('over'); fvDropHover(null); gnRefOver(null);
   if (tab === 'color') csDragOut(false);
   if (tab === 'mont') mtDropHide();
 });
@@ -36,6 +37,7 @@ window.addEventListener('drop', e => {
   if (tab === 'color') { csDrop(e); return; }   // на вкладку «Цвет» — картинка в «Из фото»
   if (tab === 'util') { fvDrop(e); return; }   // фавиконам нужен сам файл в окне, путь на диске не нужен
   if (tab === 'gen') {   // картинка с настройками внутри: вернуть их в поля (gengallery.js), нужен путь на диске
+    if (gnRefDrop(e)) return;   // на блок «Референсы»: сама картинка, путь не нужен (genrefs.js)
     if (NATIVE_DROP) { try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {} }
     say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
     return;

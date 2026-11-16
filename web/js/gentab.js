@@ -75,6 +75,7 @@ async function gnInfo() {
   gnFields();
   gnGoState();
   gnStage();
+  gnRefRender();   // есть ли у помощника глаза, стало известно только сейчас
   gmSync(r);
 }
 
@@ -316,10 +317,17 @@ $('gnOwn').addEventListener('change', () => { gn.set.own = $('gnOwn').checked; g
 // gnWrite: промты от помощника, по одному на картинку (каждый со своим ракурсом и светом, поэтому повторное
 // «Создать» и картинки одной пачки выходят разными); null — не вышло (всплывашка уже показана)
 // gn.writing держит экран ожидания «Придумываю описание», его снимает gnGo, когда задача уже в очереди
-async function gnWrite(prompt, count) {
+// own: «Писать промт самому» — помощник только дописывает описания референсов «Персонаж» и «Стиль»
+async function gnWrite(prompt, count, own) {
   gn.writing = prompt; gnGoState(); gnStage();
-  const r = await api('gen-enhance', {prompt, preset: gn.set.preset, count});
-  if (!r.error) return r.prompts?.length ? r.prompts : [r.prompt];
+  const r = await api('gen-enhance', {prompt, preset: gn.set.preset, count, refs: gnRefsFor(), own: !!own});
+  if (!r.error) {
+    for (const id of r.noChar || []) {
+      const n = gn.set.refs.findIndex(x => x.id === id) + 1;
+      if (n) toast({type: 'warn', title: t('gn.ref.noChar', {n: '@' + n}), text: esc(t('gn.ref.noCharS')), ttl: 7000});
+    }
+    return r.prompts?.length ? r.prompts : [r.prompt];
+  }
   gn.writing = ''; gnGoState(); gnStage();
   // помощник упал: рисовать можно и по запросу как есть
   gnErrToast('llm', r.error, [{t: t('gn.err.asIs'), primary: true, fn: () => gnGo(null, true)}]);
@@ -345,11 +353,16 @@ async function gnGo(extra, asIs) {
         gn.llmTold = true;
         toast({type: 'info', title: t('gn.llmNone'), text: esc(t('gn.enhNeed')), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => gmOpen(true)}]});
       }
+    } else if (s.own && gn.info.eyes && gn.set.refs.some(r => r.role !== 'base')) {
+      // свой промт, но есть стиль или персонаж: их описания дописываются к нему
+      const own = await gnWrite(prompt, 1, true);
+      if (own === null) return;
+      expanded = own[0];
     }
   }
   const seed = s.seed === '' ? -1 : Math.max(0, Math.floor(+s.seed) || 0);
   const r = await api('gen-add', {model: s.model, negative: s.neg, preset: s.preset, ratio: s.ratio, count: s.count,
-    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, ...(extra || {}), prompt, expanded, variants});
+    seed, steps: Math.floor(+s.steps) || 0, cfg: +s.cfg || 0, preview: s.build, refs: gnRefsFor(), ...(extra || {}), prompt, expanded, variants});
   const wrote = gn.writing;
   gn.writing = '';
   if (r.error) { if (wrote) { gnGoState(); gnStage(); } say('warn', t('warn.title'), r.error); return; }

@@ -1370,9 +1370,20 @@ __CSS__
       <div class="gn-top">
         <h3 class="gn-cap"><span data-i18n="gn.prompt"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.promptHelp"></span></button></h3>
         <textarea id="gnPrompt" class="gn-prompt" rows="4" maxlength="2000" spellcheck="false" data-i18n-ph="gn.promptPh"></textarea>
+        <div class="gn-at hide" id="gnAt" role="listbox"></div>
         <div class="gn-tip hide" id="gnVague"><span data-i18n="gn.vague"></span><div class="chips" id="gnTips"></div></div>
       </div>
       <div class="gn-scroll">
+        <!-- референсы: web/js/genrefs.js, сервер genref.go -->
+        <details class="gn-sec" id="gnRefsSec" data-sec="refs" open>
+          <summary><span class="gn-sec-t" data-i18n="gn.refs"></span><button type="button" class="cl-q" data-i18n-aria="cl.help">?<span class="cl-qt" data-i18n="gn.refsHelp"></span></button><span class="gn-sec-v" id="gnSv_refs"></span></summary>
+          <div class="gn-sec-b">
+            <div class="gn-refs" id="gnRefs"></div>
+            <div class="gn-ref-eyes hide" id="gnRefEyes"><span data-i18n="gn.ref.eyes"></span> <button type="button" class="linkb" id="gnRefEyesGet" data-i18n="gn.ref.eyesGet"></button></div>
+            <input type="file" id="gnRefFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+          </div>
+        </details>
+
         <details class="gn-sec" data-sec="style" open>
           <summary><span class="gn-sec-t" data-i18n="gn.style"></span><span class="gn-sec-v" id="gnSv_style"></span><button type="button" class="chip" id="gnNoStyle" data-i18n="gn.pre.none" data-i18n-title="gn.preHint.none"></button></summary>
           <div class="gn-sec-b">
@@ -1808,6 +1819,7 @@ __CSS__
           <button type="button" class="btn primary" id="gnLbMore"><span data-i18n="gg.more"></span><small data-i18n="gg.moreS"></small></button>
           <button type="button" class="btn" id="gnLbVar"><span data-i18n="gg.var"></span><small data-i18n="gg.varS"></small></button>
           <button type="button" class="btn" id="gnLbUse"><span data-i18n="gg.use"></span><small data-i18n="gg.useS"></small></button>
+          <button type="button" class="btn" id="gnLbRef"><span data-i18n="gn.ref.toRef"></span><small data-i18n="gn.ref.toRefS"></small></button>
         </div>
         <h4 class="gn-cap" data-i18n="gg.save"></h4>
         <div class="gn-lb-row" id="gnLbSave">

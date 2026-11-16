@@ -430,16 +430,18 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/gen-enhance", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Prompt string `json:"prompt"`
-			Preset string `json:"preset"`
-			Count  int    `json:"count"` // сколько картинок: у каждой свой промт
+			Prompt string   `json:"prompt"`
+			Preset string   `json:"preset"`
+			Count  int      `json:"count"` // сколько картинок: у каждой свой промт
+			Refs   []GenRef `json:"refs"`  // референсы: помощник с глазами описывает их словами
+			Own    bool     `json:"own"`   // «Писать промт самому»: только дописать описания референсов
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		p, err := llmEnhance(r.Context(), body.Prompt, body.Preset, body.Count)
+		p, noChar, err := llmEnhance(r.Context(), body.Prompt, body.Count, genRefsClean(body.Refs), body.Own)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		writeJSON(w, map[string]any{"prompt": p[0], "prompts": p})
+		writeJSON(w, map[string]any{"prompt": p[0], "prompts": p, "noChar": noChar})
 	}))
 }
