@@ -152,9 +152,19 @@ async function gopGo() {
     const inf = gn.info || {models: [], presets: []};
     const model = inf.models.some(m => m.id === r.model) ? r.model : gn.set.model;
     const preset = inf.presets.includes(r.preset) ? r.preset : 'none';
-    // пусто — та же сцена по прежнему промту; иначе помощник расписывает, что должно быть вокруг
+    // пусто — описываем только продолжение; иначе помощник расписывает, что должно быть вокруг
     const what = $('gnOutText').value.trim();
     let prompt = r.prompt || '', expanded = r.expanded || '';
+    if (!what) {
+      // движок рисует только новую полосу, а прежний промт описывает героя целиком («по пояс, руки…»): модель
+      // рисует героя заново в каждой полосе (дубли рук и плеч). Отрицания она не понимает, поэтому прежний промт
+      // не шлём: описываем только продолжение; с низа (герой обрезан) — его одежда и тело, с остальных сторон — фон
+      const [, , , eb] = gop.e;
+      prompt = eb > 0
+        ? 'The same photograph continued below the cut: the clothes and body of the person continue naturally downward, same light, same background, one continuous photo, photorealistic.'
+        : 'Only the empty out-of-focus background of the same photograph, the same place, light and colours, continuing smoothly to the edges, photorealistic.';
+      expanded = '';
+    }
     if (what) {
       prompt = what; expanded = '';
       if (inf.llm) {
@@ -164,7 +174,8 @@ async function gopGo() {
       }
     }
     if (!prompt.trim()) prompt = expanded || r.expanded || 'picture';
-    const res = await api('gen-add', {model, preset, negative: r.negative || '', ratio: r.ratio || '1:1', count: gn.set.count, seed: -1,
+    const neg = [r.negative, 'duplicate, cloned, extra arms, extra hands, second person'].filter(Boolean).join(', ');
+    const res = await api('gen-add', {model, preset, negative: neg, ratio: r.ratio || '1:1', count: gn.set.count, seed: -1,
       steps: r.steps || 0, cfg: r.cfg || 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, outpaint: [...gop.e]});
     if (ggErr(res)) return;
     ggLbClose();

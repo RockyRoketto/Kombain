@@ -45,12 +45,12 @@ func TestGenOutpaint(t *testing.T) {
 		t.Fatalf("out %v %v", img.Bounds(), err)
 	}
 	at := func(x, y int) color.NRGBA { return color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA) }
-	for _, p := range [][2]int{{850, 200}, {300, 480}, {600, 400}, {899, 499}} { // новое
+	for _, p := range [][2]int{{850, 200}, {300, 480}, {650, 450}, {899, 499}} { // новое (переход идёт по полосе, 32 точки от границы)
 		if c := at(p[0], p[1]); c.B < 190 {
 			t.Errorf("new %v: %v", p, c)
 		}
 	}
-	for _, p := range [][2]int{{0, 0}, {300, 200}, {560, 360}} { // исходное дальше мягкого края (16 и 32 точки) — как было
+	for _, p := range [][2]int{{0, 0}, {300, 200}, {560, 360}, {599, 200}, {300, 399}} { // исходное до самой границы — как было
 		if c := at(p[0], p[1]); c != red {
 			t.Errorf("kept %v: %v", p, c)
 		}

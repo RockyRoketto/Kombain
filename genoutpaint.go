@@ -47,7 +47,28 @@ func genOutpaintPrep(src []byte, ext []int, nw, nh int) (patch *genPatch, init, 
 		mg.Pix[i] = 255
 	}
 	draw.Draw(mg, image.Rect(l, t, l+W, t+H), image.Black, image.Point{}, draw.Src)
-	return genPatchPrep(canvas, mg, nw, nh, genOutFeather(W, H))
+	f := genOutFeather(W, H)
+	patch, init, msk, w, h, err = genPatchPrep(canvas, mg, nw, nh, f)
+	if err == nil {
+		genOutAlpha(patch, image.Rect(l, t, l+W, t+H), 2*f)
+	}
+	return
+}
+
+// genOutAlpha: исходная картинка остаётся нетронутой целиком (общая вклейка переводила бы к новому уже внутри неё,
+// и края рук, стоящих у границы, перерисовывались с нуля), а переход к новому идёт только по новой полосе:
+// 0 на границе исходной, 1 через ramp точек от неё.
+func genOutAlpha(p *genPatch, in image.Rectangle, ramp int) {
+	cw, ch := p.crop.Dx(), p.crop.Dy()
+	for y := 0; y < ch; y++ {
+		py := p.crop.Min.Y + y
+		dy := max(in.Min.Y-py, py-(in.Max.Y-1), 0)
+		for x := 0; x < cw; x++ {
+			px := p.crop.Min.X + x
+			d := max(in.Min.X-px, px-(in.Max.X-1), dy)
+			p.alpha[y*cw+x] = min(1, float32(d)/float32(max(ramp, 1)))
+		}
+	}
 }
 
 // genOutFeather: мягкий край дорисовки шире, чем у перерисовки части: по краю картинки новое часто другого
