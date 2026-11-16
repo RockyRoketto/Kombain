@@ -570,13 +570,13 @@ func (b *bgWorker) CutPNG(ctx context.Context, data []byte) ([]byte, error) {
 	return os.ReadFile(out)
 }
 
-// bgMetaOf: параметры картинки галереи с пометкой Cutout
-func bgMetaOf(src string) GenMeta {
+// genMetaOf: параметры картинки галереи (пометки Cutout и Upscale наследуются)
+func genMetaOf(src string) GenMeta {
 	var m GenMeta
 	if b, err := os.ReadFile(genSidecar(src)); err == nil {
 		json.Unmarshal(b, &m)
 	}
-	m.Cutout, m.App = true, "Kombain "+appVersion
+	m.App = "Kombain " + appVersion
 	return m
 }
 
@@ -596,14 +596,21 @@ func bgWrite(img string, data []byte, m GenMeta) error {
 // bgGallerySave: вырезанная картинка — новая запись галереи рядом с исходной (исходник не трогаем).
 // Параметры берутся у исходной, с пометкой Cutout.
 func bgGallerySave(src string, data []byte) (string, error) {
-	m := bgMetaOf(src)
+	return genDerive(src, "-nobg", data, func(m *GenMeta) { m.Cutout = true })
+}
+
+// genDerive: картинка, сделанная из картинки галереи src (без фона, увеличенная), — новая запись галереи
+// <имя><suffix>.png с параметрами исходной; mod дописывает пометку. Исходник не трогаем.
+func genDerive(src, suffix string, data []byte, mod func(*GenMeta)) (string, error) {
+	m := genMetaOf(src)
+	mod(&m)
 	now := time.Now()
 	m.Created, m.Fav = now, false
 	dir := aiGalleryDir(now)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + "-nobg"
+	name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + suffix
 	img := filepath.Join(dir, name+".png")
 	for i := 2; fileExists(img); i++ {
 		img = filepath.Join(dir, fmt.Sprintf("%s-%d.png", name, i))

@@ -111,7 +111,7 @@ func aiSteps(c Catalog, in Installed, ids []string) ([]aiStep, error) {
 			return nil, errT("ai.unknownModel", id)
 		}
 		switch m.Kind {
-		case "image":
+		case "image", "upscale": // увеличение считает sd-cli из пакета sd.cpp
 			kinds["sd"] = true
 		case "llm":
 			kinds["llm"] = true

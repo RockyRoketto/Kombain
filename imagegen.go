@@ -408,8 +408,9 @@ type GenMeta struct {
 	Request *genAddReq `json:"request,omitempty"`
 	Created time.Time  `json:"created"`
 	App     string     `json:"app"`
-	Fav     bool       `json:"fav,omitempty"`    // избранное в галерее
-	Cutout  bool       `json:"cutout,omitempty"` // фон убран нейросетью (прозрачный PNG)
+	Fav     bool       `json:"fav,omitempty"`     // избранное в галерее
+	Cutout  bool       `json:"cutout,omitempty"`  // фон убран нейросетью (прозрачный PNG)
+	Upscale int        `json:"upscale,omitempty"` // во сколько раз увеличена (upscale.go); Params остаются исходными
 }
 
 // genSave кладёт картинку в gallery\ГГГГ-ММ\ под именем «дата-время-задача-зерно.png» и .json рядом.

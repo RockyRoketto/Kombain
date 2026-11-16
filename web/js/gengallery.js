@@ -136,6 +136,12 @@ function ggLbRender() {
   $('gnLbImg').src = mediaUrl(x.path);
   $('gnLbImg').classList.toggle('cut', !!m.cutout);
   $('gnLbBg').classList.toggle('hide', !!m.cutout);
+  const [w, h] = ggSize(m);
+  for (const f of [2, 4]) {   // больше GG_UP_MAX по стороне сервер не увеличивает: такую кнопку прячем
+    const b = $('gnLbUp' + f);
+    b.classList.toggle('hide', w * f > GG_UP_MAX || h * f > GG_UP_MAX);
+    if (!b.classList.contains('busy')) b.querySelector('small').textContent = t('gg.upS', {w: w * f, h: h * f});
+  }
   $('gnLbPrev').disabled = i <= 0;
   $('gnLbNext').disabled = i >= list.length - 1;
   const d = new Date(m.created);
@@ -149,7 +155,7 @@ function ggLbRender() {
   const rows = [
     [t('gn.style'), rq.preset ? (I18N[lang]['gn.pre.' + rq.preset] || rq.preset) : ''],
     [t('gn.model'), ggModelName(m.model)],
-    [t('gg.size'), `${p.width}×${p.height}`],
+    [t('gg.size'), `${w}×${h}`],
     [t('gn.seed'), String(p.seed)],
     [t('gn.steps'), String(p.steps)],
     [t('gn.cfg'), String(p.cfg)],
@@ -239,6 +245,28 @@ async function ggBg() {
   toast({type: 'ok', title: t('gg.bgDone'), ttl: 3000});
 }
 
+// ggSize: настоящий размер картинки; у увеличенной params остаются исходными (по ним «Ещё такие же»), множитель в upscale
+const GG_UP_MAX = 8192;   // как upMaxSide в upscale.go
+function ggSize(m) { const u = m.upscale || 1; return [m.params.width * u, m.params.height * u]; }
+
+// «Увеличить ×2 / ×4»: Real-ESRGAN (upscale.go) кладёт рядом новую картинку, она открывается здесь же.
+// Модель для фото или для рисунков сервер выбирает по стилю. Пока генератор рисует, сервер ждёт конца задачи.
+async function ggUp(f) {
+  const x = ggCur(), b = $('gnLbUp' + f); if (!x || b.classList.contains('busy')) return;
+  b.classList.add('busy');
+  const sm = b.querySelector('small'), was = sm.textContent; sm.textContent = t('gg.upBusy');
+  let r;
+  try { r = await api('gen-up', {path: x.path, factor: f}); } finally { b.classList.remove('busy'); sm.textContent = was; }
+  if (r.error) {
+    toast({type: 'warn', title: t('gg.upFail'), text: esc(r.error), ttl: 8000, actions: r.needModel ? [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}] : []});
+    return;
+  }
+  await ggStripLoad();
+  if (gg.open) await ggLoad(true);
+  if (gg.lb) await ggLbPath(r.path);
+  toast({type: 'ok', title: t('gg.upDone'), ttl: 3000});
+}
+
 async function ggCopy() {
   const x = ggCur(); if (!x) return;
   // через Go (gen-copy): navigator.clipboard в окне программы требует фокуса и не всегда пускает картинки
@@ -255,7 +283,7 @@ function ggCpText(x, kind) {
   if (p.negative) lines.push('', t('gn.negative') + ': ' + p.negative);
   lines.push('');
   if (rq.preset) lines.push(t('gn.style') + ': ' + (I18N[lang]['gn.pre.' + rq.preset] || rq.preset));
-  lines.push(t('gn.model') + ': ' + ggModelName(m.model), t('gg.size') + ': ' + p.width + '×' + p.height,
+  lines.push(t('gn.model') + ': ' + ggModelName(m.model), t('gg.size') + ': ' + ggSize(m).join('×'),
     t('gn.steps') + ': ' + p.steps, t('gn.cfg') + ': ' + p.cfg, t('gn.seed') + ': ' + p.seed);
   return lines.join('\n');
 }
@@ -296,6 +324,8 @@ $('gnLbMore').addEventListener('click', () => ggUse('more'));
 $('gnLbVar').addEventListener('click', () => ggUse('var'));
 $('gnLbCopy').addEventListener('click', ggCopy);
 $('gnLbBg').addEventListener('click', ggBg);
+$('gnLbUp2').addEventListener('click', () => ggUp(2));
+$('gnLbUp4').addEventListener('click', () => ggUp(4));
 $('gnLbCp').addEventListener('click', e => { const b = e.target.closest('[data-cp]'), x = ggCur(); if (b && x) ggCopyText(ggCpText(x, b.dataset.cp)); });
 $('gnLbReveal').addEventListener('click', () => { const x = ggCur(); if (x) api('gen-reveal', {path: x.path}).then(ggErr); });
 $('gnLbSave').addEventListener('click', e => { const b = e.target.closest('[data-fmt]'); if (b) ggExport(b.dataset.fmt); });

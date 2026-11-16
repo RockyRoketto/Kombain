@@ -107,6 +107,18 @@
       "files": [
         {"name": "BiRefNet-matting-epoch_100.onnx", "cat": "bgremove", "role": "bgremove", "url": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-matting-epoch_100.onnx", "size": 972667742, "sha256": "6065d27c615ea27308f5b88598dd8db116eb07436c7a323ca40d13b2866c309e", "convert": "fp16"}
       ]
+    },
+    {
+      "id": "realesrgan", "kind": "upscale", "arch": "esrgan",
+      "name": {"ru": "Увеличение (Real-ESRGAN)", "en": "Upscaling (Real-ESRGAN)"},
+      "purpose": {"ru": "Увеличивает картинку в 2 или 4 раза и дорисовывает мелкие детали. Две модели: для фото и для рисунков (выбирается сама по стилю). Кнопки «Увеличить» у готовой картинки в галерее.", "en": "Enlarges a picture 2 or 4 times and redraws fine details. Two models: for photos and for drawings (picked automatically by style). The Upscale buttons on a finished picture in the gallery."},
+      "license": {"ru": "BSD-3: можно всё, в том числе продавать картинки.", "en": "BSD-3: no restrictions, you can sell the images too."},
+      "licenseUrl": "https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE",
+      "commercial": true, "vram": 2,
+      "files": [
+        {"name": "RealESRGAN_x4plus.pth", "cat": "upscale", "role": "upscale", "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth", "size": 67040989, "sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1"},
+        {"name": "RealESRGAN_x4plus_anime_6B.pth", "cat": "upscale", "role": "upscale", "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth", "size": 17938799, "sha256": "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da"}
+      ]
     }
   ]
 }
