@@ -92,8 +92,13 @@ type CatModel struct {
 	VRAM       float64      `json:"vram"` // ГБ видеопамяти, меньше которых не стоит и пробовать
 	Files      []CatFile    `json:"files"`
 	Defaults   *GenDefaults `json:"defaults,omitempty"`
-	Needs      []string     `json:"needs,omitempty"` // id того, что ставится вместе (TAE для предпросмотра и т. п.)
+	Needs      []string     `json:"needs,omitempty"`  // id того, что ставится вместе (TAE для предпросмотра и т. п.)
+	Badges     []string     `json:"badges,omitempty"` // метки в списке «Модели» (см. aiBadges), перевод gm.b.<метка>
 }
+
+// aiBadges: метки моделей. Начинаются с need — модель нужна для своей кнопки, без неё та не работает.
+var aiBadges = []string{"default", "best", "quality", "fastest", "fast", "light", "heavy", "text", "outpaint", "backup",
+	"needHelper", "needRefs", "needBg", "needUpscale"}
 
 var aiKinds = []string{"image", "lora", "tae", "upscale", "llm", "bgremove", "controlnet"}
 
@@ -165,6 +170,11 @@ func (c Catalog) validate() error {
 		ids[m.ID] = true
 		if !slices.Contains(aiKinds, m.Kind) || m.Arch == "" || m.Name.RU == "" || m.Name.EN == "" || m.License.RU == "" || m.License.EN == "" || len(m.Files) == 0 {
 			return fmt.Errorf("model %s: kind, arch, name, license or files", m.ID)
+		}
+		for _, b := range m.Badges {
+			if !slices.Contains(aiBadges, b) {
+				return fmt.Errorf("model %s: badge %q", m.ID, b)
+			}
 		}
 		for _, f := range m.Files {
 			if err := f.check(true); err != nil {

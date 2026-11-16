@@ -28,7 +28,11 @@ var (
 func genQueueGet() *genQueue {
 	genOnce.Do(func() {
 		genEng = newSDServer()
-		resolve := func(id string) (ModelSet, error) { return aiModelSet(aiLoadInstalled(), id, genLowVRAM()) }
+		resolve := func(id string) (ModelSet, error) {
+			in := aiLoadInstalled()
+			m, _ := in.model(id)
+			return aiModelSet(in, id, genLowVRAMFor(hwVRAMTotal(), m))
+		}
 		genQ = newGenQueue(genEng, resolve, genSave(aiGalleryDir), aiGPU)
 		ctx, cancel := context.WithCancel(context.Background())
 		genCancel = cancel
@@ -47,11 +51,21 @@ func genShutdown() {
 	}
 }
 
-// genLowVRAM: меньше 10 ГБ видеопамяти — модель частично в обычной памяти и VAE по кусочкам (замеры сессии 1:
-// SDXL на пике берёт 10–11 ГБ). Неизвестно — считаем, что памяти хватает.
-func genLowVRAM() bool {
-	t := hwVRAMTotal()
-	return t > 0 && t < 10*1024
+// genLowVRAMFor: меньше 10 ГБ видеопамяти — модель частично в обычной памяти и VAE по кусочкам (замеры сессии 1:
+// SDXL на пике берёт 10–11 ГБ). Тяжёлая модель (Qwen-Image около 18 ГБ) целиком не влезет и в 16 ГБ: если её файлы
+// вместе с запасом 2 ГБ на расчёт больше видеопамяти — тоже, движок гоняет её по частям. Неизвестно — считаем, что хватает.
+func genLowVRAMFor(vramMB float64, m InstModel) bool {
+	if vramMB <= 0 {
+		return false
+	}
+	if vramMB < 10*1024 {
+		return true
+	}
+	var size int64
+	for _, f := range m.Files {
+		size += f.Size
+	}
+	return float64(size)/(1<<20)+2048 > vramMB
 }
 
 type genModelInfo struct {

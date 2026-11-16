@@ -134,6 +134,7 @@ function gmListRender() {
     return `<div class="gm-row${m.installed ? ' on' : ''}" data-id="${esc(m.id)}">
       <div class="gm-pv k-${esc(m.kind)}"></div>
       <div class="gm-b"><div class="gm-n"><b>${esc(m.name)}</b>${m.installed ? `<span class="gm-tag">${esc(t('gm.installed'))}</span>` : ''}<span class="gm-kind">${esc(t(`gm.k.${m.kind}`) || m.kind)}</span></div>
+        ${m.badges?.length ? `<div class="gm-badges">${m.badges.map(b => `<span class="gm-badge b-${esc(b)}">${esc(t(`gm.b.${b}`) || b)}</span>`).join('')}</div>` : ''}
         ${m.purpose ? `<div class="gm-p">${esc(m.purpose)}</div>` : ''}
         <div class="gm-meta">${tags.map(x => `<span>${esc(x)}</span>`).join('')}${m.installed ? `<span>${esc(fmtSize(m.size))}</span>` : ''}</div>
         ${m.license ? `<details class="gm-lic"><summary>${esc(t('gm.license'))}</summary><p>${esc(m.license)}${m.licenseUrl ? ` <a href="#" data-url="${esc(m.licenseUrl)}">${esc(m.licenseUrl.replace(/^https:\/\//, ''))}</a>` : ''}</p></details>` : ''}

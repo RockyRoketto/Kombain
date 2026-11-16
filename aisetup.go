@@ -245,18 +245,19 @@ func (j *aiJob) stop() {
 
 // aiModelRow: строка менеджера моделей
 type aiModelRow struct {
-	ID         string  `json:"id"`
-	Kind       string  `json:"kind"`
-	Name       string  `json:"name"`
-	Purpose    string  `json:"purpose"`
-	License    string  `json:"license"`
-	LicenseURL string  `json:"licenseUrl"`
-	Commercial bool    `json:"commercial"`
-	VRAM       float64 `json:"vram"`
-	Size       int64   `json:"size"` // на диске (стоит) или сколько скачать вместе с движком (не стоит)
-	Installed  bool    `json:"installed"`
-	Source     string  `json:"source"` // catalog, user
-	Fits       bool    `json:"fits"`   // видеопамяти хватает
+	ID         string   `json:"id"`
+	Kind       string   `json:"kind"`
+	Name       string   `json:"name"`
+	Purpose    string   `json:"purpose"`
+	License    string   `json:"license"`
+	LicenseURL string   `json:"licenseUrl"`
+	Commercial bool     `json:"commercial"`
+	VRAM       float64  `json:"vram"`
+	Size       int64    `json:"size"` // на диске (стоит) или сколько скачать вместе с движком (не стоит)
+	Installed  bool     `json:"installed"`
+	Source     string   `json:"source"` // catalog, user
+	Fits       bool     `json:"fits"`   // видеопамяти хватает
+	Badges     []string `json:"badges,omitempty"`
 }
 
 // aiModelRows: каталог (без служебных TAE: они ставятся сами) и свои модели
@@ -268,7 +269,7 @@ func aiModelRows(c Catalog, in Installed) []aiModelRow {
 			continue
 		}
 		r := aiModelRow{ID: m.ID, Kind: m.Kind, Name: m.Name.String(), Purpose: m.Purpose.String(), License: m.License.String(),
-			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512}
+			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512, Badges: m.Badges}
 		if im, ok := in.model(m.ID); ok {
 			r.Installed = true
 			for _, f := range im.Files {

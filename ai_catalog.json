@@ -38,6 +38,7 @@
   "models": [
     {
       "id": "flux2-klein-4b", "kind": "image", "arch": "flux2",
+      "badges": ["default", "fastest", "outpaint"],
       "name": {"ru": "FLUX.2 klein 4B", "en": "FLUX.2 klein 4B"},
       "purpose": {"ru": "Универсальная и самая быстрая (4 шага): фото, люди, иллюстрации, предметы. Лучше всех дорисовывает за краями: видит картинку целиком и продолжает руки и предметы у края. Понимает английский.", "en": "General purpose and the fastest (4 steps): photos, people, illustrations, objects. Best at extending past the edges: it sees the whole picture and continues hands and objects at the border. Understands English."},
       "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
@@ -51,20 +52,38 @@
       "defaults": {"steps": 4, "cfg": 1, "width": 1024, "height": 1024}
     },
     {
-      "id": "sdxl-base", "kind": "image", "arch": "sdxl",
-      "name": {"ru": "SDXL base 1.0", "en": "SDXL base 1.0"},
-      "purpose": {"ru": "Универсальная: фото, иллюстрации, предметы, фоны. Понимает английский.", "en": "General purpose: photos, illustrations, objects, backgrounds. Understands English."},
-      "license": {"ru": "CreativeML Open RAIL++-M: картинки можно использовать и продавать. Нельзя делать с её помощью запрещённое лицензией: обман, вред людям и т. п.", "en": "CreativeML Open RAIL++-M: you can use and sell the images. Don't use it for what the license forbids: deception, harming people and so on."},
-      "licenseUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md",
+      "id": "qwen-image-2512", "kind": "image", "arch": "qwenimage",
+      "badges": ["best", "text", "heavy"],
+      "name": {"ru": "Qwen-Image 2512", "en": "Qwen-Image 2512"},
+      "purpose": {"ru": "Самая сильная: лучше всех пишет текст на картинке (надписи, вывески, плакаты, упаковка), точно следует длинным запросам, хорошо рисует людей. Медленная (30 шагов) и тяжёлая: около 18 ГБ, при видеопамяти меньше 20 ГБ часть модели держится в обычной памяти, нужно 32 ГБ оперативной. Понимает английский и китайский.", "en": "The most capable: best at text in the picture (captions, signs, posters, packaging), follows long prompts closely, good at people. Slow (30 steps) and heavy: about 18 GB; with less than 20 GB of VRAM part of the model stays in system memory, so 32 GB of RAM is needed. Understands English and Chinese."},
+      "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
+      "licenseUrl": "https://huggingface.co/Qwen/Qwen-Image-2512",
+      "commercial": true, "vram": 8,
+      "files": [
+        {"name": "qwen-image-2512-Q4_K_M.gguf", "cat": "diffusion_models", "role": "diffusion", "url": "https://huggingface.co/unsloth/Qwen-Image-2512-GGUF/resolve/main/qwen-image-2512-Q4_K_M.gguf", "size": 13299575328, "sha256": "134aa66a4cb27b46e7528486a37d87736a03e48cea6ba88e5de2068543ec6bcc"},
+        {"name": "qwen_image_vae.safetensors", "cat": "vae", "role": "vae", "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors", "size": 253806246, "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f"},
+        {"name": "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf", "cat": "text_encoders", "role": "llm", "url": "https://huggingface.co/mradermacher/Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf", "size": 4683072512, "sha256": "0f00a930ba3108b6861ddadf74d8ebbd82e257c63eba728e62c3e8970f5eed94"}
+      ],
+      "defaults": {"steps": 30, "cfg": 4, "width": 1344, "height": 1344}
+    },
+    {
+      "id": "ernie-image", "kind": "image", "arch": "ernie",
+      "badges": ["quality", "text"],
+      "name": {"ru": "ERNIE-Image", "en": "ERNIE-Image"},
+      "purpose": {"ru": "Сильная универсальная: фото, иллюстрации, плакаты и баннеры с текстом. Точно следует длинным запросам, качественнее быстрых моделей, но медленнее (30 шагов). Весит около 11 ГБ, работает и на картах с 6 ГБ. Понимает английский.", "en": "Capable general-purpose model: photos, illustrations, posters and banners with text. Follows long prompts closely, better quality than the fast models but slower (30 steps). About 11 GB, works even on 6 GB cards. Understands English."},
+      "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
+      "licenseUrl": "https://huggingface.co/baidu/ERNIE-Image",
       "commercial": true, "vram": 6,
       "files": [
-        {"name": "sd_xl_base_1.0.safetensors", "cat": "checkpoints", "role": "checkpoint", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "size": 6938078334, "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b"}
+        {"name": "ernie-image-Q8_0.gguf", "cat": "diffusion_models", "role": "diffusion", "url": "https://huggingface.co/unsloth/ERNIE-Image-GGUF/resolve/main/ernie-image-Q8_0.gguf", "size": 8694907584, "sha256": "dc6ed503a2b66e01a86edbda7c557141a95ad4c262a5ee6cad90c41559e0a499"},
+        {"name": "flux2-vae.safetensors", "cat": "vae", "role": "vae", "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors", "size": 336213556, "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"},
+        {"name": "Ministral-3-3B-Instruct-2512-Q4_K_M.gguf", "cat": "text_encoders", "role": "llm", "url": "https://huggingface.co/unsloth/Ministral-3-3B-Instruct-2512-GGUF/resolve/main/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf", "size": 2146497824, "sha256": "fd46fc371ff0509bfa8657ac956b7de8534d7d9baaa4947975c0648c3aa397f4"}
       ],
-      "defaults": {"steps": 20, "cfg": 7, "width": 1024, "height": 1024},
-      "needs": ["taesdxl"]
+      "defaults": {"steps": 30, "cfg": 5, "width": 1024, "height": 1024}
     },
     {
       "id": "zimage-turbo", "kind": "image", "arch": "zimage",
+      "badges": ["fast", "light"],
       "name": {"ru": "Z-Image Turbo", "en": "Z-Image Turbo"},
       "purpose": {"ru": "Универсальная, быстрая (8 шагов): фото, иллюстрации, предметы, фоны. Точнее следует запросу, меньше видеопамяти, чем SDXL. Понимает английский и китайский.", "en": "General purpose, fast (8 steps): photos, illustrations, objects, backgrounds. Follows the prompt more closely, needs less VRAM than SDXL. Understands English and Chinese."},
       "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
@@ -76,6 +95,20 @@
         {"name": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "cat": "text_encoders", "role": "llm", "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "size": 2497281120, "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"}
       ],
       "defaults": {"steps": 8, "cfg": 1, "width": 1024, "height": 1024}
+    },
+    {
+      "id": "sdxl-base", "kind": "image", "arch": "sdxl",
+      "badges": ["backup"],
+      "name": {"ru": "SDXL base 1.0", "en": "SDXL base 1.0"},
+      "purpose": {"ru": "Универсальная: фото, иллюстрации, предметы, фоны. Понимает английский.", "en": "General purpose: photos, illustrations, objects, backgrounds. Understands English."},
+      "license": {"ru": "CreativeML Open RAIL++-M: картинки можно использовать и продавать. Нельзя делать с её помощью запрещённое лицензией: обман, вред людям и т. п.", "en": "CreativeML Open RAIL++-M: you can use and sell the images. Don't use it for what the license forbids: deception, harming people and so on."},
+      "licenseUrl": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md",
+      "commercial": true, "vram": 6,
+      "files": [
+        {"name": "sd_xl_base_1.0.safetensors", "cat": "checkpoints", "role": "checkpoint", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "size": 6938078334, "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b"}
+      ],
+      "defaults": {"steps": 20, "cfg": 7, "width": 1024, "height": 1024},
+      "needs": ["taesdxl"]
     },
     {
       "id": "taesdxl", "kind": "tae", "arch": "sdxl",
@@ -90,6 +123,7 @@
     },
     {
       "id": "gemma3-4b", "kind": "llm", "arch": "gemma3",
+      "badges": ["needHelper"],
       "name": {"ru": "Помощник запросов (Gemma 3 4B)", "en": "Prompt helper (Gemma 3 4B)"},
       "purpose": {"ru": "При «Создать» переписывает короткий запрос на любом языке подробным английским промтом. Без него модель получает запрос как есть.", "en": "When you press Create, it rewrites a short request in any language as a detailed English prompt. Without it the model gets the request as is."},
       "license": {"ru": "Gemma Terms of Use: текст, который она пишет, твой, можно использовать в работе. Нельзя применять для запрещённого правилами Google (обман, вред людям и т. п.).", "en": "Gemma Terms of Use: the text it writes is yours to use at work. Don't use it for what Google's policy forbids (deception, harming people and so on)."},
@@ -101,6 +135,7 @@
     },
     {
       "id": "gemma3-4b-eyes", "kind": "llm", "arch": "gemma3",
+      "badges": ["needRefs"],
       "name": {"ru": "Глаза помощника (Gemma 3 4B)", "en": "Helper's eyes (Gemma 3 4B)"},
       "purpose": {"ru": "Помощник начинает видеть картинки-референсы: описывает словами их стиль и персонажа, и модель рисует похоже. Без него работает только референс «Основа».", "en": "The helper starts seeing reference images: it puts their style and character into words, so the model draws something alike. Without it only the Base reference works."},
       "license": {"ru": "Gemma Terms of Use: текст, который она пишет, твой, можно использовать в работе. Нельзя применять для запрещённого правилами Google (обман, вред людям и т. п.).", "en": "Gemma Terms of Use: the text it writes is yours to use at work. Don't use it for what Google's policy forbids (deception, harming people and so on)."},
@@ -113,6 +148,7 @@
     },
     {
       "id": "birefnet-matting", "kind": "bgremove", "arch": "birefnet",
+      "badges": ["needBg"],
       "name": {"ru": "Удаление фона (BiRefNet matting)", "en": "Background removal (BiRefNet matting)"},
       "purpose": {"ru": "Убирает фон нейросетью: чисто вырезает волосы, мех, тонкие детали, а фата и стекло остаются полупрозрачными. Кнопка «Убрать фон» у готовой картинки в галерее. Работает на любой видеокарте.", "en": "Removes the background with a neural network: clean hair, fur and thin details, while veils and glass stay see-through. The Remove background button on a finished picture in the gallery. Works on any graphics card."},
       "license": {"ru": "MIT: можно всё, в том числе продавать картинки.", "en": "MIT: no restrictions, you can sell the images too."},
@@ -124,6 +160,7 @@
     },
     {
       "id": "realesrgan", "kind": "upscale", "arch": "esrgan",
+      "badges": ["needUpscale"],
       "name": {"ru": "Увеличение (Real-ESRGAN)", "en": "Upscaling (Real-ESRGAN)"},
       "purpose": {"ru": "Увеличивает картинку в 2 или 4 раза и дорисовывает мелкие детали. Две модели: для фото и для рисунков (выбирается сама по стилю). Кнопки «Увеличить» у готовой картинки в галерее.", "en": "Enlarges a picture 2 or 4 times and redraws fine details. Two models: for photos and for drawings (picked automatically by style). The Upscale buttons on a finished picture in the gallery."},
       "license": {"ru": "BSD-3: можно всё, в том числе продавать картинки.", "en": "BSD-3: no restrictions, you can sell the images too."},
