@@ -1837,7 +1837,7 @@
   .gn-lb-n{flex:1;color:var(--dim);font-size:12px}
   .gn-lb-del:hover{color:var(--err2);border-color:var(--err2)}
   /* перерисовка части (geninpaint.js): поверх картинки холст маски, справа вместо действий — кисть */
-  .gn-lb-acts #gnLbInp{grid-column:span 4}
+  .gn-lb-acts #gnLbInp,.gn-lb-acts #gnLbOut{grid-column:span 4}
   .gn-lb.inp .gn-lb-scroll,.gn-lb.inp .gn-lb-foot,.gn-lb.inp .gn-lb-nav,.gn-lb.inp #gnLbFav{display:none}
   .gn-lb.inp .gn-lb-img img{cursor:none}
   .gn-inp-cv{position:absolute;opacity:.55;cursor:none;touch-action:none;border-radius:8px}
@@ -1856,5 +1856,22 @@
   .gn-inp-note{margin:0;font-size:12px;color:var(--dim);line-height:1.4}
   .gn-inp-go{display:flex;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
   .gn-inp-go .btn{flex:1}
+  /* дорисовка за краями (genoutpaint.js): рамка нового холста, новая полоса в косую штриховку */
+  .gn-lb.out .gn-lb-scroll,.gn-lb.out .gn-lb-foot,.gn-lb.out .gn-lb-nav,.gn-lb.out #gnLbFav{display:none}
+  .gn-lb.out .gn-lb-img>img{visibility:hidden}
+  .gn-out{position:absolute;inset:0;overflow:hidden}
+  .gn-out-fr{position:absolute;outline:1.5px dashed var(--acc);outline-offset:0;background:repeating-linear-gradient(45deg,rgba(233,184,114,.16) 0 8px,rgba(233,184,114,.05) 8px 16px)}
+  .gn-out-fr img{position:absolute;max-width:none;max-height:none;border-radius:0;box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:none;user-select:none}
+  .gn-out-fr i{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;background:var(--acc);border:2px solid #1a1408;border-radius:4px;touch-action:none;z-index:1}
+  .gn-out-fr i[data-h=l],.gn-out-fr i[data-h=r]{top:50%;height:34px;margin-top:-17px;width:10px;margin-left:-5px;cursor:ew-resize}
+  .gn-out-fr i[data-h=t],.gn-out-fr i[data-h=b]{left:50%;width:34px;margin-left:-17px;height:10px;margin-top:-5px;cursor:ns-resize}
+  .gn-out-fr i[data-h=l],.gn-out-fr i[data-h^=l]{left:0}.gn-out-fr i[data-h=r],.gn-out-fr i[data-h^=r]{left:100%}
+  .gn-out-fr i[data-h=t],.gn-out-fr i[data-h$=t]{top:0}.gn-out-fr i[data-h=b],.gn-out-fr i[data-h$=b]{top:100%}
+  .gn-out-fr i[data-h=lt],.gn-out-fr i[data-h=rb]{cursor:nwse-resize}.gn-out-fr i[data-h=rt],.gn-out-fr i[data-h=lb]{cursor:nesw-resize}
+  .gn-out.drag,.gn-out.drag *{cursor:grabbing}
+  .gn-out-fmt{display:flex;flex-wrap:wrap;gap:6px}
+  .gn-out-fmt .btn.sm{padding:4px 10px;font-size:12px}
+  .gn-out-fmt .btn.on{border-color:var(--acc);color:var(--acc)}
+  .gn-out-size{margin-right:auto;font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
   #gnInpGo.busy{pointer-events:none;opacity:.6}
-  @media (max-width:860px){.gn-lb-card{flex-direction:column}.gn-lb-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:50%}}
+  @media (max-width:860px){.gn-lb-card{flex-direction:column}.gn-lb-img{min-height:0}.gn-lb-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:50%}}

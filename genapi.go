@@ -118,6 +118,7 @@ type genAddReq struct {
 	Preview  bool     `json:"preview"`            // показывать сборку картинки
 	Init     string   `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
 	Inpaint  bool     `json:"inpaint,omitempty"`  // перерисована часть Init (маска кистью, geninpaint.go)
+	Outpaint []int    `json:"outpaint,omitempty"` // Init дорисована за краями: точек слева, сверху, справа, снизу (genoutpaint.go)
 	Expanded string   `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
 	Variants []string `json:"variants,omitempty"` // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
 	Refs     []GenRef `json:"refs,omitempty"`     // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
@@ -199,6 +200,10 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			writeJSON(w, map[string]any{"error": tr("inp.bad")})
 			return
 		}
+		if len(body.Outpaint) > 0 && (body.Inpaint || body.Init == "") {
+			writeJSON(w, map[string]any{"error": tr("out.bad")})
+			return
+		}
 		body.Prompt = strings.TrimSpace(body.Prompt)
 		if body.Prompt == "" {
 			writeJSON(w, map[string]any{"error": tr("ai.noPrompt")})
@@ -238,6 +243,13 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 					return
 				}
 				p.Patch, p.Strength = patch, genInpaintStrength
+			} else if len(body.Outpaint) > 0 {
+				patch, init, msk, w2, h2, err := genOutpaintPrep(png, body.Outpaint, m.Def.Width, m.Def.Height)
+				if err != nil {
+					writeJSON(w, map[string]any{"error": err.Error()})
+					return
+				}
+				p.Patch, p.Init, p.Mask, p.Width, p.Height, p.Strength = patch, init, msk, w2, h2, genOutpaintStrength
 			}
 		} else if b, ok := genRefBaseOf(body.Refs); ok {
 			png, err := genRefBase(b.ID, p.Width, p.Height)

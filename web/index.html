@@ -1834,6 +1834,9 @@ __CSS__
       <!-- перерисовка части: маска кистью поверх картинки, web/js/geninpaint.js -->
       <canvas id="gnInpCv" class="gn-inp-cv hide"></canvas>
       <div id="gnInpCur" class="gn-inp-cur hide"></div>
+      <!-- дорисовка за краями: рамка нового холста с ручками, web/js/genoutpaint.js -->
+      <div id="gnOut" class="gn-out hide"><div class="gn-out-fr" id="gnOutFr"><img id="gnOutImg" alt="">
+        <i data-h="l"></i><i data-h="r"></i><i data-h="t"></i><i data-h="b"></i><i data-h="lt"></i><i data-h="rt"></i><i data-h="lb"></i><i data-h="rb"></i></div></div>
       <button type="button" class="gn-lb-nav prev" id="gnLbPrev" data-i18n-aria="gg.prev" data-i18n-title="gg.prev">‹</button>
       <button type="button" class="gn-lb-nav next" id="gnLbNext" data-i18n-aria="gg.next" data-i18n-title="gg.next">›</button>
     </div>
@@ -1866,6 +1869,7 @@ __CSS__
             <button type="button" class="btn tool" id="gnLbUp2" data-i18n-title="gg.up2"><span>×2</span><small></small></button>
             <button type="button" class="btn tool" id="gnLbUp4" data-i18n-title="gg.up4"><span>×4</span><small></small></button>
             <button type="button" class="btn tool" id="gnLbInp" data-i18n-title="inp.btnS"><span data-i18n="inp.btn"></span></button>
+            <button type="button" class="btn tool" id="gnLbOut" data-i18n-title="out.btnS"><span data-i18n="out.btn"></span></button>
           </div>
         </section>
         <section class="gn-lb-sec">
@@ -1898,6 +1902,19 @@ __CSS__
         <div class="gn-inp-go">
           <button type="button" class="btn" id="gnInpCancel" data-i18n="cp.cancel"></button>
           <button type="button" class="btn primary" id="gnInpGo" disabled><span data-i18n="inp.go"></span></button>
+        </div>
+      </div>
+      <div class="gn-inp hide" id="gnOutP">
+        <p class="gn-inp-hint" data-i18n="out.hint"></p>
+        <div class="gn-out-fmt" id="gnOutFmt"></div>
+        <div class="gn-inp-tools"><span class="gn-out-size" id="gnOutSize"></span>
+          <button type="button" class="btn sm" id="gnOutReset" data-i18n="out.reset"></button></div>
+        <label class="gn-inp-what"><span data-i18n="out.what"></span>
+          <textarea id="gnOutText" rows="3" data-i18n-ph="out.whatPh"></textarea></label>
+        <p class="gn-inp-note" id="gnOutNote"></p>
+        <div class="gn-inp-go">
+          <button type="button" class="btn" id="gnOutCancel" data-i18n="cp.cancel"></button>
+          <button type="button" class="btn primary" id="gnOutGo" disabled><span data-i18n="out.go"></span></button>
         </div>
       </div>
       <div class="gn-lb-foot"><span class="gn-lb-n" id="gnLbN"></span><button type="button" class="btn sm" id="gnLbReveal" data-i18n="gg.reveal"></button><button type="button" class="btn sm gn-lb-del" id="gnLbDel" data-i18n="gg.del"></button></div>

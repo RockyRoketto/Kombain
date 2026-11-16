@@ -48,14 +48,10 @@ func genMaskData(s string) ([]byte, error) {
 // genInpaintPrep: из картинки и маски — вырезка и маска для движка (размер w×h под модель с родным nw×nh)
 // и сведения для вклейки
 func genInpaintPrep(src, mask []byte, nw, nh int) (patch *genPatch, init, msk []byte, w, h int, err error) {
-	img, _, err := image.Decode(bytes.NewReader(src))
+	orig, err := genDecodeNRGBA(src)
 	if err != nil {
-		return nil, nil, nil, 0, 0, errT("err.noFile")
+		return nil, nil, nil, 0, 0, err
 	}
-	b := img.Bounds()
-	W, H := b.Dx(), b.Dy()
-	orig := image.NewNRGBA(image.Rect(0, 0, W, H))
-	draw.Draw(orig, orig.Rect, img, b.Min, draw.Src)
 
 	mi, _, err := image.Decode(bytes.NewReader(mask))
 	if err != nil {
@@ -64,6 +60,25 @@ func genInpaintPrep(src, mask []byte, nw, nh int) (patch *genPatch, init, msk []
 	// в серое: прозрачное и чёрное — 0, белое непрозрачное — 255 (подходят обе привычные записи маски)
 	mg := image.NewGray(orig.Rect)
 	xdraw.BiLinear.Scale(mg, mg.Rect, mi, mi.Bounds(), xdraw.Src, nil)
+	return genPatchPrep(orig, mg, nw, nh, genFeather(orig.Rect.Dx(), orig.Rect.Dy()))
+}
+
+// genDecodeNRGBA: картинка из файла в NRGBA с началом в 0,0
+func genDecodeNRGBA(src []byte) (*image.NRGBA, error) {
+	img, _, err := image.Decode(bytes.NewReader(src))
+	if err != nil {
+		return nil, errT("err.noFile")
+	}
+	b := img.Bounds()
+	orig := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(orig, orig.Rect, img, b.Min, draw.Src)
+	return orig, nil
+}
+
+// genPatchPrep: общее для перерисовки и дорисовки за краями. mg — маска размером с картинку (больше 127 — нарисовать заново),
+// r — ширина мягкого края: движок перерисует на r дальше маски, вклейка переходит от старого к новому на 2r.
+func genPatchPrep(orig *image.NRGBA, mg *image.Gray, nw, nh, r int) (patch *genPatch, init, msk []byte, w, h int, err error) {
+	W, H := orig.Rect.Dx(), orig.Rect.Dy()
 	box := image.Rectangle{}
 	for y := 0; y < H; y++ {
 		row := mg.Pix[y*mg.Stride : y*mg.Stride+W]
@@ -79,7 +94,6 @@ func genInpaintPrep(src, mask []byte, nw, nh int) (patch *genPatch, init, msk []
 	if nw <= 0 || nh <= 0 {
 		nw, nh = 1024, 1024
 	}
-	r := genFeather(W, H)
 	crop := genCropAround(box, W, H, r, max(nw, nh)/2)
 	cw, ch := crop.Dx(), crop.Dy()
 
