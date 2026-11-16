@@ -172,6 +172,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 	s.genGalleryRoutes(mux)
 	s.genRefRoutes(mux)
 	s.bgRoutes(mux)
+	s.bgFileRoutes(mux)
 	mux.HandleFunc("/api/gen-info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		engine := fileExists(newSDServer().exe)
 		models := genModels()

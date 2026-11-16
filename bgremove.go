@@ -648,3 +648,49 @@ func (s *Server) bgRoutes(mux *http.ServeMux) {
 		writeJSON(w, map[string]any{"ok": true, "path": p})
 	}))
 }
+
+// bgOutPath: куда класть вырезанную копию произвольного файла: рядом, <имя>-nobg.png, существующие не трогаем
+func bgOutPath(src string) string {
+	base := strings.TrimSuffix(src, filepath.Ext(src)) + "-nobg"
+	out := base + ".png"
+	for i := 2; fileExists(out); i++ {
+		out = fmt.Sprintf("%s-%d.png", base, i)
+	}
+	return out
+}
+
+// bgFileOK: картинки, которые умеет читать обработчик
+func bgFileOK(p string) bool {
+	switch strings.ToLower(filepath.Ext(p)) {
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif":
+		return true
+	}
+	return false
+}
+
+func (s *Server) bgFileRoutes(mux *http.ServeMux) {
+	// «Убрать фон» в «Утилитах»: любая картинка с диска, результат — PNG рядом с оригиналом
+	mux.HandleFunc("/api/bg-file", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if !bgFileOK(body.Path) || !fileExists(body.Path) {
+			writeJSON(w, map[string]any{"error": tr("err.noFile")})
+			return
+		}
+		if !bgReady() {
+			writeJSON(w, map[string]any{"error": tr("bg.notInstalled"), "needModel": true})
+			return
+		}
+		out := bgOutPath(body.Path)
+		aiWork.Lock()
+		err := bgSrv.Cut(r.Context(), body.Path, out)
+		aiWork.Unlock()
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "path": out})
+	}))
+}

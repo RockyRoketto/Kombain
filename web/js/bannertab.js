@@ -21,7 +21,7 @@ async function bCheckSizes(force) {
 // t — вид из списка у `tab`; баннеры, фавиконы и PDF живут во вкладке шапки «Утилиты» (data-t="util")
 function setTab(t) {
   tab = t;
-  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf';
+  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf' || tab === 'bgcut';
   if (ut) utl = tab;
   save();
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === (ut ? 'util' : tab)));
@@ -34,6 +34,7 @@ function setTab(t) {
   $('bannerView').classList.toggle('hide', tab !== 'banner');
   $('favView').classList.toggle('hide', tab !== 'util');
   $('pdfView').classList.toggle('hide', tab !== 'pdf');
+  $('bgView').classList.toggle('hide', tab !== 'bgcut');
   $('colorView').classList.toggle('hide', tab !== 'color');
   document.body.classList.toggle('cl-on', tab === 'color');   // нижняя панель по ширине рабочего поля (style.css)
   $('genView').classList.toggle('hide', tab !== 'gen');
