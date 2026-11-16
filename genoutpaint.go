@@ -19,12 +19,16 @@ import (
 // сохранять в ней нечего; меньше 1 оставляет мутные пятна вместо предметов.
 const genOutpaintStrength = 1.0
 
+// genOutWholeMax: сторона квадрата, по площади которого klein рисует весь холст (~2,2 Мп; модель держит до 4 Мп,
+// но дольше и жаднее до видеопамяти)
+var genOutWholeMax = 1472
+
 // genOutMaxSide: предел стороны готовой картинки (как у увеличения)
 const genOutMaxSide = 8192
 
 // genOutpaintPrep: ext — сколько точек добавить слева, сверху, справа, снизу. Каждая сторона не больше
 // размера картинки по этой оси (холст вырастает максимум втрое).
-func genOutpaintPrep(src []byte, ext []int, nw, nh int) (patch *genPatch, init, msk []byte, w, h int, err error) {
+func genOutpaintPrep(src []byte, ext []int, nw, nh int, whole bool) (patch *genPatch, init, msk []byte, w, h int, err error) {
 	orig, err := genDecodeNRGBA(src)
 	if err != nil {
 		return nil, nil, nil, 0, 0, err
@@ -48,7 +52,17 @@ func genOutpaintPrep(src []byte, ext []int, nw, nh int) (patch *genPatch, init, 
 	}
 	draw.Draw(mg, image.Rect(l, t, l+W, t+H), image.Black, image.Point{}, draw.Src)
 	f := genOutFeather(W, H)
-	patch, init, msk, w, h, err = genPatchPrep(canvas, mg, nw, nh, f)
+	minSide := max(nw, nh) / 2
+	if whole {
+		// klein видит холст целиком: широкая кромка, которую она перерисует, выходит своей версией (человек у края
+		// сдвинут), и вклейка смешивает обе в полупрозрачного двойника. Узкая кромка только прячет шаг пересчёта.
+		minSide, f = max(W2, H2), genFeather(W, H)
+		// весь холст в родные 1 Мп: дорисованное второй-третий раз (3,5 Мп) ужималось вдвое, и модель путала
+		// пропорции людей у края и мазала. Рабочий размер — как у холста, но не больше genOutWholeMax в квадрате.
+		s := int(math.Sqrt(float64(min(max(W2*H2, nw*nh), genOutWholeMax*genOutWholeMax))))
+		nw, nh = s, s
+	}
+	patch, init, msk, w, h, err = genPatchPrep(canvas, mg, nw, nh, f, minSide)
 	if err == nil {
 		genOutAlpha(patch, image.Rect(l, t, l+W, t+H), 2*f)
 	}
@@ -69,6 +83,48 @@ func genOutAlpha(p *genPatch, in image.Rectangle, ramp int) {
 			p.alpha[y*cw+x] = min(1, float32(d)/float32(max(ramp, 1)))
 		}
 	}
+}
+
+// genOutAlphaRef: вклейка для модели, которая видит холст референсом (FLUX.2 klein). Новая полоса целиком из
+// нарисованного: смешивать её с заливкой незачем, это давало мутную рамку вокруг исходной. Переход идёт по кромке
+// исходной шириной r (genFeather, несколько точек), которую движок и так перерисовал (маска расширена на r): от
+// нового на границе к исходной пиксель в пиксель через r точек. Klein видит исходную целиком, поэтому руки
+// у края не рисуются заново, как было у Z-Image и SDXL (поэтому у них genOutAlpha оставляет исходную нетронутой).
+func genOutAlphaRef(p *genPatch, ext []int) {
+	W, H := p.orig.Rect.Dx()-ext[0]-ext[2], p.orig.Rect.Dy()-ext[1]-ext[3]
+	in := image.Rect(ext[0], ext[1], ext[0]+W, ext[1]+H)
+	r := float32(max(genFeather(W, H), 1)) // как кромка в genOutpaintPrep при whole
+	cw, ch := p.crop.Dx(), p.crop.Dy()
+	for y := 0; y < ch; y++ {
+		py := p.crop.Min.Y + y
+		for x := 0; x < cw; x++ {
+			px := p.crop.Min.X + x
+			a := float32(1)
+			if (image.Point{px, py}).In(in) {
+				a = max(0, 1-float32(genOutEdgeDist(px, py, in, ext))/r)
+			}
+			p.alpha[y*cw+x] = a
+		}
+	}
+}
+
+// genOutEdgeDist: расстояние от точки внутри исходной до ближайшей раздвинутой стороны. Стороны, к которым ничего
+// не добавляли, не считаются: там край картинки, переходить не к чему.
+func genOutEdgeDist(px, py int, in image.Rectangle, ext []int) int {
+	d := 1 << 30
+	if ext[0] > 0 {
+		d = min(d, px-in.Min.X)
+	}
+	if ext[1] > 0 {
+		d = min(d, py-in.Min.Y)
+	}
+	if ext[2] > 0 {
+		d = min(d, in.Max.X-1-px)
+	}
+	if ext[3] > 0 {
+		d = min(d, in.Max.Y-1-py)
+	}
+	return d
 }
 
 // genOutFeather: мягкий край дорисовки шире, чем у перерисовки части: по краю картинки новое часто другого

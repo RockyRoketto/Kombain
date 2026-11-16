@@ -23,8 +23,7 @@ function gopOpen() {
   $('gnOutP').classList.remove('hide');
   $('gnLbT').textContent = t('out.btn');
   $('gnOutText').value = '';
-  const id = x.meta.model, has = (gn.info?.models || []).some(m => m.id === id);
-  $('gnOutNote').textContent = t('inp.note', {m: ggModelName(has ? id : gn.set.model), n: gn.set.count});
+  $('gnOutNote').textContent = t('inp.note', {m: ggModelName(gopModel(x.meta.model)), n: gn.set.count});
   gopFmts();
   gopFit();
 }
@@ -150,12 +149,17 @@ async function gopGo() {
   try {
     const r = await ggRestore(x.path); if (!r) return;
     const inf = gn.info || {models: [], presets: []};
-    const model = inf.models.some(m => m.id === r.model) ? r.model : gn.set.model;
+    const model = gopModel(r.model), same = model === r.model;
     const preset = inf.presets.includes(r.preset) ? r.preset : 'none';
     // пусто — описываем только продолжение; иначе помощник расписывает, что должно быть вокруг
     const what = $('gnOutText').value.trim();
     let prompt = r.prompt || '', expanded = r.expanded || '';
-    if (!what) {
+    // klein видит холст целиком (референс). На запросе «только фон» она оставляет размытую заливку как есть, на
+    // прежнем промте рисует героя второй раз. Держит и то и другое указание «дорисуй размытое, продолжи обрезанное
+    // краем, не повторяй героя» вместе с прежним промтом всей сцены. «Без новых людей» она понимала как «сотри
+    // человека у края»: он обрывался ровной чертой (ручные проверки 2026-11-16).
+    const klein = inf.models.find(m => m.id === model)?.arch === 'flux2';
+    if (!what && !klein) {
       // движок рисует только новую полосу, а прежний промт описывает героя целиком («по пояс, руки…»): модель
       // рисует героя заново в каждой полосе (дубли рук и плеч). Отрицания она не понимает, поэтому прежний промт
       // не шлём: описываем только продолжение; с низа (герой обрезан) — его одежда и тело, с остальных сторон — фон
@@ -174,9 +178,16 @@ async function gopGo() {
       }
     }
     if (!prompt.trim()) prompt = expanded || r.expanded || 'picture';
+    if (klein) {
+      prompt = 'Outpainting: the blurred area at the edges is unfinished. Replace it with a sharp, natural continuation of this same photo, matching perspective, light, colours and grain. '
+        + (what ? 'In the new area: ' : 'Continue everything that is cut off by the edges (people, furniture, objects); do not duplicate the main subject. Scene: ')
+        // картинка уже дорисованная: у её промта эта инструкция есть, второй раз не приклеиваем
+        + (expanded || prompt).replace(/^(Outpainting: [\s\S]*?(?:Scene|In the new area): )+/, '');
+      expanded = '';
+    }
     const neg = [r.negative, 'duplicate, cloned, extra arms, extra hands, second person'].filter(Boolean).join(', ');
     const res = await api('gen-add', {model, preset, negative: neg, ratio: r.ratio || '1:1', count: gn.set.count, seed: -1,
-      steps: r.steps || 0, cfg: r.cfg || 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, outpaint: [...gop.e]});
+      steps: same ? r.steps || 0 : 0, cfg: same ? r.cfg || 0 : 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, outpaint: [...gop.e]});
     if (ggErr(res)) return;
     ggLbClose();
     if (gg.open) ggOpen(false);
@@ -202,3 +213,14 @@ document.addEventListener('keydown', e => {
   else if (!['Delete', 'ArrowLeft', 'ArrowRight', 'KeyF'].includes(e.code)) return;
   e.preventDefault(); e.stopPropagation();
 }, true);
+
+// gopModel: чем дорисовывать. FLUX.2 klein, если стоит: она видит картинку целиком (вырезка уходит ей референсом,
+// genapi.go) и продолжает руки и предметы у края, а Z-Image и SDXL рисуют полосу своей сценой. Иначе — модель
+// исходной картинки, если её не удалили, или выбранная слева. Шаги и строгость чужой модели klein не подходят:
+// при смене модели они берутся её собственные.
+function gopModel(id) {
+  const ms = gn.info?.models || [];
+  const k = ms.find(m => m.arch === 'flux2');
+  if (k) return k.id;
+  return ms.some(m => m.id === id) ? id : gn.set.model;
+}

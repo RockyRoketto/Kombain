@@ -45,6 +45,12 @@ func TestSDRequest(t *testing.T) {
 	if _, ok := m["init_image"]; ok {
 		t.Error("init_image sent without a picture")
 	}
+	if _, ok := m["ref_images"]; ok {
+		t.Error("ref_images sent without references")
+	}
+	if r := sdRequest(GenParams{Refs: [][]byte{[]byte("ref")}}); len(r.Refs) != 1 || r.Refs[0] != base64.StdEncoding.EncodeToString([]byte("ref")) {
+		t.Errorf("refs %v", r.Refs)
+	}
 	if m["preview"] != "none" || m["batch_count"].(float64) != 1 || m["embed_image_metadata"] != true {
 		t.Errorf("%s", b)
 	}

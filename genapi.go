@@ -244,12 +244,21 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				}
 				p.Patch, p.Strength = patch, genInpaintStrength
 			} else if len(body.Outpaint) > 0 {
-				patch, init, msk, w2, h2, err := genOutpaintPrep(png, body.Outpaint, m.Def.Width, m.Def.Height)
+				klein := m.Arch == "flux2"
+				patch, init, msk, w2, h2, err := genOutpaintPrep(png, body.Outpaint, m.Def.Width, m.Def.Height, klein)
 				if err != nil {
 					writeJSON(w, map[string]any{"error": err.Error()})
 					return
 				}
 				p.Patch, p.Init, p.Mask, p.Width, p.Height, p.Strength = patch, init, msk, w2, h2, genOutpaintStrength
+				if klein {
+					// klein не inpaint-модель: по одной маске новая полоса выходит своей сценой. Весь холст референсом
+					// (с заливкой на месте полос) показывает ей картинку целиком и на своих местах: руки и предметы у края
+					// продолжаются. Исходник без полос она сдвигала и увеличивала, а по вырезке вокруг полосы (видно
+					// только низ пальто) рисовала героя второй раз (ручная проверка 2026-11-16).
+					p.Refs = [][]byte{init}
+					genOutAlphaRef(patch, body.Outpaint)
+				}
 			}
 		} else if b, ok := genRefBaseOf(body.Refs); ok {
 			png, err := genRefBase(b.ID, p.Width, p.Height)

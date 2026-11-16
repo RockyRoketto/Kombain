@@ -129,6 +129,8 @@ func genArchDefaults(arch string) GenDefaults {
 		return GenDefaults{Steps: 4, CFG: 1, Width: 1024, Height: 1024}
 	case "zimage":
 		return GenDefaults{Steps: 8, CFG: 1, Width: 1024, Height: 1024}
+	case "flux2":
+		return GenDefaults{Steps: 4, CFG: 1, Width: 1024, Height: 1024}
 	}
 	return GenDefaults{Steps: 20, CFG: 7, Width: 1024, Height: 1024}
 }

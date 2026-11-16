@@ -60,7 +60,7 @@ func genInpaintPrep(src, mask []byte, nw, nh int) (patch *genPatch, init, msk []
 	// в серое: прозрачное и чёрное — 0, белое непрозрачное — 255 (подходят обе привычные записи маски)
 	mg := image.NewGray(orig.Rect)
 	xdraw.BiLinear.Scale(mg, mg.Rect, mi, mi.Bounds(), xdraw.Src, nil)
-	return genPatchPrep(orig, mg, nw, nh, genFeather(orig.Rect.Dx(), orig.Rect.Dy()))
+	return genPatchPrep(orig, mg, nw, nh, genFeather(orig.Rect.Dx(), orig.Rect.Dy()), max(nw, nh)/2)
 }
 
 // genDecodeNRGBA: картинка из файла в NRGBA с началом в 0,0
@@ -77,7 +77,8 @@ func genDecodeNRGBA(src []byte) (*image.NRGBA, error) {
 
 // genPatchPrep: общее для перерисовки и дорисовки за краями. mg — маска размером с картинку (больше 127 — нарисовать заново),
 // r — ширина мягкого края: движок перерисует на r дальше маски, вклейка переходит от старого к новому на 2r.
-func genPatchPrep(orig *image.NRGBA, mg *image.Gray, nw, nh, r int) (patch *genPatch, init, msk []byte, w, h int, err error) {
+// minSide — вырезка не меньше этого по сторонам (больше картинки — вся картинка).
+func genPatchPrep(orig *image.NRGBA, mg *image.Gray, nw, nh, r, minSide int) (patch *genPatch, init, msk []byte, w, h int, err error) {
 	W, H := orig.Rect.Dx(), orig.Rect.Dy()
 	box := image.Rectangle{}
 	for y := 0; y < H; y++ {
@@ -94,7 +95,7 @@ func genPatchPrep(orig *image.NRGBA, mg *image.Gray, nw, nh, r int) (patch *genP
 	if nw <= 0 || nh <= 0 {
 		nw, nh = 1024, 1024
 	}
-	crop := genCropAround(box, W, H, r, max(nw, nh)/2)
+	crop := genCropAround(box, W, H, r, minSide)
 	cw, ch := crop.Dx(), crop.Dy()
 
 	// выделенное внутри вырезки, расширенное на r: движок перерисует чуть больше, чем закрашено,

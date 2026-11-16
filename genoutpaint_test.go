@@ -11,7 +11,7 @@ import (
 func TestGenOutpaint(t *testing.T) {
 	red := color.NRGBA{200, 10, 10, 255}
 	src := inpPNG(t, inpFill(600, 400, red))
-	patch, init, msk, w, h, err := genOutpaintPrep(src, []int{0, 0, 300, 100}, 512, 512)
+	patch, init, msk, w, h, err := genOutpaintPrep(src, []int{0, 0, 300, 100}, 512, 512, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,15 +60,15 @@ func TestGenOutpaint(t *testing.T) {
 func TestGenOutpaintBad(t *testing.T) {
 	src := inpPNG(t, inpFill(200, 100, color.NRGBA{1, 2, 3, 255}))
 	for _, ext := range [][]int{nil, {0, 0, 0}, {0, 0, 0, 0}, {-1, 0, 10, 0}, {201, 0, 0, 0}, {0, 101, 0, 0}} {
-		if _, _, _, _, _, err := genOutpaintPrep(src, ext, 512, 512); err == nil {
+		if _, _, _, _, _, err := genOutpaintPrep(src, ext, 512, 512, false); err == nil {
 			t.Errorf("%v: no error", ext)
 		}
 	}
 	big := inpPNG(t, inpFill(5000, 10, color.NRGBA{1, 2, 3, 255}))
-	if _, _, _, _, _, err := genOutpaintPrep(big, []int{2000, 0, 2000, 0}, 512, 512); err == nil {
+	if _, _, _, _, _, err := genOutpaintPrep(big, []int{2000, 0, 2000, 0}, 512, 512, false); err == nil {
 		t.Error("over max side")
 	}
-	if _, _, _, _, _, err := genOutpaintPrep(src, []int{200, 100, 200, 100}, 512, 512); err != nil { // втрое по обеим осям можно
+	if _, _, _, _, _, err := genOutpaintPrep(src, []int{200, 100, 200, 100}, 512, 512, false); err != nil { // втрое по обеим осям можно
 		t.Error(err)
 	}
 }

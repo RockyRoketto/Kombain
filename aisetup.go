@@ -19,7 +19,7 @@ import (
 
 // aiFirstRun: что ставится в окне первого запуска. Помощник запросов (LLM) — по галочке (включена).
 var (
-	aiFirstImage = "zimage-turbo"
+	aiFirstImage = "flux2-klein-4b"
 	aiFirstLLM   = "gemma3-4b"
 )
 

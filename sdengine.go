@@ -68,6 +68,7 @@ type GenParams struct {
 	Mask     []byte    `json:"-"` // PNG: белое перерисовать (только вместе с Init)
 	Strength float64   `json:"strength,omitempty"`
 	Patch    *genPatch `json:"-"` // перерисовка части (geninpaint.go): движок рисует вырезку, очередь вклеивает её в целую картинку
+	Refs     [][]byte  `json:"-"` // PNG: референсы для моделей с правкой по картинке (FLUX.2 klein), движок видит их целиком
 
 	Loras []LoraUse `json:"loras,omitempty"`
 
@@ -369,6 +370,7 @@ type sdGenReq struct {
 	Strength   float64  `json:"strength,omitempty"`
 	Init       *string  `json:"init_image,omitempty"`
 	Mask       *string  `json:"mask_image,omitempty"`
+	Refs       []string `json:"ref_images,omitempty"`
 	Sample     sdSample `json:"sample_params"`
 	Lora       []sdLora `json:"lora"`
 	VAETiling  sdTiling `json:"vae_tiling_params"`
@@ -419,6 +421,9 @@ func sdRequest(p GenParams) sdGenReq {
 			m := base64.StdEncoding.EncodeToString(p.Mask)
 			r.Mask = &m
 		}
+	}
+	for _, b := range p.Refs {
+		r.Refs = append(r.Refs, base64.StdEncoding.EncodeToString(b))
 	}
 	for _, l := range p.Loras {
 		r.Lora = append(r.Lora, sdLora{Path: l.Path, Multiplier: l.Weight})

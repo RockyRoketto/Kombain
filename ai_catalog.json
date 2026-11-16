@@ -37,6 +37,20 @@
   ],
   "models": [
     {
+      "id": "flux2-klein-4b", "kind": "image", "arch": "flux2",
+      "name": {"ru": "FLUX.2 klein 4B", "en": "FLUX.2 klein 4B"},
+      "purpose": {"ru": "Универсальная и самая быстрая (4 шага): фото, люди, иллюстрации, предметы. Лучше всех дорисовывает за краями: видит картинку целиком и продолжает руки и предметы у края. Понимает английский.", "en": "General purpose and the fastest (4 steps): photos, people, illustrations, objects. Best at extending past the edges: it sees the whole picture and continues hands and objects at the border. Understands English."},
+      "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
+      "licenseUrl": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
+      "commercial": true, "vram": 6,
+      "files": [
+        {"name": "flux-2-klein-4b-Q8_0.gguf", "cat": "diffusion_models", "role": "diffusion", "url": "https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q8_0.gguf", "size": 4300629440, "sha256": "0bba6951258ec8f92d51114a8fa13e66828297bfff58a738f52729b3ef66fa28"},
+        {"name": "flux2-vae.safetensors", "cat": "vae", "role": "vae", "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors", "size": 336213556, "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"},
+        {"name": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "cat": "text_encoders", "role": "llm", "url": "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "size": 2497281120, "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"}
+      ],
+      "defaults": {"steps": 4, "cfg": 1, "width": 1024, "height": 1024}
+    },
+    {
       "id": "sdxl-base", "kind": "image", "arch": "sdxl",
       "name": {"ru": "SDXL base 1.0", "en": "SDXL base 1.0"},
       "purpose": {"ru": "Универсальная: фото, иллюстрации, предметы, фоны. Понимает английский.", "en": "General purpose: photos, illustrations, objects, backgrounds. Understands English."},
