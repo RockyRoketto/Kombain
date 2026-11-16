@@ -43,6 +43,15 @@ function ggStripRender() {
   gg.fresh.clear();
 }
 
+// колесо мыши крутит ленту вбок
+$('gnStrip').addEventListener('wheel', e => {
+  const el = e.currentTarget;
+  if (el.scrollWidth <= el.clientWidth) return;
+  const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+  if (!d) return;
+  e.preventDefault();
+  el.scrollLeft += d;
+}, {passive: false});
 $('gnStrip').addEventListener('click', e => {
   if (e.target.closest('#gnStripAll')) { ggOpen(true); return; }
   const b = e.target.closest('.gn-th'); if (b) ggLb(gg.strip, +b.dataset.i);
