@@ -118,6 +118,11 @@ func hasArg(a string) bool {
 }
 
 func main() {
+	// обработчик удаления фона (bgremove.go): отдельный процесс без окна, только stdin/stdout
+	if len(os.Args) > 1 && os.Args[1] == "--bg-worker" {
+		bgWorkerMain(os.Args[2:])
+		return
+	}
 	setLang(loadSettings().Lang)
 	if len(os.Args) > 1 && os.Args[1] == "--uninstall" {
 		runUninstall()

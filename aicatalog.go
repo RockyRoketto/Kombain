@@ -51,6 +51,18 @@ type CatFile struct {
 	URL    string `json:"url"`
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
+	// Dir: у архива движка — папка внутри, из которой брать dll (в пакетах NuGet лежат сборки под все процессоры)
+	Dir string `json:"dir,omitempty"`
+	// Convert: «fp16» — модель ONNX после проверки переводится в половинную точность (onnxToFP16), исходник удаляется
+	Convert string `json:"convert,omitempty"`
+}
+
+// diskName: имя файла на диске после перевода
+func (f CatFile) diskName() string {
+	if f.Convert == "" {
+		return f.Name
+	}
+	return strings.TrimSuffix(f.Name, filepath.Ext(f.Name)) + "_" + f.Convert + filepath.Ext(f.Name)
 }
 
 // aiRoles: роль файла → поле ModelSet (aiModelSet). mmproj — проектор картинок у LLM.
@@ -88,8 +100,8 @@ var aiKinds = []string{"image", "lora", "tae", "upscale", "llm", "bgremove", "co
 // CatEngine: сборка движка под один вид видеокарт. Files — архивы zip, из них берутся exe и dll.
 type CatEngine struct {
 	ID     string    `json:"id"`
-	Kind   string    `json:"kind"`   // sd, llm
-	Flavor string    `json:"flavor"` // cuda, vulkan, cpu
+	Kind   string    `json:"kind"`   // sd, llm, ort (ONNX Runtime: удаление фона)
+	Flavor string    `json:"flavor"` // cuda, vulkan, cpu, directml
 	Tag    string    `json:"tag"`    // версия сборки: другая — пора обновить
 	Exe    string    `json:"exe"`    // главный exe, без него архив не годится
 	Files  []CatFile `json:"files"`
@@ -137,7 +149,7 @@ func (c Catalog) validate() error {
 			return fmt.Errorf("engine id %q", e.ID)
 		}
 		ids[e.ID] = true
-		if e.Kind != "sd" && e.Kind != "llm" || !slices.Contains([]string{"cuda", "vulkan", "cpu"}, e.Flavor) || e.Tag == "" || e.Exe == "" || len(e.Files) == 0 {
+		if !slices.Contains([]string{"sd", "llm", "ort"}, e.Kind) || !slices.Contains([]string{"cuda", "vulkan", "cpu", "directml"}, e.Flavor) || e.Tag == "" || e.Exe == "" || len(e.Files) == 0 {
 			return fmt.Errorf("engine %s: kind, flavor, tag, exe or files", e.ID)
 		}
 		for _, f := range e.Files {
@@ -185,6 +197,12 @@ func (f CatFile) check(model bool) error {
 	}
 	if model && (!slices.Contains(aiModelCats, f.Cat) || !slices.Contains(aiRoles, f.Role)) {
 		return fmt.Errorf("file %s: cat %q or role %q", f.Name, f.Cat, f.Role)
+	}
+	if f.Convert != "" && (!model || f.Convert != "fp16" || !strings.EqualFold(filepath.Ext(f.Name), ".onnx")) {
+		return fmt.Errorf("file %s: convert %q", f.Name, f.Convert)
+	}
+	if f.Dir != "" && (model || strings.Contains(f.Dir, "..") || !strings.HasSuffix(f.Dir, "/")) {
+		return fmt.Errorf("file %s: dir %q", f.Name, f.Dir)
 	}
 	return nil
 }
@@ -386,6 +404,28 @@ func aiInstallModel(ctx context.Context, c Catalog, id string, progress func(don
 		for _, f := range m.Files {
 			rel := f.Cat + "/" + f.Name
 			dst := filepath.Join(aiModelsDir(), filepath.FromSlash(rel))
+			if f.Convert != "" {
+				crel := f.Cat + "/" + f.diskName()
+				cdst := filepath.Join(aiModelsDir(), filepath.FromSlash(crel))
+				// готовый перевод пишется атомарно, поэтому если он есть, то целый (прошлая установка оборвалась после него)
+				if !fileExists(cdst) {
+					base := done
+					if err := aiFetch(ctx, f, dst, func(d int64) { progress(base+d, total) }); err != nil {
+						return err
+					}
+					done += f.Size
+					if err := aiConvert(dst, cdst, f.Convert); err != nil {
+						return err
+					}
+				}
+				os.Remove(dst)
+				st, err := os.Stat(cdst)
+				if err != nil {
+					return err
+				}
+				inst.Files = append(inst.Files, InstFile{Path: crel, Role: f.Role, Size: st.Size()})
+				continue
+			}
 			if !aiHaveFile(rel, f, dst) {
 				base := done
 				if err := aiFetch(ctx, f, dst, func(d int64) { progress(base+d, total) }); err != nil {
@@ -406,6 +446,23 @@ func aiInstallModel(ctx context.Context, c Catalog, id string, progress func(don
 	}
 	progress(total, total)
 	return nil
+}
+
+// aiConvert переводит проверенный файл src в dst (пока только fp16 для ONNX)
+func aiConvert(src, dst, how string) error {
+	if how != "fp16" {
+		return fmt.Errorf("convert %q", how)
+	}
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	out, err := onnxToFP16(b)
+	b = nil
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(dst, out)
 }
 
 // aiHaveFile: файл уже скачан для другой модели с той же суммой и размер на диске совпадает
@@ -538,7 +595,7 @@ func aiInstallEngine(ctx context.Context, e CatEngine, progress func(done, total
 			return err
 		}
 		done += f.Size
-		err := aiUnpack(archive, fresh)
+		err := aiUnpack(archive, fresh, f.Dir)
 		os.Remove(archive)
 		if err != nil {
 			os.RemoveAll(fresh)
@@ -576,16 +633,21 @@ func aiInstallEngine(ctx context.Context, e CatEngine, progress func(done, total
 }
 
 // aiUnpack достаёт из архива exe и dll прямо в dir. Папки внутри архива не учитываются, поэтому выйти за dir нельзя.
-func aiUnpack(archive, dir string) error {
+// sub — брать только из этой папки архива (пусто — отовсюду); отладочные сборки (*.Debug.dll) не нужны.
+func aiUnpack(archive, dir, sub string) error {
 	zr, err := zip.OpenReader(archive)
 	if err != nil {
 		return err
 	}
 	defer zr.Close()
 	for _, f := range zr.File {
-		name := filepath.Base(filepath.FromSlash(strings.ReplaceAll(f.Name, `\`, "/")))
+		full := strings.ReplaceAll(f.Name, `\`, "/")
+		if sub != "" && !strings.HasPrefix(strings.ToLower(full), strings.ToLower(sub)) {
+			continue
+		}
+		name := filepath.Base(filepath.FromSlash(full))
 		low := strings.ToLower(name)
-		if f.FileInfo().IsDir() || !strings.HasSuffix(low, ".exe") && !strings.HasSuffix(low, ".dll") {
+		if f.FileInfo().IsDir() || !strings.HasSuffix(low, ".exe") && !strings.HasSuffix(low, ".dll") || strings.HasSuffix(low, ".debug.dll") {
 			continue
 		}
 		rc, err := f.Open()

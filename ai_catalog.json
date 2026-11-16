@@ -26,6 +26,13 @@
       "files": [
         {"name": "llama-b12110-bin-win-vulkan-x64.zip", "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-win-vulkan-x64.zip", "size": 37661146, "sha256": "9732a5e48887ca54d0bfe4af4324dc85fd56cd8cda19b52df3542fa6ebe6874f"}
       ]
+    },
+    {
+      "id": "ort-directml", "kind": "ort", "flavor": "directml", "tag": "ort1.24.4-dml1.15.4", "exe": "onnxruntime.dll",
+      "files": [
+        {"name": "microsoft.ml.onnxruntime.directml.1.24.4.nupkg", "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg", "size": 12458649, "sha256": "57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681", "dir": "runtimes/win-x64/native/"},
+        {"name": "microsoft.ai.directml.1.15.4.nupkg", "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg", "size": 202292617, "sha256": "4e7cb7ddce8cf837a7a75dc029209b520ca0101470fcdf275c1f49736a3615b9", "dir": "bin/x64-win/"}
+      ]
     }
   ],
   "models": [
@@ -88,6 +95,17 @@
       "needs": ["gemma3-4b"],
       "files": [
         {"name": "mmproj-gemma-3-4b-it-f16.gguf", "cat": "llm", "role": "mmproj", "url": "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/mmproj-model-f16.gguf", "size": 851251104, "sha256": "8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb"}
+      ]
+    },
+    {
+      "id": "birefnet-matting", "kind": "bgremove", "arch": "birefnet",
+      "name": {"ru": "Удаление фона (BiRefNet matting)", "en": "Background removal (BiRefNet matting)"},
+      "purpose": {"ru": "Убирает фон нейросетью: чисто вырезает волосы, мех, тонкие детали, а фата и стекло остаются полупрозрачными. Кнопка «Убрать фон» у готовой картинки в галерее. Работает на любой видеокарте.", "en": "Removes the background with a neural network: clean hair, fur and thin details, while veils and glass stay see-through. The Remove background button on a finished picture in the gallery. Works on any graphics card."},
+      "license": {"ru": "MIT: можно всё, в том числе продавать картинки.", "en": "MIT: no restrictions, you can sell the images too."},
+      "licenseUrl": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
+      "commercial": true, "vram": 10,
+      "files": [
+        {"name": "BiRefNet-matting-epoch_100.onnx", "cat": "bgremove", "role": "bgremove", "url": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-matting-epoch_100.onnx", "size": 972667742, "sha256": "6065d27c615ea27308f5b88598dd8db116eb07436c7a323ca40d13b2866c309e", "convert": "fp16"}
       ]
     }
   ]

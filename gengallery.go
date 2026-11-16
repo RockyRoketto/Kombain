@@ -257,6 +257,18 @@ func genThumb(p string) ([]byte, error) {
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, max(1, int(float64(b.Dx())*k+.5)), max(1, int(float64(b.Dy())*k+.5))))
 	draw.Draw(dst, dst.Bounds(), &image.Uniform{color.RGBA{24, 24, 28, 255}}, image.Point{}, draw.Src)
+	if o, ok := src.(interface{ Opaque() bool }); ok && !o.Opaque() {
+		// без фона (bgremove.go): шахматка, как в окне просмотра
+		for y := 0; y < dst.Bounds().Dy(); y++ {
+			for x := 0; x < dst.Bounds().Dx(); x++ {
+				if (x/12+y/12)%2 == 0 {
+					dst.SetRGBA(x, y, color.RGBA{58, 58, 64, 255})
+				} else {
+					dst.SetRGBA(x, y, color.RGBA{42, 42, 48, 255})
+				}
+			}
+		}
+	}
 	draw.CatmullRom.Scale(dst, dst.Bounds(), src, b, draw.Over, nil)
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 84}); err != nil {

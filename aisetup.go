@@ -65,6 +65,14 @@ func (j *aiJob) progress(cur string, done, total int64) {
 
 // aiEngineFor: сборка движка kind под эту видеокарту; без подходящей карты — запасной Vulkan
 func aiEngineFor(c Catalog, kind string) (CatEngine, bool) {
+	if kind == "ort" { // DirectML: одна сборка на все видеокарты
+		for _, e := range c.Engines {
+			if e.Kind == kind {
+				return e, true
+			}
+		}
+		return CatEngine{}, false
+	}
 	gpu, _ := regGPU()
 	flavor := hwFlavor(hwVendor(gpu))
 	if flavor == "" {
@@ -107,9 +115,11 @@ func aiSteps(c Catalog, in Installed, ids []string) ([]aiStep, error) {
 			kinds["sd"] = true
 		case "llm":
 			kinds["llm"] = true
+		case "bgremove":
+			kinds["ort"] = true
 		}
 	}
-	for _, k := range []string{"sd", "llm"} {
+	for _, k := range []string{"sd", "llm", "ort"} {
 		if !kinds[k] {
 			continue
 		}
@@ -196,6 +206,9 @@ func (j *aiJob) run(ctx context.Context, c Catalog, steps []aiStep, total int64)
 			}
 			if s.Engine.Kind == "llm" {
 				llmSrv.Stop()
+			}
+			if s.Engine.Kind == "ort" {
+				bgSrv.Stop()
 			}
 			err = aiInstallEngine(ctx, *s.Engine, cb)
 		} else {
@@ -291,6 +304,7 @@ func aiRemove(id string) error {
 		genEng.Stop()
 	}
 	llmSrv.Stop()
+	bgSrv.Stop()
 	if err := aiRemoveModel(id); err != nil {
 		return err
 	}
@@ -311,6 +325,7 @@ func aiRemove(id string) error {
 // genRetarget: папку ИИ сменили — движок картинок должен смотреть в новую
 func genRetarget() {
 	llmSrv.Stop()
+	bgSrv.Stop()
 	if genEng == nil {
 		return
 	}

@@ -135,6 +135,8 @@ function ggLbClose() { $('gnLb').classList.add('hide'); gg.lb = null; }
 function ggLbRender() {
   const {list, i} = gg.lb, x = list[i], m = x.meta, p = m.params, rq = m.request || {};
   $('gnLbImg').src = mediaUrl(x.path);
+  $('gnLbImg').classList.toggle('cut', !!m.cutout);
+  $('gnLbBg').classList.toggle('hide', !!m.cutout);
   $('gnLbPrev').disabled = i <= 0;
   $('gnLbNext').disabled = i >= list.length - 1;
   const d = new Date(m.created);
@@ -220,6 +222,24 @@ async function ggExport(fmt) {
   toast({type: 'ok', title: t('gg.saved'), text: esc(r.path), ttl: 5000, actions: [{t: t('gg.reveal'), fn: () => api('gen-reveal', {path: r.path})}]});
 }
 
+// «Убрать фон»: нейросеть (bgremove.go) кладёт рядом новую картинку с прозрачностью, она открывается здесь же.
+// Если генератор рисует, сервер ждёт конца задачи: вместе на видеокарте они не помещаются.
+async function ggBg() {
+  const x = ggCur(), b = $('gnLbBg'); if (!x || b.classList.contains('busy')) return;
+  b.classList.add('busy');
+  const lbl = b.querySelector('span'); lbl.textContent = t('gg.bgBusy');
+  let r;
+  try { r = await api('gen-bg', {path: x.path}); } finally { b.classList.remove('busy'); lbl.textContent = t('gg.bg'); }
+  if (r.error) {
+    toast({type: 'warn', title: t('gg.bgFail'), text: esc(r.error), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}]});
+    return;
+  }
+  await ggStripLoad();
+  if (gg.open) await ggLoad(true);
+  if (gg.lb) await ggLbPath(r.path);
+  toast({type: 'ok', title: t('gg.bgDone'), ttl: 3000});
+}
+
 async function ggCopy() {
   const x = ggCur(); if (!x) return;
   // через Go (gen-copy): navigator.clipboard в окне программы требует фокуса и не всегда пускает картинки
@@ -276,6 +296,7 @@ $('gnLbUse').addEventListener('click', () => ggUse('use'));
 $('gnLbMore').addEventListener('click', () => ggUse('more'));
 $('gnLbVar').addEventListener('click', () => ggUse('var'));
 $('gnLbCopy').addEventListener('click', ggCopy);
+$('gnLbBg').addEventListener('click', ggBg);
 $('gnLbCp').addEventListener('click', e => { const b = e.target.closest('[data-cp]'), x = ggCur(); if (b && x) ggCopyText(ggCpText(x, b.dataset.cp)); });
 $('gnLbReveal').addEventListener('click', () => { const x = ggCur(); if (x) api('gen-reveal', {path: x.path}).then(ggErr); });
 $('gnLbSave').addEventListener('click', e => { const b = e.target.closest('[data-fmt]'); if (b) ggExport(b.dataset.fmt); });

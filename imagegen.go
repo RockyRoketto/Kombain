@@ -53,6 +53,11 @@ func (g *gpuGate) holder() string {
 
 var aiGPU = &gpuGate{}
 
+// aiWork: тяжёлая работа на видеокарте по одной. Удаление фона берёт ~10 ГБ видеопамяти (DirectML держит все
+// промежуточные данные BiRefNet), рядом с моделью картинок оно не помещается даже на 16 ГБ. Поэтому «Убрать фон»
+// в галерее ждёт, пока очередь доделает задачу, а очередь — пока фон убран (gpuGate тогда выгружает прежнего).
+var aiWork sync.Mutex
+
 // GenTask: строка очереди, как её видит страница
 type GenTask struct {
 	ID         int         `json:"id"`
@@ -293,6 +298,8 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 	}
 	t.Status, q.current, q.cancel = "loading", t.ID, cancel
 	q.mu.Unlock()
+	aiWork.Lock()
+	defer aiWork.Unlock()
 	defer func() {
 		q.mu.Lock()
 		q.current, q.cancel = 0, nil
@@ -323,7 +330,12 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		llmSrv.Stop() // ждёт выхода процесса
 		genWaitFree(ctx, before)
 	}
-	llmSrv.Stop() // и без процесса: отпускает видеокарту в aiGPU
+	llmSrv.Stop()        // и без процесса: отпускает видеокарту в aiGPU
+	if bgSrv.Running() { // удаление фона держит ~10 ГБ, пока не простоит bgIdle
+		before := genVRAMUsed()
+		bgSrv.Stop()
+		genWaitFree(ctx, before)
+	}
 	q.set(t, func(t *GenTask) { t.Progress = GenProgress{Stage: "load"} })
 	q.gpu.take("sd", q.engine.Stop)
 	if err := q.engine.Load(ctx, set); err != nil {
@@ -396,7 +408,8 @@ type GenMeta struct {
 	Request *genAddReq `json:"request,omitempty"`
 	Created time.Time  `json:"created"`
 	App     string     `json:"app"`
-	Fav     bool       `json:"fav,omitempty"` // избранное в галерее
+	Fav     bool       `json:"fav,omitempty"`    // избранное в галерее
+	Cutout  bool       `json:"cutout,omitempty"` // фон убран нейросетью (прозрачный PNG)
 }
 
 // genSave кладёт картинку в gallery\ГГГГ-ММ\ под именем «дата-время-задача-зерно.png» и .json рядом.

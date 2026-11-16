@@ -40,6 +40,7 @@ func genQueueGet() *genQueue {
 // genShutdown: при выходе из программы. Движок и так в объекте задания, но выгрузить его сразу — вежливо.
 func genShutdown() {
 	llmSrv.Stop()
+	bgSrv.Stop()
 	if genCancel != nil {
 		genCancel()
 		genEng.Stop()
@@ -170,6 +171,7 @@ func genBuild(r genAddReq, m genModelInfo) GenParams {
 func (s *Server) genRoutes(mux *http.ServeMux) {
 	s.genGalleryRoutes(mux)
 	s.genRefRoutes(mux)
+	s.bgRoutes(mux)
 	mux.HandleFunc("/api/gen-info", s.api(func(w http.ResponseWriter, r *http.Request) {
 		engine := fileExists(newSDServer().exe)
 		models := genModels()
