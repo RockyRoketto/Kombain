@@ -37,6 +37,7 @@ const GN_VIS_DEF = ['photo', 'cinema', 'illus', 'icon3d', 'anime'];
 const gn = {
   info: null,         // ответ gen-info
   tasks: [],          // очередь с сервера
+  masks: {},          // id задачи → маска перерисовки части (для «Повторить», сервер её не хранит)
   view: 0,            // id задачи на холсте
   timer: 0,
   speed: {},          // 'id:картинка' → {t0, s0}: от чего считать секунды на шаг
@@ -452,8 +453,10 @@ function gnFailWatch() {
   const x = fresh[fresh.length - 1];
   if (!x) return;
   const acts = [{t: t('btn.retry'), primary: true, fn: async () => {
-    const r = await api('gen-add', x.req);
+    const mask = x.req.inpaint ? gn.masks[x.id] || '' : '';   // маску перерисовки сервер не хранит: она у страницы (ggInpGo)
+    const r = await api('gen-add', {...x.req, ...(mask ? {mask} : {})});
     if (r.error) { say('warn', t('warn.title'), r.error); return; }
+    if (mask) gn.masks[r.id] = mask;
     gn.view = r.id; gnPoll();
   }}];
   if (['model', 'engine', 'disk'].includes(x.errKind)) acts.push({t: t('gn.err.models'), fn: () => gmOpen(true)});

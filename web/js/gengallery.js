@@ -129,19 +129,20 @@ async function ggLbPath(path) {
   if (i >= 0) ggLb(gg.strip, i);
 }
 
-function ggLbClose() { $('gnLb').classList.add('hide'); gg.lb = null; }
+function ggLbClose() { giClose(); $('gnLb').classList.add('hide'); gg.lb = null; }
 
 function ggLbRender() {
   const {list, i} = gg.lb, x = list[i], m = x.meta, p = m.params, rq = m.request || {};
   $('gnLbImg').src = mediaUrl(x.path);
   $('gnLbImg').classList.toggle('cut', !!m.cutout);
   $('gnLbBg').classList.toggle('hide', !!m.cutout);
+  $('gnLbInp').classList.toggle('hide', !!m.cutout);   // прозрачную перерисовывать не умеем: движок рисует без прозрачности
   const [w, h] = ggSize(m);
   for (const f of [2, 4]) {   // больше GG_UP_MAX по стороне сервер не увеличивает: такую кнопку прячем
     const b = $('gnLbUp' + f);
     b.classList.toggle('hide', w * f > GG_UP_MAX || h * f > GG_UP_MAX);
     if (!b.classList.contains('busy')) b.querySelector('small').textContent = `${w * f}×${h * f}`;
-    b.title = t('gg.up' + f) + ': ' + t('gg.upS', {w: w * f, h: h * f});
+    b.title = t(f === 2 ? 'gg.up2' : 'gg.up4') + ': ' + t('gg.upS', {w: w * f, h: h * f});
   }
   $('gnLbPrev').disabled = i <= 0;
   $('gnLbNext').disabled = i >= list.length - 1;
@@ -160,7 +161,7 @@ function ggLbRender() {
     [t('gn.seed'), String(p.seed)],
     [t('gn.steps'), String(p.steps)],
     [t('gn.cfg'), String(p.cfg)],
-    [t('gg.varOf'), rq.init ? base(rq.init) : ''],
+    [t(rq.inpaint ? 'gg.inpOf' : 'gg.varOf'), rq.init ? base(rq.init) : ''],
   ].filter(r => r[1]);
   $('gnLbMeta').innerHTML = rows.map(r => `<div><dt>${esc(r[0])}</dt><dd title="${esc(r[1])}">${esc(r[1])}</dd></div>`).join('');
   $('gnLbN').textContent = list.length > 1 ? `${i + 1} / ${list.length}` : '';
@@ -333,7 +334,7 @@ $('gnLbSave').addEventListener('click', e => { const b = e.target.closest('[data
 $('gnLbSend').addEventListener('click', e => { const b = e.target.closest('[data-to]'); if (b) ggSend(b.dataset.to); });
 $('gnLbImg').addEventListener('dblclick', () => { const x = ggCur(); if (x) api('gen-reveal', {path: x.path}).then(ggErr); });
 document.addEventListener('keydown', e => {
-  if (!gg.lb || $('gnLb').classList.contains('hide')) return;
+  if (!gg.lb || $('gnLb').classList.contains('hide') || gi.on) return;   // в режиме кисти клавиши у geninpaint.js
   if (e.target.closest && e.target.closest('input, textarea, select')) return;
   const k = e.key;
   if (k === 'Escape') ggLbClose();

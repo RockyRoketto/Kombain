@@ -117,6 +117,7 @@ type genAddReq struct {
 	CFG      float64  `json:"cfg"`
 	Preview  bool     `json:"preview"`            // показывать сборку картинки
 	Init     string   `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
+	Inpaint  bool     `json:"inpaint,omitempty"`  // перерисована часть Init (маска кистью, geninpaint.go)
 	Expanded string   `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
 	Variants []string `json:"variants,omitempty"` // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
 	Refs     []GenRef `json:"refs,omitempty"`     // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
@@ -188,8 +189,16 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 	}))
 
 	mux.HandleFunc("/api/gen-add", s.api(func(w http.ResponseWriter, r *http.Request) {
-		var body genAddReq
-		json.NewDecoder(r.Body).Decode(&body)
+		var in struct {
+			genAddReq
+			Mask string `json:"mask,omitempty"` // перерисовать часть Init: PNG data URL, закрашенное — перерисовать
+		}
+		json.NewDecoder(r.Body).Decode(&in)
+		body := in.genAddReq
+		if body.Inpaint != (in.Mask != "") || body.Inpaint && body.Init == "" { // повтор без маски не должен стать вариацией
+			writeJSON(w, map[string]any{"error": tr("inp.bad")})
+			return
+		}
 		body.Prompt = strings.TrimSpace(body.Prompt)
 		if body.Prompt == "" {
 			writeJSON(w, map[string]any{"error": tr("ai.noPrompt")})
@@ -218,6 +227,18 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				return
 			}
 			p.Init, p.Strength, p.Width, p.Height = png, genVarStrength, iw, ih
+			if body.Inpaint {
+				mask, err := genMaskData(in.Mask)
+				var patch *genPatch
+				if err == nil {
+					patch, p.Init, p.Mask, p.Width, p.Height, err = genInpaintPrep(png, mask, m.Def.Width, m.Def.Height)
+				}
+				if err != nil {
+					writeJSON(w, map[string]any{"error": err.Error()})
+					return
+				}
+				p.Patch, p.Strength = patch, genInpaintStrength
+			}
 		} else if b, ok := genRefBaseOf(body.Refs); ok {
 			png, err := genRefBase(b.ID, p.Width, p.Height)
 			if err != nil {

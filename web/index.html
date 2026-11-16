@@ -1831,6 +1831,9 @@ __CSS__
   <div class="gn-lb-card">
     <div class="gn-lb-img" id="gnLbStage">
       <img id="gnLbImg" alt="">
+      <!-- перерисовка части: маска кистью поверх картинки, web/js/geninpaint.js -->
+      <canvas id="gnInpCv" class="gn-inp-cv hide"></canvas>
+      <div id="gnInpCur" class="gn-inp-cur hide"></div>
       <button type="button" class="gn-lb-nav prev" id="gnLbPrev" data-i18n-aria="gg.prev" data-i18n-title="gg.prev">‹</button>
       <button type="button" class="gn-lb-nav next" id="gnLbNext" data-i18n-aria="gg.next" data-i18n-title="gg.next">›</button>
     </div>
@@ -1862,6 +1865,7 @@ __CSS__
             <button type="button" class="btn tool" id="gnLbBg" data-i18n-title="gg.bgS"><span data-i18n="gg.bg"></span></button>
             <button type="button" class="btn tool" id="gnLbUp2" data-i18n-title="gg.up2"><span>×2</span><small></small></button>
             <button type="button" class="btn tool" id="gnLbUp4" data-i18n-title="gg.up4"><span>×4</span><small></small></button>
+            <button type="button" class="btn tool" id="gnLbInp" data-i18n-title="inp.btnS"><span data-i18n="inp.btn"></span></button>
           </div>
         </section>
         <section class="gn-lb-sec">
@@ -1877,6 +1881,24 @@ __CSS__
             <button type="button" class="btn sm" data-to="conv" data-i18n="tab.conv"></button><button type="button" class="btn sm" data-to="mont" data-i18n="tab.mont"></button><button type="button" class="btn sm" data-to="banner" data-i18n="ut.tBanner"></button><button type="button" class="btn sm" data-to="color" data-i18n="tab.color"></button>
           </div>
         </section>
+      </div>
+      <div class="gn-inp hide" id="gnInp">
+        <p class="gn-inp-hint" data-i18n="inp.hint"></p>
+        <div class="gn-inp-tools">
+          <div class="gn-inp-mode" id="gnInpMode" role="group">
+            <button type="button" data-v="brush" class="on" data-i18n="inp.brush" data-i18n-title="inp.brushS"></button><button type="button" data-v="erase" data-i18n="inp.erase" data-i18n-title="inp.eraseS"></button>
+          </div>
+          <button type="button" class="btn sm" id="gnInpUndo" data-i18n="inp.undo" data-i18n-title="inp.undoS"></button>
+          <button type="button" class="btn sm" id="gnInpClear" data-i18n="inp.clear"></button>
+        </div>
+        <label class="gn-inp-size"><span data-i18n="inp.size"></span><input type="range" id="gnInpSize" min="1" max="40" value="8" data-i18n-title="inp.sizeS"></label>
+        <label class="gn-inp-what"><span data-i18n="inp.what"></span>
+          <textarea id="gnInpText" rows="3" data-i18n-ph="inp.whatPh"></textarea></label>
+        <p class="gn-inp-note" id="gnInpNote"></p>
+        <div class="gn-inp-go">
+          <button type="button" class="btn" id="gnInpCancel" data-i18n="cp.cancel"></button>
+          <button type="button" class="btn primary" id="gnInpGo" disabled><span data-i18n="inp.go"></span></button>
+        </div>
       </div>
       <div class="gn-lb-foot"><span class="gn-lb-n" id="gnLbN"></span><button type="button" class="btn sm" id="gnLbReveal" data-i18n="gg.reveal"></button><button type="button" class="btn sm gn-lb-del" id="gnLbDel" data-i18n="gg.del"></button></div>
     </aside>

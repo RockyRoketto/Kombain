@@ -74,6 +74,7 @@ type GenTask struct {
 	Added      time.Time   `json:"added"`
 	Req        genAddReq   `json:"req"` // как попросил человек: запрос без шаблона стиля, стиль, пропорция
 	Prompts    []string    `json:"-"`   // готовые промты каждой картинки (со стилем), если помощник написал разные; иначе Params.Prompt
+	Out        [2]int      `json:"-"`   // перерисовка части: размер готовой картинки (Params — размер вырезки для движка)
 }
 
 func (t *GenTask) finished() bool {
@@ -120,6 +121,9 @@ func (q *genQueue) Add(model string, p GenParams, count int, req genAddReq, prom
 	q.mu.Lock()
 	q.nextID++
 	t := &GenTask{ID: q.nextID, Model: model, Params: p, Count: min(max(count, 1), 16), Status: "queued", Images: []string{}, Added: time.Now(), Req: req, Prompts: prompts}
+	if p.Patch != nil {
+		t.Out[0], t.Out[1] = p.Patch.Size()
+	}
 	q.tasks = append(q.tasks, t)
 	q.mu.Unlock()
 	q.poke()
@@ -157,6 +161,9 @@ func (q *genQueue) State() []GenTask {
 	for i, t := range q.tasks {
 		out[i] = *t
 		out[i].Images = slices.Clone(t.Images)
+		if t.Out[0] > 0 { // страница раскладывает холст по пропорции готовой картинки
+			out[i].Params.Width, out[i].Params.Height = t.Out[0], t.Out[1]
+		}
 	}
 	return out
 }
@@ -304,6 +311,8 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		q.mu.Lock()
 		q.current, q.cancel = 0, nil
 		delete(q.preview, t.ID)
+		// входные картинки больше не нужны, а законченная задача висит в списке до «Очистить» (у ×4 это десятки МБ)
+		t.Params.Init, t.Params.Mask, t.Params.Patch = nil, nil, nil
 		q.mu.Unlock()
 	}()
 
@@ -391,6 +400,13 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		q.mu.Lock()
 		snap := *t
 		q.mu.Unlock()
+		if p.Patch != nil { // движок рисовал вырезку: вклеиваем в целую картинку, в .json — её настоящий размер
+			if png, err = p.Patch.apply(png); err != nil {
+				fail(err, "save")
+				return
+			}
+			snap.Params.Width, snap.Params.Height = p.Patch.Size()
+		}
 		path, err := q.save(snap, i, png)
 		if err != nil {
 			fail(err, "save")

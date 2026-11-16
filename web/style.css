@@ -1836,4 +1836,25 @@
   .gn-lb-foot{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:10px;margin-top:4px;border-top:1px solid var(--line)}
   .gn-lb-n{flex:1;color:var(--dim);font-size:12px}
   .gn-lb-del:hover{color:var(--err2);border-color:var(--err2)}
+  /* перерисовка части (geninpaint.js): поверх картинки холст маски, справа вместо действий — кисть */
+  .gn-lb-acts #gnLbInp{grid-column:span 4}
+  .gn-lb.inp .gn-lb-scroll,.gn-lb.inp .gn-lb-foot,.gn-lb.inp .gn-lb-nav,.gn-lb.inp #gnLbFav{display:none}
+  .gn-lb.inp .gn-lb-img img{cursor:none}
+  .gn-inp-cv{position:absolute;opacity:.55;cursor:none;touch-action:none;border-radius:8px}
+  .gn-inp-cur{position:absolute;left:0;top:0;pointer-events:none;border:1.5px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.6)}
+  .gn-inp-cur.erase{border-style:dashed}
+  .gn-inp{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-top:6px}
+  .gn-inp-hint{margin:0;font-size:13px;line-height:1.45;color:var(--tx2)}
+  .gn-inp-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .gn-inp-mode{display:inline-flex;padding:2px;border:1px solid var(--line2);border-radius:10px;margin-right:auto}
+  .gn-inp-mode button{border:0;background:none;color:var(--tx2);padding:5px 12px;border-radius:8px;font-size:13px}
+  .gn-inp-mode button.on{background:var(--acc);color:#1a1408;font-weight:600}
+  .gn-inp-tools .btn.sm{padding:4px 10px;font-size:12px}
+  .gn-inp-size,.gn-inp-what{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+  .gn-inp-size input{width:100%}
+  .gn-inp-what textarea{resize:vertical;min-height:64px;font:inherit;font-size:13px;color:var(--tx);background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--line2);border-radius:10px;padding:8px 10px}
+  .gn-inp-note{margin:0;font-size:12px;color:var(--dim);line-height:1.4}
+  .gn-inp-go{display:flex;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+  .gn-inp-go .btn{flex:1}
+  #gnInpGo.busy{pointer-events:none;opacity:.6}
   @media (max-width:860px){.gn-lb-card{flex-direction:column}.gn-lb-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:50%}}

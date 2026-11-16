@@ -64,9 +64,10 @@ type GenParams struct {
 	Scheduler string  `json:"scheduler,omitempty"` // то же
 	Seed      int64   `json:"seed"`
 
-	Init     []byte  `json:"-"` // PNG: рисовать по картинке
-	Mask     []byte  `json:"-"` // PNG: белое перерисовать (только вместе с Init)
-	Strength float64 `json:"strength,omitempty"`
+	Init     []byte    `json:"-"` // PNG: рисовать по картинке
+	Mask     []byte    `json:"-"` // PNG: белое перерисовать (только вместе с Init)
+	Strength float64   `json:"strength,omitempty"`
+	Patch    *genPatch `json:"-"` // перерисовка части (geninpaint.go): движок рисует вырезку, очередь вклеивает её в целую картинку
 
 	Loras []LoraUse `json:"loras,omitempty"`
 
