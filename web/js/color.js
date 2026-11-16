@@ -698,9 +698,20 @@ function clContrast(a, b) { return rdContrast(a, b); }
 function clQPlace(q) {
   const tip = q.querySelector('.cl-qt');
   if (!tip) return;
+  // верхняя граница — низ шапки (она лежит выше подсказки и закрывает её), а не край окна
+  const hero = document.querySelector('.hero'), minTop = (hero ? hero.getBoundingClientRect().bottom : 0) + 8;
+  tip.style.maxHeight = '';
   const r = q.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
   const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
-  const top = r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6;
+  const above = r.top - 6 - minTop, below = window.innerHeight - r.bottom - 6 - 8;
+  let top;
+  if (h <= above) top = r.top - h - 6;
+  else if (h <= below) top = r.bottom + 6;
+  else {   // не влезает ни сверху, ни снизу: берём где больше места и ужимаем высоту
+    const room = Math.max(above, below, 60);
+    tip.style.maxHeight = room + 'px';
+    top = above >= below ? minTop : r.bottom + 6;
+  }
   tip.style.left = left + 'px';
   tip.style.top = top + 'px';
 }
