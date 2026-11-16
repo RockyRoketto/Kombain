@@ -140,7 +140,8 @@ function ggLbRender() {
   for (const f of [2, 4]) {   // больше GG_UP_MAX по стороне сервер не увеличивает: такую кнопку прячем
     const b = $('gnLbUp' + f);
     b.classList.toggle('hide', w * f > GG_UP_MAX || h * f > GG_UP_MAX);
-    if (!b.classList.contains('busy')) b.querySelector('small').textContent = t('gg.upS', {w: w * f, h: h * f});
+    if (!b.classList.contains('busy')) b.querySelector('small').textContent = `${w * f}×${h * f}`;
+    b.title = t('gg.up' + f) + ': ' + t('gg.upS', {w: w * f, h: h * f});
   }
   $('gnLbPrev').disabled = i <= 0;
   $('gnLbNext').disabled = i >= list.length - 1;
