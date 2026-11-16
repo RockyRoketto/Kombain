@@ -162,7 +162,7 @@ function ggLbRender() {
     [t('gn.cfg'), String(p.cfg)],
     [t('gg.varOf'), rq.init ? base(rq.init) : ''],
   ].filter(r => r[1]);
-  $('gnLbMeta').innerHTML = rows.map(r => `<dt>${esc(r[0])}</dt><dd title="${esc(r[1])}">${esc(r[1])}</dd>`).join('');
+  $('gnLbMeta').innerHTML = rows.map(r => `<div><dt>${esc(r[0])}</dt><dd title="${esc(r[1])}">${esc(r[1])}</dd></div>`).join('');
   $('gnLbN').textContent = list.length > 1 ? `${i + 1} / ${list.length}` : '';
 }
 
