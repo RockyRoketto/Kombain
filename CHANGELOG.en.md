@@ -3,6 +3,16 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.3
+
+- Generator: references (Style, Character, Base) and the assistant's eyes.
+- Generator: Remove background with BiRefNet and Upscale x2 / x4 with Real-ESRGAN, both with a Stop button.
+- Generator: Redraw part with a mask brush and Extend beyond edges with a frame and aspect presets.
+- Generator: FLUX.2 klein 4B is the default model, new models Qwen-Image 2512 and ERNIE-Image, labels in the model list.
+- Gallery: compact preview window, multi-select, mouse wheel scrolls the strip.
+- Utilities: new Remove background and Upscale tools for any images.
+- Color: the ? tooltip no longer goes under the header.
+
 ## 6.2
 
 - The "AI images" tab is now called "Generator".
