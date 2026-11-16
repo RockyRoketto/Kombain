@@ -13,6 +13,7 @@ const gg = {
   seq: 0,             // последний запрос сетки (ответы на старые отбрасываются)
   lb: null,           // окно просмотра: {list, i}
   pick: false,        // сетка открыта, чтобы выбрать референс: щелчок по картинке кладёт её в референсы
+  sel: null,          // мультивыбор в сетке: Set путей, null — выключен
 };
 const GG_STRIP = 30, GG_PAGE = 120;
 
@@ -68,6 +69,7 @@ function ggOnPoll() {
 function ggOpen(on) {
   gg.open = on;
   if (!on) gg.pick = false;   // выбор референса (genrefs.js) заканчивается вместе с сеткой
+  if (!on) gg.sel = null;     // мультивыбор тоже
   document.querySelector('.gn-center').classList.toggle('gal', on);
   $('gnGal').classList.toggle('hide', !on);
   if (on) { ggLoad(true); $('gnGalQ').focus(); } else ggStripLoad();
@@ -95,9 +97,10 @@ function ggRender(reset) {
   sel.value = gg.model;
   $('gnGalN').textContent = (gg.q || gg.fav || gg.model) ? t('gg.found', {n: r.total}) : '';
   const tiles = gg.items.map((x, i) =>
-    `<button type="button" class="gn-gt" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
+    `<button type="button" class="gn-gt${gg.sel && gg.sel.has(x.path) ? " on" : ""}" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${gg.sel ? "<span class=\"ck\">✓</span>" : ""}${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
   const more = gg.items.length < r.total ? `<button type="button" class="btn sm gn-gal-more" id="gnGalMore">${esc(t('gg.showMore', {n: Math.min(GG_PAGE, r.total - gg.items.length)}))}</button>` : '';
   grid.innerHTML = tiles + more;
+  ggSelUI();
   if (reset) grid.scrollTop = 0;
   const empty = !gg.items.length;
   $('gnGalEmpty').classList.toggle('hide', !empty);
@@ -119,7 +122,61 @@ $('gnGalGrid').addEventListener('click', e => {
   if (e.target.closest('#gnGalMore')) { ggLoad(false); return; }
   const b = e.target.closest('.gn-gt'); if (!b) return;
   if (gg.pick) { const p = gg.items[+b.dataset.i].path; ggOpen(false); gnRefFromGallery(p); return; }
+  if (!gg.sel && (e.ctrlKey || e.metaKey)) gg.sel = new Set();   // Ctrl+щелчок включает выбор
+  if (gg.sel) { ggSelToggle(gg.items[+b.dataset.i].path, b); return; }
   ggLb(gg.items, +b.dataset.i);
+});
+
+// ---- мультивыбор: отметить несколько картинок и сразу в избранное или в корзину ----
+
+function ggSelToggle(path, tile) {
+  if (gg.sel.has(path)) gg.sel.delete(path); else gg.sel.add(path);
+  if (tile) tile.classList.toggle('on', gg.sel.has(path));
+  ggSelUI();
+}
+function ggSelUI() {
+  const on = !!gg.sel, n = on ? gg.sel.size : 0;
+  $('gnGal').classList.toggle('selecting', on);
+  const b = $('gnGalSel');
+  b.classList.toggle('hide', gg.pick);
+  b.textContent = t(on ? 'gg.selDone' : 'gg.select');
+  b.classList.toggle('primary', on);
+  $('gnGalSelBar').classList.toggle('hide', !on);
+  if (!on) { $('gnGalGrid').querySelectorAll('.ck').forEach(c => c.remove()); return; }
+  $('gnGalSelN').textContent = t('gg.selN', {n});
+  $('gnGalSelFav').disabled = $('gnGalSelDel').disabled = !n;
+  const picked = gg.items.filter(x => gg.sel.has(x.path));
+  $('gnGalSelFav').textContent = t(picked.length && picked.every(x => x.meta.fav) ? 'gg.selUnfav' : 'gg.selFav');
+  // галочки есть у всех плиток (после включения выбора плитки перерисовываются)
+  if (gg.page && gg.items.length && !$('gnGalGrid').querySelector('.ck')) ggRender(false);
+}
+$('gnGalSel').addEventListener('click', () => { gg.sel = gg.sel ? null : new Set(); ggSelUI(); if (gg.page && !gg.sel) ggRender(false); });
+$('gnGalSelAll').addEventListener('click', () => { if (!gg.sel) return; gg.items.forEach(x => gg.sel.add(x.path)); ggRender(false); });
+$('gnGalSelFav').addEventListener('click', async () => {
+  if (!gg.sel || !gg.sel.size) return;
+  const picked = gg.items.filter(x => gg.sel.has(x.path));
+  const fav = !picked.every(x => x.meta.fav);
+  for (const x of picked) {
+    if (x.meta.fav === fav) continue;
+    if (ggErr(await api('gen-fav', {path: x.path, fav}))) break;
+    x.meta.fav = fav;
+    ggEach(x.path, y => { y.meta.fav = fav; });
+    gg.page.favs += fav ? 1 : -1;
+  }
+  ggStripRender(); ggRender(false);
+});
+$('gnGalSelDel').addEventListener('click', async () => {
+  if (!gg.sel || !gg.sel.size) return;
+  const paths = [...gg.sel], gone = new Set(paths);
+  if (ggErr(await api('gen-delete', {paths}))) return;
+  const favs = gg.items.filter(x => gone.has(x.path) && x.meta.fav).length;
+  gg.strip = gg.strip.filter(x => !gone.has(x.path));
+  gg.items = gg.items.filter(x => !gone.has(x.path));
+  gg.all -= paths.length;
+  gg.page.all -= paths.length; gg.page.total -= paths.length; gg.page.favs -= favs;
+  gg.sel = new Set();
+  toast({type: 'info', title: t('gg.deletedN', {n: paths.length}), ttl: 4000});
+  ggStripRender(); ggRender(false);
 });
 
 // ---- окно просмотра ----
@@ -241,12 +298,16 @@ async function ggExport(fmt) {
 
 // «Убрать фон»: нейросеть (bgremove.go) кладёт рядом новую картинку с прозрачностью, она открывается здесь же.
 // Если генератор рисует, сервер ждёт конца задачи: вместе на видеокарте они не помещаются.
+const ggAbort = {};   // идущие «Убрать фон» (bg) и «Увеличить» (up2, up4): AbortController на «Стоп»
 async function ggBg() {
-  const x = ggCur(), b = $('gnLbBg'); if (!x || b.classList.contains('busy')) return;
+  const x = ggCur(), b = $('gnLbBg'); if (!x) return;
+  if (b.classList.contains('busy')) { ggAbort.bg?.abort(); return; }   // пока идёт, кнопка — «Стоп»
   b.classList.add('busy');
-  const lbl = b.querySelector('span'); lbl.textContent = t('gg.bgBusy');
+  const lbl = b.querySelector('span'); lbl.textContent = t('gg.stop'); b.title = t('gg.bgBusy');
+  const ac = ggAbort.bg = new AbortController();
   let r;
-  try { r = await api('gen-bg', {path: x.path}); } finally { b.classList.remove('busy'); lbl.textContent = t('gg.bg'); }
+  try { r = await api('gen-bg', {path: x.path}, ac.signal); } finally { b.classList.remove('busy'); lbl.textContent = t('gg.bg'); b.title = t('gg.bgS'); ggAbort.bg = null; }
+  if (r.aborted) { toast({type: 'warn', title: t('upc.stopped'), ttl: 2500}); return; }
   if (r.error) {
     toast({type: 'warn', title: t('gg.bgFail'), text: esc(r.error), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}]});
     return;
@@ -264,11 +325,14 @@ function ggSize(m) { const u = m.upscale || 1; return [m.params.width * u, m.par
 // «Увеличить ×2 / ×4»: Real-ESRGAN (upscale.go) кладёт рядом новую картинку, она открывается здесь же.
 // Модель для фото или для рисунков сервер выбирает по стилю. Пока генератор рисует, сервер ждёт конца задачи.
 async function ggUp(f) {
-  const x = ggCur(), b = $('gnLbUp' + f); if (!x || b.classList.contains('busy')) return;
+  const x = ggCur(), b = $('gnLbUp' + f); if (!x) return;
+  if (b.classList.contains('busy')) { ggAbort['up' + f]?.abort(); return; }   // пока идёт, кнопка — «Стоп»
   b.classList.add('busy');
-  const sm = b.querySelector('small'), was = sm.textContent; sm.textContent = t('gg.upBusy');
+  const sm = b.querySelector('small'), was = sm.textContent; sm.textContent = t('gg.stop'); b.title = t('gg.upBusy');
+  const ac = ggAbort['up' + f] = new AbortController();
   let r;
-  try { r = await api('gen-up', {path: x.path, factor: f}); } finally { b.classList.remove('busy'); sm.textContent = was; }
+  try { r = await api('gen-up', {path: x.path, factor: f}, ac.signal); } finally { b.classList.remove('busy'); sm.textContent = was; b.title = t(f === 2 ? 'gg.up2' : 'gg.up4'); ggAbort['up' + f] = null; }
+  if (r.aborted) { toast({type: 'warn', title: t('upc.stopped'), ttl: 2500}); return; }
   if (r.error) {
     toast({type: 'warn', title: t('gg.upFail'), text: esc(r.error), ttl: 8000, actions: r.needModel ? [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}] : []});
     return;

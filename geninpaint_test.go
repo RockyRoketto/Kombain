@@ -141,3 +141,11 @@ func TestGenMaskData(t *testing.T) {
 		t.Error("bad base64 accepted")
 	}
 }
+
+func TestGenInpStrength(t *testing.T) {
+	for _, c := range []struct{ in, want float64 }{{0, genInpaintStrength}, {0.1, genInpaintStrength}, {1.5, genInpaintStrength}, {0.3, 0.3}, {0.65, 0.65}, {1, 1}} {
+		if got := genInpStrength(c.in); got != c.want {
+			t.Errorf("genInpStrength(%v) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

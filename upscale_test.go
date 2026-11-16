@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -173,4 +174,22 @@ func TestUpscaleLive(t *testing.T) {
 		t.Fatal("прозрачность не сохранилась")
 	}
 	os.WriteFile(outp, res, 0o644)
+}
+
+func TestUpOutPathAndStyle(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "pic.jpg")
+	if got := upOutPath(src, 2); got != filepath.Join(dir, "pic-x2.png") {
+		t.Fatalf("upOutPath = %s", got)
+	}
+	os.WriteFile(filepath.Join(dir, "pic-x2.png"), []byte("x"), 0o644)
+	if got := upOutPath(src, 2); got != filepath.Join(dir, "pic-x2-2.png") {
+		t.Fatalf("существующий файл не должен затираться: %s", got)
+	}
+	if upOutPath(src, 4) != filepath.Join(dir, "pic-x4.png") {
+		t.Fatal("×4 — своё имя")
+	}
+	if upStyleOf("photo") != "" || upStyleOf("drawn") != "illus" || upStyleOf("pixel") != "pixel" || !upDrawnStyles[upStyleOf("drawn")] {
+		t.Fatal("upStyleOf")
+	}
 }

@@ -23,6 +23,14 @@ import (
 // (не inpaint) при 1 хуже стыкует свет и цвет с соседями, при 0,6 часто оставляет прежний предмет.
 const genInpaintStrength = 0.9
 
+// genInpStrength: сила, выбранная ползунком кисти (0,3–1); 0 или мимо границ — по умолчанию
+func genInpStrength(v float64) float64 {
+	if v < 0.3 || v > 1 {
+		return genInpaintStrength
+	}
+	return v
+}
+
 // genPatch: куда и как вклеить перерисованную вырезку
 type genPatch struct {
 	orig  *image.NRGBA    // целая картинка

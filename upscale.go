@@ -238,7 +238,63 @@ func upGallerySave(src string, data []byte, f int) (string, error) {
 	return genDerive(src, fmt.Sprintf("-x%d", f), data, func(m *GenMeta) { m.Upscale = max(m.Upscale, 1) * f })
 }
 
+// upOutPath: куда класть увеличенную копию произвольного файла: рядом, <имя>-x2.png, существующие не трогаем
+func upOutPath(src string, f int) string {
+	base := fmt.Sprintf("%s-x%d", strings.TrimSuffix(src, filepath.Ext(src)), f)
+	out := base + ".png"
+	for i := 2; fileExists(out); i++ {
+		out = fmt.Sprintf("%s-%d.png", base, i)
+	}
+	return out
+}
+
+// upStyleOf: вид картинки из «Утилит» → стиль для upImage (по нему выбирается модель): photo — фото-модель,
+// drawn — рисованная, pixel — без нейросети
+func upStyleOf(kind string) string {
+	switch kind {
+	case "drawn":
+		return "illus"
+	case "pixel":
+		return "pixel"
+	}
+	return ""
+}
+
 func (s *Server) upRoutes(mux *http.ServeMux) {
+	// «Увеличить» в «Утилитах»: любая картинка с диска, результат — PNG рядом с оригиналом.
+	// Обрыв запроса («Стоп») останавливает sd-cli.
+	mux.HandleFunc("/api/up-file", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path   string `json:"path"`
+			Factor int    `json:"factor"`
+			Kind   string `json:"kind"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if !bgFileOK(body.Path) || !fileExists(body.Path) {
+			writeJSON(w, map[string]any{"error": tr("err.noFile")})
+			return
+		}
+		if body.Kind != "pixel" && !upReady() {
+			writeJSON(w, map[string]any{"error": tr("up.notInstalled"), "needModel": true})
+			return
+		}
+		data, err := os.ReadFile(body.Path)
+		if err == nil {
+			aiWork.Lock()
+			data, err = upImage(r.Context(), data, body.Factor, upStyleOf(body.Kind))
+			aiWork.Unlock()
+		}
+		out := upOutPath(body.Path, body.Factor)
+		if err == nil {
+			err = writeFileAtomic(out, data)
+		}
+		if err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "path": out})
+	}))
+
 	// «Увеличить ×2 / ×4» у картинки галереи
 	mux.HandleFunc("/api/gen-up", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

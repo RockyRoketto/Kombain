@@ -57,11 +57,12 @@ let fmt = 'mp4';
 let snap = {files:[], running:false, ffmpeg:'', dl:{}, log:[], summary:'', defaultOut:''};
 let hadFF = false, doneSeq = null, busy = false, uploadChain = Promise.resolve(), pending = 0;
 
-async function api(path, body) {
+// signal — от AbortController: «Стоп» у долгих дел; сервер видит обрыв запроса и бросает работу, ответ — {aborted:true}
+async function api(path, body, signal) {
   try {
-    const r = await fetch('/api/' + path, {method:'POST', headers:{'X-Token':TOKEN,'Content-Type':'application/json'}, body: JSON.stringify(body || {})});
+    const r = await fetch('/api/' + path, {method:'POST', headers:{'X-Token':TOKEN,'Content-Type':'application/json'}, body: JSON.stringify(body || {}), signal});
     return await r.json();
-  } catch (e) { return {error:t('net.err')}; }
+  } catch (e) { return e && e.name === 'AbortError' ? {aborted: true, error: ''} : {error:t('net.err')}; }
 }
 // цвет с экрана «#rrggbb»; null — отменили. Сначала своя пипетка окна (Go), запасная — системный EyeDropper
 let screenPicking = false;

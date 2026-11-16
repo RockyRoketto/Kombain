@@ -106,22 +106,23 @@ func genModelByID(id string) (genModelInfo, bool) {
 
 // genAddReq: запрос со страницы. Нули — «как задумано моделью».
 type genAddReq struct {
-	Model    string   `json:"model"`
-	Prompt   string   `json:"prompt"`
-	Negative string   `json:"negative"`
-	Preset   string   `json:"preset"`
-	Ratio    string   `json:"ratio"`
-	Count    int      `json:"count"`
-	Seed     int64    `json:"seed"` // -1 — случайное
-	Steps    int      `json:"steps"`
-	CFG      float64  `json:"cfg"`
-	Preview  bool     `json:"preview"`            // показывать сборку картинки
-	Init     string   `json:"init,omitempty"`     // «Вариации»: картинка из галереи, по которой рисовать
-	Inpaint  bool     `json:"inpaint,omitempty"`  // перерисована часть Init (маска кистью, geninpaint.go)
-	Outpaint []int    `json:"outpaint,omitempty"` // Init дорисована за краями: точек слева, сверху, справа, снизу (genoutpaint.go)
-	Expanded string   `json:"expanded,omitempty"` // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
-	Variants []string `json:"variants,omitempty"` // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
-	Refs     []GenRef `json:"refs,omitempty"`     // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
+	Model       string   `json:"model"`
+	Prompt      string   `json:"prompt"`
+	Negative    string   `json:"negative"`
+	Preset      string   `json:"preset"`
+	Ratio       string   `json:"ratio"`
+	Count       int      `json:"count"`
+	Seed        int64    `json:"seed"` // -1 — случайное
+	Steps       int      `json:"steps"`
+	CFG         float64  `json:"cfg"`
+	Preview     bool     `json:"preview"`               // показывать сборку картинки
+	Init        string   `json:"init,omitempty"`        // «Вариации»: картинка из галереи, по которой рисовать
+	Inpaint     bool     `json:"inpaint,omitempty"`     // перерисована часть Init (маска кистью, geninpaint.go)
+	InpStrength float64  `json:"inpStrength,omitempty"` // «насколько менять» у кисти (0,3–1); 0 — genInpaintStrength
+	Outpaint    []int    `json:"outpaint,omitempty"`    // Init дорисована за краями: точек слева, сверху, справа, снизу (genoutpaint.go)
+	Expanded    string   `json:"expanded,omitempty"`    // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
+	Variants    []string `json:"variants,omitempty"`    // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
+	Refs        []GenRef `json:"refs,omitempty"`        // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
 }
 
 // genVariant: промт и запрос i-й картинки задачи. Готовая картинка запоминает только свой промт.
@@ -242,7 +243,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 					writeJSON(w, map[string]any{"error": err.Error()})
 					return
 				}
-				p.Patch, p.Strength = patch, genInpaintStrength
+				p.Patch, p.Strength = patch, genInpStrength(body.InpStrength)
 			} else if len(body.Outpaint) > 0 {
 				klein := m.Arch == "flux2"
 				patch, init, msk, w2, h2, err := genOutpaintPrep(png, body.Outpaint, m.Def.Width, m.Def.Height, klein)

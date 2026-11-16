@@ -172,7 +172,7 @@ async function giGo() {
     if (!prompt.trim()) prompt = expanded || r.expanded || 'picture';
     const mask = giMask();
     const res = await api('gen-add', {model, preset, negative: r.negative || '', ratio: r.ratio || '1:1', count: gn.set.count, seed: -1,
-      steps: r.steps || 0, cfg: r.cfg || 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, inpaint: true, mask});
+      steps: r.steps || 0, cfg: r.cfg || 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, inpaint: true, mask, inpStrength: (+$('gnInpStr').value || 90) / 100});
     if (ggErr(res)) return;
     gn.masks[res.id] = mask;
     ggLbClose();

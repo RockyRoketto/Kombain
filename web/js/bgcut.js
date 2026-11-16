@@ -32,13 +32,15 @@ function bgRender() {
   updateButtons();
 }
 const bgPending = () => bgFiles.filter(f => f.st !== 'ok');
+let bgAbort = null;       // «Стоп»: обрыв запроса, сервер бросает картинку и гасит обработчик
 async function bgRun() {
   if (bgBusy || !bgPending().length) return;
-  bgBusy = true; bgRender();
-  let done = 0, fail = 0, last = '';
+  bgBusy = true; bgAbort = new AbortController(); bgRender();
+  let done = 0, fail = 0, last = '', stopped = false;
   for (const it of bgPending()) {
     it.st = 'run'; bgRender();
-    const r = await api('bg-file', {path: it.path});
+    const r = await api('bg-file', {path: it.path}, bgAbort.signal);
+    if (r.aborted) { stopped = true; break; }
     if (r.error) {
       it.st = 'error'; it.msg = r.error; fail++;
       if (r.needModel) { bgNeedModel(r.error); break; }
@@ -46,8 +48,9 @@ async function bgRun() {
     bgRender();
   }
   bgFiles.forEach(f => { if (f.st === 'run') f.st = ''; });
-  bgBusy = false; bgRender();
-  if (done) toast({type: 'ok', title: t('bgc.done', {n: done}), text: fail ? esc(t('bgc.fail', {n: fail})) : '', ttl: 4000, actions: last ? [{t: t('bgc.show'), fn: () => api('gen-reveal', {path: last})}] : []});
+  bgBusy = false; bgAbort = null; bgRender();
+  if (stopped) toast({type: 'warn', title: t('upc.stopped'), text: done ? esc(t('bgc.done', {n: done})) : '', ttl: 3000});
+  else if (done) toast({type: 'ok', title: t('bgc.done', {n: done}), text: fail ? esc(t('bgc.fail', {n: fail})) : '', ttl: 4000, actions: last ? [{t: t('bgc.show'), fn: () => api('gen-reveal', {path: last})}] : []});
   else if (fail) toast({type: 'warn', title: t('gg.bgFail'), text: esc(bgFiles.find(f => f.st === 'error').msg), ttl: 8000});
 }
 function bgNeedModel(msg) {
@@ -57,6 +60,7 @@ $('bgAddFiles').onclick = () => dialog(async () => { const r = await api('pick-f
 $('bgAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose: 'add'}); if (r.error) alert(r.error); bgAdd(r.files); });
 $('bgClear').onclick = () => { if (!bgBusy) { bgFiles = []; bgRender(); } };
 $('bgStart').onclick = bgRun;
+$('bgStop').onclick = () => { if (bgAbort) bgAbort.abort(); };
 $('bgList').addEventListener('click', e => {
   const x = e.target.closest('[data-bgx]');
   if (x && !bgBusy) { bgFiles = bgFiles.filter(f => f.path !== x.dataset.bgx); bgRender(); }
