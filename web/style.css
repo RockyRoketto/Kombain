@@ -1903,8 +1903,8 @@
   @media (max-width:860px){.gn-lb-card{flex-direction:column}.gn-lb-img{min-height:0}.gn-lb-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:50%}}
 
 /* «Пакет картинок» (web/js/imgtool.js): подпись над полем, поле и единица в одной строке */
-#imView .card .lb{display:block;margin-bottom:6px;color:var(--tx2)}
-#imView .card select{width:100%}
+#imView .card .lb,#upView .card .lb{display:block;margin-bottom:6px;color:var(--tx2)}
+#imView .card select,#upView .card select{width:100%}
 #imView .im-num{display:flex;align-items:center;gap:6px}
 #imView .im-num input{width:92px}
 #imView .im-gap{margin-top:10px}
