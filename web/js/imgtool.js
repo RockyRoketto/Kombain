@@ -51,10 +51,16 @@ function imOpts() {
     resize: $('imResize').value, value: imNum('imValue', 1920, 1, 20000), noUp: $('imNoUp').checked,
     format: $('imFormat').value, quality: imNum('imQuality', 85, 1, 100), strip: $('imStrip').checked,
     wmPath: imWm, wmPos: $('imWmPos').value, wmSize: imNum('imWmSize', 20, 2, 100), wmAlpha: imNum('imWmAlpha', 100, 5, 100),
+    outDir: imOutMode === 'folder' ? $('imOutDir').value.trim() : '',
   };
 }
+let imOutMode = 'same';   // same | folder
+function imOutSync() {
+  document.querySelectorAll('#imOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === imOutMode));
+  $('imFolderRow').classList.toggle('hide', imOutMode !== 'folder');
+}
 function imSaveOpts() {
-  const o = imOpts(); delete o.wmPath;
+  const o = imOpts(); delete o.wmPath; o.outMode = imOutMode; o.outDir = $('imOutDir').value.trim();
   try { localStorage.setItem(IM_KEY, JSON.stringify(o)); } catch (e) {}
 }
 function imLoadOpts() {
@@ -70,11 +76,15 @@ function imLoadOpts() {
   if (['br', 'bl', 'tr', 'tl', 'c'].includes(o.wmPos)) $('imWmPos').value = o.wmPos;
   if (o.wmSize > 0) $('imWmSize').value = o.wmSize;
   if (o.wmAlpha > 0) $('imWmAlpha').value = o.wmAlpha;
+  if (typeof o.outDir === 'string') $('imOutDir').value = o.outDir;
+  if (o.outMode === 'folder') imOutMode = 'folder';
+  imOutSync();
 }
 const imPending = () => imFiles.filter(f => f.st !== 'ok');
 let imAbort = null;       // «Стоп»: обрыв запроса, сервер гасит ffmpeg
 async function imRun() {
   if (imBusy || !imPending().length) return;
+  if (imOutMode === 'folder' && !$('imOutDir').value.trim()) { say('warn', t('start.whereTitle'), t('start.where')); return; }
   imBusy = true; imAbort = new AbortController(); imSaveOpts(); imRender();
   const opts = imOpts();
   let done = 0, fail = 0, last = '', stopped = false;
@@ -105,7 +115,18 @@ $('imWmPick').onclick = () => dialog(async () => {
   const f = (r.files || []).find(f => IM_EXT.test(f.path));
   if (f) { imWm = f.path; imRender(); }
 });
-$('imWmClear').onclick = () => { imWm = ''; imRender(); };
+$('imOutMode').addEventListener('click', e => {
+  const b = e.target.closest('.segb'); if (!b || imBusy) return;
+  imOutMode = b.dataset.m; imOutSync(); imSaveOpts();
+  if (imOutMode === 'folder' && !$('imOutDir').value.trim()) $('imPickOut').click();
+});
+$('imOutDir').addEventListener('input', imSaveOpts);
+$('imPickOut').onclick = () => dialog(async () => {
+  const r = await api('pick-folder', {purpose: 'out'});
+  if (r.error) alert(r.error);
+  if (r.path) { $('imOutDir').value = r.path; imOutMode = 'folder'; imOutSync(); imSaveOpts(); }
+});
+$('imWmClear').onclick =() => { imWm = ''; imRender(); };
 ['imResize', 'imFormat'].forEach(id => $(id).addEventListener('change', () => { imSync(); imSaveOpts(); }));
 ['imValue', 'imNoUp', 'imQuality', 'imStrip', 'imWmPos', 'imWmSize', 'imWmAlpha'].forEach(id => $(id).addEventListener('change', imSaveOpts));
 imLoadOpts();

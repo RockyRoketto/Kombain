@@ -24,6 +24,7 @@ type imgOpts struct {
 	WmPos   string `json:"wmPos"`   // tl tr bl br c
 	WmSize  int    `json:"wmSize"`  // ширина знака, % ширины картинки
 	WmAlpha int    `json:"wmAlpha"` // непрозрачность знака, %
+	OutDir  string `json:"outDir"`  // "" рядом с оригиналом (имя-edit) | папка для результатов
 }
 
 func imgFileOK(p string) bool {
@@ -63,8 +64,14 @@ func imgOutExt(src string, o imgOpts) string {
 	return ".png" // bmp, tiff и gif без смены формата уходят в PNG
 }
 
+// imgOutPath: без OutDir (или если OutDir та же папка) результат лежит рядом с суффиксом -edit,
+// в другую папку кладётся под тем же именем; занятое имя получает номер
 func imgOutPath(src string, o imgOpts) string {
 	base := strings.TrimSuffix(src, filepath.Ext(src)) + "-edit"
+	if d := strings.TrimSpace(o.OutDir); d != "" && !strings.EqualFold(filepath.Clean(d), filepath.Clean(filepath.Dir(src))) {
+		name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+		base = filepath.Join(d, name)
+	}
 	ext := imgOutExt(src, o)
 	out := base + ext
 	for i := 2; fileExists(out); i++ {
@@ -188,6 +195,9 @@ func imgArgs(in, out string, o imgOpts) []string {
 
 func runImgFile(ctx context.Context, ffm, in string, o imgOpts) (string, error) {
 	out := imgOutPath(in, o)
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return "", err
+	}
 	if err := ffQuiet(ctx, ffm, imgArgs(in, out, o)...); err != nil {
 		os.Remove(out)
 		return "", err

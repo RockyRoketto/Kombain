@@ -38,6 +38,13 @@ func TestImgOutPath(t *testing.T) {
 	if got := imgOutPath(src, imgOpts{}); filepath.Base(got) != "a-edit-2.png" {
 		t.Errorf("занятое имя не обошли: %s", got)
 	}
+	out := filepath.Join(d, "out")
+	if got := imgOutPath(src, imgOpts{Format: "jpg", OutDir: out}); got != filepath.Join(out, "a.jpg") {
+		t.Errorf("в другую папку: %s", got)
+	}
+	if got := imgOutPath(src, imgOpts{Format: "jpg", OutDir: d}); filepath.Base(got) != "a-edit.jpg" {
+		t.Errorf("та же папка должна дать -edit: %s", got)
+	}
 	if imgOutExt("b.bmp", imgOpts{}) != ".png" {
 		t.Error("bmp без смены формата должен стать png")
 	}
