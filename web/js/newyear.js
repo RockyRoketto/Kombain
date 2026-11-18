@@ -24,8 +24,8 @@ document.querySelector('.hero-title').appendChild(nyBulbs);
 const NY_COLS = ['#e9b872', '#e06a5a', '#6fcf97', '#6aa9e9'];
 const NY_FIRS = ['#1f4a3a', '#2d6a4f', '#25594a'];
 
-function nyFir(g, x, h, color) {
-  const y = nyH - 2, w = h * 0.5, f = nyE(g, 'g', {});
+function nyFir(g, x, h, color, lift) {
+  const y = nyH - 2 - lift, w = h * 0.5, f = nyE(g, 'g', {});
   nyE(f, 'rect', {x: x - 1.2, y: y - 2, width: 2.4, height: 4, fill: '#4a3a2a'});
   for (let k = 0; k < 3; k++) {
     const by = y - 2 - k * h * 0.27, ty = by - h * 0.48, hw = w * (1 - k * 0.25);
@@ -51,13 +51,20 @@ function nyBuild() {
   nyBackSvg.style.setProperty('--ny-h', (nyH + 8) + 'px');
 
   // под текстом и вкладками ничего не должно лежать: высота украшений там ограничена
-  const zones = ['.hero-title', '#tabs', '.hero-right'].map(s => document.querySelector(s)).filter(Boolean).map(e => {
+  // название занимает колонку сетки целиком, поэтому его ширину берём по самому тексту (рамка и подпись)
+  const nameR = document.querySelector('.hero-title h1').getBoundingClientRect(), byRange = document.createRange();
+  byRange.selectNodeContents(document.querySelector('.hero-title .by'));
+  const byR = byRange.getBoundingClientRect();
+  const zones = [{l: Math.min(nameR.left, byR.left) - hr.left, r: Math.max(nameR.right, byR.right) - hr.left, free: nyH - (byR.bottom - hr.top) - 2}];
+  ['#tabs', '.hero-right'].forEach(s => {
+    const e = document.querySelector(s);
+    if (!e) return;
     const r = e.getBoundingClientRect();
-    return {l: r.left - hr.left, r: r.right - hr.left, free: nyH - (r.bottom - hr.top) - 2};
+    zones.push({l: r.left - hr.left, r: r.right - hr.left, free: nyH - (r.bottom - hr.top) - 2});
   });
   const cap = (a, b) => zones.reduce((m, z) => (z.r > a - 6 && z.l < b + 6) ? Math.min(m, z.free) : m, 20);
 
-  const back = [], front = [], firs = [];
+  const back = [], front = [], firs = [], mounds = [];
   for (let x = -40; x < W; x += nyR(.35, .7) * 150) {
     const w = nyR(70, 200), h = Math.min(nyR(6, 14), cap(x + w * .2, x + w * .8));
     if (h < 2) continue;
@@ -69,10 +76,14 @@ function nyBuild() {
   for (let i = 0, tries = 0; i < nf && tries < nf * 8; tries++) {
     const x = nyR(10, W - 10);
     if (!free(x) || firs.some(f => Math.abs(f[0] - x) < 14)) continue;
-    firs.push([x, nyR(10, 18), NY_FIRS[Math.floor(Math.random() * 3)]]); i++;
+    // у каждой ёлочки своя высота и свой уровень земли: часть стоит на собственном бугорке сугроба, он спереди закрывает ствол
+    const fh = nyR(9, 19), mw = nyR(34, 60), mh = Math.min(nyR(3, 11), cap(x - mw / 2, x + mw / 2));
+    firs.push([x, fh, NY_FIRS[Math.floor(Math.random() * 3)], Math.max(0, mh - 2)]);
+    mounds.push([x - mw / 2, mw, mh, Math.random() < .5]); i++;
   }
   back.forEach(d => nyDrift(nyBackSvg, ...d));
   firs.forEach(f => nyFir(nyBackSvg, ...f));
+  mounds.forEach(d => nyDrift(nyBackSvg, ...d));
   front.forEach(d => nyDrift(nyBackSvg, ...d));
 
   const n = Math.max(30, Math.min(110, Math.round(W / 16)));

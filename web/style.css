@@ -66,7 +66,7 @@
   :root[data-theme="light"]{--ny-d1:#dfe9f4; --ny-d2:#bcd0e4; --ny-fl:#9db4cf; --ny-cap:#dfe9f4}
   .ny{position:absolute;inset:0;overflow:hidden;pointer-events:none}
   .ny svg{position:absolute;left:0;top:0;width:100%;height:100%}
-  .ny-d1{fill:var(--ny-d1);fill-opacity:.92} .ny-d2{fill:var(--ny-d2);fill-opacity:.85} .ny-cap{fill:var(--ny-cap);fill-opacity:.9}
+  .ny-d1{fill:var(--ny-d1)} .ny-d2{fill:var(--ny-d2)} .ny-cap{fill:var(--ny-cap)}   /* без прозрачности: ёлочки за сугробом не просвечивают */
   .ny-fl circle{fill:var(--ny-fl)}
   .ny-bulbs{position:absolute;overflow:visible;pointer-events:none;z-index:1}
   @keyframes ny-tw{0%,100%{opacity:1}50%{opacity:.35}}
