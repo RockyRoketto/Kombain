@@ -179,15 +179,22 @@ func TestUpscaleLive(t *testing.T) {
 func TestUpOutPathAndStyle(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "pic.jpg")
-	if got := upOutPath(src, 2); got != filepath.Join(dir, "pic-x2.png") {
+	if got := upOutPath(src, 2, ""); got != filepath.Join(dir, "pic-x2.png") {
 		t.Fatalf("upOutPath = %s", got)
 	}
 	os.WriteFile(filepath.Join(dir, "pic-x2.png"), []byte("x"), 0o644)
-	if got := upOutPath(src, 2); got != filepath.Join(dir, "pic-x2-2.png") {
+	if got := upOutPath(src, 2, ""); got != filepath.Join(dir, "pic-x2-2.png") {
 		t.Fatalf("существующий файл не должен затираться: %s", got)
 	}
-	if upOutPath(src, 4) != filepath.Join(dir, "pic-x4.png") {
+	if upOutPath(src, 4, "") != filepath.Join(dir, "pic-x4.png") {
 		t.Fatal("×4 — своё имя")
+	}
+	out := filepath.Join(dir, "out")
+	if got := upOutPath(src, 2, out); got != filepath.Join(out, "pic-x2.png") {
+		t.Fatalf("в свою папку: %s", got)
+	}
+	if got := bgOutPath(src, out); got != filepath.Join(out, "pic-nobg.png") {
+		t.Fatalf("убрать фон в свою папку: %s", got)
 	}
 	if upStyleOf("photo") != "" || upStyleOf("drawn") != "illus" || upStyleOf("pixel") != "pixel" || !upDrawnStyles[upStyleOf("drawn")] {
 		t.Fatal("upStyleOf")

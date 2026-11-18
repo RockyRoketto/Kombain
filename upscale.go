@@ -238,9 +238,18 @@ func upGallerySave(src string, data []byte, f int) (string, error) {
 	return genDerive(src, fmt.Sprintf("-x%d", f), data, func(m *GenMeta) { m.Upscale = max(m.Upscale, 1) * f })
 }
 
+// outStem: путь без расширения; при выбранной папке dir (не пустой) файл кладётся в неё под тем же именем
+func outStem(src, dir string) string {
+	stem := strings.TrimSuffix(src, filepath.Ext(src))
+	if d := strings.TrimSpace(dir); d != "" {
+		stem = filepath.Join(d, strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)))
+	}
+	return stem
+}
+
 // upOutPath: куда класть увеличенную копию произвольного файла: рядом, <имя>-x2.png, существующие не трогаем
-func upOutPath(src string, f int) string {
-	base := fmt.Sprintf("%s-x%d", strings.TrimSuffix(src, filepath.Ext(src)), f)
+func upOutPath(src string, f int, dir string) string {
+	base := fmt.Sprintf("%s-x%d", outStem(src, dir), f)
 	out := base + ".png"
 	for i := 2; fileExists(out); i++ {
 		out = fmt.Sprintf("%s-%d.png", base, i)
@@ -268,6 +277,7 @@ func (s *Server) upRoutes(mux *http.ServeMux) {
 			Path   string `json:"path"`
 			Factor int    `json:"factor"`
 			Kind   string `json:"kind"`
+			OutDir string `json:"outDir"`
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 		if !bgFileOK(body.Path) || !fileExists(body.Path) {
@@ -284,7 +294,10 @@ func (s *Server) upRoutes(mux *http.ServeMux) {
 			data, err = upImage(r.Context(), data, body.Factor, upStyleOf(body.Kind))
 			aiWork.Unlock()
 		}
-		out := upOutPath(body.Path, body.Factor)
+		out := upOutPath(body.Path, body.Factor, body.OutDir)
+		if err == nil && strings.TrimSpace(body.OutDir) != "" {
+			err = os.MkdirAll(filepath.Dir(out), 0o755)
+		}
 		if err == nil {
 			err = writeFileAtomic(out, data)
 		}

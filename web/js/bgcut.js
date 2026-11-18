@@ -28,18 +28,20 @@ function bgRender() {
   $('bgEmpty').classList.toggle('hide', bgFiles.length > 0);
   $('bgList').classList.toggle('hide', !bgFiles.length);
   $('bgCnt').textContent = bgFiles.length ? String(bgFiles.length) : '';
-  $('bgAddFiles').disabled = $('bgAddFolder').disabled = $('bgClear').disabled = bgBusy;
+  $('bgAddFiles').disabled = $('bgAddFolder').disabled = $('bgClear').disabled = $('bgOutDir').disabled = $('bgPickOut').disabled = bgBusy;
   updateButtons();
 }
 const bgPending = () => bgFiles.filter(f => f.st !== 'ok');
 let bgAbort = null;       // «Стоп»: обрыв запроса, сервер бросает картинку и гасит обработчик
 async function bgRun() {
   if (bgBusy || !bgPending().length) return;
+  if (bgOutMode === 'folder' && !$('bgOutDir').value.trim()) { say('warn', t('start.whereTitle'), t('start.where')); return; }
+  const outDir = bgOutMode === 'folder' ? $('bgOutDir').value.trim() : '';
   bgBusy = true; bgAbort = new AbortController(); bgRender();
   let done = 0, fail = 0, last = '', stopped = false;
   for (const it of bgPending()) {
     it.st = 'run'; bgRender();
-    const r = await api('bg-file', {path: it.path}, bgAbort.signal);
+    const r = await api('bg-file', {path: it.path, outDir}, bgAbort.signal);
     if (r.aborted) { stopped = true; break; }
     if (r.error) {
       it.st = 'error'; it.msg = r.error; fail++;
@@ -56,6 +58,33 @@ async function bgRun() {
 function bgNeedModel(msg) {
   toast({type: 'warn', title: t('gg.bgFail'), text: esc(msg), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { setTab('gen'); gmOpen(true); }}]});
 }
+// куда сохранять: рядом с оригиналом или в свою папку (запоминается)
+const BG_KEY = 'k9000.bgOut';
+let bgOutMode = 'same';   // same | folder
+function bgOutSync() {
+  document.querySelectorAll('#bgOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === bgOutMode));
+  $('bgFolderRow').classList.toggle('hide', bgOutMode !== 'folder');
+}
+function bgOutSave() {
+  try { localStorage.setItem(BG_KEY, JSON.stringify({mode: bgOutMode, dir: $('bgOutDir').value.trim()})); } catch (e) {}
+}
+try {
+  const o = JSON.parse(localStorage.getItem(BG_KEY) || 'null');
+  if (o && typeof o.dir === 'string') $('bgOutDir').value = o.dir;
+  if (o && o.mode === 'folder') bgOutMode = 'folder';
+} catch (e) {}
+bgOutSync();
+$('bgOutMode').addEventListener('click', e => {
+  const b = e.target.closest('.segb'); if (!b || bgBusy) return;
+  bgOutMode = b.dataset.m; bgOutSync(); bgOutSave();
+  if (bgOutMode === 'folder' && !$('bgOutDir').value.trim()) $('bgPickOut').click();
+});
+$('bgOutDir').addEventListener('input', bgOutSave);
+$('bgPickOut').onclick = () => dialog(async () => {
+  const r = await api('pick-folder', {purpose: 'out'});
+  if (r.error) alert(r.error);
+  if (r.path) { $('bgOutDir').value = r.path; bgOutMode = 'folder'; bgOutSync(); bgOutSave(); }
+});
 pickButtons('bgAddFiles', 'bgAddFolder', bgAdd);
 $('bgClear').onclick = () => { if (!bgBusy) { bgFiles = []; bgRender(); } };
 $('bgStart').onclick = bgRun;

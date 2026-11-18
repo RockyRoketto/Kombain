@@ -29,18 +29,20 @@ function upRender() {
   $('upEmpty').classList.toggle('hide', upFiles.length > 0);
   $('upList').classList.toggle('hide', !upFiles.length);
   $('upCnt').textContent = upFiles.length ? String(upFiles.length) : '';
-  $('upAddFiles').disabled = $('upAddFolder').disabled = $('upClear').disabled = $('upFactor').disabled = $('upKind').disabled = upBusy;
+  $('upAddFiles').disabled = $('upAddFolder').disabled = $('upClear').disabled = $('upFactor').disabled = $('upKind').disabled = $('upOutDir').disabled = $('upPickOut').disabled = upBusy;
   updateButtons();
 }
 const upPending = () => upFiles.filter(f => f.st !== 'ok');
 async function upRun() {
   if (upBusy || !upPending().length) return;
   const factor = +$('upFactor').value, kind = $('upKind').value;
+  if (upOutMode === 'folder' && !$('upOutDir').value.trim()) { say('warn', t('start.whereTitle'), t('start.where')); return; }
+  const outDir = upOutMode === 'folder' ? $('upOutDir').value.trim() : '';
   upBusy = true; upAbort = new AbortController(); upRender();
   let done = 0, fail = 0, last = '', stopped = false;
   for (const it of upPending()) {
     it.st = 'run'; upRender();
-    const r = await api('up-file', {path: it.path, factor, kind}, upAbort.signal);
+    const r = await api('up-file', {path: it.path, factor, kind, outDir}, upAbort.signal);
     if (r.aborted) { stopped = true; break; }
     if (r.error) {
       it.st = 'error'; it.msg = r.error; fail++;
@@ -57,6 +59,33 @@ async function upRun() {
 function upNeedModel(msg) {
   toast({type: 'warn', title: t('gg.upFail'), text: esc(msg), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { setTab('gen'); gmOpen(true); }}]});
 }
+// куда сохранять: рядом с оригиналом или в свою папку (запоминается)
+const UP_KEY = 'k9000.upOut';
+let upOutMode = 'same';   // same | folder
+function upOutSync() {
+  document.querySelectorAll('#upOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === upOutMode));
+  $('upFolderRow').classList.toggle('hide', upOutMode !== 'folder');
+}
+function upOutSave() {
+  try { localStorage.setItem(UP_KEY, JSON.stringify({mode: upOutMode, dir: $('upOutDir').value.trim()})); } catch (e) {}
+}
+try {
+  const o = JSON.parse(localStorage.getItem(UP_KEY) || 'null');
+  if (o && typeof o.dir === 'string') $('upOutDir').value = o.dir;
+  if (o && o.mode === 'folder') upOutMode = 'folder';
+} catch (e) {}
+upOutSync();
+$('upOutMode').addEventListener('click', e => {
+  const b = e.target.closest('.segb'); if (!b || upBusy) return;
+  upOutMode = b.dataset.m; upOutSync(); upOutSave();
+  if (upOutMode === 'folder' && !$('upOutDir').value.trim()) $('upPickOut').click();
+});
+$('upOutDir').addEventListener('input', upOutSave);
+$('upPickOut').onclick = () => dialog(async () => {
+  const r = await api('pick-folder', {purpose: 'out'});
+  if (r.error) alert(r.error);
+  if (r.path) { $('upOutDir').value = r.path; upOutMode = 'folder'; upOutSync(); upOutSave(); }
+});
 pickButtons('upAddFiles', 'upAddFolder', upAdd);
 $('upClear').onclick = () => { if (!upBusy) { upFiles = []; upRender(); } };
 $('upStart').onclick = upRun;
