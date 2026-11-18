@@ -1896,3 +1896,16 @@
   .gn-out-size{margin-right:auto;font-size:13px;color:var(--tx2);font-variant-numeric:tabular-nums}
   #gnInpGo.busy{pointer-events:none;opacity:.6}
   @media (max-width:860px){.gn-lb-card{flex-direction:column}.gn-lb-img{min-height:0}.gn-lb-side{width:auto;border-left:0;border-top:1px solid var(--line);max-height:50%}}
+
+/* «Пакет картинок» (web/js/imgtool.js): подпись над полем, поле и единица в одной строке */
+#imView .card .lb{display:block;margin-bottom:6px;color:var(--tx2)}
+#imView .card select{width:100%}
+#imView .im-num{display:flex;align-items:center;gap:6px}
+#imView .im-num input{width:92px}
+#imView .im-gap{margin-top:10px}
+
+/* пустое поле списка открывает выбор файлов (web/js/drop.js, EMPTY_PICK) */
+.empty.pickable{cursor:pointer;transition:color .15s}
+.empty.pickable:hover b{color:var(--acct)}
+.empty.pickable:hover svg{opacity:1;transform:translateY(-2px)}
+.empty.pickable svg{transition:transform .15s,opacity .15s}

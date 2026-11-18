@@ -6,6 +6,13 @@ function pickButtons(filesBtn, folderBtn, add, pick = 'pick-files', purpose = 'a
   $(folderBtn).onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose}); if (r.error) alert(r.error); add(r.files); });
 }
 pickButtons('addFiles', 'addFolder', addInfos);
+// щелчок по пустому полю списка = «+ Файлы» этой вкладки; поле видно, только пока список пуст
+const EMPTY_PICK = {empty: 'addFiles', plEmpty: 'plAddFiles', mtEmpty: 'mtAddFiles', bEmpty: 'bAddFiles', bgEmpty: 'bgAddFiles', imEmpty: 'imAddFiles', upEmpty: 'upAddFiles', pdfEmpty: 'pdfAddFiles'};
+for (const [em, btn] of Object.entries(EMPTY_PICK)) {
+  const el = $(em); if (!el) continue;
+  el.classList.add('pickable');
+  el.addEventListener('click', () => { const b = $(btn); if (b && !b.disabled) b.click(); });
+}
 $('pickOut').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose:'out'});
   if (r.error) alert(r.error);
@@ -15,7 +22,7 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'upscale' ? 'upDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
+const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'imgops' ? 'imDrop' : tab === 'upscale' ? 'upDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
@@ -54,7 +61,7 @@ window.addEventListener('drop', e => {
     say('warn', t('drop.notSuitableTitle'), t('pl.noDrop'));
     return;
   }
-  if (tab === 'banner' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale') {   // браузер даёт только копии: пережатые PNG надо записать на место, PDF — рядом с оригиналом
+  if (tab === 'banner' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale' || tab === 'imgops') {   // браузер даёт только копии: пережатые PNG надо записать на место, PDF — рядом с оригиналом
     say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
     return;
   }
@@ -75,6 +82,7 @@ window.__konvDrop = (list, raw) => {
   else if (tab === 'banner') bAdd(list);
   else if (tab === 'bgcut') bgAdd(list);
   else if (tab === 'upscale') upAdd(list);
+  else if (tab === 'imgops') imAdd(list);
   else if (tab === 'play') plAdd(list);
   else if (tab === 'mont') mtAdd(list);
   else addInfos(list);

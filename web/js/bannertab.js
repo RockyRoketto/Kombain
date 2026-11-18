@@ -21,7 +21,7 @@ async function bCheckSizes(force) {
 // t — вид из списка у `tab`; баннеры, фавиконы и PDF живут во вкладке шапки «Утилиты» (data-t="util")
 function setTab(t) {
   tab = t;
-  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale';
+  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale' || tab === 'imgops';
   if (ut) utl = tab;
   save();
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === (ut ? 'util' : tab)));
@@ -36,6 +36,7 @@ function setTab(t) {
   $('pdfView').classList.toggle('hide', tab !== 'pdf');
   $('bgView').classList.toggle('hide', tab !== 'bgcut');
   $('upView').classList.toggle('hide', tab !== 'upscale');
+  $('imView').classList.toggle('hide', tab !== 'imgops');
   $('colorView').classList.toggle('hide', tab !== 'color');
   document.body.classList.toggle('cl-on', tab === 'color');   // нижняя панель по ширине рабочего поля (style.css)
   $('genView').classList.toggle('hide', tab !== 'gen');
@@ -43,7 +44,7 @@ function setTab(t) {
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
   plTabChanged();
   gnTabChanged();
-  updateButtons(); bRender();
+  updateButtons(); bRender(); renderSummary(snap);   // строка внизу сразу под новую вкладку, не ждёт опроса
 }
 $('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) setTab(b.dataset.t === 'util' ? utl : b.dataset.t); });
 $('utTools').addEventListener('click', e => { const b = e.target.closest('.cl-tool'); if (b) setTab(b.dataset.tool); });

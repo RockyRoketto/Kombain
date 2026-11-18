@@ -20,6 +20,9 @@ function updateButtons() {
   $('bgStart').disabled = snap.running || bgBusy || !bgPending().length;
   $('bgStart').classList.toggle('hide', snap.running || bgBusy || tab !== 'bgcut');
   $('bgStop').classList.toggle('hide', tab !== 'bgcut' || !bgBusy);
+  $('imStart').disabled = snap.running || imBusy || !imPending().length;
+  $('imStart').classList.toggle('hide', snap.running || imBusy || tab !== 'imgops');
+  $('imStop').classList.toggle('hide', tab !== 'imgops' || !imBusy);
   $('upStart').disabled = snap.running || upBusy || !upPending().length;
   $('upStart').classList.toggle('hide', snap.running || upBusy || tab !== 'upscale');
   $('upStop').classList.toggle('hide', tab !== 'upscale' || !upBusy);
@@ -32,7 +35,7 @@ function renderSummary(s) {
   const fl = s.files || [];
   const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
   $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
-    : (tab === 'pdf' && pdfPlanText()) || s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : tab === 'pdf' ? t('dock.idlePdf') : tab === 'bgcut' ? t(bgBusy ? 'dock.bgBusy' : 'dock.idleBg') : tab === 'upscale' ? t(upBusy ? 'dock.upBusy' : 'dock.idleUp') : t('dock.idle'));
+    : (tab === 'pdf' && pdfPlanText()) || s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : tab === 'pdf' ? t('dock.idlePdf') : tab === 'bgcut' ? t(bgBusy ? 'dock.bgBusy' : 'dock.idleBg') : tab === 'imgops' ? t(imBusy ? 'dock.imBusy' : 'dock.idleIm') : tab === 'upscale' ? t(upBusy ? 'dock.upBusy' : 'dock.idleUp') : t('dock.idle'));
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }
