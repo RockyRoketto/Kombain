@@ -468,25 +468,29 @@ function pdfPvCutAt(e) {
   pdfPvMode();
 }
 const pdfPvSt = $('pdfPvStage');
-let pdfPvDown = null;   // где нажали без шторки: щелчок на месте выключает лупу
+// С лупой щелчок на месте выключает её (и при сравнении тоже), а шторку тогда двигает только протаскивание.
+// Без лупы щелчок сразу ставит шторку
+let pdfPvDown = null;   // где нажали; null — уже тащат, это не щелчок
+const pdfPvMoved = e => !pdfPvDown || Math.hypot(e.clientX - pdfPvDown.x, e.clientY - pdfPvDown.y) >= 5;
 pdfPvSt.addEventListener('pointerdown', e => {
   $('pdfPv').focus({preventScroll: true});
   pdfPvDown = e.button === 0 ? {x: e.clientX, y: e.clientY} : null;
   if (!pdfPv.cmp || !pdfPv.docB || e.button !== 0) return;
-  pdfPvDown = null;   // со сравнением щелчок ставит шторку, лупу выключает Esc
   pdfPvSt.setPointerCapture(e.pointerId);
   pdfPvDrag = true;
-  pdfPvCutAt(e);
+  if (!pdfPv.lens) pdfPvCutAt(e);
   e.preventDefault();
 });
 pdfPvSt.addEventListener('pointermove', e => {
   pdfPv.lp = {x: e.clientX, y: e.clientY};
-  if (pdfPvDrag) pdfPvCutAt(e); else if (pdfPv.lens) pdfPvLensDraw();
+  if (pdfPvDown && pdfPvMoved(e)) pdfPvDown = null;
+  if (pdfPvDrag && !pdfPvDown) pdfPvCutAt(e); else if (pdfPv.lens) pdfPvLensDraw();
 });
 for (const ev of ['pointerup', 'pointercancel']) pdfPvSt.addEventListener(ev, e => {
   pdfPvDrag = false;
-  const d = pdfPvDown; pdfPvDown = null;
-  if (ev === 'pointerup' && d && pdfPv.lens && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) pdfPvLensSet(false);
+  const click = ev === 'pointerup' && pdfPvDown && !pdfPvMoved(e);
+  pdfPvDown = null;
+  if (click && pdfPv.lens) pdfPvLensSet(false);
 });
 pdfPvSt.addEventListener('pointerleave', () => { if (!pdfPvDrag) { pdfPv.lp = null; pdfPvLensDraw(); } });
 // двойной щелчок по странице — развернуть или свернуть
