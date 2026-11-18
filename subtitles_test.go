@@ -365,10 +365,10 @@ func TestSubsFxType(t *testing.T) {
 	// курсор — полоска нулевой ширины (\fsp минус её ширина): строки переносятся как у готовой реплики
 	c := `{\p1\fsp-1\bord0\shad0\1a&H00&\1c&H0000FF&\pbo4}m 0 0 l 1 0 1 18 0 18{\p0\fsp0}`
 	want := []string{
-		`Dialogue: 0,0:00:01.00,0:00:01.10,Default,,0,0,0,,а` + c + `{\alpha&HFF&}бв`,
-		`Dialogue: 0,0:00:01.10,0:00:01.20,Default,,0,0,0,,аб` + c + `{\alpha&HFF&}в`,
-		`Dialogue: 0,0:00:01.20,0:00:01.50,Default,,0,0,0,,абв` + c,
-		`Dialogue: 0,0:00:01.50,0:00:02.00,Default,,0,0,0,,абв`,
+		`Dialogue: 0,0:00:01.00,0:00:01.10,Default,,0,0,0,,{\q2}а` + c + `{\alpha&HFF&}бв`,
+		`Dialogue: 0,0:00:01.10,0:00:01.20,Default,,0,0,0,,{\q2}аб` + c + `{\alpha&HFF&}в`,
+		`Dialogue: 0,0:00:01.20,0:00:01.50,Default,,0,0,0,,{\q2}абв` + c,
+		`Dialogue: 0,0:00:01.50,0:00:02.00,Default,,0,0,0,,{\q2}абв`,
 	}
 	for _, w := range want {
 		if !strings.Contains(out, w+"\n") {
@@ -381,8 +381,8 @@ func TestSubsFxType(t *testing.T) {
 	// без курсора, с подложкой и короткой репликой: подложка слоем 0 на всю реплику, буквы слоем 1 без неё; печать ускоряется до 85% длины
 	s = Subs{Back: "#000000", Fx: SubFx{K: "type", Cps: 1}}.fit()
 	out = subsASS([]SubCue{{Start: 0, End: 1, Text: "аб\nв"}}, s, 640, 360)
-	for _, w := range []string{"Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\1a&HFF&}аб\\Nв\n", `Dialogue: 1,0:00:00.00,0:00:00.28,Default,,0,0,0,,{\3a&HFF&}а{\alpha&HFF&}б\Nв`,
-		`0:00:00.28,0:00:00.57,Default,,0,0,0,,{\3a&HFF&}аб{\alpha&HFF&}\Nв`, `,,{\3a&HFF&}аб\Nв` + "\n"} {
+	for _, w := range []string{"Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\q2}{\\1a&HFF&}аб\\Nв\n", `Dialogue: 1,0:00:00.00,0:00:00.28,Default,,0,0,0,,{\q2}{\3a&HFF&}а{\alpha&HFF&}б\Nв`,
+		`0:00:00.28,0:00:00.57,Default,,0,0,0,,{\q2}{\3a&HFF&}аб{\alpha&HFF&}\Nв`, `,,{\q2}{\3a&HFF&}аб\Nв` + "\n"} {
 		if !strings.Contains(out, w) {
 			t.Errorf("нет %q в\n%s", w, out)
 		}
@@ -407,7 +407,7 @@ func TestSubsFxWord(t *testing.T) {
 	half := textWidth(subsFont, size, "раз") / 2
 	sp := `\t(200,200,\fsp` + f2(half-nb) + `)\t(200,440,0.5,\fsp` + f2(-0.2*half-nb) + `)\t(440,600,0.5,\fsp` + f2(-nb) + `)`
 	word := strut("120", sp) + `{\alpha&HFF&\t(200,200,\alpha&H00&\fscx0\fscy0)\t(200,440,0.5,\fscx120\fscy120)\t(440,600,0.5,\fscx100\fscy100)}раз` + strut("120", sp)
-	if !strings.Contains(out, "Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,"+word+" ") {
+	if !strings.Contains(out, "Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,{\\q2}"+word+" ") {
 		t.Errorf("нет\n%s\nв\n%s", word, out)
 	}
 	// позднее слово не позже 85% реплики
@@ -426,8 +426,8 @@ func TestSubsFxWord(t *testing.T) {
 	// С подложкой: слой 0 — весь текст высотой распорок, слой 1 — буквы, прозрачность только у них (\1a)
 	s = Subs{Back: "#000000", Fx: SubFx{K: "word", Dur: 0.4, Bounce: 0.2}}.fit()
 	out = subsASS([]SubCue{{Start: 1, End: 2, Text: "ааа бббб", W: []float64{1}}}, s, 640, 360)
-	for _, w := range []string{`Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\1a&HFF&\fscy120}ааа бббб` + "\n",
-		`Dialogue: 1,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\3a&HFF&}{\fscx100`, `{\1a&HFF&\t(0,1,\1a&H00&`, `{\1a&HFF&\t(364,364,\1a&H00&`} {
+	for _, w := range []string{`Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\q2}{\1a&HFF&\fscy120}ааа бббб` + "\n",
+		`Dialogue: 1,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\q2}{\3a&HFF&}{\fscx100`, `{\1a&HFF&\t(0,1,\1a&H00&`, `{\1a&HFF&\t(364,364,\1a&H00&`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("нет %q в\n%s", w, out)
 		}
@@ -469,5 +469,35 @@ func TestCueWordsMove(t *testing.T) {
 	got := cueWordsMove([]float64{10, 11}, SubCue{Start: 10, End: 12}, SubCue{Start: 20, End: 21})
 	if !reflect.DeepEqual(got, []float64{20, 20.5}) {
 		t.Errorf("%v", got)
+	}
+}
+
+// Перенос «по слову» и машинки делает программа (\q2): libass выравнивал строки по краям букв, и пока слово росло
+// или курсор стоял в конце строки, слова перескакивали между строками. Знаков столько же: пробел стал разрывом.
+func TestSubsFxWrap(t *testing.T) {
+	s := Subs{Size: 0.08}.fit()
+	text := "раз два три четыре пять шесть семь восемь девять десять\nодиннадцать двенадцать тринадцать четырнадцать пятнадцать"
+	got := subsFxWrap(text, s, 640, 360)
+	if len([]rune(got)) != len([]rune(text)) {
+		t.Fatalf("знаков %d, было %d: %q", len([]rune(got)), len([]rune(text)), got)
+	}
+	lines := strings.Split(got, "\n")
+	if len(lines) < 4 {
+		t.Fatalf("строки не перенесены: %q", got)
+	}
+	limit := s.W * 640
+	for _, l := range lines {
+		if w := textWidth(s.Font, s.Size*360, l); w > limit+1 {
+			t.Errorf("строка %q шире рамки: %.0f > %.0f", l, w, limit)
+		}
+	}
+	if strings.Join(strings.Fields(got), " ") != strings.Join(strings.Fields(text), " ") {
+		t.Errorf("слова изменились: %q", got)
+	}
+	for _, k := range []string{"word", "type"} {
+		out := subsASS([]SubCue{{Start: 0, End: 3, Text: text}}, Subs{Size: 0.08, Fx: SubFx{K: k}}.fit(), 640, 360)
+		if !strings.Contains(out, `,,{\q2}`) || strings.Count(out, `\N`) < 3 {
+			t.Errorf("%s: нет своего переноса:\n%s", k, out)
+		}
 	}
 }

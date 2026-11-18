@@ -810,3 +810,18 @@ func TestTimelineParts(t *testing.T) {
 		t.Error("из одного звука собралось видео")
 	}
 }
+
+// Клип прилип к концу соседа, а его начало округлилось до кадра шкалы: щель меньше кадра — стык вплотную, не чёрный кадр
+func TestTimelinePlaceJoinGap(t *testing.T) {
+	clip := func(at, length float64) tlClip {
+		return tlClip{Clip: Clip{At: at, Speed: 1}, montClip: montClip{si: srcInfo{video: true}, cut: length}}
+	}
+	placed, _ := tlPlace([][]tlClip{{clip(0, 1.01), clip(1.04, 1), clip(2.2, 1)}}, 25)
+	l := placed[0]
+	if l[0].end != l[1].start {
+		t.Errorf("щель меньше кадра осталась: конец %d, начало %d", l[0].end, l[1].start)
+	}
+	if l[1].end != 51 || l[2].start != 55 {
+		t.Errorf("настоящая пауза пропала: конец %d, начало %d", l[1].end, l[2].start)
+	}
+}

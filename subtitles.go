@@ -172,7 +172,9 @@ func subsFxWordHeads(words []string) []int {
 // у которых \fsp меняется теми же \t: (1−s)·W/2 каждая, при s > 1 меньше нуля. Ширина места s·W + (1−s)·W
 // постоянна. W меряет textWidth; его ошибка умножается на (1−s) и на глаз не видна. Слово растёт от своей середины,
 // по высоте от базовой линии.
-func subsFxWord(c SubCue, text string, s Subs, h int, place string, esc *strings.Replacer) string {
+func subsFxWord(c SubCue, text string, s Subs, w, h int, place string, esc *strings.Replacer) string {
+	text = subsFxWrap(text, s, w, h)
+	place += `{\q2}`
 	idx := subsWord.FindAllStringIndex(text, -1)
 	words := make([]string, len(idx))
 	for i, m := range idx {
@@ -236,6 +238,45 @@ func subsFxWord(c SubCue, text string, s Subs, h int, place string, esc *strings
 	return sb.String()
 }
 
+// subsFxWrap: строки «по слову» и «печатной машинки» переносит программа, событие идёт с \q2 (без своего переноса).
+// Перенос libass (WrapStyle 0) выравнивает длины строк по краям букв, а край меняется: растущее слово, курсор в конце строки.
+// libass перекладывал слова между строками, и реплика прыгала на строку вверх и обратно. Перенос как у караоке
+// (subsKarBreak): по полной ширине слов, каждая строка текста отдельно. Последний пробел перед перенесённым словом
+// становится разрывом строки: знаков столько же, машинка считает буквы по исходному тексту.
+func subsFxWrap(text string, s Subs, w, h int) string {
+	idx := subsWord.FindAllStringIndex(text, -1)
+	size := s.Size * float64(h)
+	sp := textWidth(s.Font, size, "a b") - textWidth(s.Font, size, "ab")
+	cut := map[int]bool{} // слово с этим номером начинает строку экрана
+	for i := 0; i < len(idx); {
+		j := i + 1
+		for j < len(idx) && !strings.Contains(text[idx[j-1][1]:idx[j][0]], "\n") {
+			j++
+		}
+		ws := make([]float64, j-i)
+		for k := range ws {
+			ws[k] = textWidth(s.Font, size, text[idx[i+k][0]:idx[i+k][1]])
+		}
+		for _, n := range subsKarBreak(ws, sp, s.W*float64(w))[1:] {
+			cut[i+n] = true
+		}
+		i = j
+	}
+	var sb strings.Builder
+	from := 0
+	for i, m := range idx {
+		if cut[i] { // перед словом строки есть хотя бы один пробельный знак в один байт
+			sb.WriteString(text[from:m[0]-1] + "\n")
+		} else {
+			sb.WriteString(text[from:m[0]])
+		}
+		sb.WriteString(text[m[0]:m[1]])
+		from = m[1]
+	}
+	sb.WriteString(text[from:])
+	return sb.String()
+}
+
 // subsFxStep: время на одну букву реплики из n букв длиной dur
 func subsFxStep(fx SubFx, n int, dur float64) float64 {
 	if n <= 0 {
@@ -253,8 +294,10 @@ func subsFxState(fx SubFx, n int, dur, t float64) (int, bool) {
 
 // subsFxType: печатная машинка — реплика делится на события, в каждом вся строка, ненапечатанное прозрачно,
 // поэтому строка не прыгает. Подложка стоит сразу во всю строку, как в просмотре.
-func subsFxType(c SubCue, text string, s Subs, h int, place string, esc *strings.Replacer) string {
-	runes := []rune(text)
+func subsFxType(c SubCue, text string, s Subs, w, h int, place string, esc *strings.Replacer) string {
+	runes := []rune(text) // буквы считаются по исходному тексту, на экран идёт shown: в нём пробел на месте переноса стал разрывом строки
+	shown := []rune(subsFxWrap(text, s, w, h))
+	place += `{\q2}`
 	n := 0
 	for _, r := range runes {
 		if r != '\n' {
@@ -287,16 +330,16 @@ func subsFxType(c SubCue, text string, s Subs, h int, place string, esc *strings
 	cur := ""
 	if s.Fx.Cur != "" {
 		size := s.Size * float64(h)
-		w, ht := max(1, int(subsFxCurW*size+0.5)), int(size+0.5)
-		cur = fmt.Sprintf(`{\p1\fsp-%d\bord0\shad0\1a&H00&\1c&H%s%s%s&\pbo%d}m 0 0 l %d 0 %d %d 0 %d{\p0\fsp0}`, w,
-			strings.ToUpper(s.Fx.Cur[5:7]), strings.ToUpper(s.Fx.Cur[3:5]), strings.ToUpper(s.Fx.Cur[1:3]), int(subsFxCurDown*size+0.5), w, w, ht, ht)
+		cw, ht := max(1, int(subsFxCurW*size+0.5)), int(size+0.5)
+		cur = fmt.Sprintf(`{\p1\fsp-%d\bord0\shad0\1a&H00&\1c&H%s%s%s&\pbo%d}m 0 0 l %d 0 %d %d 0 %d{\p0\fsp0}`, cw,
+			strings.ToUpper(s.Fx.Cur[5:7]), strings.ToUpper(s.Fx.Cur[3:5]), strings.ToUpper(s.Fx.Cur[1:3]), int(subsFxCurDown*size+0.5), cw, cw, ht, ht)
 	}
 	var sb strings.Builder
 	layer, pre := 0, ""
 	if s.Back != "" {
 		// подложка: libass рисует её под каждым куском с другой прозрачностью отдельно, и края кусков темнеют.
 		// Поэтому вся подложка — слой 0 на всю реплику, а буквы — слой 1 без подложки; текст в слоях один, раскладка совпадает.
-		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s{\\1a&HFF&}%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
+		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s{\\1a&HFF&}%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(string(shown)))
 		layer, pre = 1, `{\3a&HFF&}`
 	}
 	line, from := "", 0
@@ -313,12 +356,12 @@ func subsFxType(c SubCue, text string, s Subs, h int, place string, esc *strings
 				seen++
 			}
 		}
-		body := esc.Replace(string(runes[:cut]))
+		body := esc.Replace(string(shown[:cut]))
 		if on {
 			body += cur
 		}
-		if cut < len(runes) {
-			body += hide + esc.Replace(string(runes[cut:]))
+		if cut < len(shown) {
+			body += hide + esc.Replace(string(shown[cut:]))
 		}
 		if body != line {
 			flush(keys[i])
@@ -598,11 +641,11 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 			text = subsBreak.ReplaceAllString(text, " ")
 		}
 		if s.Fx.K == "type" && c.End > c.Start {
-			sb.WriteString(subsFxType(c, text, s, h, place, esc))
+			sb.WriteString(subsFxType(c, text, s, w, h, place, esc))
 			continue
 		}
 		if s.Fx.K == "word" && c.End > c.Start {
-			sb.WriteString(subsFxWord(c, text, s, h, place, esc))
+			sb.WriteString(subsFxWord(c, text, s, w, h, place, esc))
 			continue
 		}
 		if s.Fx.K == "kar" && c.End > c.Start {

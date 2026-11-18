@@ -117,7 +117,10 @@ const (
 	tlRate      = 30.0 // кадров в секунду, если видео нет и взять её неоткуда
 	tlSoundGrid = 1000 // в монтаже только со звуком сетка в миллисекунду
 	tlMaxFPS    = 240
-	tlAudioHz   = 48000
+	// tlJoinGap: щель между клипами дорожки короче кадра или короче этого — стык вплотную, а не пустота.
+	// Она остаётся, когда начало клипа прилипло к концу соседа и округлилось до кадра шкалы. Просмотр: mvJoins.
+	tlJoinGap = 1.0 / 24
+	tlAudioHz = 48000
 
 	tlMaxBox  = 4.0  // рамка слоя не больше стольких кадров: дальше ffmpeg не хватит памяти на кадр
 	tlFarOut  = 1.0  // слой может уйти за кадр целиком, но не дальше размера кадра от края (MV_FAR во вьюпорте)
@@ -349,6 +352,7 @@ func tlCanvas(tracks [][]tlClip, p Project) (w, h int, fps float64) {
 }
 
 // tlPlace ставит клипы на сетку кадров. Если клипы одной дорожки заехали друг на друга, ранний обрывается там, где начался поздний.
+// Если между ними щель меньше кадра (tlJoinGap), ранний тянется до позднего последним кадром: иначе в стыке мелькал чёрный кадр.
 func tlPlace(tracks [][]tlClip, fps float64) ([][]tlClip, int) {
 	frame := func(sec float64) int { return int(sec*fps + 0.5) }
 	var out [][]tlClip
@@ -361,7 +365,11 @@ func tlPlace(tracks [][]tlClip, fps float64) ([][]tlClip, int) {
 			c.start = frame(c.At)
 			c.end = frame(c.At + c.srcLen()/c.Speed)
 			if i+1 < len(list) {
-				c.end = min(c.end, frame(list[i+1].At))
+				next := list[i+1].At
+				c.end = min(c.end, frame(next))
+				if gap := next - (c.At + c.srcLen()/c.Speed); gap > 0 && gap < max(1/fps, tlJoinGap) {
+					c.end = frame(next)
+				}
 			}
 			if c.end > c.start {
 				c.whole = c.end - c.start

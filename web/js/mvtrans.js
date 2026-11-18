@@ -12,7 +12,7 @@ function mvTrMap(all) {
     if (tr.off && !all) continue;
     const list = [...tr.clips].sort((a, b) => a.at - b.at), e = list.map(() => ({i: null, o: null}));
     // вплотную: картинка с картинкой одного режима наложения, звук со звуком (tlMeet)
-    const meet = (a, b) => Math.abs(tkEnd(a) - b.at) < 1e-3 && (tr.kind === 'a' || (a.blend || '') === (b.blend || ''));
+    const meet = (a, b) => Math.abs(tkEnd(a) - b.at) < mvJoinGap() && (tr.kind === 'a' || (a.blend || '') === (b.blend || ''));
     list.forEach((c, n) => {
       const prev = n > 0 && meet(list[n - 1], c), next = n + 1 < list.length && meet(c, list[n + 1]);
       if (ok(c.trIn)) e[n].i = prev ? {k: c.trIn.k, h: dur(c.trIn) / 2, cut: true} : {k: c.trIn.k, h: dur(c.trIn), cut: false};
@@ -33,10 +33,25 @@ function mvTrMap(all) {
   }
   return out;
 }
+// Щель короче кадра между клипами дорожки — стык вплотную (tlJoinGap в timeline.go). Она остаётся, когда начало клипа
+// прилипло к концу соседа и округлилось до кадра: в ней не было ни одного клипа, и в просмотре мелькал чёрный кадр.
+const mvJoinGap = () => Math.max(1 / tkFps(), 1 / 24);
+// id клипа → начало следующего, если до него щель короче кадра: клип виден до него, последний кадр держится, как в результате
+function mvJoins() {
+  const out = new Map(), lim = mvJoinGap();
+  for (const tr of tkTracks) {
+    const list = [...tr.clips].sort((a, b) => a.at - b.at);
+    for (let n = 1; n < list.length; n++) {
+      const d = list[n].at - tkEnd(list[n - 1]);
+      if (d > 0 && d < lim) out.set(list[n - 1].id, list[n].at);
+    }
+  }
+  return out;
+}
 // где клип виден вместе с кусками за краями
 function mvSpan(c) {
-  const t = mv.tr.get(c.id);
-  return [c.at - (t && t.i && t.i.cut ? t.i.h : 0), tkEnd(c) + (t && t.o && t.o.cut ? t.o.h : 0)];
+  const t = mv.tr.get(c.id), end = mv.join.get(c.id) || tkEnd(c);
+  return [c.at - (t && t.i && t.i.cut ? t.i.h : 0), end + (t && t.o && t.o.cut ? t.o.h : 0)];
 }
 const mvShown = (c, x) => { const [a, b] = mvSpan(c); return x >= a - 1e-4 && x < b - 1e-4; };
 // переход клипа в момент x: вид, прогресс P, роль a (уходит) или b (приходит), стык или свободный край

@@ -15,6 +15,7 @@ const mv = {
   live: [],          // {c, e}: играющие сейчас
   file: null, fileStop: null, fileReady: false, pic: '',
   tr: new Map(),     // переходы: id клипа → края (mvTrMap в mvtrans.js)
+  join: new Map(),   // стыки со щелью короче кадра: id клипа → начало следующего (mvJoins в mvtrans.js)
   trBg: new Map(),   // плашки цвета переходов fadeblack и fadewhite
 };
 const mvVol = {volume: .8, muted: false};   // общий ползунок: стоит на выходе шины, поэтому индикатор его не видит
@@ -525,6 +526,7 @@ function mvShow() {
   mvSizeCanvas();
   mvPrep();
   mv.tr = mvTrMap();
+  mv.join = mvJoins();
   // кто звучит и виден сейчас и кто скоро начнётся. У стыка с переходом клип виден и за своим краем (mvSpan)
   const active = [], soon = [];
   let vids = 0;
