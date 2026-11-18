@@ -1,0 +1,128 @@
+// Новогоднее оформление шапки: сугробы с ёлочками, снег и огоньки вокруг рамки названия.
+// По умолчанию включается само с 1 декабря по 14 января; в настройках («Оформление») можно включить всегда или выключить.
+// Рисунок случайный на каждый запуск. Всё лежит в двух слоях: фон под содержимым шапки и огоньки поверх рамки названия.
+const NY_KEY = 'konv9000.newyear';   // on | off; пусто = по датам
+let nyMode = 'auto';
+try { const v = localStorage.getItem(NY_KEY); if (v === 'on' || v === 'off') nyMode = v; } catch (e) {}
+
+function nySeason(d = new Date()) { const m = d.getMonth(), day = d.getDate(); return m === 11 || (m === 0 && day <= 14); }
+function nyActive() { return nyMode === 'on' || (nyMode === 'auto' && nySeason()); }
+
+const NY_NS = 'http://www.w3.org/2000/svg';
+const nyR = (a, b) => a + Math.random() * (b - a);
+function nyE(p, tag, a) { const e = document.createElementNS(NY_NS, tag); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; }
+
+const nyBack = document.createElement('div');
+nyBack.className = 'ny'; nyBack.setAttribute('aria-hidden', 'true');
+const nyBackSvg = document.createElementNS(NY_NS, 'svg');
+nyBack.appendChild(nyBackSvg);
+document.querySelector('.hero').prepend(nyBack);
+const nyBulbs = document.createElementNS(NY_NS, 'svg');
+nyBulbs.setAttribute('class', 'ny-bulbs'); nyBulbs.setAttribute('aria-hidden', 'true');
+document.querySelector('.hero-title').appendChild(nyBulbs);
+
+const NY_COLS = ['#e9b872', '#e06a5a', '#6fcf97', '#6aa9e9'];
+const NY_FIRS = ['#1f4a3a', '#2d6a4f', '#25594a'];
+
+function nyFir(g, x, h, color) {
+  const y = nyH - 2, w = h * 0.5, f = nyE(g, 'g', {});
+  nyE(f, 'rect', {x: x - 1.2, y: y - 2, width: 2.4, height: 4, fill: '#4a3a2a'});
+  for (let k = 0; k < 3; k++) {
+    const by = y - 2 - k * h * 0.27, ty = by - h * 0.48, hw = w * (1 - k * 0.25);
+    nyE(f, 'path', {d: `M${x} ${ty} L${x + hw} ${by} L${x - hw} ${by}Z`, fill: color});
+  }
+  nyE(f, 'path', {d: `M${x} ${y - 2 - 2 * h * 0.27 - h * 0.48} l${w * 0.2} ${h * 0.2} h${-w * 0.4}Z`, class: 'ny-cap'});
+}
+function nyDrift(g, x, w, h, tone) {
+  nyE(g, 'path', {d: `M${x} ${nyH} C${x + w * .2} ${nyH - h * 1.35} ${x + w * .8} ${nyH - h * 1.35} ${x + w} ${nyH}Z`, class: tone ? 'ny-d1' : 'ny-d2'});
+}
+
+let nyH = 56, nyWas = '';
+function nyBuild() {
+  const hero = document.querySelector('.hero'), on = nyActive();
+  nyWas = on + ':' + new Date().getDate();
+  nyBackSvg.replaceChildren(); nyBulbs.replaceChildren();
+  nyBack.hidden = !on; nyBulbs.style.display = on ? '' : 'none';
+  hero.classList.toggle('ny-on', on);
+  if (!on) return;
+  const hr = hero.getBoundingClientRect(), W = hr.width;
+  nyH = hr.height;
+  nyBackSvg.setAttribute('viewBox', `0 0 ${W} ${nyH}`);
+  nyBackSvg.style.setProperty('--ny-h', (nyH + 8) + 'px');
+
+  // под текстом и вкладками ничего не должно лежать: высота украшений там ограничена
+  const zones = ['.hero-title', '#tabs', '.hero-right'].map(s => document.querySelector(s)).filter(Boolean).map(e => {
+    const r = e.getBoundingClientRect();
+    return {l: r.left - hr.left, r: r.right - hr.left, free: nyH - (r.bottom - hr.top) - 2};
+  });
+  const cap = (a, b) => zones.reduce((m, z) => (z.r > a - 6 && z.l < b + 6) ? Math.min(m, z.free) : m, 20);
+
+  const back = [], front = [], firs = [];
+  for (let x = -40; x < W; x += nyR(.35, .7) * 150) {
+    const w = nyR(70, 200), h = Math.min(nyR(6, 14), cap(x + w * .2, x + w * .8));
+    if (h < 2) continue;
+    (Math.random() < .55 ? back : front).push([x, w, h, Math.random() < .5]);
+  }
+  const nf = Math.max(2, Math.round(W / 110));
+  // ёлочки только в промежутках между названием, вкладками и шестерёнкой: под ними самими они прячутся за плашкой
+  const free = x => zones.every(z => x < z.l - 10 || x > z.r + 10);
+  for (let i = 0, tries = 0; i < nf && tries < nf * 8; tries++) {
+    const x = nyR(10, W - 10);
+    if (!free(x) || firs.some(f => Math.abs(f[0] - x) < 14)) continue;
+    firs.push([x, nyR(10, 18), NY_FIRS[Math.floor(Math.random() * 3)]]); i++;
+  }
+  back.forEach(d => nyDrift(nyBackSvg, ...d));
+  firs.forEach(f => nyFir(nyBackSvg, ...f));
+  front.forEach(d => nyDrift(nyBackSvg, ...d));
+
+  const n = Math.max(30, Math.min(110, Math.round(W / 16)));
+  for (let i = 0; i < n; i++) {
+    const g = nyE(nyBackSvg, 'g', {class: 'ny-fl'});
+    g.style.animation = `ny-sway ${nyR(2.5, 5)}s ${-nyR(0, 4)}s ease-in-out infinite alternate`;
+    const c = nyE(g, 'circle', {cx: nyR(0, W), cy: 0, r: nyR(.8, 1.9), 'fill-opacity': nyR(.4, .75)});
+    c.style.animation = `ny-fall ${nyR(6, 13)}s ${-nyR(0, 13)}s linear infinite`;
+  }
+
+  // огоньки вдоль рамки: шаг считается по всей длине рамки, высота над ней случайная
+  const h1 = document.querySelector('.hero-title h1'), w = h1.offsetWidth, h = h1.offsetHeight, P = 10;
+  Object.assign(nyBulbs.style, {left: -P + 'px', top: -P + 'px'});
+  nyBulbs.setAttribute('width', w + 2 * P); nyBulbs.setAttribute('height', h + 2 * P);
+  const x0 = P + .5, y0 = P + .5, bw = w - 1, bh = h - 1, L = 2 * (bw + bh), cnt = Math.round(L / 11), st = L / cnt;
+  const at = s => {
+    s = ((s % L) + L) % L;
+    if (s < bw) return [x0 + s, y0, 0, -1];
+    s -= bw; if (s < bh) return [x0 + bw, y0 + s, 1, 0];
+    s -= bh; if (s < bw) return [x0 + bw - s, y0 + bh, 0, 1];
+    s -= bw; return [x0, y0 + bh - s, -1, 0];
+  };
+  for (let i = 0; i < cnt; i++) {
+    const p = at(i * st + nyR(-3, 3)), o = nyR(-1.5, 4.5), col = NY_COLS[i % 4], x = p[0] + p[2] * o, y = p[1] + p[3] * o, d = (i % 4 * .5) + 's';
+    nyE(nyBulbs, 'circle', {cx: x, cy: y, r: 3.5, fill: col, 'fill-opacity': .16}).style.animation = `ny-tw 2s ${d} infinite`;
+    nyE(nyBulbs, 'circle', {cx: x, cy: y, r: 1.6, fill: col}).style.animation = `ny-tw 2s ${d} infinite`;
+  }
+}
+
+let nyTimer = 0;
+function nyLater() { cancelAnimationFrame(nyTimer); nyTimer = requestAnimationFrame(nyBuild); }
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(nyLater);
+  ro.observe(document.querySelector('.hero')); ro.observe(document.querySelector('.hero-title h1'));
+} else addEventListener('resize', nyLater);
+// программа может работать неделями: на границе дат оформление включается и гаснет без перезапуска
+addEventListener('focus', () => { if (nyWas !== nyActive() + ':' + new Date().getDate()) nyBuild(); });
+nyBuild();
+
+function nyRender() {
+  document.querySelectorAll('#nySeg .segb').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === nyMode);
+    b.setAttribute('aria-pressed', b.dataset.v === nyMode);
+  });
+}
+nyRender();
+$('nySeg').addEventListener('click', e => {
+  const b = e.target.closest('.segb');
+  if (!b || b.dataset.v === nyMode) return;
+  nyMode = b.dataset.v;
+  try { nyMode === 'auto' ? localStorage.removeItem(NY_KEY) : localStorage.setItem(NY_KEY, nyMode); } catch (e) {}
+  nyRender(); nyBuild();
+});

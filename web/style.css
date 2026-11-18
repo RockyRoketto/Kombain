@@ -60,7 +60,19 @@
   /* ----- шапка ----- */
   .hero{flex:none;position:relative;z-index:30;background:var(--s1);border-bottom:1px solid var(--line)}
   .hero-in{position:relative;height:56px;padding:0 14px;display:grid;grid-template-columns:minmax(max-content,1fr) auto minmax(max-content,1fr);align-items:center;gap:12px}
-  .hero-title{flex:none;display:flex;flex-direction:column;gap:5px}
+  .hero-title{position:relative;flex:none;display:flex;flex-direction:column;gap:5px}
+  /* новогоднее оформление (web/js/newyear.js): фон шапки под содержимым и огоньки поверх рамки названия */
+  :root{--ny-d1:#eef3f8; --ny-d2:#c9d9e8; --ny-fl:#eef3f8; --ny-cap:#eef3f8}
+  :root[data-theme="light"]{--ny-d1:#dfe9f4; --ny-d2:#bcd0e4; --ny-fl:#9db4cf; --ny-cap:#dfe9f4}
+  .ny{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+  .ny svg{position:absolute;left:0;top:0;width:100%;height:100%}
+  .ny-d1{fill:var(--ny-d1);fill-opacity:.92} .ny-d2{fill:var(--ny-d2);fill-opacity:.85} .ny-cap{fill:var(--ny-cap);fill-opacity:.9}
+  .ny-fl circle{fill:var(--ny-fl)}
+  .ny-bulbs{position:absolute;overflow:visible;pointer-events:none;z-index:1}
+  @keyframes ny-tw{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes ny-fall{from{transform:translateY(-6px)}to{transform:translateY(var(--ny-h))}}
+  @keyframes ny-sway{from{transform:translateX(-3px)}to{transform:translateX(3px)}}
+  @media (prefers-reduced-motion:reduce){.ny-fl{display:none} .ny-bulbs circle{animation:none!important}}
   h1{align-self:flex-start;margin:0;padding:1px 8px;border-radius:6px;background:var(--s3);border:1px solid rgba(var(--acc-rgb),.6);font-size:14px;line-height:19px;font-weight:700;letter-spacing:.01em;color:var(--acct);white-space:nowrap}
   .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--acct);margin-bottom:8px;font-weight:600}
   .hero-right{margin-left:auto;display:flex;align-items:center;gap:10px}
