@@ -1,7 +1,11 @@
 // ---------- диалоги ----------
 async function dialog(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } }
-$('addFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); addInfos(r.files); });
-$('addFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); addInfos(r.files); });
+// кнопки «+ Файлы» и «+ Папка» вкладки: выбранное уходит в add. pick — запрос выбора файлов, purpose — для папки
+function pickButtons(filesBtn, folderBtn, add, pick = 'pick-files', purpose = 'add') {
+  $(filesBtn).onclick = () => dialog(async () => { const r = await api(pick); if (r.error) alert(r.error); add(r.files); });
+  $(folderBtn).onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose}); if (r.error) alert(r.error); add(r.files); });
+}
+pickButtons('addFiles', 'addFolder', addInfos);
 $('pickOut').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose:'out'});
   if (r.error) alert(r.error);

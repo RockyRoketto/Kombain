@@ -4,6 +4,7 @@ let askDone = null;
 function askBox(title, text, buttons) {
   $('askTitle').textContent = title;
   $('askText').textContent = text;
+  $('askText').classList.toggle('hide', !text);
   const act = $('askAct');
   act.textContent = '';
   for (const b of buttons) {
@@ -18,6 +19,15 @@ function askBox(title, text, buttons) {
   return new Promise(res => {
     askDone = id => { askDone = null; $('askBox').classList.add('hide'); res(id); };
   });
+}
+// вопрос «да или нет» в окне программы вместо системного confirm.
+// Текст вида «Заголовок?\n\nПояснение»: до пустой строки — заголовок окна, после — текст
+async function askYes(text, ok) {
+  const [title, ...rest] = text.split('\n\n');
+  return await askBox(title, rest.join('\n\n'), [
+    {id: 'cancel', text: t('close.cancel')},
+    {id: 'ok', text: ok, primary: true},
+  ]) === 'ok';
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && askDone) { e.stopPropagation(); askDone('cancel'); }

@@ -152,14 +152,14 @@ $('gmList').addEventListener('click', async e => {
   if (get) { gmInstall([get.dataset.get]); return; }
   if (del) {
     const m = gm.data.models.find(x => x.id === del.dataset.del);
-    if (!confirm(t('gm.delAsk', {name: m?.name || del.dataset.del}))) return;
+    if (!await askYes(t('gm.delAsk', {name: m?.name || del.dataset.del}), t('ask.del'))) return;
     const r = await api('ai-remove', {id: del.dataset.del});
     if (r.error) { say('warn', t('gm.del'), r.error); return; }
     gm.data = r; gmRender(); gnInfo();
   }
 });
-$('gmChange').addEventListener('click', () => {
-  if (gm.data?.used > 0 && !confirm(t('gm.folderMove', {size: fmtSize(gm.data.used)}))) return;
+$('gmChange').addEventListener('click', async () => {
+  if (gm.data?.used > 0 && !await askYes(t('gm.folderMove', {size: fmtSize(gm.data.used)}), t('ask.change'))) return;
   gmRoot('');
 });
 $('gmBack').addEventListener('click', () => gmOpen(false));

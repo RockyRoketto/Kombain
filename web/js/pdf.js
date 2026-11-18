@@ -354,8 +354,7 @@ $('pdfSortName').onclick = () => {
   pdfRender();
 };
 
-$('pdfAddFiles').onclick = () => dialog(async () => { const r = await api('pdf-pick'); if (r.error) alert(r.error); pdfAdd(r.files); });
-$('pdfAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'pdf'}); if (r.error) alert(r.error); pdfAdd(r.files); });
+pickButtons('pdfAddFiles', 'pdfAddFolder', pdfAdd, 'pdf-pick', 'pdf');
 $('pdfClear').onclick = () => { if (!snap.running) { pdfFiles = []; Object.keys(pdfRes).forEach(k => delete pdfRes[k]); pdfRender(); } };
 $('pdfOp').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (b) pdfSetOp(b.dataset.op);

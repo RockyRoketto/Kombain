@@ -289,8 +289,7 @@ $('mtAllIn').onclick = () => {
   if (list.length) tkDo(() => list.forEach(tkAppend));
   tkFit();
 };
-$('mtAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); mtAdd(r.files); });
-$('mtAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); mtAdd(r.files); });
+pickButtons('mtAddFiles', 'mtAddFolder', mtAdd);
 $('mtClear').onclick = mtClear;
 
 // ---------- панель эффектов ----------
@@ -761,7 +760,7 @@ $('mtAutoGo').onclick = () => dialog(async () => {
   mvPause();
   const model = $('mtAutoModel').value, info = await api('whisper-info');
   const need = (info.tool ? 0 : info.toolSize) + (info.models && info.models[model] ? 0 : mtAutoSizes[model]);
-  if (need > 0 && !confirm(t('mt.auto.ask', {size: fmtSize(need)}))) return;
+  if (need > 0 && !await askYes(t('mt.auto.ask', {size: fmtSize(need)}), t('ask.download'))) return;
   const r = await api('whisper-start', {project: mtProject().project, model, lang: $('mtAutoLang').value});
   if (r.error) { say('err', t('mt.auto.title'), r.error); return; }
   mtAutoWatch();

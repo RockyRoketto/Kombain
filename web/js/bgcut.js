@@ -56,8 +56,7 @@ async function bgRun() {
 function bgNeedModel(msg) {
   toast({type: 'warn', title: t('gg.bgFail'), text: esc(msg), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { setTab('gen'); gmOpen(true); }}]});
 }
-$('bgAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); bgAdd(r.files); });
-$('bgAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose: 'add'}); if (r.error) alert(r.error); bgAdd(r.files); });
+pickButtons('bgAddFiles', 'bgAddFolder', bgAdd);
 $('bgClear').onclick = () => { if (!bgBusy) { bgFiles = []; bgRender(); } };
 $('bgStart').onclick = bgRun;
 $('bgStop').onclick = () => { if (bgAbort) bgAbort.abort(); };

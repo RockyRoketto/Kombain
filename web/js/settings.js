@@ -252,7 +252,7 @@ $('stModels').addEventListener('click', async e => {
   const b = e.target.closest('[data-del]');
   if (!b) return;
   const name = b.dataset.del ? t(`store.m.${b.dataset.del}`) : t('store.k.tools');
-  if (!confirm(t('store.delAsk', {name}))) return;
+  if (!await askYes(t('store.delAsk', {name}), t('ask.del'))) return;
   const r = await api('storage-remove', {name: b.dataset.del});
   if (r.error) { say('warn', t('store.del'), r.error); return; }
   storeData = r; storeRender();
@@ -260,7 +260,7 @@ $('stModels').addEventListener('click', async e => {
 $("stAI").addEventListener("click", async e => {
   const b = e.target.closest("[data-ai]");
   if (!b) return;
-  if (!confirm(t("store.aiDelAsk", {name: b.dataset.label}))) return;
+  if (!await askYes(t("store.aiDelAsk", {name: b.dataset.label}), t('ask.del'))) return;
   const r = await api("storage-remove", {ai: b.dataset.ai});
   if (r.error) { say("warn", t("store.del"), r.error); return; }
   storeData = r; storeRender();
@@ -318,7 +318,7 @@ $('abFFGo').onclick = async () => {
 };
 $('gearBtn').addEventListener('click', () => setPanel($('setPanel').classList.contains('hide')));
 document.addEventListener('pointerdown', e => {
-  if (!e.target.closest('#setPanel, #gearBtn')) setPanel(false);
+  if (!e.target.closest('#setPanel, #gearBtn, #askBox')) setPanel(false);   // окно вопроса открывают из настроек
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') setPanel(false); });
 // заполненное поле не прячем: иначе аргументы молча действуют на каждую конвертацию
@@ -331,7 +331,7 @@ $('openData').onclick = async () => {
 const RESET_KEEP = ['konv9000.presets', 'konv9000.newsSeen', 'konv9000.mtProject'];
 $('resetAll').onclick = async () => {
   if (snap.running) { say('warn', t('setp.reset'), t('setp.resetBusy')); return; }
-  if (!confirm(t('setp.resetAsk'))) return;
+  if (!await askYes(t('setp.resetAsk'), t('ask.reset'))) return;
   const r = await api('settings', {reset: true});
   if (r.error) { say('err', t('setp.reset'), r.error); return; }
   try {

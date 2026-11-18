@@ -92,8 +92,7 @@ $('plList').addEventListener('click', e => {
   if (e.target.closest('.x')) plRemove(it);
   else if (it !== plCur) plPlay(it);
 });
-$('plAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); plAdd(r.files); });
-$('plAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); plAdd(r.files); });
+pickButtons('plAddFiles', 'plAddFolder', plAdd);
 $('plClear').onclick = () => { plFiles = []; plStop(); };
 $('plToConv').onclick = () => { if (plCur && !snap.running) plSend(plCur); };
 $('plToMont').onclick = () => { if (plCur) { const it = plCur; setTab('mont'); mtShow(it); } };

@@ -57,8 +57,7 @@ async function upRun() {
 function upNeedModel(msg) {
   toast({type: 'warn', title: t('gg.upFail'), text: esc(msg), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { setTab('gen'); gmOpen(true); }}]});
 }
-$('upAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); upAdd(r.files); });
-$('upAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose: 'add'}); if (r.error) alert(r.error); upAdd(r.files); });
+pickButtons('upAddFiles', 'upAddFolder', upAdd);
 $('upClear').onclick = () => { if (!upBusy) { upFiles = []; upRender(); } };
 $('upStart').onclick = upRun;
 $('upStop').onclick = () => { if (upAbort) upAbort.abort(); };

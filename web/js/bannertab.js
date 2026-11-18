@@ -129,8 +129,7 @@ $('bList').addEventListener('click', e => {
   const x = e.target.closest('[data-bx]');
   if (x && !snap.running) { bFiles = bFiles.filter(f => f.path !== x.dataset.bx); delete bres[x.dataset.bx]; bRender(); bSyncDirs(); }
 });
-$('bAddFiles').onclick = () => dialog(async () => { const r = await api('pick-files'); if (r.error) alert(r.error); bAdd(r.files); });
-$('bAddFolder').onclick = () => dialog(async () => { const r = await api('pick-folder', {purpose:'add'}); if (r.error) alert(r.error); bAdd(r.files); });
+pickButtons('bAddFiles', 'bAddFolder', bAdd);
 $('bClear').onclick = () => { if (!snap.running) { bFiles = []; Object.keys(bres).forEach(k => delete bres[k]); bRender(); bSyncDirs(); } };
 document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose:'out'});
