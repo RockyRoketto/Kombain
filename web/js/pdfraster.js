@@ -31,7 +31,8 @@ function pdfJsErr(e) {
 
 // нарисовать страницу n с масштабом scale (1 = 72 dpi). Холст не больше, чем вытянет окно: 16 тыс. точек по стороне, 120 Мпикс всего
 const PDF_MAX_SIDE = 16000, PDF_MAX_AREA = 120e6;
-async function pdfDrawPage(doc, n, scale, transparent) {
+// hold: объект, в который кладётся задача отрисовки (hold.task), чтобы её можно было отменить
+async function pdfDrawPage(doc, n, scale, transparent, hold) {
   const page = await doc.getPage(n);
   try {
     let vp = page.getViewport({scale});
@@ -41,7 +42,10 @@ async function pdfDrawPage(doc, n, scale, transparent) {
     cv.width = Math.max(1, Math.floor(vp.width));
     cv.height = Math.max(1, Math.floor(vp.height));
     // intent print: рисует без привязки к кадрам экрана, поэтому не встаёт в свёрнутом окне; страница как при печати (с полями форм)
-    await page.render({canvasContext: cv.getContext('2d', {alpha: !!transparent}), viewport: vp, intent: 'print', background: transparent ? 'rgba(0,0,0,0)' : '#fff'}).promise;
+    const task = page.render({canvasContext: cv.getContext('2d', {alpha: !!transparent}), viewport: vp, intent: 'print', background: transparent ? 'rgba(0,0,0,0)' : '#fff'});
+    if (hold) hold.task = task;
+    try { await task.promise; } catch (e) { cv.width = cv.height = 0; throw e; }
+    finally { if (hold && hold.task === task) hold.task = null; }
     return cv;
   } finally { page.cleanup(); }
 }
@@ -62,8 +66,10 @@ async function pdfThumbWatch() {
   if (pdfThumbBusy || snap.running || tab !== 'pdf') return;
   pdfThumbBusy = true;
   try {
+    await null;   // пусть список и просмотр сначала обновятся: файл, открытый на первой странице, даст миниатюру сам (pdfPvThumb)
     for (;;) {
-      const it = pdfFiles.find(f => !f.img && f.info && f.info.pages && !f.info.needPass && !f.info.error && !pdfThumbs[f.path]);
+      const pv = f => f.path === pdfPv.path && pdfPv.kind === 'pdf' && pdfPv.n === 1;
+      const it = pdfFiles.find(f => !f.img && f.info && f.info.pages && !f.info.needPass && !f.info.error && !pdfThumbs[f.path] && !pv(f));
       if (!it || snap.running || tab !== 'pdf') return;
       pdfThumbs[it.path] = 'wait';
       let doc = null;
@@ -80,6 +86,20 @@ async function pdfThumbWatch() {
     }
   } finally { pdfThumbBusy = false; }
 }
+// миниатюра из уже нарисованной в просмотре первой страницы: тяжёлый файл не рисуется ради неё второй раз
+function pdfPvThumb(cv) {
+  const path = pdfPv.path;
+  if (pdfThumbs[path]) return;
+  if (pdfPv.n !== 1) { pdfThumbWatch(); return; }   // просмотр ушёл на другую страницу — миниатюру нарисует очередь
+  const k = Math.min(1, 128 / cv.width), th = document.createElement('canvas');
+  th.width = Math.max(1, Math.round(cv.width * k)); th.height = Math.max(1, Math.round(cv.height * k));
+  const c = th.getContext('2d');
+  c.imageSmoothingQuality = 'high';
+  c.drawImage(cv, 0, 0, th.width, th.height);
+  pdfThumbs[path] = th.toDataURL('image/jpeg', 0.82);
+  th.width = th.height = 0;
+  pdfLast = ''; pdfRender();
+}
 
 // ---------- просмотр выбранного файла (плитка справа внизу) ----------
 // Показывает то, что выбрано в списке: страницу PDF с листанием, картинку, а в «Картинки → PDF» — будущую страницу
@@ -89,6 +109,7 @@ async function pdfThumbWatch() {
 // Полоса под страницей — все страницы, страницы с картинками отмечены. «Развернуть» — та же плитка на всё окно
 const pdfPv = {doc: null, path: '', n: 1, gen: 0, it: null, kind: '', key: '', marks: null, cmp: false, cmpWant: true, aKey: '', lens: false,
   cut: 0.5, z: 3, zMax: 4, scale: 1, docB: null, res: null, hiA: null, hiB: null, hiKey: '', lp: null, big: false, img: null, layKey: ''};
+const pdfPvHiJob = {task: null};   // идущая отрисовка для лупы: при смене страницы её отменяем, а не ждём
 let pdfSel = '';   // путь выбранного в списке файла
 const pdfDecVis = () => { const d = pdfSet.dec; return d.wm.on || d.num.on || d.crop.on; };
 // где есть что сравнивать: сжатие меняет картинки, оформление — вид страницы
@@ -260,12 +281,16 @@ async function pdfPvShow() {
   $('pdfPvPrev').disabled = n <= 1; $('pdfPvNext').disabled = n >= doc.numPages;
   pdfPvBar();
   if (pdfPv.cmp && (!pdfPv.res || pdfPv.res.page !== n)) pdfPvDropB();   // прежняя страница «После» уже не про эту
+  pdfPvHiStop();   // крупная страница для лупы от прежней страницы больше не нужна
   try {
     const page = await doc.getPage(n);
     if (g !== pdfPv.gen || n !== pdfPv.n) { page.cleanup(); return; }
     const base = page.getViewport({scale: 1}), fit = pdfPvFit(base.width, base.height);
     pdfPv.vp1 = [base.width, base.height];
-    const dpr = window.devicePixelRatio || 1, vp = page.getViewport({scale: fit * dpr});
+    // с лупой страница рисуется сразу крупно, а экранный кадр — её уменьшенная копия. Тяжёлый PDF (большие картинки)
+    // подвешивает окно на каждую отрисовку почти независимо от масштаба, поэтому одна отрисовка вместо двух
+    const dpr = window.devicePixelRatio || 1, scr = page.getViewport({scale: fit * dpr});
+    const f = pdfPv.lens ? pdfPvLensF(scr.width, scr.height) : 1, vp = f > 1 ? page.getViewport({scale: fit * dpr * f}) : scr;
     if (pdfPvTask) { pdfPvTask.cancel(); pdfPvTask = null; }
     const cv = document.createElement('canvas');
     cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
@@ -273,12 +298,22 @@ async function pdfPvShow() {
     await task.promise;
     if (pdfPvTask === task) pdfPvTask = null;
     page.cleanup();
-    if (g !== pdfPv.gen || n !== pdfPv.n) return;
+    if (g !== pdfPv.gen || n !== pdfPv.n) { cv.width = cv.height = 0; return; }
     // готовый кадр подменяет прежний сразу, без мигания пустым холстом
     pdfPv.scale = fit * dpr;
-    const css = [Math.floor(vp.width / dpr) + 'px', Math.floor(vp.height / dpr) + 'px'];
-    pdfPvPut($('pdfPvCv'), cv, css);
+    const css = [Math.floor(scr.width / dpr) + 'px', Math.floor(scr.height / dpr) + 'px'];
+    let out = cv;
+    if (f > 1) {
+      out = document.createElement('canvas');
+      out.width = Math.floor(scr.width); out.height = Math.floor(scr.height);
+      const c = out.getContext('2d', {alpha: false});
+      c.imageSmoothingQuality = 'high';
+      c.drawImage(cv, 0, 0, out.width, out.height);
+      pdfPv.hiA = cv; pdfPv.hiKeyA = pdfPvHiKeyA();
+    }
+    pdfPvPut($('pdfPvCv'), out, css);
     $('pdfPvCv').classList.remove('pic');
+    pdfPvThumb($('pdfPvCv'));
     pdfPvNote('');
     if (!$('pdfPvB').classList.contains('hide')) { $('pdfPvB').style.width = css[0]; $('pdfPvB').style.height = css[1]; }
     pdfPvHi();
@@ -352,11 +387,22 @@ async function pdfPvCmpLoad(g, n) {
       pdfPv.docB = doc; pdfPv.res = r;
     }
     pdfPvInfo(pdfPvInfoText(pdfPv.res));
-    let cv = await pdfDrawPage(pdfPv.docB, 1, pdfPv.scale, false);
+    // с лупой «После» тоже рисуется один раз крупно, экранный кадр — уменьшенная копия
+    const a = $('pdfPvCv'), f = pdfPv.lens && a.width ? pdfPvLensF(a.width, a.height) : 1;
+    let cv = await pdfDrawPage(pdfPv.docB, 1, pdfPv.scale * f, false);
     if (stale()) { cv.width = cv.height = 0; return; }
-    cv = pdfPvCropFit(cv, pdfPv.scale);
-    const a = $('pdfPvCv');
-    pdfPvPut($('pdfPvB'), cv, [a.style.width, a.style.height]);
+    cv = pdfPvCropFit(cv, pdfPv.scale * f);
+    let out = cv;
+    if (f > 1) {
+      out = document.createElement('canvas');
+      out.width = Math.max(1, Math.round(cv.width / f)); out.height = Math.max(1, Math.round(cv.height / f));
+      const c = out.getContext('2d', {alpha: false});
+      c.imageSmoothingQuality = 'high';
+      c.drawImage(cv, 0, 0, out.width, out.height);
+      pdfPvHiFree('hiB');
+      pdfPv.hiB = cv; pdfPv.hiKeyB = pdfPvHiKeyA() + '|' + pdfPv.res.id;
+    }
+    pdfPvPut($('pdfPvB'), out, [a.style.width, a.style.height]);
     pdfPvMode();
     pdfPvHi();
   } catch (e) {
@@ -394,7 +440,7 @@ function pdfPvDropB() {
   if (pdfPv.docB) { pdfPv.docB.destroy(); pdfPv.docB = null; }
   pdfPv.res = null;
   const b = $('pdfPvB'); b.width = b.height = 0;
-  if (pdfPv.hiB) { pdfPv.hiB.width = pdfPv.hiB.height = 0; pdfPv.hiB = null; pdfPv.hiKey = ''; }
+  if (pdfPv.hiB) { pdfPv.hiB.width = pdfPv.hiB.height = 0; pdfPv.hiB = null; pdfPv.hiKey = pdfPv.hiKeyB = ''; }
   pdfPvMode();
 }
 // видимость шторки, подписей и кнопок по состоянию
@@ -422,9 +468,12 @@ function pdfPvCutAt(e) {
   pdfPvMode();
 }
 const pdfPvSt = $('pdfPvStage');
+let pdfPvDown = null;   // где нажали без шторки: щелчок на месте выключает лупу
 pdfPvSt.addEventListener('pointerdown', e => {
   $('pdfPv').focus({preventScroll: true});
+  pdfPvDown = e.button === 0 ? {x: e.clientX, y: e.clientY} : null;
   if (!pdfPv.cmp || !pdfPv.docB || e.button !== 0) return;
+  pdfPvDown = null;   // со сравнением щелчок ставит шторку, лупу выключает Esc
   pdfPvSt.setPointerCapture(e.pointerId);
   pdfPvDrag = true;
   pdfPvCutAt(e);
@@ -434,38 +483,68 @@ pdfPvSt.addEventListener('pointermove', e => {
   pdfPv.lp = {x: e.clientX, y: e.clientY};
   if (pdfPvDrag) pdfPvCutAt(e); else if (pdfPv.lens) pdfPvLensDraw();
 });
-for (const ev of ['pointerup', 'pointercancel']) pdfPvSt.addEventListener(ev, () => { pdfPvDrag = false; });
+for (const ev of ['pointerup', 'pointercancel']) pdfPvSt.addEventListener(ev, e => {
+  pdfPvDrag = false;
+  const d = pdfPvDown; pdfPvDown = null;
+  if (ev === 'pointerup' && d && pdfPv.lens && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) pdfPvLensSet(false);
+});
 pdfPvSt.addEventListener('pointerleave', () => { if (!pdfPvDrag) { pdfPv.lp = null; pdfPvLensDraw(); } });
 // двойной щелчок по странице — развернуть или свернуть
 pdfPvSt.addEventListener('dblclick', () => { if (pdfPv.it) pdfPvBigSet(!pdfPv.big); });
 
 // ---------- лупа ----------
 // Страницы для лупы рисуются крупнее экрана (до 4 раз, не больше 48 Мпикс), пока рисуются — лупа берёт экранные
-$('pdfPvLensB').onclick = () => { pdfPv.lens = !pdfPv.lens; pdfPvMode(); pdfPvHi(); };
+// во сколько раз крупнее экрана рисовать страницу для лупы: до 4 раз, не больше 48 Мпикс
+function pdfPvLensF(w, h) { return Math.max(1, Math.min(4, Math.sqrt(48e6 / (w * h)))); }
+function pdfPvHiKeyA() { return [pdfPv.gen, pdfPv.n, pdfPv.scale].join('|'); }
+function pdfPvHiFree(k) { if (pdfPv[k]) { pdfPv[k].width = pdfPv[k].height = 0; pdfPv[k] = null; } }
+// бросить крупные страницы лупы (и недорисованную тоже)
+function pdfPvHiStop() {
+  if (pdfPvHiJob.task) { pdfPvHiJob.task.cancel(); pdfPvHiJob.task = null; }
+  pdfPvHiFree('hiA'); pdfPvHiFree('hiB');
+  pdfPv.hiKey = pdfPv.hiKeyA = pdfPv.hiKeyB = '';
+}
+function pdfPvLensSet(on) {
+  if (pdfPv.lens === !!on) return;
+  pdfPv.lens = !!on;
+  if (!pdfPv.lens) pdfPvHiStop();   // крупная страница занимает до 200 МБ, без лупы она не нужна
+  pdfPvMode();
+  pdfPvHi();
+}
+$('pdfPvLensB').onclick = () => pdfPvLensSet(!pdfPv.lens);
+// крупные страницы для лупы: «До» (если просмотр не нарисовал её сам) и «После» при сравнении
 async function pdfPvHi() {
   if (!pdfPv.lens || !pdfPv.doc) return;
   const a = $('pdfPvCv');
   if (!a.width) return;
-  const f = Math.max(1, Math.min(4, Math.sqrt(48e6 / (a.width * a.height))));
+  const f = pdfPvLensF(a.width, a.height);
   pdfPv.zMax = Math.max(2, Math.min(6, f * (window.devicePixelRatio || 1)));
   pdfPv.z = Math.min(pdfPv.z, pdfPv.zMax);
-  const key = [pdfPv.gen, pdfPv.n, pdfPv.scale, pdfPv.res ? pdfPv.res.id : ''].join('|');
+  const keyA = pdfPvHiKeyA(), docB = pdfPv.cmp && pdfPv.res ? pdfPv.docB : null;
+  const key = keyA + '|' + (docB ? pdfPv.res.id : '');
   if (key === pdfPv.hiKey) return;
   pdfPv.hiKey = key;
-  for (const k of ['hiA', 'hiB']) if (pdfPv[k]) { pdfPv[k].width = pdfPv[k].height = 0; pdfPv[k] = null; }
-  const g = pdfPv.gen, n = pdfPv.n, docB = pdfPv.docB;
+  if (pdfPvHiJob.task) { pdfPvHiJob.task.cancel(); pdfPvHiJob.task = null; }
+  const stale = () => key !== pdfPv.hiKey;
   try {
-    const hiA = await pdfDrawPage(pdfPv.doc, n, pdfPv.scale * f, false);
-    if (key !== pdfPv.hiKey) { hiA.width = hiA.height = 0; return; }
-    pdfPv.hiA = hiA;
-    pdfPvLensDraw();
-    if (docB && pdfPv.cmp) {
-      const hiB = pdfPvCropFit(await pdfDrawPage(docB, 1, pdfPv.scale * f, false), pdfPv.scale * f);
-      if (key !== pdfPv.hiKey || g !== pdfPv.gen) { hiB.width = hiB.height = 0; return; }
-      pdfPv.hiB = hiB;
+    if (pdfPv.hiKeyA !== keyA) {
+      pdfPvHiFree('hiA');
+      const hiA = await pdfDrawPage(pdfPv.doc, pdfPv.n, pdfPv.scale * f, false, pdfPvHiJob);
+      if (stale()) { hiA.width = hiA.height = 0; return; }
+      pdfPv.hiA = hiA; pdfPv.hiKeyA = keyA;
       pdfPvLensDraw();
     }
-  // не вышло — лупа останется с экранными страницами
+    const keyB = docB ? key : '';
+    if (pdfPv.hiKeyB !== keyB) {
+      pdfPvHiFree('hiB'); pdfPv.hiKeyB = '';
+      if (docB) {
+        const hiB = pdfPvCropFit(await pdfDrawPage(docB, 1, pdfPv.scale * f, false, pdfPvHiJob), pdfPv.scale * f);
+        if (stale()) { hiB.width = hiB.height = 0; return; }
+        pdfPv.hiB = hiB; pdfPv.hiKeyB = keyB;
+        pdfPvLensDraw();
+      }
+    }
+  // не вышло или отменили — лупа останется с экранными страницами
   } catch (e) {}
 }
 function pdfPvLensDraw() {
@@ -567,8 +646,8 @@ function pdfPvReset() {
   if (pdfPv.doc) { pdfPv.doc.destroy(); pdfPv.doc = null; }
   if (pdfPv.docB || pdfPv.cmp) api('pdf-compare', {drop: true});
   pdfPvDropB();
-  for (const k of ['hiA', 'hiB']) if (pdfPv[k]) { pdfPv[k].width = pdfPv[k].height = 0; pdfPv[k] = null; }
-  Object.assign(pdfPv, {hiKey: '', lp: null, marks: null, cmp: false, aKey: '', img: null, layKey: '', vp1: null});
+  pdfPvHiStop();
+  Object.assign(pdfPv, {lp: null, marks: null, cmp: false, aKey: '', img: null, layKey: '', vp1: null});
   const cv = $('pdfPvCv'); cv.width = cv.height = 0; cv.style.width = cv.style.height = '0';
   $('pdfPvNum').textContent = '';
   $('pdfPvLens').classList.add('hide');
@@ -609,7 +688,8 @@ document.addEventListener('keydown', e => {
   if (tab !== 'pdf' || (!pdfPv.big && !$('pdfPv').contains(document.activeElement))) return;
   if (e.target.closest('input,textarea,select')) return;
   const k = e.key;
-  if (k === 'Escape' && pdfPv.big) pdfPvBigSet(false);
+  if (k === 'Escape' && pdfPv.lens) pdfPvLensSet(false);   // сначала лупа, вторым Esc — свернуть
+  else if (k === 'Escape' && pdfPv.big) pdfPvBigSet(false);
   else if (e.shiftKey && (k === 'ArrowLeft' || k === 'ArrowRight')) pdfPvGoImg(k === 'ArrowRight' ? 1 : -1);
   else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') pdfPvGo(-1);
   else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !e.target.closest('button'))) pdfPvGo(1);

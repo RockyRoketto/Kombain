@@ -208,7 +208,7 @@ function mtDropHover(e) {
 }
 function mtDragFile(e, it) {
   const x0 = e.clientX, y0 = e.clientY;
-  let ghost = null, follow = null, row = -1, at = 0;
+  let ghost = null, follow = null, row = -1, at = 0, ins = -1;   // ins: куда встанет файл, если отпустить над списком
   const drop = $('tkDrop');
   const len = () => it.kind === 'p' ? TK_PHOTO : it.dur;
   const lanes = () => $('tkLanes').querySelectorAll('.tk-lane');
@@ -223,6 +223,20 @@ function mtDragFile(e, it) {
     lanes()[r].appendChild(drop);
     drop.style.left = at * tkPps + 'px';
     drop.style.width = len() * tkPps + 'px';
+  };
+  // порядок в самом списке: над списком показываем линию вставки, отпустили там — файл встаёт на это место
+  const rows = () => [...$('mtList').querySelectorAll('.f')];
+  const from = () => mtFiles.indexOf(it);
+  const insMark = i => {
+    rows().forEach(r => r.classList.remove('ins-before', 'ins-after'));
+    const rs = rows();
+    if (i < 0 || !rs.length || i === from() || i === from() + 1) return;   // на своём же месте ничего не меняется
+    if (i >= rs.length) rs[rs.length - 1].classList.add('ins-after'); else rs[i].classList.add('ins-before');
+  };
+  const listAt = ev => {
+    const b = $('mtList').getBoundingClientRect();
+    if (ev.clientX < b.left || ev.clientX > b.right || ev.clientY < b.top || ev.clientY > b.bottom) return -1;
+    return rows().filter(r => { const q = r.getBoundingClientRect(); return ev.clientY > q.top + q.height / 2; }).length;
   };
   const move = ev => {
     if (ev.pointerId !== e.pointerId) return;
@@ -239,6 +253,8 @@ function mtDragFile(e, it) {
     }
     follow.aim(ev.clientX - x0, ev.clientY - y0);
     place(ev);
+    ins = row < 0 ? listAt(ev) : -1;
+    insMark(ins);
   };
   const end = () => {
     window.removeEventListener('pointermove', move);
@@ -251,7 +267,14 @@ function mtDragFile(e, it) {
     if (!ghost) return;
     drop.classList.add('hide');
     $('tkSnapLine').classList.add('hide');
-    if (ev.type === 'pointerup' && row >= 0) {
+    insMark(-1);
+    const f = from();
+    if (ev.type === 'pointerup' && row < 0 && ins >= 0 && f >= 0) {
+      follow.stop();
+      ghost.remove();
+      const to = ins > f ? ins - 1 : ins;
+      if (to !== f) tkDo(() => { mtFiles.splice(to, 0, mtFiles.splice(f, 1)[0]); });
+    } else if (ev.type === 'pointerup' && row >= 0) {
       const tr = tkShown()[row];
       follow.stop();
       ghost.remove();
