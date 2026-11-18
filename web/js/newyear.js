@@ -1,12 +1,18 @@
 // Новогоднее оформление шапки: сугробы с ёлочками, снег и огоньки вокруг рамки названия.
-// По умолчанию включается само с 1 декабря по 14 января; в настройках («Оформление») можно включить всегда или выключить.
-// Рисунок случайный на каждый запуск. Всё лежит в двух слоях: фон под содержимым шапки и огоньки поверх рамки названия.
-const NY_KEY = 'konv9000.newyear';   // on | off; пусто = по датам
-let nyMode = 'auto';
-try { const v = localStorage.getItem(NY_KEY); if (v === 'on' || v === 'off') nyMode = v; } catch (e) {}
+// Включается само с 1 декабря по 14 января; в эти же даты в настройках («Оформление») появляется тумблер, чтобы его выключить.
+// Вне сезона тумблера нет, оформления тоже. Рисунок случайный на каждый запуск. Всё лежит в двух слоях:
+// фон под содержимым шапки и огоньки поверх рамки названия.
+const NY_KEY = 'konv9000.newyear';   // off — выключено; пусто — включено (в сезон)
+let nyOff = false;
+try { nyOff = localStorage.getItem(NY_KEY) === 'off'; } catch (e) {}
 
-function nySeason(d = new Date()) { const m = d.getMonth(), day = d.getDate(); return m === 11 || (m === 0 && day <= 14); }
-function nyActive() { return nyMode === 'on' || (nyMode === 'auto' && nySeason()); }
+// 'force' в том же ключе включает сезон в любую дату (для проверки)
+function nySeason(d = new Date()) {
+  try { if (localStorage.getItem(NY_KEY) === 'force') return true; } catch (e) {}
+  const m = d.getMonth(), day = d.getDate();
+  return m === 11 || (m === 0 && day <= 14);
+}
+function nyActive() { return nySeason() && !nyOff; }
 
 const NY_NS = 'http://www.w3.org/2000/svg';
 const nyR = (a, b) => a + Math.random() * (b - a);
@@ -40,7 +46,9 @@ function nyDrift(g, x, w, h, tone) {
 let nyH = 56, nyWas = '';
 function nyBuild() {
   const hero = document.querySelector('.hero'), on = nyActive();
-  nyWas = on + ':' + new Date().getDate();
+  nyWas = on + ':' + nySeason() + ':' + new Date().getDate();
+  $('nyBox').classList.toggle('hide', !nySeason());
+  $('nyOn').checked = !nyOff;
   nyBackSvg.replaceChildren(); nyBulbs.replaceChildren();
   nyBack.hidden = !on; nyBulbs.style.display = on ? '' : 'none';
   hero.classList.toggle('ny-on', on);
@@ -120,20 +128,11 @@ if (window.ResizeObserver) {
   ro.observe(document.querySelector('.hero')); ro.observe(document.querySelector('.hero-title h1'));
 } else addEventListener('resize', nyLater);
 // программа может работать неделями: на границе дат оформление включается и гаснет без перезапуска
-addEventListener('focus', () => { if (nyWas !== nyActive() + ':' + new Date().getDate()) nyBuild(); });
+addEventListener('focus', () => { if (nyWas !== nyActive() + ':' + nySeason() + ':' + new Date().getDate()) nyBuild(); });
 nyBuild();
 
-function nyRender() {
-  document.querySelectorAll('#nySeg .segb').forEach(b => {
-    b.classList.toggle('on', b.dataset.v === nyMode);
-    b.setAttribute('aria-pressed', b.dataset.v === nyMode);
-  });
-}
-nyRender();
-$('nySeg').addEventListener('click', e => {
-  const b = e.target.closest('.segb');
-  if (!b || b.dataset.v === nyMode) return;
-  nyMode = b.dataset.v;
-  try { nyMode === 'auto' ? localStorage.removeItem(NY_KEY) : localStorage.setItem(NY_KEY, nyMode); } catch (e) {}
-  nyRender(); nyBuild();
+$('nyOn').addEventListener('change', () => {
+  nyOff = !$('nyOn').checked;
+  try { nyOff ? localStorage.setItem(NY_KEY, 'off') : localStorage.removeItem(NY_KEY); } catch (e) {}
+  nyBuild();
 });
