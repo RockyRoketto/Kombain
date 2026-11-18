@@ -3,6 +3,15 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.4
+
+- New Year header decoration (Dec 1 – Jan 14): snowdrifts, trees, snow and lights, with a switch in settings.
+- Utilities: batch image processing (size, format, quality, metadata, watermark), labels above the lists in Upscale.
+- Montage: reorder files in the list by dragging (Ctrl+Z undoes), no black frame at a butt joint.
+- Subtitles: effects no longer jump, fields no longer break when there are no subtitles.
+- PDF: clicking the page turns the magnifier off, also in Before/After compare.
+- Interface: questions inside the app window, a common focus ring and pressed buttons.
+
 ## 6.3
 
 - Generator: references (Style, Character, Base) and the assistant's eyes.
