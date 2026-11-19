@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.7
+
+- Montage: ready-made clip animations (fade-in, shake, camera push-in), also for several clips at once.
+- Montage: keyframes for volume, blur, shadow, colour correction and crop.
+- Montage: text appears by letters, words or smoothly; subtitle container edges stretch along the whole side.
+- Subtitles: neon, shake, glitch and flip effects, plus ready-made styles.
+
 ## 6.6
 
 - Upscale and Remove background: you can choose where to save, next to the original or in a chosen folder.
