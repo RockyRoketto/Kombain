@@ -15,10 +15,61 @@ function mtTextWrap(g, para, width) {
   out.push(cur);
   return out;
 }
+// ---------- появление по буквам и словам ----------
+// Кадры появления рисует страница и кладёт последовательностью, как прорисовку фигуры (shapes.js, shapes.go): просмотр и результат
+// показывают одни и те же картинки. Время букв считает subFxState (subfx.js): первая буква сразу, остальные через равные шаги.
+// Единица одна для всего клипа, длина клипа на шаг не влияет: обрезка не пересчитывает кадры.
+const MT_TEXT_FX = {type: 20, word: 4, smooth: 15};   // единиц в секунду по умолчанию: букв или слов
+const mtTextFxRate = fx => fx.cps >= .5 && fx.cps <= 100 ? fx.cps : MT_TEXT_FX[fx.k];
+const mtTextCount = s => ({n: [...s].filter(ch => /\S/.test(ch)).length, nw: (s.match(/\S+/g) || []).length});
+// Появление: {end, alpha(li, wi, t)}; cap — сколько секунд можно отдать кадрам. Нет эффекта или текста — null.
+function mtTextFxMake(x, cap) {
+  const fx = x.fx;
+  if (!fx || !MT_TEXT_FX[fx.k]) return null;
+  const {n, nw} = mtTextCount(x.s), units = fx.k === 'word' ? nw : n;
+  if (units < 1) return null;
+  const f = {cps: mtTextFxRate(fx)}, dur = cap / SUBFX_END, step = subFxStep(f, units, dur), fade = fx.k === 'smooth' ? SUBFX_DUR : 0;
+  return {end: (units - 1) * step + fade, alpha: (li, wi, t) => {
+    const i = fx.k === 'word' ? wi : li;
+    if (fade) return Math.min(Math.max((t - i * step) / fade, 0), 1);
+    return i < subFxState(f, units, dur, t)[0] ? 1 : 0;
+  }};
+}
+// Маска по буквам: прямоугольник каждой буквы по длине приставок строки (RTL от правого края), у соседних общие границы.
+// Края первой и последней буквы строки отодвинуты на отступ, чтобы не срезать обводку. Подложка маске не подчиняется.
+function mtTextMask(g, cv, geo, rev, m) {
+  const mask = document.createElement('canvas'), q = mask.getContext('2d');
+  mask.width = cv.width; mask.height = cv.height;
+  let li = 0, wi = -1;
+  geo.forEach((r, row) => {
+    g.direction = r.rtl ? 'rtl' : 'ltr';
+    const chars = [...r.l], left = r.at - r.w * (m.align === 'center' ? .5 : m.align === 'right' ? 1 : 0);
+    const y0 = Math.round(m.top + row * m.line - (row ? 0 : m.pad)), y1 = Math.round(m.top + (row + 1) * m.line + (row === geo.length - 1 ? m.pad : 0));
+    let prev = 0, last = 0, inWord = false;
+    chars.forEach((ch, i) => {
+      const a = prev, b = g.measureText(chars.slice(0, i + 1).join('')).width;
+      prev = b;
+      let al = last;
+      if (/\S/.test(ch)) { if (!inWord) wi++; inWord = true; al = rev(li++, wi); last = al; } else { inWord = false; if (!i) al = 0; }
+      let x0 = r.rtl ? left + r.w - b : left + a, x1 = r.rtl ? left + r.w - a : left + b;
+      if (i === 0) { if (r.rtl) x1 += m.pad; else x0 -= m.pad; }
+      if (i === chars.length - 1) { if (r.rtl) x0 -= m.pad; else x1 += m.pad; }
+      if (al <= 0) return;
+      q.fillStyle = `rgba(0,0,0,${al})`;
+      const rx0 = Math.round(x0), rx1 = Math.round(x1);
+      q.fillRect(rx0, y0, rx1 - rx0, y1 - y0);
+    });
+  });
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(mask, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+}
 // box — область текста в пикселях холста: картинка получает её размер, строки переносятся по ширине, текст стоит по центру высоты.
 // Без box картинка по размеру текста, строки только из Enter.
-function mtTextDraw(x, H, box) {
-  const cv = document.createElement('canvas'), k = MT_TEXT_SCALE, px = x.size * H * k, sw = x.stroke * px, see = cpSee(x.color);
+// rev — появление (mtTextFxAlpha): прозрачность каждой буквы по её номеру и номеру слова; kk — запас резкости (кадры появления
+// рисуются в размер холста, kk = 1)
+function mtTextDraw(x, H, box, rev, kk) {
+  const cv = document.createElement('canvas'), k = kk || MT_TEXT_SCALE, px = x.size * H * k, sw = x.stroke * px, see = cpSee(x.color);
   const font = `${x.italic ? 'italic ' : ''}${x.bold ? 'bold ' : ''}${px}px "${x.font}"`;
   let g = cv.getContext('2d');
   g.font = font;
@@ -46,6 +97,7 @@ function mtTextDraw(x, H, box) {
       u.fillRect(Math.round(at - bp), y0, Math.round(w + bp * 2), y1 - y0);
     });
   }
+  const geo = [];
   lines.forEach((l, i) => {
     const y = top + asc + i * line, rtl = MT_RTL.test(l);
     g.direction = rtl ? 'rtl' : 'ltr';
@@ -58,7 +110,9 @@ function mtTextDraw(x, H, box) {
     }
     g.fillStyle = cpStyle(g, x.color, cv.width, cv.height);   // градиент в долях всей картинки (рамки слоя)
     g.fillText(l, at, y);
+    geo.push({l, at, rtl, w: g.measureText(l).width});
   });
+  if (rev) mtTextMask(g, cv, geo, rev, {top, line, pad, align: x.align});
   if (under) { under.getContext('2d').drawImage(cv, 0, 0); return {cv: under, w: under.width / k, h: under.height / k}; }
   return {cv, w: cv.width / k, h: cv.height / k};
 }
@@ -74,13 +128,32 @@ async function mtTextMake(x, c) {
 }
 // Положить новую картинку в клип: середина и растяжение рамки остаются
 const mtTextTurn = new Map();
+// Кадры появления: на каждый кадр монтажа от начала клипа, последний — текст целиком. Те же картинки показывает просмотр
+// (mtShapeFrameUrl). stale() — текст уже поменяли, кадры не нужны.
+async function mtTextSeqMake(x, c, stale) {
+  const fps = tkFps(), d = mvCanvasDims(), fx = mtTextFxMake(x, (MT_SEQ_MAX - 2) / fps - SUBFX_DUR);
+  if (!fx) return null;
+  const box = x.box && c.w > 0 ? {w: c.w * d.w, h: c.h * d.h} : null, n = Math.min(Math.ceil(fx.end * fps) + 2, MT_SEQ_MAX), urls = [];
+  for (let i = 0; i < n; i++) {
+    if (i % 8 === 0) { await new Promise(r => setTimeout(r)); if (stale()) return null; }
+    urls.push(mtTextDraw(x, d.h, box, i === n - 1 ? null : (li, wi) => fx.alpha(li, wi, i / fps), 1).cv.toDataURL('image/png'));
+  }
+  const r = await api('shape-seq', {fps, frames: urls.map(u => u.split(',')[1])});
+  if (r.error) { say('err', t('mt.secText'), r.error); return null; }
+  return {path: r.path, n, fps, urls};
+}
 async function mtTextRedraw(c) {
   const turn = (mtTextTurn.get(c.id) || 0) + 1, text = c.text;
   mtTextTurn.set(c.id, turn);
+  const stale = () => { const now = tkById(c.id); return !now || now.text !== text || mtTextTurn.get(c.id) !== turn; };
   const made = await mtTextMake(text, c);
+  const seq = made && text.fx && text.fx.k && !stale() ? await mtTextSeqMake(text, c, stale) : null;
+  if (!made || stale()) return;
   const now = tkById(c.id);
-  if (!made || !now || now.text !== text || mtTextTurn.get(c.id) !== turn) return;
-  if (now.path === made.path && now.w > 0) {
+  if (seq) mtShapeSeqs.set(text, seq);   // общая память кадров с фигурами (shapes.js)
+  const sameSeq = seq ? now.seq === seq.path : !now.seq;
+  const putSeq = () => { if (seq) Object.assign(now, {seq: seq.path, seqN: seq.n, seqFps: seq.fps}); else { delete now.seq; delete now.seqN; delete now.seqFps; } };
+  if (now.path === made.path && now.w > 0 && sameSeq) {
     if (made.fresh) {   // файл убрала чистка кэша и он появился снова: окно и дорожка могли не дождаться его
       const pic = mv.pics.get(now.id), el = tkEls.get(now.id);
       if (pic) delete pic.dataset.url;
@@ -91,12 +164,14 @@ async function mtTextRedraw(c) {
   }
   if (text.box && now.w > 0) {   // рамку задаёт пользователь, картинка её только заполняет
     Object.assign(now, {path: made.path, nw: now.w});
+    putSeq();
     tkChanged();
     return;
   }
   const k = now.nw > 0 && now.w > 0 ? now.w / now.nw : 1;
   const cx = now.w > 0 ? now.x + now.w / 2 : .5, cy = now.w > 0 ? now.y + now.h / 2 : .5, w = made.w * k, h = made.h * k;
   Object.assign(now, {path: made.path, nw: made.w, w, h, x: cx - w / 2, y: cy - h / 2});
+  putSeq();
   tkChanged();
 }
 // Первая правка рамки делает её областью текста. Растянутая раньше надпись остаётся того же размера: растяжение переходит в шрифт.
@@ -137,6 +212,13 @@ function mtTextFill() {
   $('mtTextBackBody').classList.toggle('hide', !x.back);
   $('mtTextBack').value = x.back || '#000000';
   mtVal('mtTextBackA', Math.round(x.backA * 100));
+  const fk = x.fx ? x.fx.k : '';
+  for (const b of $('mtTextFx').children) b.classList.toggle('on', b.dataset.fx === fk);
+  $('mtTextFxBody').classList.toggle('hide', !fk);
+  if (fk) {
+    $('mtTextFxRateL').textContent = t(fk === 'word' ? 'mt.fxWps' : 'mt.fxCps');
+    if (document.activeElement !== $('mtTextFxRate')) mtVal('mtTextFxRate', mtRnd(mtTextFxRate(x.fx), 1));
+  }
 }
 // Текст печатают: картинка обновляется на ходу, а отмена шагает на весь ввод сразу
 let mtTextBefore = null, mtTextTimer = 0;
@@ -165,6 +247,15 @@ mtRow('mtTextStroke', .05, v => mtTextPatch({stroke: mtRnd(Math.min(Math.max(v, 
 $('mtTextBackOn').addEventListener('change', () => { $('mtTextBackOn').blur(); mtTextDo({back: $('mtTextBackOn').checked ? $('mtTextBack').value : ''}); });
 mtColor('mtTextBack', v => mtTextPatch({back: v}));
 mtRow('mtTextBackA', .5, v => mtTextPatch({backA: mtRnd(Math.min(Math.max(v, 5), 100) / 100, 2)}));
+// появление: плитка ставит эффект со своей скоростью по умолчанию, скорость меняется после
+$('mtTextFx').addEventListener('click', e => {
+  const b = e.target.closest('[data-fx]'), c = tkOne();
+  if (!b || !c || !c.text) return;
+  const k = b.dataset.fx;
+  mtTextDo({fx: k ? {k} : undefined});
+  mtTextFill();
+});
+mtRow('mtTextFxRate', 1, v => { const c = tkOne(); if (c && c.text && c.text.fx) mtTextPatch({fx: {...c.text.fx, cps: mtRnd(Math.min(Math.max(v, 1), 60), 1)}}); });
 
 // Инструмент «Текст»: кнопка или T включает режим, щелчок в кадре ставит туда надпись. Esc и повторное нажатие отменяют.
 // Над самой кнопкой курсор обычный, курсор T только над вьюпортом в режиме.

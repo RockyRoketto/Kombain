@@ -27,6 +27,7 @@ type Keys struct {
 	W []Key `json:"w,omitempty"` // ширина рамки, доли кадра; высота меняется в той же пропорции, что у рамки клипа
 	R []Key `json:"r,omitempty"` // поворот, градусы по часовой
 	O []Key `json:"o,omitempty"` // непрозрачность слоя, 0…1 (tlOpChain)
+	V []Key `json:"v,omitempty"` // громкость клипа, 0…tlMaxVol; считает звуковая цепочка (tlAudioGraph), вместо Clip.Vol
 }
 
 const kfMax = 500 // ключей у одного свойства
@@ -34,7 +35,7 @@ const kfMax = 500 // ключей у одного свойства
 // kfEases: кривые: in — разгон, out — торможение, inout — то и другое, bounce — отскок в конце
 var kfEases = map[string]bool{"": true, "in": true, "out": true, "inout": true, "bounce": true}
 
-func (k *Keys) any() bool { return k.moves() || (k != nil && len(k.O) > 0) }
+func (k *Keys) any() bool { return k.moves() || (k != nil && len(k.O)+len(k.V) > 0) }
 
 // moves: есть ключи рамки. Ключи одной прозрачности слой не двигают, собирать его через perspective незачем
 func (k *Keys) moves() bool { return k != nil && len(k.X)+len(k.Y)+len(k.W)+len(k.R) > 0 }
@@ -62,6 +63,7 @@ func (k *Keys) fit() {
 	k.W = clean(k.W, 0.002, tlMaxBox)
 	k.R = clean(k.R, -36000, 36000)
 	k.O = clean(k.O, 0, 1)
+	k.V = clean(k.V, 0, tlMaxVol)
 }
 
 // kfTrack: ключи по времени клипа на дорожке, секунды от его начала. Скорость и реверс клипа тянут ключи за собой.
@@ -213,4 +215,13 @@ func kfPlace(c tlClip, L kfLayer, w, h int, fps float64) []string {
 	// запятые внутри выражений экранированы для графа ffmpeg
 	expr := strings.ReplaceAll(strings.Join(opts, ":"), ",", `\,`)
 	return []string{"perspective=" + expr + ":sense=destination:eval=frame", fmt.Sprintf("crop=%d:%d:0:0", w, h)}
+}
+
+// tlVolKeys: громкость по ключам. Выражение volume считается на каждый кусок звука (eval=frame): куски по 1024 отсчёта,
+// около 21 мс, этого хватает для плавных кривых, ступеньки не слышны. t — метка куска от начала звука клипа (до финальной
+// задержки на место клипа), в кадрах монтажа плюс начало клипа с учётом метки начала вывода и запаса перехода, как у tlOpChain.
+func tlVolKeys(c tlClip, fps float64) []string {
+	T := fmt.Sprintf("(t*%s+%d)", kfNum(fps), c.head-c.tin.ext())
+	expr := strings.ReplaceAll(kfExpr(c.kfTrack(c.Keys.V), fps, T), ",", `\,`)
+	return []string{"asetnsamples=n=1024:p=0", "volume=" + expr + ":eval=frame:precision=float"}
 }

@@ -1084,7 +1084,9 @@ func tlAudioGraph(tracks [][]tlClip, fps float64, total int) []string {
 			if c.pad > 0 { // начало стыка, на которое не хватило файла: тишина
 				chain = append(chain, fmt.Sprintf("adelay=delays=%dS:all=1", samples(c.pad)))
 			}
-			if v := c.volume(); v != 1 {
+			if c.Keys != nil && len(c.Keys.V) > 0 {
+				chain = append(chain, tlVolKeys(c, fps)...)
+			} else if v := c.volume(); v != 1 {
 				chain = append(chain, "volume="+strconv.FormatFloat(v, 'f', 4, 64))
 			}
 			chain = append(chain, tlFades(c, fps, "afade", "asetpts", false)...)

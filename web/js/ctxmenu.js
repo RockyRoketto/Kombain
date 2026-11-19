@@ -72,7 +72,7 @@ function ctxClip(el) {
 function ctxItems(e) {
   const el = e.target;
   if (el.closest && el.closest('input:not([type=range]):not([type=checkbox]):not([type=radio]),textarea')) return ctxText(el.closest('input,textarea'));
-  const kb = el.closest && el.closest('.kf-d'), kfc = kb && mtFrameOne();   // ромбик ключа в панели
+  const kb = el.closest && el.closest('.kf-d'), kfc = kb && kfOne(kb.dataset.kf);   // ромбик ключа в панели
   if (kb) return kfc ? kfMenu(kfc, tkAt - kfc.at, kb.dataset.kf) : null;
   if (tab !== 'mont' || !el.closest || !el.closest('#tkScroll') || el.closest('.tk-th,.tk-rowh,#tkRuler')) return null;
   const cue = el.closest('.tk-cue');

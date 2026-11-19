@@ -249,7 +249,7 @@ async function mtShapeRedraw(c) {
 }
 // кадр прорисовки для просмотра в момент at; нет прорисовки или она кончилась — null, тогда фигура целиком
 function mtShapeFrameUrl(c, at) {
-  const s = c.shape && c.seq && mtShapeSeqs.get(c.shape);
+  const s = c.seq && mtShapeSeqs.get(c.shape || c.text);   // текст с появлением кладёт кадры туда же (textclip.js)
   if (!s) return null;
   const i = Math.max(Math.floor((at - c.at) * s.fps + 1e-6), 0);
   return i < s.urls.length ? s.urls[i] : null;

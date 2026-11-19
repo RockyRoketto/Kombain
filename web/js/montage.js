@@ -461,7 +461,7 @@ const mtRnd = (v, n) => +v.toFixed(n);
 const mtPut = (c, key, v, none) => { if (v === none) delete c[key]; else c[key] = v; };
 const MT_COLOR = [['mtColBri', 'cBri'], ['mtColCon', 'cCon'], ['mtColMid', 'cMid'], ['mtColSat', 'cSat'], ['mtColTemp', 'cTemp'], ['mtColTint', 'cTint']];
 function mtFramePanel() { mtTextFill(); mtShapeFill(); mtFrameFill(); mtTabs(); kfDiamonds(); kfAnimFill(); }
-function mtSoundPanel() { mtSoundFill(); mtTabs(); }
+function mtSoundPanel() { mtSoundFill(); mtTabs(); kfDiamonds(); }
 function mtFrameFill() {
   const clips = mtFrameClips(), one = mtFrameOne();
   $('mtPanel').querySelectorAll('.mt-one').forEach(e => e.classList.toggle('hide', !one));
