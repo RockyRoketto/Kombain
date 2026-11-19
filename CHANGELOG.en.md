@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.6
+
+- Upscale and Remove background: you can choose where to save, next to the original or in a chosen folder.
+
 ## 6.5
 
 - Batch images now lets you choose where to save: next to the original or in a chosen folder.
