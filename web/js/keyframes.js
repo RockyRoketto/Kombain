@@ -6,7 +6,11 @@
 // Перед показом клип ставится в позу текущего момента (kfPose): его x, y, w, h, rot становятся значениями из ключей,
 // поэтому вьюпорт, рамка и панель работают как обычно. Правка этих полей мышью или в панели при следующей позе уходит в ключ (kfSync).
 // Для отмены и сохранения поля с ключами берутся в позе начала клипа (kfCanon): перемотка не считается правкой.
-const KF_PROPS = ['x', 'y', 'w', 'r', 'o', 'v'], KF_EASES = ['', 'in', 'out', 'inout', 'bounce'];
+// эффекты слоя: ключ → поле клипа и пределы значения; 0 — поле не хранится
+const KF_FX = {b: {f: 'blur', lo: 0, hi: .2}, sa: {f: 'shA', lo: 0, hi: 1}, sx: {f: 'shX', lo: -1, hi: 1}, sy: {f: 'shY', lo: -1, hi: 1}, sb: {f: 'shB', lo: 0, hi: .2},
+  gb: {f: 'cBri', lo: -1, hi: 1}, gc: {f: 'cCon', lo: -1, hi: 1}, gm: {f: 'cMid', lo: -1, hi: 1}, gs: {f: 'cSat', lo: -1, hi: 1}, gt: {f: 'cTemp', lo: -1, hi: 1}, gn: {f: 'cTint', lo: -1, hi: 1},
+  kl: {f: 'cl', lo: 0, hi: .98}, kr: {f: 'cr', lo: 0, hi: .98}, kt: {f: 'ct', lo: 0, hi: .98}, kb: {f: 'cb', lo: 0, hi: .98}};
+const KF_PROPS = ['x', 'y', 'w', 'r', 'o', 'v', ...Object.keys(KF_FX)], KF_EASES = ['', 'in', 'out', 'inout', 'bounce'];
 // те же формулы в kfEase (keyframes.go), проверка графа в keyframes_test.go
 function kfEase(e, p) {
   if (e === 'in') return p * p * p;
@@ -40,7 +44,9 @@ const kfHalf = () => .5 / tkFps();
 const kfVisual = c => { const tr = tkTrackOf(c); return !tr || tr.kind === 'v'; };
 function kfNow(c) {
   const now = {v: c.vol ?? 1};
-  if (kfVisual(c)) { const b = mvBox(c); Object.assign(now, {x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, r: c.rot || 0, o: c.op ?? 1}); }
+  if (kfVisual(c)) { const b = mvBox(c); Object.assign(now, {x: b.x + b.w / 2, y: b.y + b.h / 2, w: b.w, r: c.rot || 0, o: c.op ?? 1});
+    for (const p in KF_FX) now[p] = c[KF_FX[p].f] || 0;
+  }
   return now;
 }
 function kfApply(o, v) {
@@ -49,6 +55,7 @@ function kfApply(o, v) {
     o.w = v.w; o.h = h; o.x = v.x - v.w / 2; o.y = v.y - h / 2;
     if (v.r) o.rot = v.r; else delete o.rot;
     if (v.o < 1) o.op = +Math.max(v.o, 0).toFixed(4); else delete o.op;
+    for (const p in KF_FX) { const x = Math.min(Math.max(v[p], KF_FX[p].lo), KF_FX[p].hi); if (x) o[KF_FX[p].f] = +x.toFixed(4); else delete o[KF_FX[p].f]; }
   }
   if ('v' in v) { if (v.v !== 1) o.vol = +Math.min(Math.max(v.v, 0), 2).toFixed(4); else delete o.vol; }
 }
@@ -116,7 +123,7 @@ function kfLoad(kf) {
   const out = {};
   for (const p of KF_PROPS) {
     const list = (Array.isArray(kf[p]) ? kf[p] : []).filter(k => k && Number.isFinite(k.s) && k.s >= 0 && Number.isFinite(k.v))
-      .map(k => ({s: k.s, v: p === 'w' ? Math.min(Math.max(k.v, .002), MV_MAX_BOX) : p === 'o' ? Math.min(Math.max(k.v, 0), 1) : p === 'v' ? Math.min(Math.max(k.v, 0), 2) : k.v, ...(KF_EASES.includes(k.e) && k.e ? {e: k.e} : {})})).sort((a, b) => a.s - b.s).slice(0, 500);
+      .map(k => ({s: k.s, v: p === 'w' ? Math.min(Math.max(k.v, .002), MV_MAX_BOX) : p === 'o' ? Math.min(Math.max(k.v, 0), 1) : p === 'v' ? Math.min(Math.max(k.v, 0), 2) : KF_FX[p] ? Math.min(Math.max(k.v, KF_FX[p].lo), KF_FX[p].hi) : k.v, ...(KF_EASES.includes(k.e) && k.e ? {e: k.e} : {})})).sort((a, b) => a.s - b.s).slice(0, 500);
     if (list.length) out[p] = list;
   }
   return Object.keys(out).length ? {kf: out} : {};
@@ -135,7 +142,8 @@ function kfSplit(right, cut) {
 }
 
 // ---------- панель: ромбик у каждого свойства рамки ----------
-const KF_ROWS = {x: 'mtPosX', y: 'mtPosY', w: 'mtScale', r: 'mtRot', o: 'mtOpacity', v: 'mtVolume'};
+const KF_ROWS = {x: 'mtPosX', y: 'mtPosY', w: 'mtScale', r: 'mtRot', o: 'mtOpacity', v: 'mtVolume', b: 'mtBlur', sa: 'mtShA', sx: 'mtShX', sy: 'mtShY', sb: 'mtShB',
+  gb: 'mtColBri', gc: 'mtColCon', gm: 'mtColMid', gs: 'mtColSat', gt: 'mtColTemp', gn: 'mtColTint', kl: 'mtCropL', kr: 'mtCropR', kt: 'mtCropT', kb: 'mtCropB'};
 // клип ромбика свойства p: громкость — один выбранный клип со звуком, остальное — слой кадра
 const kfOne = p => { if (p !== 'v') return mtFrameOne(); const s = mtSoundClips(); return s.length === 1 ? s[0] : null; };
 function kfPanel() {

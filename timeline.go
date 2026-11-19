@@ -767,9 +767,9 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 		chain = append(chain, tlKeyChain(c.Clip)...)
 	}
 	if graded { // после удаления фона: ключ смотрит на цвета файла, как в просмотре
-		chain = append(chain, tlGradeChain(c.Clip, deep)...)
+		chain = append(chain, tlGradeChain(c, fps, deep)...)
 	}
-	fx := c.Blur > 0 || c.ShadowA > 0
+	fx := c.Blur > 0 || c.ShadowA > 0 || c.Keys.fxKeyed()
 	if keyed && flat && !fx { // с эффектами чёрное подставляется после них
 		chain = append(chain, "format=yuva444p", "premultiply=inplace=1")
 	}
@@ -793,7 +793,7 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	}
 	chain = append(chain, "setpts=PTS-STARTPTS")
 	box := c.Clip
-	anim := c.Keys.moves()
+	anim := c.Keys.moves() || c.Keys.cropKeyed() // слой с ключами кадрирования собирается так же, как с ключами рамки
 	if cw, ch := c.size(); box.W <= 0 && (box.Rot != 0 || box.cropped() || fx || anim) && cw > 0 && ch > 0 {
 		box.X, box.Y, box.W, box.H = tlFitBox(cw, ch, w, h)
 	}
@@ -801,21 +801,22 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	var layer kfLayer
 	if anim { // место на кадре ставится позже, на каждом кадре клипа
 		var prep []string
-		prep, layer = kfPrep(box, w, h, boxBg)
+		prep, layer = kfPrep(c, box, w, h, fps, boxBg)
 		chain = append(chain, prep...)
 	} else if box.W > 0 {
 		chain = append(chain, tlBoxChain(box, w, h, boxBg)...)
 	} else if cw, ch := c.size(); cw != w || ch != h {
 		chain = append(chain, fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=%s", w, h, w, h, boxBg))
 	}
+	late := anim || c.Keys.fxKeyed() // эффекты с ключами считаются после выбора кадров клипа: у них время в кадрах клипа
 	effects := func() {
-		chain = append(chain, tlFxChain(c, w, h, work)...)
+		chain = append(chain, tlFxChain(c, w, h, fps, work)...)
 		if bg == "black" { // под слоем ничего нет: прозрачное становится чёрным
 			chain = append(chain, "premultiply=inplace=1")
 		}
 		chain = append(chain, "format="+pix)
 	}
-	if fx && !anim {
+	if fx && !late {
 		effects()
 	}
 	rate := rateStr(fps)
@@ -837,9 +838,9 @@ func tlClipChain(c tlClip, w, h int, fps float64, pix, bg string, flat bool) str
 	if anim {
 		box.Keys = c.Keys
 		chain = append(chain, kfPlace(tlClip{Clip: box, montClip: c.montClip, head: c.head - c.tin.ext()}, layer, w, h, fps)...)
-		if fx {
-			effects()
-		}
+	}
+	if fx && late {
+		effects()
 	}
 	if faded { // после эффектов: тень гаснет вместе со слоем, как opacity в просмотре
 		chain = append(chain, tlOpChain(c, w, h, fps, pix, deep, bg == "black")...)
@@ -880,33 +881,121 @@ const tlMaxBlur = 0.2 // размытие и мягкость тени: σ не 
 
 // tlFxChain: размытие, потом тень, в том же порядке, что filter в просмотре (mvFx). На входе кадр с прозрачностью.
 // Поля вокруг кадра нужны, чтобы край размывался в прозрачность, как в браузере: gblur сам повторил бы крайние точки.
-func tlFxChain(c tlClip, w, h int, pix string) []string {
+// Ключи (Keys.B, SA, SX, SY, SB): смещение тени — выражение в crop (x и y он считает на каждом кадре), σ размытия и непрозрачность
+// тени шлёт sendcmd на ходу (gblur и lutrgb принимают новые значения), см. tlFxCmds. Фильтры с командами названы через @, чтобы команды не задели чужие.
+func tlFxChain(c tlClip, w, h int, fps float64, pix string) []string {
 	var chain []string
-	sigma := func(v float64) string { return strconv.FormatFloat(v*float64(h), 'f', 3, 64) }
+	k := c.Keys
+	sigma := func(v float64) string { return strconv.FormatFloat(max(v*float64(h), 0.01), 'f', 3, 64) } // нулевое σ gblur считает ошибкой
 	margin := func(s, off float64) int { return int(math.Ceil((3.5*s+math.Abs(off))*float64(h))) + 2 }
-	if c.Blur > 0 {
-		m := margin(c.Blur, 0)
+	var cmds []fxCmd
+	// track: значение свойства по кадрам клипа: ключи, а без них число из полей клипа
+	track := func(list []Key, static float64) func(n int) float64 {
+		if len(list) == 0 {
+			return func(int) float64 { return static }
+		}
+		tr := c.kfTrack(list)
+		return func(n int) float64 { return kfAt(tr, float64(n+c.head-c.tin.ext())/fps) }
+	}
+	// top: наибольшее по модулю значение: от него считаются поля
+	top := func(list []Key, static float64) float64 {
+		if len(list) == 0 {
+			return math.Abs(static)
+		}
+		v := 0.0
+		for _, x := range list {
+			v = max(v, math.Abs(x.V))
+		}
+		return v
+	}
+	if c.Blur > 0 || len(k.blur()) > 0 {
+		f := track(k.blur(), c.Blur)
+		m := margin(top(k.blur(), c.Blur), 0)
+		name := "gblur"
+		if len(k.blur()) > 0 {
+			name = fmt.Sprintf("gblur@b%d", c.input)
+			cmds = append(cmds, fxCmd{name, []string{"sigma", "sigmaV"}, func(n int) string { return sigma(f(n)) }})
+		}
 		chain = append(chain, "premultiply=inplace=1", // иначе цвет прозрачных полей затемняет край
 			fmt.Sprintf("pad=%d:%d:%d:%d:color=black@0", w+2*m, h+2*m, m, m),
-			"gblur=sigma="+sigma(c.Blur)+":steps=3",
+			name+"=sigma="+sigma(f(0))+":sigmaV="+sigma(f(0))+":steps=3",
 			fmt.Sprintf("crop=%d:%d:%d:%d", w, h, m, m),
 			"unpremultiply=inplace=1")
 	}
-	if c.ShadowA > 0 {
+	if c.ShadowA > 0 || len(k.shadowA()) > 0 {
 		var r, g, b int
 		fmt.Sscanf(c.ShadowC, "#%02x%02x%02x", &r, &g, &b)
-		m := margin(c.ShadowB, max(math.Abs(c.ShadowX), math.Abs(c.ShadowY)))
-		dx, dy := int(math.Round(c.ShadowX*float64(h))), int(math.Round(c.ShadowY*float64(h)))
+		fa, fb := track(k.shadowA(), c.ShadowA), track(k.shadowB(), c.ShadowB)
+		m := margin(top(k.shadowB(), c.ShadowB), max(top(k.shadowX(), c.ShadowX), top(k.shadowY(), c.ShadowY)))
+		// смещение в точках: число, а с ключами выражение от номера кадра клипа n
+		shift := func(list []Key, static float64) string {
+			if len(list) == 0 {
+				return strconv.Itoa(m - int(math.Round(static*float64(h))))
+			}
+			e := kfExpr(c.kfTrack(list), fps, fmt.Sprintf("(n+%d)", c.head-c.tin.ext()))
+			return strings.ReplaceAll(fmt.Sprintf("%d-round((%s)*%d)", m, e, h), ",", `\,`) // запятые в выражении экранированы для графа ffmpeg
+		}
 		// тень: сплошной цвет, прозрачность от слоя; цвет везде одинаковый, поэтому размывать можно без premultiply
-		soft := ""
-		if c.ShadowB > 0 {
-			soft = ",gblur=sigma=" + sigma(c.ShadowB) + ":steps=3"
+		lut, soft := "lutrgb", ""
+		if len(k.shadowA()) > 0 {
+			lut = fmt.Sprintf("lutrgb@a%d", c.input)
+			cmds = append(cmds, fxCmd{lut, []string{"a"}, func(n int) string { return "val*" + strconv.FormatFloat(fa(n), 'f', 4, 64) }})
+		}
+		if c.ShadowB > 0 || len(k.shadowB()) > 0 {
+			name := "gblur"
+			if len(k.shadowB()) > 0 {
+				name = fmt.Sprintf("gblur@s%d", c.input)
+				cmds = append(cmds, fxCmd{name, []string{"sigma", "sigmaV"}, func(n int) string { return sigma(fb(n)) }})
+			}
+			soft = "," + name + "=sigma=" + sigma(fb(0)) + ":sigmaV=" + sigma(fb(0)) + ":steps=3"
 		}
 		a, s, o := fmt.Sprintf("[fa%d]", c.input), fmt.Sprintf("[fb%d]", c.input), fmt.Sprintf("[fc%d]", c.input)
-		chain = append(chain, fmt.Sprintf("split=2%s%s;%sformat=rgba,pad=%d:%d:%d:%d:color=black@0,lutrgb=r=%d:g=%d:b=%d:a=val*%s%s,crop=%d:%d:%d:%d,format=%s%s;%s%soverlay=format=auto,format=%s",
-			a, s, a, w+2*m, h+2*m, m, m, r, g, b, strconv.FormatFloat(c.ShadowA, 'f', 4, 64), soft, w, h, m-dx, m-dy, pix, o, o, s, pix))
+		chain = append(chain, fmt.Sprintf("split=2%s%s;%sformat=rgba,pad=%d:%d:%d:%d:color=black@0,%s=r=%d:g=%d:b=%d:a=val*%s%s,crop=%d:%d:%s:%s,format=%s%s;%s%soverlay=format=auto,format=%s",
+			a, s, a, w+2*m, h+2*m, m, m, lut, r, g, b, strconv.FormatFloat(fa(0), 'f', 4, 64), soft, w, h,
+			shift(k.shadowX(), c.ShadowX), shift(k.shadowY(), c.ShadowY), pix, o, o, s, pix))
+	}
+	if cmd := tlFxCmds(cmds, c.shown(), fps); cmd != "" {
+		chain = append([]string{cmd}, chain...)
 	}
 	return chain
+}
+
+// fxCmd: команда фильтру на ходу: имя фильтра, какие его параметры меняются (все получают одно значение) и значение по номеру кадра клипа
+type fxCmd struct {
+	target string
+	names  []string
+	val    func(n int) string
+}
+
+// tlFxCmds: sendcmd для эффектов с ключами. Команды идут в тот кадр, где значение стало другим (первое задано в самом фильтре),
+// метка времени чуть раньше кадра, потому что команда действует на кадры с меткой не меньше своей.
+func tlFxCmds(cmds []fxCmd, frames int, fps float64) string {
+	if len(cmds) == 0 {
+		return ""
+	}
+	last := make([]string, len(cmds))
+	for i, c := range cmds {
+		last[i] = c.val(0)
+	}
+	var b strings.Builder
+	for n := 1; n < frames; n++ {
+		var now []string
+		for i, c := range cmds {
+			if v := c.val(n); v != last[i] {
+				last[i] = v
+				for _, name := range c.names {
+					now = append(now, c.target+" "+name+" "+v)
+				}
+			}
+		}
+		if len(now) > 0 {
+			fmt.Fprintf(&b, "%s %s;", kfNum((float64(n)-0.25)/fps), strings.Join(now, ","))
+		}
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "sendcmd=c='" + b.String() + "'"
 }
 
 var tlKeyRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -938,33 +1027,102 @@ func tlKeyChain(c Clip) []string {
 }
 
 func (c Clip) graded() bool {
-	return c.ColBri != 0 || c.ColCon != 0 || c.ColMid != 0 || c.ColSat != 0 || c.ColTemp != 0 || c.ColTint != 0
+	return c.ColBri != 0 || c.ColCon != 0 || c.ColMid != 0 || c.ColSat != 0 || c.ColTemp != 0 || c.ColTint != 0 || c.Keys.gradeKeyed()
 }
 
 // tlGradeChain: цветокоррекция в RGB, те же формулы и тот же порядок в просмотре (CHROMA_FRAG в web/js/chroma.js):
 // баланс белого, средние тона, контраст, яркость, насыщенность. Прозрачность не трогается.
-func tlGradeChain(c Clip, deep bool) []string {
+// С ключами (Keys.GB…GN) значения меняются по времени: lutrgb и colorchannelmixer принимают новые выражения и числа на ходу,
+// sendcmd шлёт их с шагом по времени файла (tlGradeCmds). Цвет считается до скорости и реверса, где время кадра — время файла.
+func tlGradeChain(c tlClip, fps float64, deep bool) []string {
 	num := func(v float64) string { return strconv.FormatFloat(v, 'f', 5, 64) }
 	pix := "format=rgba"
 	if deep {
 		pix = "format=rgba64le"
 	}
-	chain := []string{pix}
-	if c.ColBri != 0 || c.ColCon != 0 || c.ColMid != 0 || c.ColTemp != 0 || c.ColTint != 0 {
-		// запятые внутри выражения экранированы для графа ffmpeg
-		curve := func(gain float64) string {
-			return fmt.Sprintf(`maxval*clip((pow(clip(val/maxval*%s\,0\,1)\,%s)-0.5)*%s+0.5+(%s)\,0\,1)+0.5`,
-				num(gain), num(math.Pow(2, -c.ColMid)), num(math.Pow(2, 2*c.ColCon)), num(c.ColBri/2))
+	k := c.Keys
+	keyed := k.gradeKeyed()
+	// значения в секунду t от начала кадров клипа
+	at := func(t float64) (bri, con, mid, sat, temp, tint float64) {
+		s := c.from + t // секунда файла: -ss ставит начало на метку клипа
+		if c.photo {
+			s = t + float64(c.head)/fps
 		}
-		chain = append(chain, fmt.Sprintf("lutrgb=r=%s:g=%s:b=%s", curve(1+0.3*c.ColTemp), curve(1-0.3*c.ColTint), curve(1-0.3*c.ColTemp)))
+		v := func(list []Key, static float64) float64 {
+			if len(list) == 0 {
+				return static
+			}
+			return kfAt(list, s)
+		}
+		return v(k.pickG(0), c.ColBri), v(k.pickG(1), c.ColCon), v(k.pickG(2), c.ColMid), v(k.pickG(3), c.ColSat), v(k.pickG(4), c.ColTemp), v(k.pickG(5), c.ColTint)
 	}
-	if c.ColSat != 0 {
+	curve := func(gain, bri, con, mid float64) string {
+		return fmt.Sprintf("maxval*clip((pow(clip(val/maxval*%s,0,1),%s)-0.5)*%s+0.5+(%s),0,1)+0.5",
+			num(gain), num(math.Pow(2, -mid)), num(math.Pow(2, 2*con)), num(bri/2))
+	}
+	mixer := func(sat float64) []string {
 		const lr, lg, lb = 0.2126, 0.7152, 0.0722 // вклад каналов в яркость
-		s := 1 + c.ColSat
-		chain = append(chain, fmt.Sprintf("colorchannelmixer=rr=%s:rg=%s:rb=%s:gr=%s:gg=%s:gb=%s:br=%s:bg=%s:bb=%s",
-			num(lr*(1-s)+s), num(lg*(1-s)), num(lb*(1-s)),
-			num(lr*(1-s)), num(lg*(1-s)+s), num(lb*(1-s)),
-			num(lr*(1-s)), num(lg*(1-s)), num(lb*(1-s)+s)))
+		s := 1 + sat
+		return []string{num(lr*(1-s) + s), num(lg * (1 - s)), num(lb * (1 - s)),
+			num(lr * (1 - s)), num(lg*(1-s) + s), num(lb * (1 - s)),
+			num(lr * (1 - s)), num(lg * (1 - s)), num(lb*(1-s) + s)}
+	}
+	curves := func(bri, con, mid, temp, tint float64) [3]string {
+		return [3]string{curve(1+0.3*temp, bri, con, mid), curve(1-0.3*tint, bri, con, mid), curve(1-0.3*temp, bri, con, mid)}
+	}
+	esc := func(s string, by string) string { return strings.ReplaceAll(s, ",", by) } // запятые в выражении экранированы для графа ffmpeg
+	chain := []string{pix}
+	bri, con, mid, sat, temp, tint := at(0)
+	if !keyed {
+		bri, con, mid, sat, temp, tint = c.ColBri, c.ColCon, c.ColMid, c.ColSat, c.ColTemp, c.ColTint
+	}
+	var cmds []string
+	if keyed { // время от первого кадра, команды по сетке
+		chain = append(chain, "setpts=PTS-STARTPTS")
+		step := max(2/fps, c.cut/300) // обновление каждые два кадра и не больше 300 на клип: каждое пересчитывает таблицу цвета
+		var b strings.Builder
+		lastC, lastM := curves(bri, con, mid, temp, tint), mixer(sat)
+		for t := step; t < c.cut+step; t += step {
+			bri, con, mid, sat, temp, tint := at(t)
+			cc, mm := curves(bri, con, mid, temp, tint), mixer(sat)
+			var now []string
+			for i, ch := range []string{"r", "g", "b"} {
+				if cc[i] != lastC[i] {
+					now = append(now, fmt.Sprintf("lutrgb@g%d%s %s %s", c.input, ch, ch, esc(cc[i], `\\,`)))
+				}
+			}
+			for i, name := range []string{"rr", "rg", "rb", "gr", "gg", "gb", "br", "bg", "bb"} {
+				if mm[i] != lastM[i] {
+					now = append(now, fmt.Sprintf("colorchannelmixer@g%d %s %s", c.input, name, mm[i]))
+				}
+			}
+			lastC, lastM = cc, mm
+			if len(now) > 0 {
+				fmt.Fprintf(&b, "%s %s;", kfNum(max(t-step/2, 0.0001)), strings.Join(now, ","))
+			}
+		}
+		if b.Len() > 0 {
+			cmds = append(cmds, "sendcmd=c='"+b.String()+"'")
+		}
+		bri, con, mid, sat, temp, tint = at(0)
+	}
+	chain = append(chain, cmds...)
+	if keyed { // у каждого канала свой lutrgb: новая кривая одного канала пересчитывает только его таблицу, это втрое быстрее одного на всех
+		cc := curves(bri, con, mid, temp, tint)
+		for i, ch := range []string{"r", "g", "b"} {
+			chain = append(chain, fmt.Sprintf("lutrgb@g%d%s=%s=%s", c.input, ch, ch, esc(cc[i], `\,`)))
+		}
+	} else if bri != 0 || con != 0 || mid != 0 || temp != 0 || tint != 0 {
+		cc := curves(bri, con, mid, temp, tint)
+		chain = append(chain, fmt.Sprintf("lutrgb=r=%s:g=%s:b=%s", esc(cc[0], `\,`), esc(cc[1], `\,`), esc(cc[2], `\,`)))
+	}
+	if keyed || sat != 0 {
+		m := mixer(sat)
+		name := "colorchannelmixer"
+		if keyed {
+			name = fmt.Sprintf("colorchannelmixer@g%d", c.input)
+		}
+		chain = append(chain, fmt.Sprintf("%s=rr=%s:rg=%s:rb=%s:gr=%s:gg=%s:gb=%s:br=%s:bg=%s:bb=%s", name, m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]))
 	}
 	return chain
 }

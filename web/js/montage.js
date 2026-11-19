@@ -479,23 +479,23 @@ function mtFrameFill() {
   }
   mtSum('mtSumKey', clips.some(c => c.key) ? '●' : '');
   MT_COLOR.forEach(([id, key]) => mtVal(id, mtSame(clips, c => mtRnd((c[key] || 0) * 100, 0))));
-  mtSum('mtSumColor', clips.some(chromaGraded) ? '●' : '');
+  mtSum('mtSumColor', clips.some(c => chromaGraded(c) || ['gb', 'gc', 'gm', 'gs', 'gt', 'gn'].some(p => kfOn(c, p))) ? '●' : '');
   const blends = new Set(clips.map(c => c.blend || '')), sel = $('mtBlend');
   if (blends.size === 1) sel.value = clips[0].blend || ''; else sel.selectedIndex = -1;   // у выбранных клипов режимы разные
   mtSum('mtSumBlend', blends.size > 1 ? '●' : sel.value ? sel.selectedOptions[0].textContent : '');
-  const blur = mtSame(clips, c => mtRnd((c.blur || 0) * 100, 2)), shOn = clips.every(c => c.shA);
+  const blur = mtSame(clips, c => mtRnd((c.blur || 0) * 100, 2)), shOn = clips.every(c => c.shA || kfOn(c, 'sa'));
   mtVal('mtBlur', blur);
   mtSum('mtSumBlur', blur ? blur + '%' : clips.some(c => c.blur) ? '●' : '');
   $('mtShOn').checked = shOn;
   $('mtShBody').classList.toggle('hide', !shOn);
   if (shOn) {
     $('mtShC').value = clips[0].shC || '#000000';
-    mtVal('mtShA', mtSame(clips, c => mtRnd(c.shA * 100, 0)));
+    mtVal('mtShA', mtSame(clips, c => mtRnd((c.shA || 0) * 100, 0)));
     mtVal('mtShX', mtSame(clips, c => mtRnd((c.shX || 0) * 100, 2)));
     mtVal('mtShY', mtSame(clips, c => mtRnd((c.shY || 0) * 100, 2)));
     mtVal('mtShB', mtSame(clips, c => mtRnd((c.shB || 0) * 100, 2)));
   }
-  mtSum('mtSumShadow', clips.some(c => c.shA) ? '●' : '');
+  mtSum('mtSumShadow', clips.some(c => c.shA || kfOn(c, 'sa')) ? '●' : '');
   const fadeIn = mtSame(clips, c => c.fadeIn || 0), fadeOut = mtSame(clips, c => c.fadeOut || 0);
   mtVal('mtFadeIn', fadeIn);
   mtVal('mtFadeOut', fadeOut);
@@ -518,7 +518,7 @@ function mtFrameFill() {
   mtVal('mtCropT', crop[2]);
   mtVal('mtCropB', crop[3]);
   mtSum('mtSumMotion', x || y || scale !== 100 || rot || op !== 100 ? `${scale}% · ${rot}°` + (op !== 100 ? ` · ${op}%` : '') : '');
-  mtSum('mtSumCrop', crop.some(Boolean) ? '●' : '');
+  mtSum('mtSumCrop', crop.some(Boolean) || ['kl', 'kr', 'kt', 'kb'].some(p => kfOn(one, p)) ? '●' : '');
   $('mtCropMouse').classList.toggle('on', mv.crop === one.id);
 }
 function mtSoundFill() {
@@ -640,23 +640,23 @@ mtColor('mtKeyColor', v => mtFrameClips().forEach(c => { if (c.key) c.key = v; }
 $('mtKeyPick').addEventListener('click', () => { chromaPickToggle(); mtFramePanel(); });
 // цветокоррекция: в панели от -100 до 100, в клипе доли
 MT_COLOR.forEach(([id, key]) => mtRow(id, .5, v => mtFrameClips().forEach(c => mtPut(c, key, mtRnd(Math.min(Math.max(v, -100), 100) / 100, 3), 0))));
-$('mtColorReset').onclick = () => tkDo(() => mtFrameClips().forEach(c => MT_COLOR.forEach(x => delete c[x[1]])));
+$('mtColorReset').onclick = () => tkDo(() => mtFrameClips().forEach(c => { MT_COLOR.forEach(x => delete c[x[1]]); ['gb', 'gc', 'gm', 'gs', 'gt', 'gn'].forEach(p => kfSet(c, p, [])); }));
 $('mtBlend').addEventListener('change', e => { const v = e.target.value; tkDo(() => mtFrameClips().forEach(c => mtPut(c, 'blend', v, ''))); });
 // размытие и тень: в панели проценты высоты кадра, в клипе доли; предел как tlMaxBlur в timeline.go
-const mtFxRow = (id, key, lo, hi, on) => mtRow(id, .05, v => mtFrameClips().forEach(c => { if (!on || c.shA) mtPut(c, key, mtRnd(Math.min(Math.max(v, lo), hi) / 100, 4), 0); }));
+const mtFxRow = (id, key, lo, hi, on) => mtRow(id, .05, v => mtFrameClips().forEach(c => { if (!on || c.shA || kfOn(c, 'sa')) mtPut(c, key, mtRnd(Math.min(Math.max(v, lo), hi) / 100, 4), 0); }));
 mtFxRow('mtBlur', 'blur', 0, 20);
 mtFxRow('mtShX', 'shX', -50, 50, true);
 mtFxRow('mtShY', 'shY', -50, 50, true);
 mtFxRow('mtShB', 'shB', 0, 20, true);
-mtRow('mtShA', .5, v => mtFrameClips().forEach(c => { if (c.shA) c.shA = mtRnd(Math.min(Math.max(v, 1), 100) / 100, 3); }));
+mtRow('mtShA', .5, v => mtFrameClips().forEach(c => { if (c.shA || kfOn(c, 'sa')) mtPut(c, 'shA', mtRnd(Math.min(Math.max(v, kfOn(c, 'sa') ? 0 : 1), 100) / 100, 3), 0); }));
 $('mtShOn').addEventListener('change', e => {
   const on = e.target.checked;
   tkDo(() => mtFrameClips().forEach(c => {
     if (on) { if (!c.shA) Object.assign(c, {shA: .6, shX: .01, shY: .015, shB: .015, shC: '#000000'}); }
-    else ['shA', 'shX', 'shY', 'shB', 'shC'].forEach(key => delete c[key]);
+    else { ['shA', 'shX', 'shY', 'shB', 'shC'].forEach(key => delete c[key]); ['sa', 'sx', 'sy', 'sb'].forEach(p => kfSet(c, p, [])); }
   }));
 });
-mtColor('mtShC', v => mtFrameClips().forEach(c => { if (c.shA) c.shC = v; }));
+mtColor('mtShC', v => mtFrameClips().forEach(c => { if (c.shA || kfOn(c, 'sa')) c.shC = v; }));
 mtRow('mtVolume', .5,v => mtSoundClips().forEach(c => mtPut(c, 'vol', mtRnd(Math.min(Math.max(v, 0), 200) / 100, 3), 1)));
 
 // ---------- логотип: картинка на новой верхней дорожке, на весь монтаж, в правом верхнем углу ----------
