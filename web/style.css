@@ -335,8 +335,11 @@
   .mv-subs i[data-sc="se"]{right:0;bottom:0;cursor:nwse-resize}
   .mv-subs i[data-sc="n"]{left:calc(50% - 5.5px);top:0;cursor:ns-resize}
   .mv-subs i[data-sc="s"]{left:calc(50% - 5.5px);bottom:0;cursor:ns-resize}
-  .mv-subs i[data-sc="w"]{left:0;top:calc(50% - 5.5px);cursor:ew-resize}
-  .mv-subs i[data-sc="e"]{right:0;top:calc(50% - 5.5px);cursor:ew-resize}
+  /* левый и правый край: тянется вся сторона рамки (невидимая полоса), квадратик по центру остаётся ручкой */
+  .mv-subs i[data-sc="w"],.mv-subs i[data-sc="e"]{top:12px;height:calc(100% - 24px);width:11px;background:none;border:0;border-radius:0;cursor:ew-resize}
+  .mv-subs i[data-sc="w"]{left:0}
+  .mv-subs i[data-sc="e"]{right:0}
+  .mv-subs i[data-sc="w"]::after,.mv-subs i[data-sc="e"]::after{content:"";position:absolute;left:0;top:calc(50% - 5.5px);width:11px;height:11px;box-sizing:border-box;background:var(--acc);border:1px solid var(--on-acc);border-radius:2px}
   .mv-grid,.mv-safe{position:absolute;inset:0;z-index:998;pointer-events:none}
   .mv-grid i,.mv-safe i,.mv-safe u{position:absolute;border:0 solid rgba(var(--acc-rgb),.75)}
   .mv-grid i:nth-child(1){left:33.333%;top:0;bottom:0;border-left-width:1px}
