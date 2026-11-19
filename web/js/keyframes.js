@@ -245,9 +245,13 @@ function kfClipDrag(e, c, t0) {
 // c.anim = {i, o}: {k, d, e} — вид (KF_ANIMS), длительность на дорожке, кривая. По ним панель показывает выбор,
 // а новое применение заменяет ключи прошлого. Ключи свойства внутри отрезка анимации заменяются, ручные вне его остаются.
 // Поза в конце отрезка (для исчезания — в начале) берётся из ключей и полей клипа: туда слой прилетает или оттуда улетает.
-const KF_ANIMS = ['', 'left', 'right', 'top', 'bottom', 'zoom', 'spin', 'pop'];
-const KF_ANIM_PROPS = {left: ['x'], right: ['x'], top: ['y'], bottom: ['y'], zoom: ['w'], spin: ['w', 'r'], pop: ['w']};
+// fade — проявление/затухание на ключах непрозрачности o; shake — тряска (x, y, мягко нарастает и стихает внутри отрезка);
+// push — наезд камеры: ширина плавно растёт до (1 + сила) от позы отдыха и остаётся такой (поза отдыха у наезда на краю клипа, не на дальнем конце).
+const KF_ANIMS = ['', 'left', 'right', 'top', 'bottom', 'zoom', 'spin', 'pop', 'fade', 'shake', 'push'];
+const KF_ANIM_PROPS = {left: ['x'], right: ['x'], top: ['y'], bottom: ['y'], zoom: ['w'], spin: ['w', 'r'], pop: ['w'], fade: ['o'], shake: ['x', 'y'], push: ['w']};
+const KF_ANIM_STR = ['shake', 'push'];   // у этих есть сила (a.s, 0.1…1)
 const kfAProps = a => (a && KF_ANIM_PROPS[a.k]) || [];
+const kfAStr = s => Number.isFinite(s) ? +Math.min(Math.max(s, .1), 1).toFixed(2) : .5;
 const kfADef = {i: {d: .5, e: 'out'}, o: {d: .5, e: 'in'}};   // длина и кривая для клипа без анимации этой стороны
 let kfASide = 'i';
 const kfAEnd = c => Math.max(tkLen(c) - 1 / tkFps(), 0);   // кадр, на котором исчезание кончается: последний кадр клипа
@@ -264,6 +268,19 @@ function kfAPath(c, side, a, rest, end) {
   if (a.k === 'zoom' || a.k === 'spin') form.w = [[0, small, e], [1, rw]];
   if (a.k === 'spin') form.r = [[0, rest.r + (side === 'o' ? 360 : -360), e], [1, rest.r]];
   if (a.k === 'pop') form.w = [[0, small, 'out'], [.6, Math.min(rw * 1.12, MV_MAX_BOX), 'inout'], [.8, rw * .96, 'inout'], [1, rw]];
+  if (a.k === 'fade') form.o = [[0, 0, e], [1, rest.o]];
+  const st = a.s ?? .5;
+  if (a.k === 'push') { const big = Math.min(rw * (1.05 + .4 * st), MV_MAX_BOX); form.w = side === 'i' ? [[0, rw, e], [1, big]] : [[0, big, e], [1, rw]]; }
+  if (a.k === 'shake') {   // ~14 рывков в секунду, размах в пикселях одинаков по обеим осям, у краёв отрезка слой на месте
+    const n = Math.min(Math.max(Math.round(a.d * 14), 4), 150), ax = .06 * st, ay = ax * dims.w / dims.h;
+    form.x = [[0, rest.x, '']]; form.y = [[0, rest.y, '']];
+    for (let j = 1; j <= n; j++) {
+      const u = j / (n + 1), env = Math.sin(Math.PI * u);
+      form.x.push([u, rest.x + ax * env * (j % 2 ? 1 : -1) * (.6 + .4 * Math.abs(Math.sin(j * 2.1 + .5))), '']);
+      form.y.push([u, rest.y + ay * env * Math.sin(j * 3.7 + 1) * (.6 + .4 * Math.abs(Math.cos(j * 1.3))), '']);
+    }
+    form.x.push([1, rest.x]); form.y.push([1, rest.y]);
+  }
   const out = {};
   for (const p in form) {
     const f = form[p];
@@ -276,12 +293,14 @@ function kfAPath(c, side, a, rest, end) {
 function kfAnimSet(c, side, a) {
   kfPose(c, tkAt);
   const end = kfAEnd(c), half = kfHalf(), old = c.anim && c.anim[side], other = c.anim && c.anim[side === 'i' ? 'o' : 'i'];
-  if (a && a.k) a = {k: a.k, d: +Math.min(Math.max(a.d, .1), Math.max(end - (other ? other.d : 0), 0)).toFixed(3), ...(a.e ? {e: a.e} : {})};
+  if (a && a.k) a = {k: a.k, d: +Math.min(Math.max(a.d, .1), Math.max(end - (other ? other.d : 0), 0)).toFixed(3), ...(a.e ? {e: a.e} : {}), ...(KF_ANIM_STR.includes(a.k) ? {s: kfAStr(a.s)} : {})};
   if (a && (!a.k || a.d < 1.5 / tkFps())) a = null;   // места меньше двух кадров: анимации нет
   const d = a ? a.d : 0, D = Math.max(d, old ? Math.min(old.d, end) : 0), edge = side === 'i' ? D : end - D;
   const inZone = t => side === 'i' ? t <= D + half : t >= end - D - half;
   const now = kfNow(c), rest = {}, free = {};
-  for (const p of KF_PROPS) rest[p] = kfOn(c, p) ? kfAt(kfList(c, p), edge) : now[p];
+  // прошлый наезд оставил на дальнем конце «увеличенную» позу, поэтому поза отдыха берётся на краю клипа, где он начинался
+  const at = p => old && old.k === 'push' && p === 'w' ? (side === 'i' ? 0 : end) : edge;
+  for (const p of KF_PROPS) rest[p] = kfOn(c, p) ? kfAt(kfList(c, p), at(p)) : now[p];
   const path = a ? kfAPath(c, side, a, rest, end) : {};
   const key = (t, v, e) => ({s: +mvSrc(c, c.at + t).toFixed(4), v: +v.toFixed(6), ...(e ? {e} : {})});
   for (const p of new Set([...kfAProps(old), ...kfAProps(a)])) {
@@ -304,7 +323,7 @@ function kfAnimLoad(x) {
   const out = {};
   for (const s of ['i', 'o']) {
     const a = x[s];
-    if (a && a.k && KF_ANIMS.includes(a.k) && a.d > 0 && a.d < 3600) out[s] = {k: a.k, d: a.d, ...(KF_EASES.includes(a.e) && a.e ? {e: a.e} : {})};
+    if (a && a.k && KF_ANIMS.includes(a.k) && a.d > 0 && a.d < 3600) out[s] = {k: a.k, d: a.d, ...(KF_EASES.includes(a.e) && a.e ? {e: a.e} : {}), ...(KF_ANIM_STR.includes(a.k) ? {s: kfAStr(a.s)} : {})};
   }
   return out.i || out.o ? {anim: out} : {};
 }
@@ -313,7 +332,8 @@ function kfAnimLoad(x) {
 function kfAName(side, k) {
   const i = side === 'i';
   return {'': t('anim.none'), left: t(i ? 'anim.inLeft' : 'anim.outLeft'), right: t(i ? 'anim.inRight' : 'anim.outRight'), top: t(i ? 'anim.inTop' : 'anim.outTop'),
-    bottom: t(i ? 'anim.inBottom' : 'anim.outBottom'), zoom: t(i ? 'anim.inZoom' : 'anim.outZoom'), spin: t('anim.spin'), pop: t('anim.pop')}[k];
+    bottom: t(i ? 'anim.inBottom' : 'anim.outBottom'), zoom: t(i ? 'anim.inZoom' : 'anim.outZoom'), spin: t('anim.spin'), pop: t('anim.pop'),
+    fade: t(i ? 'anim.inFade' : 'anim.outFade'), shake: t('anim.shake'), push: t('anim.push')}[k];
 }
 function kfAIcon(side, k) {
   const arrow = deg => `<g transform="rotate(${deg} 12 12)"><path d="M4 12h15M13 6l6 6-6 6"/></g>`;
@@ -322,6 +342,9 @@ function kfAIcon(side, k) {
     : k === 'zoom' ? (side === 'i' ? '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>' : '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>') + '<rect x="9.5" y="9.5" width="5" height="5" rx="1"/>'
     : k === 'spin' ? '<path d="M20 11A8 8 0 1 0 17.7 17.7M20 4v7h-7"/>'
     : k === 'pop' ? '<path d="M3 20h18M4 16q4-12 8 0q4-8 8 0"/>'
+    : k === 'fade' ? '<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 3"/><path d="M' + (side === 'i' ? '4 20L20 4' : '4 4L20 20') + '"/>'
+    : k === 'shake' ? '<path d="M3 12l3-5 3 10 3-10 3 10 3-10 3 5"/>'
+    : k === 'push' ? '<rect x="3" y="6" width="18" height="12" rx="1.5"/><rect x="8" y="9" width="8" height="6" rx="1"/><path d="M3 3l4 4M21 3l-4 4M3 21l4-4M21 21l-4-4"/>'
     : '<circle cx="12" cy="12" r="8"/><path d="M6.5 17.5l11-11"/>';
   return `<svg viewBox="0 0 24 24">${body}</svg>`;
 }
@@ -331,32 +354,59 @@ function kfATiles() {
   box.dataset.side = kfASide + lang;
   box.innerHTML = KF_ANIMS.map(k => { const n = esc(kfAName(kfASide, k)); return `<button type="button" class="mt-anim-t" data-k="${k}" title="${n}">${kfAIcon(kfASide, k)}<span>${n}</span></button>`; }).join('');
 }
+// Раздел работает с одним клипом и с несколькими выбранными. Показывает общее: одинаковое у всех — значение, разное — пусто.
+// У нескольких клипов выбор плитки меняет их все за один шаг отмены.
+const kfAClips = () => mtFrameClips();
+const kfAOf = (c, side) => c.anim && c.anim[side];
+// общий вид и общее значение поля у всех клипов, где есть анимация этой стороны
+const kfACommon = (clips, side, f) => { const a0 = kfAOf(clips[0], side); if (!a0) return undefined; const v = f(a0); return clips.every(c => kfAOf(c, side) && f(kfAOf(c, side)) === v) ? v : undefined; };
 function kfAnimFill() {
-  const c = mtFrameOne();
-  if (!c) return;
-  const a = c.anim && c.anim[kfASide], cur = a || kfADef[kfASide], sel = $('mtAnimE');
+  const clips = kfAClips();
+  if (!clips.length) return;
+  const sel = $('mtAnimE'), kind = kfACommon(clips, kfASide, a => a.k);
+  const dd = kfACommon(clips, kfASide, a => a.d), ee = kfACommon(clips, kfASide, a => a.e || ''), ss = kfACommon(clips, kfASide, a => a.s ?? .5);
+  const cur = clips.every(c => kfAOf(c, kfASide)) ? {d: dd ?? '', e: ee ?? '', s: ss ?? ''} : {...kfADef[kfASide], s: kfADef[kfASide].s ?? .5};
   kfATiles();
-  for (const b of $('mtAnimSides').children) { b.classList.toggle('on', b.dataset.side === kfASide); b.classList.toggle('mark', !!(c.anim && c.anim[b.dataset.side])); }
-  for (const b of $('mtAnimTiles').children) b.classList.toggle('on', b.dataset.k === (a ? a.k : ''));
+  for (const b of $('mtAnimSides').children) { b.classList.toggle('on', b.dataset.side === kfASide); b.classList.toggle('mark', clips.some(c => kfAOf(c, b.dataset.side))); }
+  for (const b of $('mtAnimTiles').children) b.classList.toggle('on', b.dataset.k === (kind || ''));
   if (sel.dataset.lang !== lang) { sel.dataset.lang = lang; sel.innerHTML = KF_EASES.map(e => `<option value="${e}">${esc(kfEaseName(e))}</option>`).join(''); }
   sel.value = cur.e || '';
-  sel.disabled = !!a && a.k === 'pop';   // у отскока свои кривые
-  $('mtAnimD').max = $('mtAnimDR').max = Math.max(mtRnd(kfAEnd(c), 2), .1);
-  mtVal('mtAnimD', mtRnd(cur.d, 2));
-  mtSum('mtSumAnim', ['i', 'o'].filter(s => c.anim && c.anim[s]).map(s => (s === 'i' ? '↗' : '↘') + kfAName(s, c.anim[s].k)).join(' '));
+  sel.disabled = kind === 'pop' || kind === 'shake';   // у отскока и тряски свои кривые
+  $('mtAnimSRow').classList.toggle('hide', !clips.every(c => KF_ANIM_STR.includes((kfAOf(c, kfASide) || {}).k)));
+  $('mtAnimD').max = $('mtAnimDR').max = Math.max(mtRnd(Math.min(...clips.map(kfAEnd)), 2), .1);
+  mtVal('mtAnimD', cur.d === '' ? '' : mtRnd(cur.d, 2));
+  mtVal('mtAnimS', cur.s === '' ? '' : Math.round(cur.s * 100));
+  const sum = clips.length === 1 ? ['i', 'o'].filter(s => kfAOf(clips[0], s)).map(s => (s === 'i' ? '↗' : '↘') + kfAName(s, kfAOf(clips[0], s).k)).join(' ')
+    : ['i', 'o'].filter(s => clips.some(c => kfAOf(c, s))).map(s => s === 'i' ? '↗' : '↘').join(' ');
+  mtSum('mtSumAnim', sum);
 }
-// выбор в панели: у клипа с анимацией этой стороны меняется она, без анимации — запоминается на следующую
+// выбор в панели: у клипов с анимацией этой стороны меняется она, остальным ничего не ставится, а значение запоминается на следующую
 function kfAChange(ch) {
-  const c = mtFrameOne(), a = c && c.anim && c.anim[kfASide];
-  if (a) kfAnimSet(c, kfASide, {...a, ...ch});
-  else { Object.assign(kfADef[kfASide], ch); kfAnimFill(); }
+  const clips = kfAClips();
+  let plain = false;
+  for (const c of clips) {
+    const a = kfAOf(c, kfASide);
+    if (a) kfAnimSet(c, kfASide, {...a, ...ch}); else plain = true;
+  }
+  if (plain) { const {s, ...rest} = ch; Object.assign(kfADef[kfASide], rest, s === undefined ? {} : {s}); }
+  kfAnimFill();
 }
 $('mtAnimSides').onclick = e => { const b = e.target.closest('[data-side]'); if (b) { kfASide = b.dataset.side; kfAnimFill(); } };
 $('mtAnimTiles').onclick = e => {
-  const b = e.target.closest('[data-k]'), c = mtFrameOne();
-  if (!b || !c) return;
-  const base = (c.anim && c.anim[kfASide]) || kfADef[kfASide];
-  tkDo(() => kfAnimSet(c, kfASide, b.dataset.k ? {k: b.dataset.k, d: base.d, e: base.e} : null));
+  const b = e.target.closest('[data-k]'), clips = kfAClips();
+  if (!b || !clips.length) return;
+  const k = b.dataset.k, side = kfASide;
+  // общие длина, кривая и сила, если у всех клипов они одинаковые, иначе запомненные
+  const all = clips.every(c => kfAOf(c, side)), same = f => all ? kfACommon(clips, side, f) : undefined;
+  const base = {d: same(a => a.d) ?? kfADef[side].d, e: same(a => a.e || '') ?? kfADef[side].e, s: same(a => a.s ?? .5) ?? kfADef[side].s ?? .5};
+  tkDo(() => {
+    for (const c of clips) {
+      const cur = kfAOf(c, side);
+      const d = k === 'push' && !(cur && cur.k === 'push') ? kfAEnd(c) : base.d;   // наезд по умолчанию на весь клип
+      kfAnimSet(c, side, k ? {k, d, e: base.e, ...(KF_ANIM_STR.includes(k) ? {s: base.s} : {})} : null);
+    }
+  });
 };
 mtRow('mtAnimD', .02, v => kfAChange({d: v}));
+mtRow('mtAnimS', 1, v => kfAChange({s: v / 100}));
 $('mtAnimE').onchange = () => tkDo(() => kfAChange({e: $('mtAnimE').value}));
