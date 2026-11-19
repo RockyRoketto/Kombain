@@ -88,6 +88,11 @@ type SubFx struct {
 	Big  float64 `json:"big,omitempty"`
 	Keep bool    `json:"keep,omitempty"`
 	Soft bool    `json:"soft,omitempty"`
+	// «неон», «тряска», «глитч», «переворот» (subs_pop.go): Glow — цвет свечения неона; Str — сила (неон, тряска, глитч), 0,1–1;
+	// Hit — тряска только на громких словах (ВЕРХНИМ РЕГИСТРОМ или с «!»); у переворота время раскрытия — Dur
+	Glow string  `json:"glow,omitempty"`
+	Str  float64 `json:"str,omitempty"`
+	Hit  bool    `json:"hit,omitempty"`
 }
 
 const (
@@ -593,6 +598,27 @@ func (s Subs) fit() Subs {
 		if !subsHex.MatchString(s.Fx.Hi) {
 			s.Fx.Hi = subsActHiC
 		}
+	case "neon", "shake", "glitch":
+		f := s.Fx
+		s.Fx = SubFx{K: f.K, Str: min(max(f.Str, 0.1), 1)}
+		if f.Str <= 0 {
+			s.Fx.Str = subsStrDef
+		}
+		switch f.K {
+		case "neon":
+			s.Fx.Glow = f.Glow
+			if !subsHex.MatchString(s.Fx.Glow) {
+				s.Fx.Glow = subsNeonC
+			}
+		case "shake":
+			s.Fx.Hit = f.Hit
+		}
+	case "flip":
+		s.Fx = SubFx{K: "flip", Dur: s.Fx.Dur}
+		if s.Fx.Dur <= 0 {
+			s.Fx.Dur = subsFxDur
+		}
+		s.Fx.Dur = min(max(s.Fx.Dur, 0.1), 0.6)
 	default:
 		s.Fx = SubFx{}
 	}
@@ -629,6 +655,10 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 	col := subsAssColor(s.Color, 1)
 	fmt.Fprintf(&sb, "Style: Default,%s,%.2f,%s,%s,%s,&H00000000,0,0,0,0,100,100,0,0,%d,%.2f,0,%d,%d,%d,%d,-1\n\n",
 		s.Font, size, col, col, outlineCol, border, outline, align, marginL, marginR, marginV)
+	if s.Fx.K == "neon" { // без плашки и обводки: слои свечения задают \bord в событии
+		sb.WriteString(strings.TrimSuffix(fmt.Sprintf("Style: Neon,%s,%.2f,%s,%s,%s,&H00000000,0,0,0,0,100,100,0,0,1,0,0,%d,%d,%d,%d,-1\n",
+			s.Font, size, col, col, col, align, marginL, marginR, marginV), "\n") + "\n\n")
+	}
 	sb.WriteString("[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
 	esc := strings.NewReplacer("\n", `\N`, "{", `\{`, "}", `\}`)
 	place := "" // у рамки своей высоты текст по её центру; ширину переноса задают те же поля MarginL и MarginR
@@ -655,6 +685,14 @@ func subsASS(cues []SubCue, s Subs, w, h int) string {
 		if s.Fx.K == "act" && c.End > c.Start {
 			sb.WriteString(subsFxAct(c, text, s, w, h, place, esc))
 			continue
+		}
+		if c.End > c.Start {
+			if f := map[string]func(SubCue, string, Subs, int, int, string, *strings.Replacer) string{
+				"neon": subsFxNeon, "shake": subsFxShake, "glitch": subsFxGlitch, "flip": subsFxFlip,
+			}[s.Fx.K]; f != nil {
+				sb.WriteString(f(c, text, s, w, h, place, esc))
+				continue
+			}
 		}
 		fmt.Fprintf(&sb, "Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
 	}

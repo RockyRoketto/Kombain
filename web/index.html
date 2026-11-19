@@ -569,12 +569,19 @@ __CSS__
             <label class="mt-row" data-i18n-title="mt.chunkTip"><span data-i18n="mt.subsChunk"></span>
               <select id="mtSubsChunk"><option value="0" data-i18n="mt.chunkAll"></option><option value="1" data-i18n="mt.chunk1"></option><option value="2" data-i18n="mt.chunk2"></option><option value="3" data-i18n="mt.chunk3"></option><option value="-1" data-i18n="mt.chunkAuto"></option></select>
             </label>
+            <label class="mt-row" data-i18n-title="mt.presetTip"><span data-i18n="mt.presetLabel"></span>
+              <select id="mtSubsPreset"><option value="" data-i18n="mt.presetPick"></option><option value="hormozi" data-i18n="mt.presetHormozi"></option><option value="neon" data-i18n="mt.presetNeon"></option><option value="pop" data-i18n="mt.presetPop"></option><option value="glitch" data-i18n="mt.presetGlitch"></option><option value="clean" data-i18n="mt.presetClean"></option><option value="kar" data-i18n="mt.presetKar"></option><option value="type" data-i18n="mt.presetType"></option></select>
+            </label>
             <div class="mt-anim-tiles" id="mtSubsFx">
               <button type="button" class="mt-anim-t" data-fx=""><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5 17.5 6.5"/></svg><span data-i18n="mt.fxNone"></span></button>
               <button type="button" class="mt-anim-t" data-fx="type" data-i18n-title="mt.fxType"><svg viewBox="0 0 24 24"><path d="M3 8h9M3 12h6M3 16h3M15 5v14"/></svg><span data-i18n="mt.fxType"></span></button>
               <button type="button" class="mt-anim-t" data-fx="word" data-i18n-title="mt.fxWord"><svg viewBox="0 0 24 24"><path d="M3 16h5M10 16h5M17 16h4M19 12V6M17 8l2-2 2 2"/></svg><span data-i18n="mt.fxWord"></span></button>
               <button type="button" class="mt-anim-t" data-fx="kar" data-i18n-title="mt.fxKar"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="12" height="10" rx="5"/><path d="M17 12h5"/></svg><span data-i18n="mt.fxKar"></span></button>
               <button type="button" class="mt-anim-t" data-fx="act" data-i18n-title="mt.fxAct"><svg viewBox="0 0 24 24"><path d="M2 15h3M19 15h3M8 17l4-11 4 11M9.5 13h5"/></svg><span data-i18n="mt.fxAct"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="neon" data-i18n-title="mt.fxNeon"><svg viewBox="0 0 24 24"><path d="M12 3v2M4.5 6.5 6 8M19.5 6.5 18 8M9 18h6M10 21h4M8 12a4 4 0 1 1 8 0c0 2-1.5 3-2 4h-4c-.5-1-2-2-2-4z"/></svg><span data-i18n="mt.fxNeon"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="shake" data-i18n-title="mt.fxShake"><svg viewBox="0 0 24 24"><path d="M2 9l2 2-2 2M22 9l-2 2 2 2M7 6l-1 12M17 6l1 12M9 10h6M9 14h6"/></svg><span data-i18n="mt.fxShake"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="glitch" data-i18n-title="mt.fxGlitch"><svg viewBox="0 0 24 24"><path d="M3 8h12M9 12h12M3 16h8M15 16h6"/></svg><span data-i18n="mt.fxGlitch"></span></button>
+              <button type="button" class="mt-anim-t" data-fx="flip" data-i18n-title="mt.fxFlip"><svg viewBox="0 0 24 24"><path d="M3 12h18M6 4h12l-3 8M6 20h12l-3-8"/></svg><span data-i18n="mt.fxFlip"></span></button>
             </div>
             <div class="hide" id="mtSubsFxAct">
               <div class="mt-row go"><span data-i18n="mt.actHi"></span><button type="button" class="cp-sw" id="mtSubsActHi" data-i18n-aria="mt.actHi"></button></div>
@@ -582,6 +589,13 @@ __CSS__
               <label class="sw mt-each" data-i18n-title="mt.actKeepTip"><span data-i18n="mt.actKeep"></span><input type="checkbox" id="mtSubsActKeep"><i></i></label>
               <label class="sw mt-each" data-i18n-title="mt.actSoftTip"><span data-i18n="mt.actSoft"></span><input type="checkbox" id="mtSubsActSoft"><i></i></label>
               <div class="note" data-i18n="mt.fxActNote"></div>
+            </div>
+            <div class="hide" id="mtSubsFxPop">
+              <div class="mt-row go" id="mtSubsGlowRow"><span data-i18n="mt.neonGlow"></span><button type="button" class="cp-sw" id="mtSubsGlow" data-i18n-aria="mt.neonGlow"></button></div>
+              <div class="mt-row" data-n data-i18n-title="mt.altTip" id="mtSubsStrRow"><span data-i18n="mt.popStr"></span><input type="range" class="vol" id="mtSubsStrR" data-origin="50" min="10" max="100" step="1" data-i18n-aria="mt.popStr"><input type="number" id="mtSubsStr" min="10" max="100" step="1" data-i18n-aria="mt.popStr"></div>
+              <label class="sw mt-each" id="mtSubsHitRow" data-i18n-title="mt.shakeHitTip"><span data-i18n="mt.shakeHit"></span><input type="checkbox" id="mtSubsHit"><i></i></label>
+              <div class="mt-row" data-n data-i18n-title="mt.altTip" id="mtSubsFDurRow"><span data-i18n="mt.flipDur"></span><input type="range" class="vol" id="mtSubsFDurR" data-origin="0.3" min="0.1" max="0.6" step="0.01" data-i18n-aria="mt.flipDur"><input type="number" id="mtSubsFDur" min="0.1" max="0.6" step="0.01" data-i18n-aria="mt.flipDur"></div>
+              <div class="note" id="mtSubsPopNote"></div>
             </div>
             <div class="hide" id="mtSubsFxKar">
               <label class="mt-row"><span data-i18n="mt.karMode"></span>

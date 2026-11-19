@@ -5,7 +5,8 @@
 const SUBFX_CPS = 20, SUBFX_BLINK = .5, SUBFX_END = .85, SUBFX_CUR_W = .06;   // ширина курсора от высоты строки, как subsFxCurW
 const SUBFX_DUR = .3, SUBFX_BOUNCE = .15, SUBFX_PEAK = .6;   // как subsFxDur, subsFxPeak; отскок по умолчанию при первом выборе
 function subFxLoad(f) {
-  return {k: ['type', 'word', 'kar', 'act'].includes(f.k) ? f.k : '', ...(f.cps >= 1 && f.cps <= 100 ? {cps: f.cps} : {}),
+  return {k: ['type', 'word', 'kar', 'act', 'neon', 'shake', 'glitch', 'flip'].includes(f.k) ? f.k : '', ...(/^#[0-9a-f]{6}$/i.test(f.glow) ? {glow: f.glow} : {}),
+    ...(f.str >= .1 && f.str <= 1 ? {str: f.str} : {}), hit: f.hit === true,...(f.cps >= 1 && f.cps <= 100 ? {cps: f.cps} : {}),
     ...(/^#[0-9a-f]{6}$/i.test(f.hi) ? {hi: f.hi} : {}), ...(f.big >= 0 && f.big <= .3 ? {big: f.big} : {}), keep: f.keep === true, soft: f.soft === true,
     cur: /^#[0-9a-f]{6}$/i.test(f.cur) ? f.cur : '', blink: f.blink === true,
     ...(f.dur >= .1 && f.dur <= .6 ? {dur: f.dur} : {}), ...(f.bounce >= 0 && f.bounce <= .3 ? {bounce: f.bounce} : {}),
@@ -353,7 +354,20 @@ function subFxFill() {
   if (!s) return;
   const fx = s.fx || {};
   for (const b of $('mtSubsFx').children) b.classList.toggle('on', b.dataset.fx === (fx.k || ''));
-  mtSum('mtSumSubsFx', {type: t('mt.fxType'), word: t('mt.fxWord'), kar: t('mt.fxKar'), act: t('mt.fxAct')}[fx.k] || '');
+  mtSum('mtSumSubsFx', {type: t('mt.fxType'), word: t('mt.fxWord'), kar: t('mt.fxKar'), act: t('mt.fxAct'), neon: t('mt.fxNeon'), shake: t('mt.fxShake'), glitch: t('mt.fxGlitch'), flip: t('mt.fxFlip')}[fx.k] || '');
+  const pop = ['neon', 'shake', 'glitch', 'flip'].includes(fx.k);
+  $('mtSubsFxPop').classList.toggle('hide', !pop);
+  if (pop) {
+    $('mtSubsGlowRow').classList.toggle('hide', fx.k !== 'neon');
+    $('mtSubsStrRow').classList.toggle('hide', fx.k === 'flip');
+    $('mtSubsHitRow').classList.toggle('hide', fx.k !== 'shake');
+    $('mtSubsFDurRow').classList.toggle('hide', fx.k !== 'flip');
+    $('mtSubsGlow').value = fx.glow || SUBFX_POP.glow;
+    mtVal('mtSubsStr', Math.round((fx.str ?? SUBFX_POP.str) * 100));
+    $('mtSubsHit').checked = !!fx.hit;
+    mtVal('mtSubsFDur', fx.dur || SUBFX_DUR);
+    $('mtSubsPopNote').textContent = {neon: t('mt.fxNeonNote'), shake: t('mt.fxShakeNote'), glitch: t('mt.fxGlitchNote'), flip: t('mt.fxFlipNote')}[fx.k];
+  }
   $('mtSubsFxAct').classList.toggle('hide', fx.k !== 'act');
   $('mtSubsActHi').value = fx.hi || SUBFX_ACT.hi;
   mtVal('mtSubsActBig', Math.round((fx.big ?? SUBFX_ACT.big) * 100));
@@ -389,6 +403,8 @@ $('mtSubsFx').addEventListener('click', e => {
   else if (k === 'word' && !('bounce' in fx)) subFxSet({k, dur: fx.dur || SUBFX_DUR, bounce: SUBFX_BOUNCE});
   else if (k === 'kar' && !('m' in fx)) subFxSet({k, m: 'jump', ...SUBFX_KAR});
   else if (k === 'act' && !('hi' in fx)) subFxSet({k, ...SUBFX_ACT, soft: true});
+  else if (['neon', 'shake', 'glitch'].includes(k) && !('str' in fx)) subFxSet({k, ...SUBFX_POP});
+  else if (k === 'flip' && !('dur' in fx)) subFxSet({k, dur: SUBFX_DUR});
   else subFxSet({k});
 });
 mtColor('mtSubsActHi', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), hi: v}}));
@@ -411,3 +427,85 @@ $('mtSubsKarSmooth').addEventListener('change', () => { $('mtSubsKarSmooth').blu
 mtColor('mtSubsKarPill', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), pill: v}}));
 mtColor('mtSubsKarOn', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), on: v}}));
 mtRow('mtSubsKarR', .5, v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), r: Math.round(Math.min(Math.max(v, 0), 100)) / 100}}));
+// ---------- неон, тряска, глитч, переворот ----------
+// Зеркало subs_pop.go. Тряска, глитч и переворот — куски (subFxKarLay, класс mv-subs-p), неон — обычный текст с text-shadow.
+// Случайность одна с файлом: subFxHash. Сбой глитча: красная и голубая копии куска (::before, ::after) разъезжаются по --gx, --gy.
+const SUBFX_POP = {glow: '#ff2bd6', str: .5}, SUBFX_STEP = .04, SUBFX_SHAKE_STEPS = 8, SUBFX_GL_STEPS = 5, SUBFX_GL_PERIOD = 1.2;
+function subFxHash(a, b) {
+  let x = (Math.imul(a, 374761393) + Math.imul(b, 668265263) + 144665) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 1274126177) >>> 0;
+  return (((x ^ (x >>> 16)) >>> 0) & 0xffff) / 32768 - 1;
+}
+// громкий кусок: «!» или слово из двух и более букв целиком верхним регистром, как subsHit
+const subFxHit = text => text.includes('!') || text.split(/\s+/).some(w => { const l = [...w].filter(c => /\p{L}/u.test(c)); return l.length >= 2 && l.every(c => c !== c.toLowerCase()); });
+// свечение неона text-shadow: три слоя, ближний узкий, дальний широкий
+const subFxNeonShadow = (glow, size, str) => [.05, .14, .3].map(k => `0 0 ${(size * k * str * 2).toFixed(1)}px ${glow}`).join(',');
+function subFxPopPaint(span, cues, line, fx, at, s) {
+  const key = 'p' + JSON.stringify([fx.k, cues.map(c => [c.a, c.b, line(c), c.w]), s.font, s.w, s.size, Math.round(mvCv.clientWidth / mvCv.clientHeight * 1000)]);
+  if (span.dataset.k !== key) {
+    span.dataset.k = key;
+    span.textContent = '';
+    span.classList.add('mv-subs-kar');
+    subFxKarLay(span, cues, line, s, false, 'mv-subs-p');
+  }
+  const size = s.size * mvCv.clientHeight, str = fx.str ?? SUBFX_POP.str, set = (el, tf, gx, gy) => {
+    el.style.transform = tf; el.style.visibility = '';
+    el.style.setProperty('--gx', gx === undefined ? '0px' : gx + 'px'); el.style.setProperty('--gy', (gy || 0) + 'px');
+    el.classList.toggle('gl', gx !== undefined);
+  };
+  for (const {c, ch} of span._kar || []) {
+    const u = at - c.a, dur = c.b - c.a;
+    if (fx.k === 'shake') {
+      ch.forEach((k, i) => {
+        const j = Math.floor((u - k.t) / SUBFX_STEP + 1e-9);
+        if (u < k.t || j >= SUBFX_SHAKE_STEPS || (fx.hit && !subFxHit(k.text))) return set(k.el, '');
+        const f = 1 - j / SUBFX_SHAKE_STEPS, amp = size * .2 * str * f;
+        set(k.el, `translate(${(amp * subFxHash(j, i * 5 + 1)).toFixed(1)}px,${(amp * .6 * subFxHash(j, i * 5 + 2)).toFixed(1)}px) rotate(${(-10 * str * f * subFxHash(j, i * 5 + 3)).toFixed(1)}deg)`);
+      });
+    } else if (fx.k === 'flip') {
+      for (const k of ch) {
+        const d = Math.min(fx.dur || SUBFX_DUR, dur - k.t), p = u < k.t ? 0 : d > 0 ? Math.min((u - k.t) / d, 1) : 1;
+        set(k.el, p < 1 ? `perspective(2000px) rotateX(${90 * (1 - p)}deg)` : '');
+        k.el.style.opacity = p < 1 ? p : '';
+        if (u < k.t) k.el.style.visibility = 'hidden';
+      }
+    } else if (fx.k === 'glitch') {
+      const bi = Math.floor(u / SUBFX_GL_PERIOD + 1e-9), i = Math.floor((u - bi * SUBFX_GL_PERIOD) / SUBFX_STEP + 1e-9), on = i < SUBFX_GL_STEPS, j = bi * SUBFX_GL_STEPS + i;
+      const rows = {};
+      for (const k of ch) (rows[k.line] ||= []).push(k);
+      for (const [n, ks] of Object.entries(rows)) {
+        const a = ks[0].el, z = ks[ks.length - 1].el, cx = (a.offsetLeft + z.offsetLeft + z.offsetWidth) / 2;
+        for (const k of ks) {
+          if (!on) { set(k.el, ''); continue; }
+          const sx = 1 + .1 * str * subFxHash(j, n * 8 + 4), mx = size * .03 * str * subFxHash(j, n * 8 + 1), kc = k.el.offsetLeft + k.el.offsetWidth / 2;
+          set(k.el, `translateX(${(mx + (kc - cx) * (sx - 1)).toFixed(1)}px) scaleX(${sx.toFixed(3)})`,
+            size * .08 * str * (.4 + .6 * Math.abs(subFxHash(j, n * 8 + 3))), size * .02 * str * subFxHash(j, n * 8 + 2));
+        }
+      }
+    }
+  }
+}
+mtColor('mtSubsGlow', v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), glow: v}}));
+mtRow('mtSubsStr', .25, v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), str: Math.round(Math.min(Math.max(v, 10), 100)) / 100}}));
+mtRow('mtSubsFDur', .005, v => tkSubs && mtSubsLive({fx: {...(tkSubs.fx || {}), dur: Math.round(Math.min(Math.max(v, .1), .6) * 100) / 100}}));
+$('mtSubsHit').addEventListener('change', () => { $('mtSubsHit').blur(); subFxSet({hit: $('mtSubsHit').checked}); });
+// ---------- готовые стили ----------
+// Одна кнопка ставит цвет текста, режим кусков и эффект с настройками; шрифт, размер, рамка и положение не трогаются. Подложка снимается.
+const SUBFX_PRESETS = {
+  hormozi: {chunk: 2, fx: {k: 'act', ...SUBFX_ACT, soft: true}},
+  neon: {chunk: 3, fx: {k: 'neon', ...SUBFX_POP}},
+  pop: {chunk: -1, fx: {k: 'shake', ...SUBFX_POP, hit: true}},
+  glitch: {chunk: 3, fx: {k: 'glitch', ...SUBFX_POP}},
+  clean: {chunk: 2, fx: {k: 'word', dur: SUBFX_DUR, bounce: SUBFX_BOUNCE}},
+  kar: {chunk: 3, fx: {k: 'kar', m: 'jump', ...SUBFX_KAR}},
+  type: {chunk: 0, fx: {k: 'type', cps: SUBFX_CPS, cur: '#ffffff', blink: true}},
+};
+$('mtSubsPreset').addEventListener('change', () => {
+  const sel = $('mtSubsPreset'), p = SUBFX_PRESETS[sel.value];
+  sel.value = ''; sel.blur();
+  if (!p || !tkSubs) return;
+  tkDo(() => {
+    const {chunk, back, ...rest} = tkSubs;
+    tkSubs = {...rest, color: '#ffffff', ...(p.chunk ? {chunk: p.chunk} : {}), fx: {...p.fx}};
+  });
+});
