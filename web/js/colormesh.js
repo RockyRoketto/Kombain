@@ -386,6 +386,7 @@ function meshRender() {
 }
 let meshWas;
 cpField($('meshSw'), {
+  lock: {get: () => !!meshNode().lock, set: v => { const p = meshNode(); if (v) p.lock = true; else delete p.lock; clRender(); clSave(); }},
   live: v => { const p = meshNode(); if (meshWas === undefined) meshWas = p.c; p.c = cpHex(cpParse(v), false); $('meshHex').value = clUp(p.c); meshMapDraw(); meshDrawSoon(); },
   done: ok => { const p = meshNode(); if (!ok && meshWas !== undefined) p.c = meshWas; meshWas = undefined; clRender(); clSave(); }});
 $('meshHex').addEventListener('change', () => {

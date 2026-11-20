@@ -557,6 +557,7 @@ function clChips() {
       const s = () => cl.g.stops.find(x => x.id === +ch.dataset.id);
       let was;
       cpField(ch.querySelector('.cp-sw'), {alpha: true,
+        lock: {get: () => !!(s() || {}).lock, set: v => { const x = s(); if (x) { x.lock = v; clRender(); clSave(); } }},
         live: v => { const x = s(); if (x) { if (was === undefined) was = x.c; x.c = v; clRender(); } },
         done: ok => { const x = s(); if (x && !ok && was !== undefined) x.c = was; was = undefined; clRender(); clSave(); }});
     });

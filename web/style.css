@@ -546,10 +546,11 @@
   .mt-tab:disabled{opacity:.4;cursor:default}
   .mt-tab.mark::after{content:"";display:inline-block;width:5px;height:5px;margin-left:5px;border-radius:50%;background:var(--accs);vertical-align:middle}
   /* выбор цвета (colorpick.js): поле-образец и окно */
-  .cp-sw{box-sizing:border-box;width:100%;height:20px;padding:2px;background:var(--s2);border:1px solid var(--line2);border-radius:6px;cursor:pointer;display:block}
+  .cp-sw{position:relative;box-sizing:border-box;width:100%;height:20px;padding:2px;background:var(--s2);border:1px solid var(--line2);border-radius:6px;cursor:pointer;display:block}
   .cp-sw>i,.cp-recent i,.cp-cmp{display:block;width:100%;height:100%;border-radius:4px}
-  .cp-sw.alpha,.cp-recent button,.cp-cmp,.cp-al{--chk:var(--chk-img) 0 0/8px 8px}
-  .cp-sw.alpha{background:var(--chk) content-box,var(--s2)}
+  .cp-sw.alpha,.cp-recent button.a,.cp-cmp,.cp-al{--chk:var(--chk-img) 0 0/8px 8px}
+  .cp-sw.alpha::before{content:"";position:absolute;inset:2px;border-radius:4px;background:var(--chk)}   /* шахматка под прозрачностью с теми же скруглениями, что у цвета: иначе по углам видны белые клетки */
+  .cp-sw>i{position:relative}
   .cp-sw:hover:not(:disabled),.cp-sw.on{border-color:var(--accs)}
   .cp-sw:disabled{cursor:default;opacity:.4}
   .cp{position:fixed;z-index:1001;width:236px;padding:10px;box-sizing:border-box;display:flex;flex-direction:column;gap:9px;background:var(--s2);border:1px solid var(--line2);border-radius:10px;box-shadow:0 14px 36px -8px var(--sh);font-size:12px;color:var(--tx2)}
@@ -562,7 +563,7 @@
   .cp-al b{position:absolute;inset:0;border-radius:6px}
   .cp-bar i{position:absolute;top:-2px;width:8px;height:12px;margin-left:-6px;border:2px solid #fff;border-radius:4px;box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none}
   .cp-row{display:flex;align-items:center;gap:6px}
-  .cp-cmp{flex:none;display:flex;width:36px;height:22px;overflow:hidden;border:1px solid var(--line2);border-radius:6px;background:var(--chk)}
+  .cp-cmp{flex:none;display:flex;width:36px;height:22px;overflow:hidden;border:1px solid var(--line2);border-radius:6px;background:var(--chk);background-clip:padding-box}
   .cp-cmp>*{flex:1;border:0;padding:0;border-radius:0}
   .cp-was{cursor:pointer}
   .cp .cp-hex{box-sizing:border-box;flex:1;min-width:0;width:0;height:22px;padding:0 6px;border-radius:6px;font:inherit;font-family:ui-monospace,Consolas,monospace;text-transform:uppercase}
@@ -570,11 +571,16 @@
   .cp.alpha .cp-ap{display:flex}
   .cp .cp-a{box-sizing:border-box;width:40px;height:22px;padding:0 4px;border-radius:6px;font:inherit;-moz-appearance:textfield}
   .cp-a::-webkit-inner-spin-button,.cp-a::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-  .cp .cp-eye{flex:none;display:grid;place-items:center;width:26px;height:22px;padding:0;border-radius:6px}
+  .cp .cp-eye.btn{flex:none;display:grid;place-items:center;width:26px;min-width:0;height:22px;padding:0;border-radius:6px}
   .cp-recent{display:flex;flex-wrap:wrap;gap:4px}
-  .cp-recent button{width:18px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--line2);border-radius:4px;background:var(--chk) content-box;cursor:pointer}
+  .cp-recent button{position:relative;width:18px;height:18px;padding:2px;box-sizing:border-box;border:1px solid var(--line2);border-radius:4px;background:var(--s2);cursor:pointer}
+  .cp-recent button.a::before{content:"";position:absolute;inset:2px;border-radius:3px;background:var(--chk)}
+  .cp-recent button i{position:relative}
   .cp-recent button:hover{border-color:var(--accs)}
   .cp-foot{display:flex;justify-content:flex-end;gap:6px}
+  .cp-foot .btn.cp-lk{margin-right:auto;min-width:0;width:32px;padding:4px 0;display:inline-flex;align-items:center;justify-content:center;color:var(--dim)}
+  .cp-foot .btn.cp-lk svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .cp-foot .btn.cp-lk.on{color:var(--acct);border-color:rgba(var(--acl-rgb),.6)}
   .cp-foot .btn{min-width:64px;padding:4px 12px;border-radius:8px;font-size:12px}
   /* градиент: вид, полоса с точками, угол */
   .cp-kinds{display:flex;padding:2px;gap:2px;background:var(--s1);border:1px solid var(--line2);border-radius:8px}
@@ -1241,7 +1247,7 @@
   .cl-own input[type=number]{width:72px;padding:4px 8px}
   .cl-sp{flex:1}
   .mesh-map{display:grid;gap:3px;align-items:center;padding:4px;margin-right:4px;border:1px solid var(--line2);border-radius:10px;background:var(--s2)}
-  .mesh-map button{position:relative;width:var(--mw,18px);height:var(--mh,18px);padding:0;border:0;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);transition:transform .1s}
+  .mesh-map button{position:relative;width:var(--mw,18px);height:var(--mh,18px);padding:0;border:0;border-radius:5px;transition:transform .1s}
   .mesh-map button:hover{transform:scale(1.12)}
   .mesh-map button.on{box-shadow:0 0 0 2px var(--s2),0 0 0 3.5px var(--acct)}
   .mesh-map button svg{position:absolute;inset:0;margin:auto;width:min(12px,calc(var(--mh,18px) - 4px));height:min(12px,calc(var(--mh,18px) - 4px));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.7))}

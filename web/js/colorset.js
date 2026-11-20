@@ -75,6 +75,7 @@ function csColsDraw() {
       const id = +el.dataset.id;
       let was;
       cpField(el.querySelector('.cs-sw'), {
+        lock: {get: () => !!(find(id) || {}).lock, set: v => { const x = find(id); if (x) { x.lock = v; csRender(); csSave(); } }},
         live: v => { const x = find(id); if (x) { if (was === undefined) was = x.c; x.c = v; csSel = x; csRender(); } },
         done: ok => { const x = find(id); if (x && !ok && was !== undefined) x.c = was; was = undefined; csRender(); csSave(); }});
     });

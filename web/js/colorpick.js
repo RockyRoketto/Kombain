@@ -111,7 +111,7 @@ cpBox.innerHTML = `<div class="cp-kinds hide"><button type="button" data-k=""></
 <input type="text" class="cp-hex" spellcheck="false" maxlength="9"><label class="cp-ap"><input class="cp-a" type="number" min="0" max="100" step="1">%</label>
 <button type="button" class="btn sm cp-eye"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M10.6 1.9a1.9 1.9 0 0 1 2.7 0l.8.8a1.9 1.9 0 0 1 0 2.7l-1.5 1.5.6.6-1.1 1.1-.6-.6-5.2 5.2H3.5L2 14.7l-.7-.7 1.5-1.5v-2.8L8 4.5l-.6-.6 1.1-1.1.6.6zM3.8 10.3v1.9h1.9l5-5-1.9-1.9z" fill="currentColor"/></svg></button></div>
 <div class="cp-recent"></div>
-<div class="cp-foot"><button type="button" class="btn sm cp-no"></button><button type="button" class="btn sm primary cp-ok"></button></div>`;
+<div class="cp-foot"><button type="button" class="btn sm cp-lk hide"></button><button type="button" class="btn sm cp-no"></button><button type="button" class="btn sm primary cp-ok"></button></div>`;
 document.body.append(cpBox);
 const cpQ = s => cpBox.querySelector(s);
 function cpTexts() {
@@ -159,6 +159,8 @@ function cpOpen(el) {
   cpTexts();
   cpQ('.cp-kinds').classList.toggle('hide', !cp.opt.grad);
   cpQ('.cp-was').style.background = cpCss(cp.was);
+  cpQ('.cp-lk').classList.toggle('hide', !cp.opt.lock);
+  cpLockPaint();
   cpFillRecent();
   el.classList.add('on');
   cpBox.classList.remove('hide');
@@ -167,6 +169,17 @@ function cpOpen(el) {
   cpQ('.cp-ok').focus({preventScroll: true});
   if (cpHook) cpHook();
 }
+// замочек в окне: у поля opt.lock {get, set} — закреплён ли цвет («Случайно» его не трогает); меняется сразу, «Отмена» его не откатывает
+function cpLockPaint() {
+  const b = cpQ('.cp-lk');
+  if (!cp || !cp.opt.lock) return;
+  const on = !!cp.opt.lock.get();
+  b.innerHTML = on ? CL_ICO.lock : CL_ICO.open;
+  b.classList.toggle('on', on);
+  b.title = t(on ? 'cl.unlock' : 'cl.lock');
+  b.setAttribute('aria-label', b.title);
+}
+cpQ('.cp-lk').addEventListener('click', () => { if (cp && cp.opt.lock) { cp.opt.lock.set(!cp.opt.lock.get()); cpLockPaint(); } });
 // у поля: снизу, если не помещается — сверху; по краям окна не вылезает
 function cpPlace() {
   const r = cp.el.getBoundingClientRect(), w = cpBox.offsetWidth, h = cpBox.offsetHeight, m = 8;
@@ -253,6 +266,7 @@ function cpFillRecent() {
     b.type = 'button';
     b.title = v.slice(1).toUpperCase();
     b.dataset.v = v;
+    if (cpParse(v).a < 1) b.className = 'a';   // шахматка только у полупрозрачных
     b.append(document.createElement('i'));
     b.firstChild.style.background = v;
     box.append(b);
