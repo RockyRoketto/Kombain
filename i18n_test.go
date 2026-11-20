@@ -177,6 +177,7 @@ func TestNoStrayRussian(t *testing.T) {
 		`"Конвертер 9000.lnk"`: true,
 		`"для без над под при про или the and for with"`: true, // subtitles.go: служебные слова эффекта «по слову»
 	}
+	allowed["`(?i)\\b(man|men|woman|women|person|people|boy|girl|child|kid|portrait|hand|hands|finger|fingers|face|he|she|his|her)\\b|муж|женщ|человек|люд|рук|палец|пальц|парен|девуш|дев[оч]|мальч|ребён|портрет|лиц`"] = true // genpresets.go: ищет людей в запросе пользователя
 	for name, f := range files {
 		if name == "i18n_strings.go" {
 			continue
