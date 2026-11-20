@@ -205,17 +205,23 @@ func (l *llmServer) start(ctx context.Context, eyes bool) (string, error) {
 
 // llmSystem: указания модели. Выводы сессии 2: без запрета шаблонных тегов Gemma дописывает «8k, masterpiece» даже
 // логотипу, иногда меняет возраст и число объектов («котёнок» вместо «кот»), а размытый запрос додумывает сюжетом.
-const llmSystem = `You write prompts for a text-to-image model (Stable Diffusion XL). The user gives a short request, possibly in Russian or another language.
-Rewrite it as ONE detailed English image prompt of 40-90 words: the main subject first (if the request is a landscape, a place or an atmosphere, start with the setting and describe the place itself), then setting, composition, viewpoint, lighting, mood.
+// 2026-11-20 (жалоба автора: «Seen from a low angle», камни и горы, стеклянное сердечко вместо жеста): короче, жесты буквально,
+// простой фон без выдуманных пейзажей, подсказка «Variation:» не в начало, формат кадра от стиля строкой «Format:».
+const llmSystem = `You write prompts for a text-to-image model. The user gives a short request, possibly in Russian or another language.
+Rewrite it as ONE clear English image prompt of 25-70 words (a short simple request gets a short prompt). Start with the main subject and what it does, exactly as the request says (if the request is a landscape, a place or an atmosphere, start with the place itself). Then add only what helps to draw it: plain looks of the subject, a fitting background, light.
 Rules:
 - Keep every fact from the request. Do not change the number, age, gender or kind of objects (a cat stays a cat, not a kitten).
+- Spend most words on the subject and the action from the request. Describe actions, gestures and poses literally and physically, what the body and hands do (example: "makes a heart sign" becomes "holds both hands in front of his chest, fingers curved and thumbs touching to form a heart shape"). Never turn a gesture into a separate object or symbol floating in the air.
+- Describe people plainly and briefly (hair, clothes). Do not invent backstory, emotions, scars, "weathered" skin or a precise age the request does not give.
+- BACKGROUND: if the request names no place, keep the background simple, ordinary and fitting the subject (a person: a plain studio backdrop, a softly blurred room or street; an object: a plain surface or backdrop). NEVER invent landscapes, mountains, rocks, boulders, ruins, fog, mist, storms or dramatic skies the request does not mention.
 - NEVER add a person, animal, vehicle, building or any other main object that the request does not mention. A request about a place, weather or mood has NO people and NO animals in it: describe an empty place (example: "mountains in the rain" gives only peaks, mist, rain, rocks, trees, light, never a hiker). You may add only details of the environment itself (weather, terrain, plants, light, water). Do not name a brand or car model unless the request does.
 - If the request has several people, describe each one separately (left / center / right, clothing or uniform, pose, what they hold). Give them clearly different clothes and colors, never identical uniforms, unless the request says they are a team.
 - Do not impose a color palette (for example "deep blues and oranges") unless the request names colors.
 - Do not add text, letters, captions or logos.
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
-- The user message may end with a "Camera:" line. Name that viewpoint in your own words in the first sentence (for example, for "wide shot from far away": "Seen from far away, ..."), and do not repeat the "Camera:" line itself. Use its light only if the request does not set the time of day or weather. The camera line only changes how the same scene is seen: it never adds objects, never invents a place or background the request does not give, and never replaces the separate description of each person.
+- The user message may have a "Format:" line: what this kind of picture needs (for example one object on a plain background). Follow it over the background rule, but never name the style itself.
+- The user message may have a "Variation:" line: a framing and a light to make this picture a bit different. Use them quietly in the middle or end of the prompt (for example "medium shot", "soft window light"). Never start the prompt with the framing, never write "Seen from", never repeat the "Variation:" line. Use its light only if the request does not set the time of day or weather. It never adds objects, places or backgrounds.
 - Output only the prompt: no quotes, no explanations, no lists.
 - The user message may have a "References:" block: images the user attached, already described in words. "@N" in the request means reference N: write what that reference shows instead, never the "@N" itself.
 - A "character" reference: put that same character into the scene of the request with the looks from its description (kind, age, face, hair, body, clothes and their colors). The request decides the pose, action and place.
@@ -351,33 +357,39 @@ func (l *llmServer) llmDescribe(ctx context.Context, base string, refs []GenRef)
 const llmLookSide = 896
 
 // Разнообразие при повторном «Создать» (турбо-модели почти не меняют композицию от зерна, поэтому меняем сам промт):
-// к запросу дописывается случайная пара «ракурс + свет». Новых объектов они не добавляют, свет — только если запрос его не задал.
+// к запросу дописывается случайная пара «кадр + свет». Новых объектов они не добавляют, свет — только если запрос его не задал.
+// Жалоба автора 2026-11-20: «low angle from near the ground» и «wide shot from far away» каждый раз давали «Seen from a low
+// angle» в начале промта, землю, камни и горы вокруг. Поэтому здесь только спокойные кадры, а в начало промта они не идут.
 var llmViews = []string{
-	"wide shot from far away",
-	"low angle from near the ground",
-	"high angle looking down",
-	"close-up that fills the frame",
-	"off-center framing",
-	"straight-on centered framing",
-	"three-quarter side view",
-	"diagonal framing",
+	"medium shot",
+	"closer framing",
+	"front view",
+	"three-quarter view",
+	"slightly off-center framing",
+	"slightly from above",
 }
 
 var llmLights = []string{
 	"soft diffused light",
-	"low warm sunlight",
+	"warm daylight",
 	"cool morning light",
-	"strong light and shadow",
-	"backlight",
-	"even overcast light",
+	"soft window light",
+	"bright even light",
+	"gentle side light",
 }
 
-// llmVariations: n разных подсказок для одной пачки картинок
-func llmVariations(n int) []string {
+// llmVariations: n разных подсказок для одной пачки картинок. framed — кадр задаёт сам стиль (Framed: один предмет на фоне,
+// вид сверху), меняется только свет.
+func llmVariations(n int, framed bool) []string {
 	views, lights := rand.Perm(len(llmViews)), rand.Perm(len(llmLights))
 	out := make([]string, n)
 	for i := range out {
-		out[i] = fmt.Sprintf("Camera: %s, %s.", llmViews[views[i%len(views)]], llmLights[lights[i%len(lights)]])
+		l := llmLights[lights[i%len(lights)]]
+		if framed {
+			out[i] = "Variation: " + l + "."
+		} else {
+			out[i] = fmt.Sprintf("Variation: %s, %s.", llmViews[views[i%len(views)]], l)
+		}
 	}
 	return out
 }
@@ -395,7 +407,8 @@ var reLLMClean = regexp.MustCompile(`(?is)^\s*(?:prompt\s*:\s*)?["'«“]?(.*?)[
 // (картинки одной пачки и повторные «Создать» выходят разными). refs — референсы: помощник (если у него
 // есть глаза) описывает их словами и вплетает в промт. own — «Писать промт самому»: запрос не переписывается,
 // к нему только дописываются описания персонажа и стиля. noChar — id референсов «Персонаж», на которых персонажа не нашлось.
-func llmEnhance(ctx context.Context, request string, n int, refs []GenRef, own bool) (prompts, noChar []string, err error) {
+// preset — выбранный стиль: его строка «Format:» говорит помощнику, какой кадр нужен (у 3D-иконки — один предмет без сцены).
+func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRef, own bool) (prompts, noChar []string, err error) {
 	request = strings.TrimSpace(request)
 	if request == "" {
 		return nil, nil, errT("ai.noPrompt")
@@ -433,8 +446,12 @@ func llmEnhance(ctx context.Context, request string, n int, refs []GenRef, own b
 	}
 	mention := func(n int) bool { return llmMentions(request, n) }
 	out := make([]string, 0, n)
-	for _, v := range llmVariations(n) {
+	pre := genPreset(preset)
+	for _, v := range llmVariations(n, pre.Framed) {
 		user := request + "\n\n" + v
+		if pre.Format != "" {
+			user += "\nFormat: " + pre.Format
+		}
 		if block != "" {
 			user += "\n\n" + block
 		}
@@ -507,10 +524,12 @@ func (l *llmServer) chat(ctx context.Context, base string, msgs []map[string]any
 	return out.Choices[0].Message.Content, nil
 }
 
-// llmClean: без кавычек, «Prompt:», переводов строк и повтора подсказки «Camera:» (Gemma иногда дописывает её в конец)
+// llmClean: без кавычек, «Prompt:», переводов строк и повтора подсказок «Variation:»/«Format:» (Gemma иногда дописывает их в конец)
 func llmClean(s string) string {
-	if i := strings.Index(s, "Camera:"); i > 0 {
-		s = s[:i]
+	for _, tag := range []string{"Variation:", "Format:", "Camera:"} {
+		if i := strings.Index(s, tag); i > 0 {
+			s = s[:i]
+		}
 	}
 	s = strings.Join(strings.Fields(s), " ")
 	if m := reLLMClean.FindStringSubmatch(s); m != nil {

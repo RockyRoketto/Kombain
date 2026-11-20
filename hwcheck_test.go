@@ -2,6 +2,7 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -40,19 +41,27 @@ func TestHWJudge(t *testing.T) {
 
 func TestLLMClean(t *testing.T) {
 	for in, want := range map[string]string{
-		`"A red fox in snow, golden light"`:                                             "A red fox in snow, golden light",
-		"Prompt: a cat on a sofa,\n soft light ":                                        "a cat on a sofa, soft light",
-		"«a lighthouse at dusk»":                                                        "a lighthouse at dusk",
-		"Seen from far away, peaks in fog. Camera: wide shot from far away, backlight.": "Seen from far away, peaks in fog.",
+		`"A red fox in snow, golden light"`:                                 "A red fox in snow, golden light",
+		"Prompt: a cat on a sofa,\n soft light ":                            "a cat on a sofa, soft light",
+		"«a lighthouse at dusk»":                                            "a lighthouse at dusk",
+		"Peaks in fog, medium shot. Variation: medium shot, warm daylight.": "Peaks in fog, medium shot.",
+		"A red mug on a table. Format: one object":                          "A red mug on a table.",
 	} {
 		if got := llmClean(in); got != want {
 			t.Errorf("llmClean(%q) = %q, want %q", in, got, want)
 		}
 	}
 	// подсказки разнообразия в одной пачке не повторяются
-	vs := llmVariations(4)
-	if len(vs) != 4 || len(slices.Compact(slices.Sorted(slices.Values(vs)))) != 4 {
-		t.Errorf("variations %q", vs)
+	for _, obj := range []bool{false, true} {
+		vs := llmVariations(4, obj)
+		if len(vs) != 4 || len(slices.Compact(slices.Sorted(slices.Values(vs)))) != 4 {
+			t.Errorf("variations %q", vs)
+		}
+		for _, v := range vs {
+			if obj && strings.Contains(v, ",") {
+				t.Errorf("у стиля-предмета кадр не меняется: %q", v)
+			}
+		}
 	}
 }
 

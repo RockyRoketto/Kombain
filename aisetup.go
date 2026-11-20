@@ -514,7 +514,7 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 			Own    bool     `json:"own"`   // «Писать промт самому»: только дописать описания референсов
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		p, noChar, err := llmEnhance(r.Context(), body.Prompt, body.Count, genRefsClean(body.Refs), body.Own)
+		p, noChar, err := llmEnhance(r.Context(), body.Prompt, body.Preset, body.Count, genRefsClean(body.Refs), body.Own)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return

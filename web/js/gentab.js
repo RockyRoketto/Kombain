@@ -22,14 +22,36 @@ const GN_GRAD = {
   pixel: 'linear-gradient(135deg,#5b6ee1,#37946e 55%,#fbf236)',
   neon: 'linear-gradient(135deg,#120a2a,#ff2bd6 55%,#00e5ff)',
   minimal: 'linear-gradient(135deg,#f1ede4,#d8cfc0 60%,#b7a58a)',
+  portrait: 'radial-gradient(circle at 50% 35%,#e8c4a8,#8a6a5a 55%,#2a2224)',
+  food: 'radial-gradient(circle at 45% 45%,#f4c06a,#c0563a 55%,#3a2a20)',
+  macro: 'radial-gradient(circle at 40% 40%,#c8f08a,#3f8a4a 50%,#10200f)',
+  aerial: 'linear-gradient(135deg,#5f8f4a 0 40%,#c9b98a 40% 55%,#3a6a8a 55%)',
+  bw: 'linear-gradient(135deg,#f0f0f0,#7a7a7a 55%,#141414)',
+  cartoon: 'linear-gradient(135deg,#ffde59,#ff7f50 50%,#5ec6ff)',
+  storybook: 'linear-gradient(160deg,#f6e3b4,#e7a977 55%,#7aa37a)',
+  impress: 'linear-gradient(135deg,#9cc3e6,#f3d27a 50%,#a5c48a)',
+  ink: 'linear-gradient(135deg,#f4f1ea 0 45%,#1a1a1a 45% 55%,#f4f1ea 55%)',
+  popart: 'linear-gradient(135deg,#ff3d7f 0 33%,#ffe14d 33% 66%,#2ec4ff 66%)',
+  render3d: 'radial-gradient(circle at 35% 30%,#ffd6a5,#ff8fab 50%,#5a4fcf)',
+  clay: 'radial-gradient(circle at 40% 35%,#f7b267,#f25c54 55%,#5a3a6a)',
+  isometric: 'linear-gradient(135deg,#b8e0d2,#95b8d1 50%,#eac4d5)',
+  sticker: 'radial-gradient(circle at 50% 50%,#ff9f1c 0 38%,#fff 38% 46%,#2a2a35 46%)',
+  flaticon: 'radial-gradient(circle at 50% 50%,#4cc9f0 0 35%,#3a0ca3 35%)',
+  lineart: 'repeating-linear-gradient(135deg,#fafafa 0 10px,#222 10px 12px)',
+  papercut: 'radial-gradient(circle at 50% 110%,#2d6a4f 0 30%,#52b788 30% 50%,#b7e4c7 50% 70%,#f1faee 70%)',
+  poster: 'linear-gradient(180deg,#f4a259 0 45%,#bc4b51 45% 70%,#2b4162 70%)',
+  synthwave: 'linear-gradient(180deg,#2b1055 0%,#d53a9d 55%,#ffcc66 100%)',
+  blueprint: 'repeating-linear-gradient(0deg,#1d4e89 0 14px,#5c8dd6 14px 15px)',
 };
 // стили с картинкой-примером web/styles/<id>.jpg (её отдаёт /styles/ из genapi.go); без файла плитка показывает градиент
-const GN_IMG = new Set(['anime', 'cinema', 'comic', 'fantasy', 'flat', 'icon3d', 'illus', 'lowpoly', 'minimal', 'neon', 'none', 'oil', 'photo', 'pixel', 'product', 'retro', 'sketch', 'water']);
+const GN_IMG = new Set(['anime', 'cinema', 'comic', 'fantasy', 'flat', 'icon3d', 'illus', 'lowpoly', 'minimal', 'neon', 'none', 'oil', 'photo', 'pixel', 'product', 'retro', 'sketch', 'water',
+  'portrait', 'food', 'macro', 'aerial', 'bw', 'cartoon', 'storybook', 'impress', 'ink', 'popart', 'render3d', 'clay', 'isometric', 'sticker', 'flaticon', 'lineart', 'papercut', 'poster', 'synthwave', 'blueprint']);
 // группы в окне «Ещё стили…»
 const GN_GROUPS = {
-  photo: ['photo', 'cinema', 'product', 'retro'],
-  art: ['illus', 'anime', 'water', 'oil', 'sketch', 'comic', 'fantasy'],
-  gfx: ['icon3d', 'flat', 'lowpoly', 'pixel', 'neon', 'minimal'],
+  photo: ['photo', 'portrait', 'cinema', 'product', 'food', 'macro', 'aerial', 'bw', 'retro'],
+  art: ['illus', 'cartoon', 'storybook', 'anime', 'water', 'oil', 'impress', 'sketch', 'ink', 'comic', 'popart', 'fantasy'],
+  gfx: ['icon3d', 'render3d', 'clay', 'lowpoly', 'isometric', 'pixel'],
+  design: ['sticker', 'flaticon', 'flat', 'lineart', 'papercut', 'poster', 'minimal', 'neon', 'synthwave', 'blueprint'],
 };
 const GN_VIS = 5;                                    // сколько стилей видно плитками, шестая плитка — «Ещё стили…»
 const GN_VIS_DEF = ['photo', 'cinema', 'illus', 'icon3d', 'anime'];
@@ -264,7 +286,7 @@ function gnStylesList() {
   const q = $('gnStylesQ').value.trim().toLowerCase();
   const hit = p => !q || (gnPreName(p) + ' ' + (I18N[lang]['gn.preHint.' + p] || '')).toLowerCase().includes(q);
   const known = new Set(Object.values(GN_GROUPS).flat());
-  const grpNames = {photo: t('gn.grp.photo'), art: t('gn.grp.art'), gfx: t('gn.grp.gfx')};
+  const grpNames = {photo: t('gn.grp.photo'), art: t('gn.grp.art'), gfx: t('gn.grp.gfx'), design: t('gn.grp.design')};
   const groups = Object.entries(GN_GROUPS).map(([g, ids]) => [grpNames[g] || g, ids]);
   const rest = (gn.info?.presets || []).filter(p => p !== 'none' && !known.has(p));
   if (rest.length) groups.push(['', rest]);

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/fs"
 	"strings"
 	"testing"
 )
@@ -37,6 +38,11 @@ func TestGenSize(t *testing.T) {
 }
 
 func TestGenPresets(t *testing.T) {
+	js, err := fs.ReadFile(webFS, "web/js/gentab.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gnImg, _, _ := strings.Cut(string(js[strings.Index(string(js), "const GN_IMG"):]), "]);")
 	seen := map[string]bool{}
 	for _, p := range genPresets {
 		for _, l := range []string{langRU, langEN} {
@@ -50,6 +56,13 @@ func TestGenPresets(t *testing.T) {
 		seen[p.ID] = true
 		if !strings.Contains(p.Template, "{p}") {
 			t.Errorf("%s: template without {p}", p.ID)
+		}
+		// правило автора 2026-11-20: новый стиль сразу с картинкой-примером, а не градиентом
+		if _, err := fs.Stat(webFS, "web/styles/"+p.ID+".jpg"); err != nil {
+			t.Errorf("%s: нет картинки-примера web/styles/%s.jpg (рецепт в notes/imagegen.md, сессия 9)", p.ID, p.ID)
+		}
+		if !strings.Contains(gnImg, "'"+p.ID+"'") {
+			t.Errorf("%s: нет в GN_IMG в web/js/gentab.js", p.ID)
 		}
 	}
 	pr, neg := genPreset("photo").apply("  кот на окне ", "собака")

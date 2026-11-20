@@ -27,7 +27,8 @@ import (
 const upMaxSide = 8192
 
 // upDrawnStyles: стили, где рисованная модель (anime_6B) чище и вдвое быстрее фото-модели
-var upDrawnStyles = map[string]bool{"illus": true, "icon3d": true, "flat": true, "anime": true, "comic": true, "lowpoly": true, "minimal": true}
+var upDrawnStyles = map[string]bool{"illus": true, "icon3d": true, "flat": true, "anime": true, "comic": true, "lowpoly": true, "minimal": true,
+	"cartoon": true, "popart": true, "ink": true, "render3d": true, "isometric": true, "sticker": true, "flaticon": true, "lineart": true, "poster": true, "blueprint": true}
 
 func upCLI() string { return filepath.Join(aiEngineDir("sd"), "sd-cli.exe") }
 
