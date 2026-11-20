@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.8
+
+- Color: the lock now works in the mesh gradient too. Random leaves locked points alone and builds the rest around their hue.
+- Color: the mesh gradient shows all its points as a mini map of tiles; click selects a point, double-click locks it.
+- Color: the lock can be set right in the color picker window for the gradient, mesh and palette.
+- Color picker: the checkerboard under transparent colors no longer shows white corners or a frame, and the eyedropper matches the field height.
+
 ## 6.7
 
 - Montage: ready-made clip animations (fade-in, shake, camera push-in), also for several clips at once.
