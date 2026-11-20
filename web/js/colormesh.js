@@ -334,8 +334,34 @@ meshCv.addEventListener('pointerup', meshDragEnd);
 meshCv.addEventListener('pointercancel', meshDragEnd);
 
 // ---------- панель ----------
+// карта точек: плитки лежат так же, как точки сетки; щелчок выбирает точку, двойной щелчок ставит или снимает замочек
+const meshMapEl = $('meshMap');
+let meshMapSig = '';
+function meshMapDraw() {
+  const m = cl.mesh;
+  meshNode();
+  // высота карты почти одна для любой сетки (~80 px), плитки по пропорциям холста: карта похожа на уменьшенную картинку
+  const [W, H] = clWH(), mh = Math.min(Math.floor((80 - (m.rows - 1) * 3) / m.rows), 28);
+  const mw = Math.round(Math.min(Math.max(mh * W / H, 14), 44));
+  const sig = m.cols + 'x' + m.rows + '|' + mw + 'x' + mh + '|' + meshSel + '|' + m.pts.map(p => p.c + (p.lock ? '!' : '')).join();
+  if (sig === meshMapSig) return;
+  meshMapSig = sig;
+  meshMapEl.style.setProperty('--mw', mw + 'px'); meshMapEl.style.setProperty('--mh', mh + 'px');
+  meshMapEl.style.gridTemplateColumns = `repeat(${m.cols}, ${mw}px)`;
+  meshMapEl.innerHTML = m.pts.map((p, k) => `<button type="button" data-k="${k}" class="${k === meshSel ? 'on' : ''}${csLight(p.c) ? ' lt' : ''}" style="background:${p.c}" title="${esc(t('mesh.tile'))}">${p.lock ? CL_ICO.lock : ''}</button>`).join('');
+}
+meshMapEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-k]');
+  if (!b || e.detail > 2) return;
+  if (cp && cp.el === $('meshSw')) cpClose(true);
+  const k = +b.dataset.k, p = cl.mesh.pts[k];
+  meshSel = k;
+  if (e.detail === 2) { if (p.lock) delete p.lock; else p.lock = true; clSave(); }   // второй щелчок подряд: замочек
+  clRender();
+});
 function meshRender() {
   const m = cl.mesh, p = meshNode();
+  meshMapDraw();
   clSegSync('meshCols', String(m.cols));
   clSegSync('meshRows', String(m.rows));
   clSegSync('meshMix', m.mix);
@@ -360,7 +386,7 @@ function meshRender() {
 }
 let meshWas;
 cpField($('meshSw'), {
-  live: v => { const p = meshNode(); if (meshWas === undefined) meshWas = p.c; p.c = cpHex(cpParse(v), false); $('meshHex').value = clUp(p.c); meshDrawSoon(); },
+  live: v => { const p = meshNode(); if (meshWas === undefined) meshWas = p.c; p.c = cpHex(cpParse(v), false); $('meshHex').value = clUp(p.c); meshMapDraw(); meshDrawSoon(); },
   done: ok => { const p = meshNode(); if (!ok && meshWas !== undefined) p.c = meshWas; meshWas = undefined; clRender(); clSave(); }});
 $('meshHex').addEventListener('change', () => {
   const c = cpParse($('meshHex').value);

@@ -1240,6 +1240,12 @@
   .cl-own.hide{display:none}
   .cl-own input[type=number]{width:72px;padding:4px 8px}
   .cl-sp{flex:1}
+  .mesh-map{display:grid;gap:3px;align-items:center;padding:4px;margin-right:4px;border:1px solid var(--line2);border-radius:10px;background:var(--s2)}
+  .mesh-map button{position:relative;width:var(--mw,18px);height:var(--mh,18px);padding:0;border:0;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);transition:transform .1s}
+  .mesh-map button:hover{transform:scale(1.12)}
+  .mesh-map button.on{box-shadow:0 0 0 2px var(--s2),0 0 0 3.5px var(--acct)}
+  .mesh-map button svg{position:absolute;inset:0;margin:auto;width:min(12px,calc(var(--mh,18px) - 4px));height:min(12px,calc(var(--mh,18px) - 4px));fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.7))}
+  .mesh-map button.lt svg{stroke:#111;filter:none}
   /* каркас у всех инструментов «Цвета», как в других вкладках: отдельные рамки .card одна под другой — поле (растёт), блоки с подписью (высота постоянная), ряд выгрузки; рамок внутри рамок нет */
   /* подпись слева от строки настроек (а не над ней): рамка в одну строку, без пустого места; .top — подпись сверху, для длинной */
   .cl-blk{display:grid;grid-template-columns:78px minmax(0,1fr);gap:6px 10px;align-items:center;min-width:0}
