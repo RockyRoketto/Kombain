@@ -7,6 +7,7 @@ const gm = {
   view: '',        // '', 'setup', 'models'
   timer: 0,
   llm: true,       // галочка «ещё помощник запросов» на экране первого запуска
+  lic: new Set(),  // у каких моделей раскрыта «Лицензия»: список перерисовывается каждую секунду при скачивании
 };
 
 function gmCenter(v) {
@@ -72,7 +73,7 @@ function gsRender() {
   const bestDrive = c.best && !d.root.toUpperCase().startsWith(c.best.toUpperCase()) ? c.drives.find(x => x.root === c.best) : null;
   const llmSize = d.need.all - d.need.image;
   let foot;
-  if (j.active) foot = gmProgress(j) + `<div class="gs-note">${esc(t('gs.wait'))}</div>`;
+  if (j.active || j.paused) foot = gmProgress(j) + (j.active ? `<div class="gs-note">${esc(t('gs.wait'))}</div>` : '');
   else if (!c.ok) foot = `<div class="gs-cant"><b>${esc(t('gs.cantT'))}</b><span>${esc(t('gs.cant'))}</span></div>`;
   else foot = `${[c.vram, c.ram, c.disk].some(v => v.level === 'edge') ? `<div class="gs-note">${esc(t('gs.edgeNote'))}</div>` : ''}
     ${llmSize > 0 ? `<label class="ck gs-llm"><input type="checkbox" id="gsLlm"${gm.llm ? ' checked' : ''}><span>${esc(t('gs.llm', {size: fmtSize(llmSize)}))}</span></label>` : ''}
@@ -91,11 +92,16 @@ function gsRender() {
 function gmProgress(j) {
   const pct = j.total > 0 ? Math.min(100, j.done / j.total * 100) : 0;
   const step = j.cur ? (j.cur.startsWith('engine:') ? t(`gm.step.${j.cur}`) : (gm.data.models.find(m => m.id === j.cur)?.name || j.cur)) : '';
-  return `<div class="gm-prog"><div class="gm-prog-h"><b>${esc(step)}</b><span>${Math.floor(pct)}%</span></div>
+  const info = j.paused ? `${fmtSize(j.done) || '0'} / ${fmtSize(j.total)} · ${t('gm.paused')}` : t('gm.dl', {done: fmtSize(j.done) || '0', total: fmtSize(j.total), speed: fmtSize(j.speed) || '0'});
+  return `<div class="gm-prog${j.paused ? ' paused' : ''}"><div class="gm-prog-h"><b>${esc(step)}</b><span>${Math.floor(pct)}%</span></div>
     <div class="gs-meter acc"><i style="width:${pct.toFixed(1)}%"></i></div>
-    <div class="gm-prog-f"><span>${esc(t('gm.dl', {done: fmtSize(j.done) || '0', total: fmtSize(j.total), speed: fmtSize(j.speed) || '0'}))}</span>
-    <button type="button" class="btn sm" id="gmCancel">${esc(t('gm.cancel'))}</button></div></div>`;
+    <div class="gm-prog-f"><span>${esc(info)}</span><span class="gm-prog-b">
+    <button type="button" class="btn sm" id="${j.paused ? 'gmResume' : 'gmPause'}">${esc(t(j.paused ? 'gm.resume' : 'gm.pause'))}</button>
+    <button type="button" class="btn sm" id="gmCancel">${esc(t('gm.cancel'))}</button></span></div></div>`;
 }
+
+// gmNum: число ГБ с одним знаком и запятой по-русски
+const gmNum = x => String(Math.round(x * 10) / 10).replace('.', lang === 'ru' ? ',' : '.');
 
 async function gmRoot(path) {
   const r = await api('ai-root', {path: path || ''});
@@ -113,43 +119,72 @@ $('gnSetup').addEventListener('click', e => {
   if (e.target.closest('#gsPick')) gmRoot('');
   else if (e.target.closest('#gsBest')) gmRoot(e.target.closest('#gsBest').dataset.root + 'Kombain AI');
   else if (e.target.closest('#gsGo')) gmInstall(gm.data.first.filter((id, i) => i === 0 || gm.llm));
-  else if (e.target.closest('#gmCancel')) api('ai-cancel');
+  else gmJobBtn(e);
 });
+
+// gmJobBtn: кнопки скачивания (общие для экрана первого запуска и списка моделей): пауза, продолжить, отменить
+async function gmJobBtn(e) {
+  const b = e.target.closest('#gmPause, #gmResume, #gmCancel'); if (!b) return;
+  if (b.id === 'gmResume') { gmInstall(gm.data.job.items.filter(x => !x.startsWith('engine:'))); return; }
+  await api('ai-cancel', {pause: b.id === 'gmPause'});
+  if (b.id === 'gmCancel') await gmLoad();   // отмена на паузе: опроса уже нет, обновляем сами
+}
 $('gnSetup').addEventListener('change', e => { if (e.target.id === 'gsLlm') { gm.llm = e.target.checked; gsRender(); } });
 
 // ---- панель «Модели» ----
 
+// gmFit: заметный значок «пойдёт ли модель на твоей видеокарте»: хорошо / медленно / не потянет (считает aiFit в aisetup.go)
+function gmFit(m, c) {
+  if (!m.fit) return '';
+  const need = m.fit === 'bad' ? m.vram : m.good;
+  const tip = t(`gm.fit.t.${m.fit}`, {have: gmNum(c.vram.value / 1024), need: gmNum(need)});
+  return `<span class="gm-fit f-${m.fit}" title="${esc(tip)}"><i></i>${esc(t(`gm.fit.${m.fit}`))}</span>`;
+}
+
 function gmListRender() {
   const d = gm.data; if (!d) return;
+  const keep = $('gmList').scrollTop;   // список перерисовывается каждую секунду скачивания: не сбрасывать прокрутку
   const j = d.job, c = d.check;
   $('gmFolder').innerHTML = `<code title="${esc(d.root)}">${esc(d.root)}</code> <span>${esc(t('gm.used', {size: fmtSize(d.used) || '0'}))}${c.disk.value >= 0 ? ' · ' + esc(t('gm.free', {size: fmtSize(c.disk.value)})) : ''}</span>`;
-  $('gmChange').disabled = j.active;
+  $('gmChange').disabled = j.active || j.paused;
   const rows = d.models.map(m => {
-    const busy = j.active && j.items.includes(m.id);
-    const tags = [m.source === 'user' ? t('gm.own') : '', m.vram > 0 ? t('gm.vram', {n: m.vram}) : '', !m.fits ? t('gm.vramLow') : '',
+    const busy = (j.active || j.paused) && j.items.includes(m.id);
+    const tags = [m.source === 'user' ? t('gm.own') : '', m.vram > 0 ? t('gm.vram', {n: m.vram}) : '',
       m.source === 'catalog' ? t(m.commercial ? 'gm.commercial' : 'gm.noCommercial') : ''].filter(Boolean);
     const act = m.installed
       ? `<button type="button" class="btn sm" data-del="${esc(m.id)}"${j.active ? ' disabled' : ''}>${esc(t('gm.del'))}</button>`
       : busy ? '' : `<button type="button" class="btn sm${m.kind === 'image' ? ' primary' : ''}" data-get="${esc(m.id)}"${j.active || !c.ok ? ' disabled' : ''}>${esc(t('gm.get', {size: fmtSize(m.size)}))}</button>`;
     return `<div class="gm-row${m.installed ? ' on' : ''}" data-id="${esc(m.id)}">
       <div class="gm-pv k-${esc(m.kind)}"></div>
-      <div class="gm-b"><div class="gm-n"><b>${esc(m.name)}</b>${m.installed ? `<span class="gm-tag">${esc(t('gm.installed'))}</span>` : ''}<span class="gm-kind">${esc(t(`gm.k.${m.kind}`) || m.kind)}</span></div>
+      <div class="gm-b"><div class="gm-n"><b>${esc(m.name)}</b>${m.installed ? `<span class="gm-tag">${esc(t('gm.installed'))}</span>` : ''}<span class="gm-kind">${esc(t(`gm.k.${m.kind}`) || m.kind)}</span>${gmFit(m, c)}</div>
         ${m.badges?.length ? `<div class="gm-badges">${m.badges.map(b => `<span class="gm-badge b-${esc(b)}">${esc(t(`gm.b.${b}`) || b)}</span>`).join('')}</div>` : ''}
         ${m.purpose ? `<div class="gm-p">${esc(m.purpose)}</div>` : ''}
         <div class="gm-meta">${tags.map(x => `<span>${esc(x)}</span>`).join('')}${m.installed ? `<span>${esc(fmtSize(m.size))}</span>` : ''}</div>
-        ${m.license ? `<details class="gm-lic"><summary>${esc(t('gm.license'))}</summary><p>${esc(m.license)}${m.licenseUrl ? ` <a href="#" data-url="${esc(m.licenseUrl)}">${esc(m.licenseUrl.replace(/^https:\/\//, ''))}</a>` : ''}</p></details>` : ''}
+        ${m.license ? `<details class="gm-lic"${gm.lic.has(m.id) ? ' open' : ''}><summary>${esc(t('gm.license'))}</summary><p>${esc(m.license)}${m.licenseUrl ? ` <a href="#" data-url="${esc(m.licenseUrl)}">${esc(m.licenseUrl.replace(/^https:\/\//, ''))}</a>` : ''}</p></details>` : ''}
         ${busy ? gmProgress(j) : ''}</div>
       <div class="gm-act">${act}</div></div>`;
   });
   const why = !c.ok ? `<div class="gs-cant"><b>${esc(t('gs.cantT'))}</b><span>${esc([c.vram, c.ram, c.disk].filter(v => v.level === 'no').map(v => v.note).join(' '))}</span></div>` : '';
   $('gmList').innerHTML = why + rows.join('');
+  $('gmList').scrollTop = keep;
 }
+
+// «Лицензия»: запоминаем, у каких моделей раскрыта, иначе перерисовка при скачивании сворачивает её сразу после клика
+$('gmList').addEventListener('toggle', e => {
+  const row = e.target.closest?.('.gm-lic')?.closest('.gm-row'); if (!row) return;
+  gm.lic[e.target.open ? 'add' : 'delete'](row.dataset.id);
+}, true);
 
 $('gmList').addEventListener('click', async e => {
   const get = e.target.closest('[data-get]'), del = e.target.closest('[data-del]'), a = e.target.closest('a[data-url]');
   if (a) { e.preventDefault(); api('ai-license', {id: a.closest('.gm-row').dataset.id}); return; }
-  if (e.target.closest('#gmCancel')) { api('ai-cancel'); return; }
-  if (get) { gmInstall([get.dataset.get]); return; }
+  if (e.target.closest('#gmPause, #gmResume, #gmCancel')) { gmJobBtn(e); return; }
+  if (get) {
+    const m = gm.data.models.find(x => x.id === get.dataset.get);
+    if (m?.fit === 'bad' && !await askYes(t('gm.fitAsk', {name: m.name, have: gmNum(gm.data.check.vram.value / 1024), need: gmNum(m.vram), size: fmtSize(m.size)}), t('gm.getAnyway'))) return;
+    gmInstall([get.dataset.get]);
+    return;
+  }
   if (del) {
     const m = gm.data.models.find(x => x.id === del.dataset.del);
     if (!await askYes(t('gm.delAsk', {name: m?.name || del.dataset.del}), t('ask.del'))) return;

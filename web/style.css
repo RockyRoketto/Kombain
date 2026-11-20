@@ -1815,6 +1815,13 @@
   .gm-badge.b-default,.gm-badge.b-best{background:rgba(var(--acc-rgb),.18);color:var(--acct);font-weight:600}
   .gm-badge[class*="b-need"]{background:rgba(var(--acc-rgb),.1);color:var(--acct)}
   .gm-badge.b-heavy{background:rgba(var(--err-rgb),.12);color:var(--tx2)}
+  .gm-fit{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;cursor:help}
+  .gm-fit i{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .gm-fit.f-good{background:rgba(var(--ok-rgb),.15);color:var(--ok)}
+  .gm-fit.f-mid{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .gm-fit.f-bad{background:rgba(var(--err-rgb),.15);color:var(--err)}
+  .gm-prog-b{display:flex;gap:6px}
+  .gm-prog.paused .gs-meter i{opacity:.45}
   .gm-p{font-size:12.5px;color:var(--tx2);line-height:1.45}
   .gm-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--dim)}
   .gm-lic summary{cursor:pointer;font-size:12px;color:var(--acct)}

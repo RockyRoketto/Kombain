@@ -31,12 +31,14 @@ type aiJobState struct {
 	Total  int64    `json:"total"`
 	Speed  float64  `json:"speed"` // байт в секунду
 	Err    string   `json:"err,omitempty"`
-	OK     bool     `json:"ok"` // последняя задача закончилась успешно
+	OK     bool     `json:"ok"`     // последняя задача закончилась успешно
+	Paused bool     `json:"paused"` // поставлена на паузу: недокачанное лежит на диске, «Продолжить» докачает
 }
 
 type aiJob struct {
 	mu     sync.Mutex
 	st     aiJobState
+	pause  bool // остановка по паузе, а не отмене
 	cancel context.CancelFunc
 	t0     time.Time
 	d0     int64
@@ -221,10 +223,15 @@ func (j *aiJob) run(ctx context.Context, c Catalog, steps []aiStep, total int64)
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	cur := j.st.Cur
 	j.st.Active, j.st.Cur, j.cancel = false, "", nil
 	switch {
 	case ctx.Err() != nil:
-		j.st.Err = "" // отменил сам человек: не ошибка
+		j.st.Err = "" // отменил или остановил сам человек: не ошибка
+		if j.pause {
+			j.st.Paused, j.st.Cur = true, cur // items, done и total остаются: полоса стоит на месте
+		}
+		j.pause = false
 	case err != nil:
 		j.st.Err = err.Error()
 	default:
@@ -232,9 +239,16 @@ func (j *aiJob) run(ctx context.Context, c Catalog, steps []aiStep, total int64)
 	}
 }
 
-func (j *aiJob) stop() {
+// stop: pause — остановить с возможностью продолжить; иначе отмена. На паузе отмена снимает паузу
+// (недокачанные .part остаются на диске и докачаются при новой установке).
+func (j *aiJob) stop(pause bool) {
 	j.mu.Lock()
 	cancel := j.cancel
+	if cancel != nil {
+		j.pause = pause
+	} else if !pause && j.st.Paused {
+		j.st = aiJobState{}
+	}
 	j.mu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -257,7 +271,25 @@ type aiModelRow struct {
 	Installed  bool     `json:"installed"`
 	Source     string   `json:"source"` // catalog, user
 	Fits       bool     `json:"fits"`   // видеопамяти хватает
+	Fit        string   `json:"fit"`    // как пойдёт на этой видеокарте: good, mid, bad; пусто — неизвестно
+	Good       float64  `json:"good"`   // ГБ видеопамяти для комфортной работы (с запасом)
 	Badges     []string `json:"badges,omitempty"`
+}
+
+// aiFit: пойдёт ли модель на видеокарте с vramMB мегабайт: good (комфортно), mid (медленно, часть модели в обычной
+// памяти), bad (не запустится или не стоит пробовать). Неизвестная видеопамять или модель без требований — пусто.
+func aiFit(vramMB float64, m CatModel) string {
+	if m.VRAM <= 0 || vramMB < 0 {
+		return ""
+	}
+	good := aiGoodVRAM(m)
+	switch {
+	case vramMB < m.VRAM*1024-512: // карта «8 ГБ» отдаёт чуть меньше
+		return "bad"
+	case vramMB < good*1024-512:
+		return "mid"
+	}
+	return "good"
 }
 
 // aiModelRows: каталог (без служебных TAE: они ставятся сами) и свои модели
@@ -269,7 +301,7 @@ func aiModelRows(c Catalog, in Installed) []aiModelRow {
 			continue
 		}
 		r := aiModelRow{ID: m.ID, Kind: m.Kind, Name: m.Name.String(), Purpose: m.Purpose.String(), License: m.License.String(),
-			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512, Badges: m.Badges}
+			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512, Fit: aiFit(vram, m), Good: aiGoodVRAM(m), Badges: m.Badges}
 		if im, ok := in.model(m.ID); ok {
 			r.Installed = true
 			for _, f := range im.Files {
@@ -410,7 +442,11 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 	}))
 
 	mux.HandleFunc("/api/ai-cancel", s.api(func(w http.ResponseWriter, r *http.Request) {
-		aiInstaller.stop()
+		var body struct {
+			Pause bool `json:"pause"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		aiInstaller.stop(body.Pause)
 		writeJSON(w, map[string]any{"ok": true})
 	}))
 
@@ -460,4 +496,12 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 		}
 		writeJSON(w, map[string]any{"prompt": p[0], "prompts": p, "noChar": noChar})
 	}))
+}
+
+// aiGoodVRAM: ГБ видеопамяти, при которых модель идёт комфортно
+func aiGoodVRAM(m CatModel) float64 {
+	if m.Good > 0 {
+		return m.Good
+	}
+	return m.VRAM + 2
 }

@@ -89,7 +89,8 @@ type CatModel struct {
 	LicenseURL string       `json:"licenseUrl"`
 	Commercial bool         `json:"commercial"` // можно ли продавать результат
 	Preview    string       `json:"preview,omitempty"`
-	VRAM       float64      `json:"vram"` // ГБ видеопамяти, меньше которых не стоит и пробовать
+	VRAM       float64      `json:"vram"`           // ГБ видеопамяти, меньше которых не стоит и пробовать
+	Good       float64      `json:"good,omitempty"` // ГБ видеопамяти для комфортной работы (нет — VRAM+2); от VRAM до Good значок «средне»
 	Files      []CatFile    `json:"files"`
 	Defaults   *GenDefaults `json:"defaults,omitempty"`
 	Needs      []string     `json:"needs,omitempty"`  // id того, что ставится вместе (TAE для предпросмотра и т. п.)
