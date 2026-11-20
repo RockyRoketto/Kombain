@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.10
+
+- Generator: the reference slider now shows "weaker" and "stronger" labels and a filled track, so it is clear which way is stronger.
+
 ## 6.9
 
 - Generator: 20 new styles with sample images; prompts no longer invent scenes, and sticker, badge and 3D icon draw just the object.
