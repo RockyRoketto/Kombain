@@ -420,7 +420,10 @@ var reLLMClean = regexp.MustCompile(`(?is)^\s*(?:prompt\s*:\s*)?["'«“]?(.*?)[
 // есть глаза) описывает их словами и вплетает в промт. own — «Писать промт самому»: запрос не переписывается,
 // к нему только дописываются описания персонажа и стиля. noChar — id референсов «Персонаж», на которых персонажа не нашлось.
 // preset — выбранный стиль: его строка «Format:» говорит помощнику, какой кадр нужен (у 3D-иконки — один предмет без сцены).
-func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRef, own bool) (prompts, noChar []string, err error) {
+// part — промт для части готовой картинки (перерисовать часть, дорисовать за краями): без подсказки разнообразия
+// и без «Format:». Иначе в новую полосу просились «крупный план» и «один предмет по центру на пустом фоне»,
+// и модель рисовала там второго героя или другой свет.
+func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRef, own, part bool) (prompts, noChar []string, err error) {
 	request = strings.TrimSpace(request)
 	if request == "" {
 		return nil, nil, errT("ai.noPrompt")
@@ -460,12 +463,12 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 	out := make([]string, 0, n)
 	pre := genPreset(preset)
 	sys := llmSystem
-	if pre.Object {
+	if pre.Object && !part {
 		sys = llmSystemObject
 	}
 	for _, v := range llmVariations(n, pre.Framed) {
 		user := request + "\n\n" + v
-		if pre.Object { // стикер, значок, 3D-иконка: кадр, свет и фон задаёт стиль, подсказка только мешает
+		if part || pre.Object { // стикер, значок, 3D-иконка: кадр, свет и фон задаёт стиль, подсказка только мешает
 			user = request
 		} else if pre.Format != "" {
 			user += "\nFormat: " + pre.Format

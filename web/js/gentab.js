@@ -216,7 +216,7 @@ for (const [id, k] of [['gnSteps', 'steps'], ['gnCfg', 'cfg'], ['gnSeed', 'seed'
   $(id).addEventListener('input', () => { gn.set[k] = $(id).value; gnSave(); });
 $('gnSeedRnd').addEventListener('click', () => { gn.set.seed = ''; $('gnSeed').value = ''; gnSave(); });
 $('gnShowBuild').addEventListener('change', () => { gn.set.build = $('gnShowBuild').checked; gnSave(); });
-$('gnModel').addEventListener('change', () => { gn.set.model = $('gnModel').value; gnSave(); gnGoState(); gnSecSums(); });
+$('gnModel').addEventListener('change', () => { gn.set.model = $('gnModel').value; gnSave(); gnGoState(); gnSecSums(); gnRefRender(); });
 $('gnTips').addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const p = gn.set.prompt.trimEnd();

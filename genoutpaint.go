@@ -11,6 +11,7 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"regexp"
 
 	xdraw "golang.org/x/image/draw"
 )
@@ -64,7 +65,8 @@ func genOutpaintPrep(src []byte, ext []int, nw, nh int, whole bool) (patch *genP
 	}
 	patch, init, msk, w, h, err = genPatchPrep(canvas, mg, nw, nh, f, minSide)
 	if err == nil {
-		genOutAlpha(patch, image.Rect(l, t, l+W, t+H), 2*f)
+		patch.keep = image.Rect(l, t, l+W, t+H)
+		genOutAlpha(patch, patch.keep, 2*f)
 	}
 	return
 }
@@ -126,6 +128,127 @@ func genOutEdgeDist(px, py int, in image.Rectangle, ext []int) int {
 	}
 	return d
 }
+
+// genOutMatch: подогнать нарисованное по цвету к исходной у её края. Модель рисует новую полосу (а klein и
+// весь холст заново) чуть другим светом и цветом, и по границе исходной выходила ровная черта (жалоба автора
+// 2026-11-20: светлая полоса неба справа). Разница «исходная минус нарисованное» берётся в узкой полосе
+// исходной у раздвинутых сторон (точки, где модель сдвинула предмет и разница большая, не считаются),
+// размывается вдоль края и переносится в новую полосу, затухая за 2·band от исходной: у края цвета сходятся,
+// дальше остаётся нарисованное как есть. Мелкие детали не трогаются, только плавный сдвиг цвета.
+// sc — вырезка от движка в размере crop. Замер на klein: по всей исходной сразу оценка ловила
+// сдвинутые предметы и делала шов хуже.
+func genOutMatch(sc *image.NRGBA, p *genPatch) {
+	cw, ch := p.crop.Dx(), p.crop.Dy()
+	W2, H2 := p.orig.Rect.Dx(), p.orig.Rect.Dy()
+	ext := []int{p.keep.Min.X, p.keep.Min.Y, W2 - p.keep.Max.X, H2 - p.keep.Max.Y}
+	if p.keep.Intersect(p.crop).Empty() || cw == 0 || ch == 0 {
+		return
+	}
+	band := max(8, min(p.keep.Dx(), p.keep.Dy())/16) // 1024 → 64: сдвиг гаснет за 128 точек, шире перехода вклейки
+	// считаем на сетке клеток s×s: так быстро и на 8192
+	s := max(1, min(band/2, max(cw, ch)/192))
+	sw, sh := (cw+s-1)/s, (ch+s-1)/s
+	n := sw * sh
+	known, tot := make([]float32, n), make([]float32, n)
+	var diff [3][]float32
+	for c := range diff {
+		diff[c] = make([]float32, n)
+	}
+	for y := 0; y < ch; y++ {
+		py := p.crop.Min.Y + y
+		for x := 0; x < cw; x++ {
+			px := p.crop.Min.X + x
+			i := (y/s)*sw + x/s
+			tot[i]++
+			if !(image.Point{px, py}).In(p.keep) || genOutEdgeDist(px, py, p.keep, ext) >= band {
+				continue
+			}
+			oi, si := p.orig.PixOffset(px, py), sc.PixOffset(x, y)
+			var d [3]float32
+			for c := range d {
+				d[c] = float32(p.orig.Pix[oi+c]) - float32(sc.Pix[si+c])
+			}
+			if abs32(d[0])+abs32(d[1])+abs32(d[2]) > 90 { // тут модель нарисовала другое, а не другим светом
+				continue
+			}
+			known[i]++
+			for c := range d {
+				diff[c][i] += d[c]
+			}
+		}
+	}
+	for i := range tot {
+		known[i] /= tot[i]
+		for c := range diff {
+			diff[c][i] /= tot[i]
+		}
+	}
+	rs := max(1, band/s)
+	blur := func(v []float32) []float32 { return genBoxBlur(genBoxBlur(v, sw, sh, rs), sw, sh, rs) }
+	bk := blur(known)
+	var corr [3][]float32
+	for c := range diff {
+		corr[c] = blur(diff[c])
+		for i, k := range bk {
+			if k < 0.02 {
+				corr[c][i] = 0
+			} else {
+				corr[c][i] /= k
+			}
+		}
+	}
+	at := func(v []float32, fx, fy float32) float32 {
+		fx, fy = max(0, min(fx, float32(sw-1))), max(0, min(fy, float32(sh-1)))
+		x0, y0 := int(fx), int(fy)
+		x1, y1 := min(x0+1, sw-1), min(y0+1, sh-1)
+		ax, ay := fx-float32(x0), fy-float32(y0)
+		top := v[y0*sw+x0]*(1-ax) + v[y0*sw+x1]*ax
+		bot := v[y1*sw+x0]*(1-ax) + v[y1*sw+x1]*ax
+		return top*(1-ay) + bot*ay
+	}
+	for y := 0; y < ch; y++ {
+		py := p.crop.Min.Y + y
+		fy := (float32(y)+0.5)/float32(s) - 0.5
+		dy := max(p.keep.Min.Y-py, py-(p.keep.Max.Y-1), 0)
+		for x := 0; x < cw; x++ {
+			if p.alpha[y*cw+x] <= 0 {
+				continue
+			}
+			px := p.crop.Min.X + x
+			// внутри исходной (кромка перехода) — полный сдвиг, в новой полосе гаснет за 2·band
+			f := 1 - float32(max(p.keep.Min.X-px, px-(p.keep.Max.X-1), dy))/float32(2*band)
+			if f <= 0 {
+				continue
+			}
+			fx := (float32(x)+0.5)/float32(s) - 0.5
+			si := sc.PixOffset(x, y)
+			for c := 0; c < 3; c++ {
+				sc.Pix[si+c] = uint8(max(0, min(255, float32(sc.Pix[si+c])+f*at(corr[c], fx, fy)+0.5)))
+			}
+		}
+	}
+}
+
+func abs32(v float32) float32 { return max(v, -v) }
+
+// genOutLead: начало промта дорисовки для klein (она видит холст референсом). Ставится перед промтом, уже
+// обёрнутым стилем: раньше страница клеила его сама и стиль оборачивал и указание («low poly 3d render of
+// Outpainting: …»), а «same photo … grain» спорило с негативом рисованных стилей «photo, photorealistic».
+// newArea — человек написал, что нарисовать в новой полосе; иначе продолжаем всё, что обрезано краем.
+func genOutLead(newArea bool) string {
+	s := "Outpainting: the blurred area at the edges is unfinished. Replace it with a sharp, natural continuation of this same image " +
+		"in exactly the same style, matching perspective, light, colours and texture. "
+	if newArea {
+		return s + "In the new area: "
+	}
+	return s + "Continue everything that is cut off by the edges (people, furniture, objects); do not duplicate the main subject. Scene: "
+}
+
+// reOutLead: прежние указания в начале промта (картинки, дорисованные раньше, хранят их в запросе)
+var reOutLead = regexp.MustCompile(`^(?:.*?Outpainting: [\s\S]*?(?:Scene|In the new area): )+`)
+
+// genOutScene: промт без указаний дорисовки, которые туда попали раньше
+func genOutScene(s string) string { return reOutLead.ReplaceAllString(s, "") }
 
 // genOutFeather: мягкий край дорисовки шире, чем у перерисовки части: по краю картинки новое часто другого
 // цвета и света (тёмная скала, под ней светлая вода), узкий переход дал бы ровную черту. Движок перерисовывает

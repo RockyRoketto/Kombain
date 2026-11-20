@@ -36,6 +36,7 @@ type genPatch struct {
 	orig  *image.NRGBA    // целая картинка
 	crop  image.Rectangle // вырезка в координатах картинки
 	alpha []float32       // мягкая маска вырезки (0 — оставить, 1 — новое), crop.Dx()*crop.Dy()
+	keep  image.Rectangle // дорисовка за краями: где исходная картинка; новое подгоняется к ней по цвету (genOutMatch)
 }
 
 // Size: размер готовой картинки (целой, а не вырезки)
@@ -216,6 +217,9 @@ func (p *genPatch) apply(gen []byte) ([]byte, error) {
 	cw, ch := p.crop.Dx(), p.crop.Dy()
 	sc := image.NewNRGBA(image.Rect(0, 0, cw, ch))
 	xdraw.CatmullRom.Scale(sc, sc.Rect, g, g.Bounds(), draw.Src, nil)
+	if !p.keep.Empty() {
+		genOutMatch(sc, p)
+	}
 	out := image.NewNRGBA(p.orig.Rect)
 	copy(out.Pix, p.orig.Pix)
 	for y := 0; y < ch; y++ {

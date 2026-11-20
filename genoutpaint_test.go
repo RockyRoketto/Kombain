@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 )
 
@@ -70,5 +71,49 @@ func TestGenOutpaintBad(t *testing.T) {
 	}
 	if _, _, _, _, _, err := genOutpaintPrep(src, []int{200, 100, 200, 100}, 512, 512, false); err != nil { // втрое по обеим осям можно
 		t.Error(err)
+	}
+}
+
+// модель нарисовала всё светлее исходной (другой свет): у границы новое подгоняется к исходной, дальше остаётся как есть
+func TestGenOutMatch(t *testing.T) {
+	gray := func(v uint8) color.NRGBA { return color.NRGBA{v, v, v, 255} }
+	patch, _, _, w, h, err := genOutpaintPrep(inpPNG(t, inpFill(256, 256, gray(100))), []int{64, 0, 0, 0}, 512, 512, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := patch.apply(inpPNG(t, inpFill(w, h, gray(120))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, _ := png.Decode(bytes.NewReader(out))
+	at := func(x int) uint8 { return color.NRGBAModel.Convert(img.At(x, 128)).(color.NRGBA).R }
+	if v := at(54); v > 104 { // без подгонки 110
+		t.Errorf("у границы %d", v)
+	}
+	if v := at(5); v < 118 {
+		t.Errorf("вдали %d", v)
+	}
+	if v := at(100); v != 100 {
+		t.Errorf("исходная %d", v)
+	}
+}
+
+func TestGenOutLead(t *testing.T) {
+	scene := "a man in a vest"
+	old := "Outpainting: the blurred area. Scene: Outpainting: again. Scene: " + scene
+	if got := genOutScene(old); got != scene {
+		t.Errorf("scene %q", got)
+	}
+	if got := genOutScene("low poly 3d render of " + old); got != scene {
+		t.Errorf("styled %q", got)
+	}
+	if genOutScene(scene) != scene {
+		t.Error("обычный промт изменился")
+	}
+	if !strings.HasSuffix(genOutLead(true), "In the new area: ") || !strings.HasSuffix(genOutLead(false), "Scene: ") {
+		t.Error("lead")
+	}
+	if genOutScene(genOutLead(false)+scene) != scene || genOutScene(genOutLead(true)+scene) != scene {
+		t.Error("своё указание не снимается")
 	}
 }

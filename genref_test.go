@@ -122,3 +122,27 @@ func TestLLMRefText(t *testing.T) {
 		t.Error("llmCloseness")
 	}
 }
+
+// «Персонаж» картинкой для klein: только персонажи не слабее трети, строка промта ссылается на них по порядку
+func TestGenRefChars(t *testing.T) {
+	aiTestEnv(t)
+	os.MkdirAll(aiRefsDir(), 0o755)
+	ids := []string{"00000000000000a1", "00000000000000a2", "00000000000000a3", "00000000000000a4"}
+	for _, id := range ids {
+		var b bytes.Buffer
+		png.Encode(&b, refTestImage(64, 48))
+		os.WriteFile(filepath.Join(aiRefsDir(), id+".png"), b.Bytes(), 0o644)
+	}
+	imgs, note, err := genRefChars([]GenRef{
+		{ID: ids[0], Role: "style", Weight: 1},
+		{ID: ids[1], Role: "character", Weight: 0.5},
+		{ID: ids[2], Role: "character", Weight: 0.2}, // лёгкий намёк — словами
+		{ID: ids[3], Role: "character", Weight: 1},
+	})
+	if err != nil || len(imgs) != 2 || note != "The character has the same face, hair, body and clothes as the person in reference image 1 and image 2." {
+		t.Errorf("%d %q %v", len(imgs), note, err)
+	}
+	if imgs, note, _ := genRefChars([]GenRef{{ID: ids[0], Role: "base", Weight: 1}}); imgs != nil || note != "" {
+		t.Error("без персонажа")
+	}
+}

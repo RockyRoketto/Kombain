@@ -134,6 +134,7 @@ type genAddReq struct {
 	Inpaint     bool     `json:"inpaint,omitempty"`     // перерисована часть Init (маска кистью, geninpaint.go)
 	InpStrength float64  `json:"inpStrength,omitempty"` // «насколько менять» у кисти (0,3–1); 0 — genInpaintStrength
 	Outpaint    []int    `json:"outpaint,omitempty"`    // Init дорисована за краями: точек слева, сверху, справа, снизу (genoutpaint.go)
+	OutNew      bool     `json:"outNew,omitempty"`      // дорисовка: промт — что нарисовать в новой полосе, а не вся сцена (genOutLead)
 	Expanded    string   `json:"expanded,omitempty"`    // промт от помощника (пишется при «Создать», правится под картинкой); пусто — модель получает запрос как есть
 	Variants    []string `json:"variants,omitempty"`    // при 2–4 картинках у каждой свой промт от помощника; Expanded — первый из них
 	Refs        []GenRef `json:"refs,omitempty"`        // референсы (genref.go): «Основа» рисуется поверх, остальное уже в промте помощника
@@ -234,7 +235,14 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 			body.Expanded = body.Variants[0]
 		}
 		body.Refs = genRefsClean(body.Refs)
+		kleinOut := len(body.Outpaint) > 0 && m.Arch == "flux2"
+		if kleinOut { // указание дорисовки ставится ниже, перед промтом со стилем; прежнее из запроса убираем
+			body.Prompt, body.Expanded = genOutScene(body.Prompt), genOutScene(body.Expanded)
+		}
 		p := genBuild(body, m)
+		if kleinOut {
+			p.Prompt = genOutLead(body.OutNew) + p.Prompt
+		}
 		var prompts []string
 		for _, v := range body.Variants {
 			one := body
@@ -260,7 +268,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				}
 				p.Patch, p.Strength = patch, genInpStrength(body.InpStrength)
 			} else if len(body.Outpaint) > 0 {
-				klein := m.Arch == "flux2"
+				klein := kleinOut
 				patch, init, msk, w2, h2, err := genOutpaintPrep(png, body.Outpaint, m.Def.Width, m.Def.Height, klein)
 				if err != nil {
 					writeJSON(w, map[string]any{"error": err.Error()})
@@ -283,6 +291,19 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				return
 			}
 			p.Init, p.Strength = png, genRefStrength(b.Weight)
+		}
+		if m.Arch == "flux2" && len(body.Outpaint) == 0 {
+			imgs, note, err := genRefChars(body.Refs)
+			if err != nil {
+				writeJSON(w, map[string]any{"error": err.Error()})
+				return
+			}
+			if len(imgs) > 0 {
+				p.Refs, p.Prompt = imgs, llmJoin(p.Prompt, note)
+				for i := range prompts {
+					prompts[i] = llmJoin(prompts[i], note)
+				}
+			}
 		}
 		id := genQueueGet().Add(m.ID, p, body.Count, body, prompts...)
 		writeJSON(w, map[string]any{"id": id, "width": p.Width, "height": p.Height})

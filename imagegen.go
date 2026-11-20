@@ -312,7 +312,7 @@ func (q *genQueue) runTask(parent context.Context, t *GenTask) {
 		q.current, q.cancel = 0, nil
 		delete(q.preview, t.ID)
 		// входные картинки больше не нужны, а законченная задача висит в списке до «Очистить» (у ×4 это десятки МБ)
-		t.Params.Init, t.Params.Mask, t.Params.Patch = nil, nil, nil
+		t.Params.Init, t.Params.Mask, t.Params.Patch, t.Params.Refs = nil, nil, nil, nil
 		q.mu.Unlock()
 	}()
 

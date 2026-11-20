@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,6 +172,35 @@ func genRefBase(id string, w, h int) ([]byte, error) {
 // поэтому середина ползунка — 0,65: новое появляется, расположение пятен и цвета основы остаются.
 func genRefStrength(w float64) float64 {
 	return min(max(0.95-w*0.6, 0.35), 0.95)
+}
+
+// genRefCharSide: сторона картинки «Персонажа», которую видит FLUX.2 klein (больше — дольше, похожее не становится)
+const genRefCharSide = 1024
+
+// genRefChars: картинки «Персонажей» для модели, которая берёт референсы сама (FLUX.2 klein), и строка для
+// промта, которая на них ссылается. Словами (llm.go) лицо не передать: по описанию «мужчина 30 лет, борода,
+// жилет» модель рисует похожего человека в той же одежде, но другого (жалоба автора 2026-11-20 «референсы не
+// работают»). Ручная проверка klein 4B 2026-11-20: с картинкой выходят то же лицо, причёска и одежда и в чужом
+// стиле (3D-иконка). «Стиль» картинкой не передаётся: klein рисовала обычное фото, поэтому он остаётся словами.
+// «Лёгкий намёк» (меньше трети ползунка) — только словами.
+func genRefChars(refs []GenRef) (imgs [][]byte, note string, err error) {
+	var nums []string
+	for _, r := range refs {
+		if r.Role != "character" || r.Weight < 0.34 {
+			continue
+		}
+		b, err := genRefRead(r.ID, genRefCharSide)
+		if err != nil {
+			return nil, "", err
+		}
+		imgs = append(imgs, b)
+		nums = append(nums, "image "+strconv.Itoa(len(imgs)))
+	}
+	if len(imgs) == 0 {
+		return nil, "", nil
+	}
+	note = "The character has the same face, hair, body and clothes as the person in reference " + strings.Join(nums, " and ") + "."
+	return imgs, note, nil
 }
 
 // genRefsClean: только годные референсы: известная роль, файл на месте, не больше genRefMax, одна «Основа»

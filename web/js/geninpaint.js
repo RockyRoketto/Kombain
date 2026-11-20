@@ -165,7 +165,7 @@ async function giGo() {
       prompt = what; expanded = '';
       if (inf.llm) {
         lbl.textContent = t('inp.writing');
-        const e = await api('gen-enhance', {prompt: what, preset, count: 1, refs: [], own: false});
+        const e = await api('gen-enhance', {prompt: what, preset, count: 1, refs: [], own: false, part: true});
         if (!e.error) expanded = e.prompts?.[0] || e.prompt || '';
       }
     }

@@ -512,9 +512,10 @@ func (s *Server) aiRoutes(mux *http.ServeMux) {
 			Count  int      `json:"count"` // сколько картинок: у каждой свой промт
 			Refs   []GenRef `json:"refs"`  // референсы: помощник с глазами описывает их словами
 			Own    bool     `json:"own"`   // «Писать промт самому»: только дописать описания референсов
+			Part   bool     `json:"part"`  // промт для части картинки (перерисовать часть, дорисовать за краями)
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		p, noChar, err := llmEnhance(r.Context(), body.Prompt, body.Preset, body.Count, genRefsClean(body.Refs), body.Own)
+		p, noChar, err := llmEnhance(r.Context(), body.Prompt, body.Preset, body.Count, genRefsClean(body.Refs), body.Own, body.Part)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return

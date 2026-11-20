@@ -164,30 +164,29 @@ async function gopGo() {
       // рисует героя заново в каждой полосе (дубли рук и плеч). Отрицания она не понимает, поэтому прежний промт
       // не шлём: описываем только продолжение; с низа (герой обрезан) — его одежда и тело, с остальных сторон — фон
       const [, , , eb] = gop.e;
+      // без «photograph, photorealistic»: стиль картинки задаёт её стиль (3D-иконка, аниме), а фото-слова тянули
+      // полосу в фотографию рядом с рисунком
       prompt = eb > 0
-        ? 'The same photograph continued below the cut: the clothes and body of the person continue naturally downward, same light, same background, one continuous photo, photorealistic.'
-        : 'Only the empty out-of-focus background of the same photograph, the same place, light and colours, continuing smoothly to the edges, photorealistic.';
+        ? 'The same picture continued below the cut: the clothes and body of the character continue naturally downward, same style, same light, same background, one continuous image.'
+        : 'Only the background of the same picture, the same place, style, light and colours, continuing smoothly to the edges, one continuous image.';
       expanded = '';
     }
     if (what) {
       prompt = what; expanded = '';
       if (inf.llm) {
         lbl.textContent = t('inp.writing');
-        const e = await api('gen-enhance', {prompt: what, preset, count: 1, refs: [], own: false});
+        // part: без подсказки разнообразия и «Format:» стиля (иначе просился «крупный план» и «один предмет по центру»)
+        const e = await api('gen-enhance', {prompt: what, preset, count: 1, refs: [], own: false, part: true});
         if (!e.error) expanded = e.prompts?.[0] || e.prompt || '';
       }
     }
     if (!prompt.trim()) prompt = expanded || r.expanded || 'picture';
-    if (klein) {
-      prompt = 'Outpainting: the blurred area at the edges is unfinished. Replace it with a sharp, natural continuation of this same photo, matching perspective, light, colours and grain. '
-        + (what ? 'In the new area: ' : 'Continue everything that is cut off by the edges (people, furniture, objects); do not duplicate the main subject. Scene: ')
-        // картинка уже дорисованная: у её промта эта инструкция есть, второй раз не приклеиваем
-        + (expanded || prompt).replace(/^(Outpainting: [\s\S]*?(?:Scene|In the new area): )+/, '');
-      expanded = '';
-    }
+    // klein: указание «дорисуй размытое…» сервер ставит сам перед промтом со стилем (genOutLead) и убирает
+    // прежнее у уже дорисованной картинки
+    if (klein) { prompt = expanded || prompt; expanded = ''; }
     const neg = [r.negative, 'duplicate, cloned, extra arms, extra hands, second person'].filter(Boolean).join(', ');
     const res = await api('gen-add', {model, preset, negative: neg, ratio: r.ratio || '1:1', count: gn.set.count, seed: -1,
-      steps: same ? r.steps || 0 : 0, cfg: same ? r.cfg || 0 : 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, outpaint: [...gop.e]});
+      steps: same ? r.steps || 0 : 0, cfg: same ? r.cfg || 0 : 0, preview: gn.set.build, refs: [], prompt, expanded, init: x.path, outpaint: [...gop.e], outNew: !!what});
     if (ggErr(res)) return;
     ggLbClose();
     if (gg.open) ggOpen(false);

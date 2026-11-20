@@ -8,7 +8,25 @@ if (!Array.isArray(gn.set.refs)) gn.set.refs = [];
 
 const gnRefRole = r => t(`gn.ref.role.${r.role}`);
 const gnRefSrc = id => `/gen-ref?t=${TOKEN}&id=${id}`;
-const gnRefSees = r => r.role === 'base' || !!gn.info?.eyes;   // без глаз помощник видит только основу
+// модель сама берёт картинку «Персонажа» (FLUX.2 klein, genRefChars в genref.go); «лёгкий намёк» — только словами
+const gnRefKlein = () => gnModel()?.arch === 'flux2';
+const gnRefImg = r => r.role === 'character' && r.w >= 34 && gnRefKlein();
+// без глаз помощник видит только основу (и «Персонажа», которого klein берёт картинкой)
+const gnRefSees = r => r.role === 'base' || gnRefImg(r) || !!gn.info?.eyes;
+// gnRefWords: «Персонаж» уйдёт модели только описанием словами (лицо так не передать) — говорим прямо
+function gnRefWords() {
+  const on = gn.set.refs.some(r => r.role === 'character' && r.w >= 34 && gnRefSees(r) && !gnRefImg(r)) && !!gnModel();
+  $('gnRefWords').classList.toggle('hide', !on);
+  if (!on) return;
+  const k = (gn.info?.models || []).find(m => m.arch === 'flux2');
+  $('gnRefWordsT').textContent = t('gn.ref.words', {m: gnModel().name});
+  $('gnRefWordsGo').textContent = t(k ? 'gn.ref.wordsPick' : 'gn.ref.wordsGet');
+}
+$('gnRefWordsGo').addEventListener('click', () => {
+  const k = (gn.info?.models || []).find(m => m.arch === 'flux2');
+  if (!k) { gmOpen(true); return; }
+  gn.set.model = k.id; $('gnModel').value = k.id; $('gnModel').dispatchEvent(new Event('change'));
+});
 // gnRefsFor: что уходит на сервер
 const gnRefsFor = () => gn.set.refs.map(r => ({id: r.id, role: r.role, weight: r.w / 100}));
 const gnRefsBlind = () => gn.set.refs.some(r => !gnRefSees(r));
@@ -29,6 +47,7 @@ function gnRefRender() {
     <span><button type="button" class="linkb" data-add="file">${esc(t('gn.ref.file'))}</button><button type="button" class="linkb" data-add="gal">${esc(t('gn.ref.gal'))}</button></span></div>` : '';
   $('gnRefs').innerHTML = tiles + add;
   $('gnRefEyes').classList.toggle('hide', !gnRefsBlind());
+  gnRefWords();
   $('gnSv_refs').textContent = refs.length ? refs.map((r, i) => '@' + (i + 1) + ' ' + gnRefRole(r)).join(', ') : '';
 }
 
@@ -100,6 +119,13 @@ $('gnRefs').addEventListener('input', e => {
   r.w = +e.target.value;
   e.target.title = t('gn.ref.w', {v: r.w});
   gnSave();
+  // слабый «Персонаж» у klein уходит только словами: плитка и плашки под блоком меняются (без перерисовки плиток,
+  // чтобы не сбить перетаскивание ползунка)
+  const see = gnRefSees(r);
+  tile.classList.toggle('blind', !see);
+  if (see) tile.removeAttribute('title'); else tile.title = t('gn.ref.blind');
+  $('gnRefEyes').classList.toggle('hide', !gnRefsBlind());
+  gnRefWords();
 });
 // картинка пропала с диска (её убрала чистка через 60 дней) — плитка уходит
 $('gnRefs').addEventListener('error', e => {
