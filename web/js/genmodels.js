@@ -133,12 +133,69 @@ $('gnSetup').addEventListener('change', e => { if (e.target.id === 'gsLlm') { gm
 
 // ---- панель «Модели» ----
 
-// gmFit: заметный значок «пойдёт ли модель на твоей видеокарте»: хорошо / медленно / не потянет (считает aiFit в aisetup.go)
+// Иконки моделей: своя у каждой модели каталога (по id), иначе по виду. Рисуются цветом раздела.
+const GM_SVG = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const GM_IC = {
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>',
+  crown: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z"/><path d="M5 15.5h14"/>',
+  textpic: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M12 9v7"/>',
+  feather: '<path d="M20.2 3.8a6 6 0 0 0-8.5 0L5 10.5V19h8.5l6.7-6.7a6 6 0 0 0 0-8.5z"/><path d="M16 8 2 22M17.5 15H9"/>',
+  layers: '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  chat: '<path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 20.5l1.6-5A8.4 8.4 0 1 1 21 11.5z"/><path d="M12.5 7.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',
+  upscale: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+  cube: '<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+  sparks: '<path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 14l.8 2.2 2.2.8-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/>',
+  tools: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+};
+const GM_ID_IC = {'flux2-klein-4b': 'bolt', 'qwen-image-2512': 'crown', 'ernie-image': 'textpic', 'zimage-turbo': 'feather',
+  'sdxl-base': 'layers', 'gemma3-4b': 'chat', 'gemma3-4b-eyes': 'eye', 'birefnet-matting': 'scissors', 'realesrgan': 'upscale'};
+const GM_KIND_IC = {image: 'image', llm: 'chat', bgremove: 'scissors', upscale: 'upscale'};
+const gmIcon = m => GM_SVG(GM_IC[(m.source !== 'user' && GM_ID_IC[m.id]) || GM_KIND_IC[m.kind] || 'cube']);
+
+// разделы списка: генераторы, помощники, обработка готовых картинок; всё прочее (свои LoRA и т. п.) — «Другое»
+const GM_CATS = [
+  {id: 'gen', ic: 'sparks', kinds: ['image']},
+  {id: 'help', ic: 'chat', kinds: ['llm']},
+  {id: 'tool', ic: 'tools', kinds: ['bgremove', 'upscale']},
+  {id: 'other', ic: 'cube', kinds: null},
+];
+
+// gmFit: полоса «пойдёт ли на этом компьютере»: хорошо / медленно / не потянет / не знаю, с причиной
+// (считает aiFit в aisetup.go: видеопамять, а когда модель не влезает в неё целиком — ещё и обычная память)
 function gmFit(m, c) {
   if (!m.fit) return '';
-  const need = m.fit === 'bad' ? m.vram : m.good;
-  const tip = t(`gm.fit.t.${m.fit}`, {have: gmNum(c.vram.value / 1024), need: gmNum(need)});
-  return `<span class="gm-fit f-${m.fit}" title="${esc(tip)}"><i></i>${esc(t(`gm.fit.${m.fit}`))}</span>`;
+  const vram = gmNum(c.vram.value / 1024), ram = gmNum(c.ram.value / 1024);
+  const d = m.fit === 'good' ? t('gm.fit.d.good', {have: vram, need: gmNum(m.good)})
+    : m.fit === 'mid' ? t('gm.fit.d.mid', {have: vram, need: gmNum(m.good)})
+    : m.fit === 'unknown' ? t('gm.fit.d.unknown', {need: gmNum(m.vram)})
+    : m.why === 'ram' ? t('gm.fit.d.ram', {have: ram, need: gmNum(m.ramNeed)})
+    : t('gm.fit.d.bad', {have: vram, need: gmNum(m.vram)});
+  return `<div class="gm-fit f-${m.fit}"><i></i><b>${esc(t(`gm.fit.${m.fit}`))}</b><span>${esc(d)}</span></div>`;
+}
+
+function gmCard(m, c, j) {
+  const busy = (j.active || j.paused) && j.items.includes(m.id);
+  const act = m.installed
+    ? `<button type="button" class="btn sm" data-del="${esc(m.id)}"${j.active ? ' disabled' : ''}>${esc(t('gm.del'))}</button>`
+    : busy ? '' : `<button type="button" class="btn sm${m.kind === 'image' && m.fit !== 'bad' ? ' primary' : ''}" data-get="${esc(m.id)}"${j.active || !c.ok ? ' disabled' : ''}>${esc(t('gm.get', {size: fmtSize(m.size)}))}</button>`;
+  const lic = m.source === 'catalog' ? ` · ${t(m.commercial ? 'gm.commercial' : 'gm.noCommercial')}` : '';
+  const state = (m.installed ? `<span class="gm-on">${esc(t('gm.installed'))} · ${esc(fmtSize(m.size))}</span>`
+    : `<span>${esc(t('gm.notInstalled'))}</span>`) + esc(lic);
+  const badges = [...(m.source === 'user' ? ['own'] : []), ...(m.badges || [])];
+  const licOpen = m.license && gm.lic.has(m.id);
+  const foot = m.license ? `<button type="button" class="gm-lic-b${licOpen ? ' on' : ''}" data-lic>${esc(t('gm.license'))}</button>` : '<span></span>';
+  const licText = licOpen ? `<div class="gm-lic-t">${esc(m.license)}${m.licenseUrl ? ` <a href="#" data-url="${esc(m.licenseUrl)}">${esc(m.licenseUrl.replace(/^https:\/\//, ''))}</a>` : ''}</div>` : '';
+  return `<div class="gm-card${m.installed ? ' on' : ''}" data-id="${esc(m.id)}">
+    <div class="gm-top"><div class="gm-ic">${gmIcon(m)}</div>
+      <div class="gm-hd"><b class="gm-name">${esc(m.name)}</b><div class="gm-st">${state}</div></div></div>
+    ${badges.length ? `<div class="gm-badges">${badges.map(b => `<span class="gm-badge b-${esc(b)}">${esc(t(b === 'own' ? 'gm.own' : `gm.b.${b}`))}</span>`).join('')}</div>` : ''}
+    ${m.purpose ? `<div class="gm-p">${esc(m.purpose)}</div>` : ''}
+    ${gmFit(m, c)}
+    ${busy ? gmProgress(j) : ''}
+    <div class="gm-foot">${foot}${act ? `<div class="gm-act">${act}</div>` : ''}</div>${licText}</div>`;
 }
 
 function gmListRender() {
@@ -147,41 +204,35 @@ function gmListRender() {
   const j = d.job, c = d.check;
   $('gmFolder').innerHTML = `<code title="${esc(d.root)}">${esc(d.root)}</code> <span>${esc(t('gm.used', {size: fmtSize(d.used) || '0'}))}${c.disk.value >= 0 ? ' · ' + esc(t('gm.free', {size: fmtSize(c.disk.value)})) : ''}</span>`;
   $('gmChange').disabled = j.active || j.paused;
-  const rows = d.models.map(m => {
-    const busy = (j.active || j.paused) && j.items.includes(m.id);
-    const tags = [m.source === 'user' ? t('gm.own') : '', m.vram > 0 ? t('gm.vram', {n: m.vram}) : '',
-      m.source === 'catalog' ? t(m.commercial ? 'gm.commercial' : 'gm.noCommercial') : ''].filter(Boolean);
-    const act = m.installed
-      ? `<button type="button" class="btn sm" data-del="${esc(m.id)}"${j.active ? ' disabled' : ''}>${esc(t('gm.del'))}</button>`
-      : busy ? '' : `<button type="button" class="btn sm${m.kind === 'image' ? ' primary' : ''}" data-get="${esc(m.id)}"${j.active || !c.ok ? ' disabled' : ''}>${esc(t('gm.get', {size: fmtSize(m.size)}))}</button>`;
-    return `<div class="gm-row${m.installed ? ' on' : ''}" data-id="${esc(m.id)}">
-      <div class="gm-pv k-${esc(m.kind)}"></div>
-      <div class="gm-b"><div class="gm-n"><b>${esc(m.name)}</b>${m.installed ? `<span class="gm-tag">${esc(t('gm.installed'))}</span>` : ''}<span class="gm-kind">${esc(t(`gm.k.${m.kind}`) || m.kind)}</span>${gmFit(m, c)}</div>
-        ${m.badges?.length ? `<div class="gm-badges">${m.badges.map(b => `<span class="gm-badge b-${esc(b)}">${esc(t(`gm.b.${b}`) || b)}</span>`).join('')}</div>` : ''}
-        ${m.purpose ? `<div class="gm-p">${esc(m.purpose)}</div>` : ''}
-        <div class="gm-meta">${tags.map(x => `<span>${esc(x)}</span>`).join('')}${m.installed ? `<span>${esc(fmtSize(m.size))}</span>` : ''}</div>
-        ${m.license ? `<details class="gm-lic"${gm.lic.has(m.id) ? ' open' : ''}><summary>${esc(t('gm.license'))}</summary><p>${esc(m.license)}${m.licenseUrl ? ` <a href="#" data-url="${esc(m.licenseUrl)}">${esc(m.licenseUrl.replace(/^https:\/\//, ''))}</a>` : ''}</p></details>` : ''}
-        ${busy ? gmProgress(j) : ''}</div>
-      <div class="gm-act">${act}</div></div>`;
+  const known = GM_CATS.flatMap(s => s.kinds || []);
+  const secs = GM_CATS.map(s => {
+    const ms = d.models.filter(m => s.kinds ? s.kinds.includes(m.kind) : !known.includes(m.kind));
+    if (!ms.length) return '';
+    const on = ms.filter(m => m.installed).length;
+    return `<section class="gm-sec c-${s.id}"><div class="gm-sec-h"><span class="gm-sec-ic">${GM_SVG(GM_IC[s.ic])}</span>
+      <b>${esc(t(`gm.sec.${s.id}`))}</b><span class="gm-sec-n">${esc(t('gm.sec.n', {n: on, all: ms.length}))}</span>
+      <span class="gm-sec-d">${esc(t(`gm.sec.${s.id}.d`))}</span></div>
+      <div class="gm-grid">${ms.map(m => gmCard(m, c, j)).join('')}</div></section>`;
   });
   const why = !c.ok ? `<div class="gs-cant"><b>${esc(t('gs.cantT'))}</b><span>${esc([c.vram, c.ram, c.disk].filter(v => v.level === 'no').map(v => v.note).join(' '))}</span></div>` : '';
-  $('gmList').innerHTML = why + rows.join('');
+  $('gmList').innerHTML = why + secs.join('');
   $('gmList').scrollTop = keep;
 }
 
-// «Лицензия»: запоминаем, у каких моделей раскрыта, иначе перерисовка при скачивании сворачивает её сразу после клика
-$('gmList').addEventListener('toggle', e => {
-  const row = e.target.closest?.('.gm-lic')?.closest('.gm-row'); if (!row) return;
-  gm.lic[e.target.open ? 'add' : 'delete'](row.dataset.id);
-}, true);
-
 $('gmList').addEventListener('click', async e => {
   const get = e.target.closest('[data-get]'), del = e.target.closest('[data-del]'), a = e.target.closest('a[data-url]');
-  if (a) { e.preventDefault(); api('ai-license', {id: a.closest('.gm-row').dataset.id}); return; }
+  if (a) { e.preventDefault(); api('ai-license', {id: a.closest('.gm-card').dataset.id}); return; }
   if (e.target.closest('#gmPause, #gmResume, #gmCancel')) { gmJobBtn(e); return; }
+  const lb = e.target.closest('[data-lic]');
+  // «Лицензия»: раскрытые запоминаем в gm.lic, иначе перерисовка при скачивании сворачивает их сразу после клика
+  if (lb) { const id = lb.closest('.gm-card').dataset.id; gm.lic[gm.lic.has(id) ? 'delete' : 'add'](id); gmListRender(); return; }
   if (get) {
-    const m = gm.data.models.find(x => x.id === get.dataset.get);
-    if (m?.fit === 'bad' && !await askYes(t('gm.fitAsk', {name: m.name, have: gmNum(gm.data.check.vram.value / 1024), need: gmNum(m.vram), size: fmtSize(m.size)}), t('gm.getAnyway'))) return;
+    const m = gm.data.models.find(x => x.id === get.dataset.get), ck = gm.data.check;
+    if (m?.fit === 'bad') {
+      const ask = m.why === 'ram' ? t('gm.fitAskRam', {name: m.name, have: gmNum(ck.ram.value / 1024), need: gmNum(m.ramNeed), size: fmtSize(m.size)})
+        : t('gm.fitAsk', {name: m.name, have: gmNum(ck.vram.value / 1024), need: gmNum(m.vram), size: fmtSize(m.size)});
+      if (!await askYes(ask, t('gm.getAnyway'))) return;
+    }
     gmInstall([get.dataset.get]);
     return;
   }

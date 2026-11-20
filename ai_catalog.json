@@ -153,7 +153,7 @@
       "purpose": {"ru": "Убирает фон нейросетью: чисто вырезает волосы, мех, тонкие детали, а фата и стекло остаются полупрозрачными. Кнопка «Убрать фон» у готовой картинки в галерее. Работает на любой видеокарте.", "en": "Removes the background with a neural network: clean hair, fur and thin details, while veils and glass stay see-through. The Remove background button on a finished picture in the gallery. Works on any graphics card."},
       "license": {"ru": "MIT: можно всё, в том числе продавать картинки.", "en": "MIT: no restrictions, you can sell the images too."},
       "licenseUrl": "https://github.com/ZhengPeng7/BiRefNet/blob/main/LICENSE",
-      "commercial": true, "vram": 10,
+      "commercial": true, "vram": 2, "good": 6,
       "files": [
         {"name": "BiRefNet-matting-epoch_100.onnx", "cat": "bgremove", "role": "bgremove", "url": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-matting-epoch_100.onnx", "size": 972667742, "sha256": "6065d27c615ea27308f5b88598dd8db116eb07436c7a323ca40d13b2866c309e", "convert": "fp16"}
       ]

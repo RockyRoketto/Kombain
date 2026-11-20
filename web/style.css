@@ -1799,34 +1799,51 @@
   .gm-title{font-size:14px;color:var(--tx)}
   .gm-folder{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
   .gm-folder span{white-space:nowrap}
-  .gm-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:10px}
-  .gm-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line2);border-radius:var(--r2);background:var(--s2)}
-  .gm-row.on{border-color:rgba(var(--acl-rgb),.45)}
-  .gm-pv{flex:none;width:52px;height:52px;border-radius:10px;background:linear-gradient(160deg,#9fb4c7 0%,#d9b27c 55%,#4b5a3c 100%)}
-  .gm-pv.k-llm{background:linear-gradient(135deg,#c79bf2,#5c6bc0)}
-  .gm-pv.k-bgremove{background:repeating-conic-gradient(#3a3a40 0 25%,#2a2a30 0 50%) 0 0/14px 14px,linear-gradient(135deg,#e9b872,#c0704a);background-blend-mode:overlay}
-  .gm-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-  .gm-n{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .gm-n b{color:var(--tx);font-size:14px}
-  .gm-tag{font-size:11.5px;padding:1px 7px;border-radius:6px;background:rgba(var(--ok-rgb),.15);color:var(--ok)}
-  .gm-kind{font-size:11.5px;color:var(--dim)}
+  .gm-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:18px;padding-bottom:12px}
+  /* разделы: свой цвет у иконок и заголовка (генераторы — акцент, помощники — сиреневый, обработка — бирюзовый) */
+  .gm-sec{--c:var(--acct);display:flex;flex-direction:column;gap:10px}
+  .gm-sec.c-help{--c:#b9a0f5} .gm-sec.c-tool{--c:#6cc8d8} .gm-sec.c-other{--c:var(--tx2)}
+  :root[data-theme="light"] .gm-sec.c-help{--c:#6a48b8} :root[data-theme="light"] .gm-sec.c-tool{--c:#16707f}
+  .gm-sec-h{display:flex;align-items:center;gap:6px 9px;flex-wrap:wrap}
+  .gm-sec-h b{font-size:14px;color:var(--tx)}
+  .gm-sec-ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent)}
+  .gm-sec-ic svg{width:16px;height:16px}
+  .gm-sec-n{font-size:11.5px;padding:1px 7px;border-radius:6px;background:var(--s3);color:var(--dim)}
+  .gm-sec-d{flex-basis:100%;font-size:12.5px;color:var(--dim);line-height:1.4}
+  .gm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .gm-card{display:flex;flex-direction:column;gap:8px;min-width:0;padding:12px;border:1px solid var(--line2);border-radius:var(--r2);background:var(--s2)}
+  .gm-card.on{border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+  .gm-top{display:flex;align-items:center;gap:10px;min-width:0}
+  .gm-ic{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--s3));border:1px solid color-mix(in srgb,var(--c) 28%,transparent)}
+  .gm-ic svg{width:21px;height:21px}
+  .gm-hd{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .gm-name{color:var(--tx);font-size:14px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+  .gm-st{font-size:12px;color:var(--dim)}
+  .gm-on{color:var(--ok)}
+  .gm-on::before{content:"✓ "}
   .gm-badges{display:flex;flex-wrap:wrap;gap:4px}
   .gm-badge{font-size:11.5px;padding:1px 7px;border-radius:6px;background:var(--s4);color:var(--tx2);white-space:nowrap}
   .gm-badge.b-default,.gm-badge.b-best{background:rgba(var(--acc-rgb),.18);color:var(--acct);font-weight:600}
-  .gm-badge[class*="b-need"]{background:rgba(var(--acc-rgb),.1);color:var(--acct)}
+  .gm-badge[class*="b-need"]{background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
   .gm-badge.b-heavy{background:rgba(var(--err-rgb),.12);color:var(--tx2)}
-  .gm-fit{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;cursor:help}
-  .gm-fit i{width:7px;height:7px;border-radius:50%;background:currentColor}
-  .gm-fit.f-good{background:rgba(var(--ok-rgb),.15);color:var(--ok)}
-  .gm-fit.f-mid{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
-  .gm-fit.f-bad{background:rgba(var(--err-rgb),.15);color:var(--err)}
+  .gm-p{font-size:12.5px;color:var(--tx2);line-height:1.45}
+  /* «пойдёт ли»: полоса на всю ширину карточки, цвет — вердикт */
+  .gm-fit{--f:var(--dim);margin-top:auto;display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:1px 7px;padding:7px 9px;border-radius:9px;font-size:12px;line-height:1.35;background:color-mix(in srgb,var(--f) 12%,transparent);border:1px solid color-mix(in srgb,var(--f) 25%,transparent)}
+  .gm-fit i{width:8px;height:8px;border-radius:50%;background:var(--f);align-self:center}
+  .gm-fit b{color:var(--f);font-weight:600}
+  .gm-fit span{grid-column:2;color:var(--tx2)}
+  .gm-fit.f-good{--f:var(--ok)} .gm-fit.f-mid{--f:var(--warn)} .gm-fit.f-bad{--f:var(--err)}
   .gm-prog-b{display:flex;gap:6px}
   .gm-prog.paused .gs-meter i{opacity:.45}
-  .gm-p{font-size:12.5px;color:var(--tx2);line-height:1.45}
-  .gm-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--dim)}
-  .gm-lic summary{cursor:pointer;font-size:12px;color:var(--acct)}
-  .gm-lic p{margin:4px 0 0;font-size:12.5px;color:var(--tx2);line-height:1.45}
-  .gm-lic a{color:var(--acct)}
+  .gm-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:2px}
+  .gm-lic-b{display:inline-flex;align-items:center;gap:5px;padding:4px 6px 4px 2px;border:0;border-radius:6px;background:none;font:inherit;font-size:12px;color:var(--acct);cursor:pointer}
+  .gm-lic-b::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+  .gm-lic-b.on::before{transform:rotate(90deg)}
+  .gm-lic-b:hover{color:var(--acct2)}
+  .gm-lic-b:focus-visible{outline:2px solid color-mix(in srgb,var(--acct) 60%,transparent);outline-offset:1px}
+  .gm-lic-t{padding:8px 10px;border-radius:9px;background:var(--s3);font-size:12.5px;color:var(--tx2);line-height:1.45;overflow-wrap:anywhere}
+  .gm-lic-t a{color:var(--acct)}
+  .gm-card:not(:has(.gm-fit)) .gm-foot{margin-top:auto}
   .gm-act{flex:none;display:flex;align-items:center}
   .gn-gal-bar .cl-seg i{font-style:normal;color:var(--dim);font-size:11.5px}
   .gn-gal-n{color:var(--dim);font-size:12.5px;white-space:nowrap}

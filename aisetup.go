@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -269,39 +270,63 @@ type aiModelRow struct {
 	VRAM       float64  `json:"vram"`
 	Size       int64    `json:"size"` // на диске (стоит) или сколько скачать вместе с движком (не стоит)
 	Installed  bool     `json:"installed"`
-	Source     string   `json:"source"` // catalog, user
-	Fits       bool     `json:"fits"`   // видеопамяти хватает
-	Fit        string   `json:"fit"`    // как пойдёт на этой видеокарте: good, mid, bad; пусто — неизвестно
-	Good       float64  `json:"good"`   // ГБ видеопамяти для комфортной работы (с запасом)
+	Source     string   `json:"source"`  // catalog, user
+	Fits       bool     `json:"fits"`    // видеопамяти хватает
+	Fit        string   `json:"fit"`     // как пойдёт на этом компьютере: good, mid, bad, unknown; пусто — требований нет
+	Why        string   `json:"why"`     // что мешает: vram, ram
+	RAMNeed    float64  `json:"ramNeed"` // ГБ обычной памяти, если модель не влезет в видеопамять целиком
+	Good       float64  `json:"good"`    // ГБ видеопамяти для комфортной работы (с запасом)
 	Badges     []string `json:"badges,omitempty"`
 }
 
-// aiFit: пойдёт ли модель на видеокарте с vramMB мегабайт: good (комфортно), mid (медленно, часть модели в обычной
-// памяти), bad (не запустится или не стоит пробовать). Неизвестная видеопамять или модель без требований — пусто.
-func aiFit(vramMB float64, m CatModel) string {
-	if m.VRAM <= 0 || vramMB < 0 {
-		return ""
+// aiFit: пойдёт ли модель на этом компьютере: good (комфортно), mid (медленно, часть модели в обычной памяти),
+// bad (не запустится или не стоит пробовать), unknown (видеопамять узнать не удалось). Модель без требований — пусто.
+// why — что мешает: vram или ram. Пока модель целиком в видеопамяти не помещается (меньше Good), недостающее лежит
+// в обычной памяти: тогда нужно ещё ram ≥ вес модели + 4 ГБ на систему (aiRAMNeed).
+func aiFit(vramMB, ramMB float64, m CatModel) (fit, why string) {
+	if m.VRAM <= 0 {
+		return "", ""
+	}
+	if vramMB < 0 {
+		return "unknown", ""
 	}
 	good := aiGoodVRAM(m)
 	switch {
 	case vramMB < m.VRAM*1024-512: // карта «8 ГБ» отдаёт чуть меньше
-		return "bad"
+		return "bad", "vram"
 	case vramMB < good*1024-512:
-		return "mid"
+		if need := aiRAMNeed(m); ramMB > 0 && need > 0 && ramMB < need*1024-512 {
+			return "bad", "ram"
+		}
+		return "mid", "vram"
 	}
-	return "good"
+	return "good", ""
+}
+
+// aiRAMNeed: ГБ обычной памяти, когда модель не помещается в видеопамять целиком: вес её файлов и 4 ГБ на систему
+func aiRAMNeed(m CatModel) float64 {
+	var b int64
+	for _, f := range m.Files {
+		b += f.Size
+	}
+	if b == 0 {
+		return 0
+	}
+	return math.Ceil(float64(b)/(1<<30)) + 4
 }
 
 // aiModelRows: каталог (без служебных TAE: они ставятся сами) и свои модели
 func aiModelRows(c Catalog, in Installed) []aiModelRow {
 	vram := hwVRAMTotal()
+	ram := hwRAMTotal()
 	rows := []aiModelRow{}
 	for _, m := range c.Models {
 		if m.Kind == "tae" {
 			continue
 		}
 		r := aiModelRow{ID: m.ID, Kind: m.Kind, Name: m.Name.String(), Purpose: m.Purpose.String(), License: m.License.String(),
-			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512, Fit: aiFit(vram, m), Good: aiGoodVRAM(m), Badges: m.Badges}
+			LicenseURL: m.LicenseURL, Commercial: m.Commercial, VRAM: m.VRAM, Source: "catalog", Fits: vram < 0 || vram >= m.VRAM*1024-512, Good: aiGoodVRAM(m), RAMNeed: aiRAMNeed(m), Badges: m.Badges}
+		r.Fit, r.Why = aiFit(vram, ram, m)
 		if im, ok := in.model(m.ID); ok {
 			r.Installed = true
 			for _, f := range im.Files {
