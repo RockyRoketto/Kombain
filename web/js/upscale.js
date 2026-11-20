@@ -17,12 +17,13 @@ function upAdd(list) {
 }
 function upRender() {
   const list = upFiles.map(it => {
-    const sub = it.st === 'error' ? esc(it.msg) : it.st === 'ok' ? esc(t('upc.saved', {name: base(it.out)})) : esc(it.dir) + ' · ' + fmtSize(it.size);
+    const sub = it.st === 'run' ? utRunSub(it, upFiles) : it.st === 'error' ? esc(it.msg) : it.st === 'ok' ? esc(t('upc.saved', {name: base(it.out)})) : esc(it.dir) + ' · ' + fmtSize(it.size);
     const pill = it.st === 'run' ? '<span class="spin"></span>' : it.st === 'ok' ? t('status.ok') : it.st === 'error' ? t('status.error') : '';
     const ext = it.name.split('.').pop().toLowerCase();
     return `<div class="f sel ${it.st === 'run' ? 'running' : it.st}" title="${esc(it.path)}">` +
       (snap.ffmpeg ? `<div class="badge th"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext)}</span></div>` : `<div class="badge">${esc(ext)}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
+      (it.st === 'ok' ? `<button class="cmpb" data-upc="${esc(it.path)}">${t('ut.cmp')}</button>` : '') +
       `<div class="pill">${pill}</div>` + (upBusy ? '' : `<button class="x" data-upx="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
   if ($('upList').innerHTML !== list) $('upList').innerHTML = list;
@@ -41,7 +42,7 @@ async function upRun() {
   upBusy = true; upAbort = new AbortController(); upRender();
   let done = 0, fail = 0, last = '', stopped = false;
   for (const it of upPending()) {
-    it.st = 'run'; upRender();
+    it.st = 'run'; it.t0 = Date.now(); upRender();
     const r = await api('up-file', {path: it.path, factor, kind, outDir}, upAbort.signal);
     if (r.aborted) { stopped = true; break; }
     if (r.error) {
@@ -91,6 +92,8 @@ $('upClear').onclick = () => { if (!upBusy) { upFiles = []; upRender(); } };
 $('upStart').onclick = upRun;
 $('upStop').onclick = () => { if (upAbort) upAbort.abort(); };
 $('upList').addEventListener('click', e => {
+  const c = e.target.closest('[data-upc]'), it = c && upFiles.find(f => f.path === c.dataset.upc);
+  if (it && it.out) { utCmpOpen(it.path, it.out, false, it.name); return; }
   const x = e.target.closest('[data-upx]');
   if (x && !upBusy) { upFiles = upFiles.filter(f => f.path !== x.dataset.upx); upRender(); }
 });

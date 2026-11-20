@@ -2010,6 +2010,19 @@ __CSS__
   </div>
 </div>
 
+<!-- «до / после» для готового файла из «Утилит» (Убрать фон, Увеличить): web/js/gencompare.js -->
+<div id="utCmp" class="modal hide ut-cmp" role="dialog" aria-modal="true" aria-labelledby="utCmpT">
+  <div class="ut-cmp-card">
+    <div class="phead"><h3 id="utCmpT"></h3>
+      <button type="button" class="x" id="utCmpClose" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>
+    <div class="ut-cmp-stage" id="utCmpStage">
+      <div class="gn-cmp-box" id="utCmpBox"><img id="utCmpAfter" alt=""><img id="utCmpBefore" alt="">
+        <span class="gn-cmp-l l" data-i18n="gg.cmpBefore"></span><span class="gn-cmp-l r" data-i18n="gg.cmpAfter"></span>
+        <div class="gn-cmp-h" id="utCmpH"><i></i></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- просмотр картинки из галереи генератора: web/js/gengallery.js -->
 <div id="gnLb" class="modal hide gn-lb" role="dialog" aria-modal="true" aria-labelledby="gnLbT">
   <div class="gn-lb-card">
@@ -2021,6 +2034,18 @@ __CSS__
       <!-- дорисовка за краями: рамка нового холста с ручками, web/js/genoutpaint.js -->
       <div id="gnOut" class="gn-out hide"><div class="gn-out-fr" id="gnOutFr"><img id="gnOutImg" alt="">
         <i data-h="l"></i><i data-h="r"></i><i data-h="t"></i><i data-h="b"></i><i data-h="lt"></i><i data-h="rt"></i><i data-h="lb"></i><i data-h="rb"></i></div></div>
+      <!-- сравнение до/после после «Убрать фон» и «Увеличить»: web/js/gencompare.js -->
+      <div id="gnCmp" class="gn-cmp hide"><div class="gn-cmp-box" id="gnCmpBox">
+        <img id="gnCmpAfter" alt=""><img id="gnCmpBefore" alt="">
+        <span class="gn-cmp-l l" data-i18n="gg.cmpBefore"></span><span class="gn-cmp-l r" data-i18n="gg.cmpAfter"></span>
+        <div class="gn-cmp-h" id="gnCmpH"><i></i></div></div>
+        <button type="button" class="gn-cmp-x" id="gnCmpClose"><span data-i18n="gg.cmpClose"></span> ✕</button></div>
+      <!-- идёт обработка (gengallery.js, ggBusy) -->
+      <div id="gnLbBusy" class="gn-busy hide" role="status"><div class="gn-busy-card">
+        <div class="gn-busy-t" id="gnLbBusyT"></div>
+        <div class="gn-busy-bar"><i></i></div>
+        <div class="gn-busy-s"><span id="gnLbBusyS"></span><b id="gnLbBusyTm">0:00</b></div>
+        <button type="button" class="btn sm" id="gnLbBusyStop" data-i18n="gg.stop"></button></div></div>
       <button type="button" class="gn-lb-nav prev" id="gnLbPrev" data-i18n-aria="gg.prev" data-i18n-title="gg.prev">‹</button>
       <button type="button" class="gn-lb-nav next" id="gnLbNext" data-i18n-aria="gg.next" data-i18n-title="gg.next">›</button>
     </div>
@@ -2048,12 +2073,21 @@ __CSS__
         </section>
         <section class="gn-lb-sec">
           <h4 class="gn-cap" data-i18n="gg.secFix"></h4>
-          <div class="gn-lb-acts">
-            <button type="button" class="btn tool" id="gnLbBg" data-i18n-title="gg.bgS"><span data-i18n="gg.bg"></span></button>
-            <button type="button" class="btn tool" id="gnLbUp2" data-i18n-title="gg.up2"><span>×2</span><small></small></button>
-            <button type="button" class="btn tool" id="gnLbUp4" data-i18n-title="gg.up4"><span>×4</span><small></small></button>
-            <button type="button" class="btn tool" id="gnLbInp" data-i18n-title="inp.btnS"><span data-i18n="inp.btn"></span></button>
-            <button type="button" class="btn tool" id="gnLbOut" data-i18n-title="out.btnS"><span data-i18n="out.btn"></span></button>
+          <div class="gn-proc" id="gnProc">
+            <button type="button" class="gn-pb" id="gnLbBg" data-i18n-title="gg.bgS">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="3.4"/><path d="M5.5 20c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6"/><path d="M3 3h3M3 3v3M21 3h-3M21 3v3M3 21h3M3 21v-3M21 21h-3M21 21v-3"/></svg>
+              <span data-i18n="gg.bg"></span></button>
+            <div class="gn-pb gn-pb-up" id="gnLbUpBox">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>
+              <span data-i18n="gg.upL"></span>
+              <div class="gn-seg"><button type="button" id="gnLbUp2" data-i18n-title="gg.up2">×2</button><button type="button" id="gnLbUp4" data-i18n-title="gg.up4">×4</button></div>
+            </div>
+            <button type="button" class="gn-pb" id="gnLbInp" data-i18n-title="inp.btnS">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 013 3L8 19z"/><path d="M14.5 6.5l3 3"/></svg>
+              <span data-i18n="inp.btn"></span></button>
+            <button type="button" class="gn-pb" id="gnLbOut" data-i18n-title="out.btnS">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M3 8V5a2 2 0 012-2h3M16 3h3a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-3M8 21H5a2 2 0 01-2-2v-3"/></svg>
+              <span data-i18n="out.btn"></span></button>
           </div>
         </section>
         <section class="gn-lb-sec">

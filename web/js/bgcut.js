@@ -16,12 +16,13 @@ function bgAdd(list) {
 }
 function bgRender() {
   const list = bgFiles.map(it => {
-    const sub = it.st === 'error' ? esc(it.msg) : it.st === 'ok' ? esc(t('bgc.saved', {name: base(it.out)})) : esc(it.dir) + ' · ' + fmtSize(it.size);
+    const sub = it.st === 'run' ? utRunSub(it, bgFiles) : it.st === 'error' ? esc(it.msg) : it.st === 'ok' ? esc(t('bgc.saved', {name: base(it.out)})) : esc(it.dir) + ' · ' + fmtSize(it.size);
     const pill = it.st === 'run' ? '<span class="spin"></span>' : it.st === 'ok' ? t('status.ok') : it.st === 'error' ? t('status.error') : '';
     const ext = it.name.split('.').pop().toLowerCase();
     return `<div class="f sel ${it.st === 'run' ? 'running' : it.st}" title="${esc(it.path)}">` +
       (snap.ffmpeg ? `<div class="badge th"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext)}</span></div>` : `<div class="badge">${esc(ext)}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
+      (it.st === 'ok' ? `<button class="cmpb" data-bgc="${esc(it.path)}">${t('ut.cmp')}</button>` : '') +
       `<div class="pill">${pill}</div>` + (bgBusy ? '' : `<button class="x" data-bgx="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
   if ($('bgList').innerHTML !== list) $('bgList').innerHTML = list;
@@ -40,7 +41,7 @@ async function bgRun() {
   bgBusy = true; bgAbort = new AbortController(); bgRender();
   let done = 0, fail = 0, last = '', stopped = false;
   for (const it of bgPending()) {
-    it.st = 'run'; bgRender();
+    it.st = 'run'; it.t0 = Date.now(); bgRender();
     const r = await api('bg-file', {path: it.path, outDir}, bgAbort.signal);
     if (r.aborted) { stopped = true; break; }
     if (r.error) {
@@ -90,6 +91,8 @@ $('bgClear').onclick = () => { if (!bgBusy) { bgFiles = []; bgRender(); } };
 $('bgStart').onclick = bgRun;
 $('bgStop').onclick = () => { if (bgAbort) bgAbort.abort(); };
 $('bgList').addEventListener('click', e => {
+  const c = e.target.closest('[data-bgc]'), it = c && bgFiles.find(f => f.path === c.dataset.bgc);
+  if (it && it.out) { utCmpOpen(it.path, it.out, true, it.name); return; }
   const x = e.target.closest('[data-bgx]');
   if (x && !bgBusy) { bgFiles = bgFiles.filter(f => f.path !== x.dataset.bgx); bgRender(); }
 });

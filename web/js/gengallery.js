@@ -195,10 +195,14 @@ async function ggLbPath(path) {
   if (i >= 0) ggLb(gg.strip, i);
 }
 
-function ggLbClose() { giClose(); gopClose(); $('gnLb').classList.add('hide'); gg.lb = null; }
+function ggLbClose() {
+  if (ggJob) { ggJob.closed = true; ggJob.ac.abort(); }   // обработка без окна не нужна
+  gcmpClose(); giClose(); gopClose(); $('gnLb').classList.add('hide'); gg.lb = null;
+}
 
 function ggLbRender() {
   const {list, i} = gg.lb, x = list[i], m = x.meta, p = m.params, rq = m.request || {};
+  gcmpClose();
   $('gnLbImg').src = mediaUrl(x.path);
   $('gnLbImg').classList.toggle('cut', !!m.cutout);
   $('gnLbBg').classList.toggle('hide', !!m.cutout);
@@ -208,9 +212,9 @@ function ggLbRender() {
   for (const f of [2, 4]) {   // больше GG_UP_MAX по стороне сервер не увеличивает: такую кнопку прячем
     const b = $('gnLbUp' + f);
     b.classList.toggle('hide', w * f > GG_UP_MAX || h * f > GG_UP_MAX);
-    if (!b.classList.contains('busy')) b.querySelector('small').textContent = `${w * f}×${h * f}`;
     b.title = t(f === 2 ? 'gg.up2' : 'gg.up4') + ': ' + t('gg.upS', {w: w * f, h: h * f});
   }
+  $('gnLbUpBox').classList.toggle('hide', $('gnLbUp2').classList.contains('hide') && $('gnLbUp4').classList.contains('hide'));
   $('gnLbPrev').disabled = i <= 0;
   $('gnLbNext').disabled = i >= list.length - 1;
   const d = new Date(m.created);
@@ -298,25 +302,43 @@ async function ggExport(fmt) {
 
 // «Убрать фон»: нейросеть (bgremove.go) кладёт рядом новую картинку с прозрачностью, она открывается здесь же.
 // Если генератор рисует, сервер ждёт конца задачи: вместе на видеокарте они не помещаются.
-const ggAbort = {};   // идущие «Убрать фон» (bg) и «Увеличить» (up2, up4): AbortController на «Стоп»
-async function ggBg() {
-  const x = ggCur(), b = $('gnLbBg'); if (!x) return;
-  if (b.classList.contains('busy')) { ggAbort.bg?.abort(); return; }   // пока идёт, кнопка — «Стоп»
-  b.classList.add('busy');
-  const lbl = b.querySelector('span'); lbl.textContent = t('gg.stop'); b.title = t('gg.bgBusy');
-  const ac = ggAbort.bg = new AbortController();
+// Пока идёт работа, поверх картинки плашка с временем и «Стоп» (процента у нейросети нет: она отвечает одним куском),
+// остальные кнопки блока заперты. Готовое открывается здесь же с полоской «до / после» (gencompare.js).
+let ggJob = null;   // {ac, timer, closed}: идущая «Убрать фон» или «Увеличить»
+const ggClock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function ggBusy(on, title, btn) {
+  $('gnLbBusy').classList.toggle('hide', !on);
+  $('gnProc').classList.toggle('busy', on);
+  for (const b of $('gnProc').querySelectorAll('button')) b.classList.toggle('run', on && b === btn);
+  if (!on) return;
+  $('gnLbBusyT').textContent = title;
+  $('gnLbBusyS').textContent = t('gg.busyS');
+  $('gnLbBusyTm').textContent = '0:00';
+}
+
+async function ggRun(kind, f) {
+  const x = ggCur(); if (!x || ggJob) return;
+  const bg = kind === 'bg', before = x.path;
+  const job = ggJob = {ac: new AbortController(), closed: false}, t0 = Date.now();
+  ggBusy(true, bg ? t('gg.bgBusy') : t('gg.upBusy') + ' ×' + f, $(bg ? 'gnLbBg' : 'gnLbUp' + f));
+  job.timer = setInterval(() => { $('gnLbBusyTm').textContent = ggClock(Math.round((Date.now() - t0) / 1000)); }, 500);
   let r;
-  try { r = await api('gen-bg', {path: x.path}, ac.signal); } finally { b.classList.remove('busy'); lbl.textContent = t('gg.bg'); b.title = t('gg.bgS'); ggAbort.bg = null; }
+  try { r = await api(bg ? 'gen-bg' : 'gen-up', bg ? {path: before} : {path: before, factor: f}, job.ac.signal); }
+  finally { clearInterval(job.timer); ggJob = null; ggBusy(false); }
+  if (job.closed) return;   // окно закрыли: результат не показываем
   if (r.aborted) { toast({type: 'warn', title: t('upc.stopped'), ttl: 2500}); return; }
   if (r.error) {
-    toast({type: 'warn', title: t('gg.bgFail'), text: esc(r.error), ttl: 8000, actions: [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}]});
+    toast({type: 'warn', title: t(bg ? 'gg.bgFail' : 'gg.upFail'), text: esc(r.error), ttl: 8000,
+      actions: bg || r.needModel ? [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}] : []});
     return;
   }
   await ggStripLoad();
   if (gg.open) await ggLoad(true);
-  if (gg.lb) await ggLbPath(r.path);
-  toast({type: 'ok', title: t('gg.bgDone'), ttl: 3000});
+  if (gg.lb) { await ggLbPath(r.path); if (ggCur()?.path === r.path) gcmpOpen(before); }
+  toast({type: 'ok', title: t(bg ? 'gg.bgDone' : 'gg.upDone'), ttl: 3000});
 }
+const ggBg = () => ggRun('bg');
 
 // ggSize: настоящий размер картинки; у увеличенной params остаются исходными (по ним «Ещё такие же»), множитель в upscale
 const GG_UP_MAX = 8192;   // как upMaxSide в upscale.go
@@ -324,24 +346,7 @@ function ggSize(m) { const u = m.upscale || 1; return [m.params.width * u, m.par
 
 // «Увеличить ×2 / ×4»: Real-ESRGAN (upscale.go) кладёт рядом новую картинку, она открывается здесь же.
 // Модель для фото или для рисунков сервер выбирает по стилю. Пока генератор рисует, сервер ждёт конца задачи.
-async function ggUp(f) {
-  const x = ggCur(), b = $('gnLbUp' + f); if (!x) return;
-  if (b.classList.contains('busy')) { ggAbort['up' + f]?.abort(); return; }   // пока идёт, кнопка — «Стоп»
-  b.classList.add('busy');
-  const sm = b.querySelector('small'), was = sm.textContent; sm.textContent = t('gg.stop'); b.title = t('gg.upBusy');
-  const ac = ggAbort['up' + f] = new AbortController();
-  let r;
-  try { r = await api('gen-up', {path: x.path, factor: f}, ac.signal); } finally { b.classList.remove('busy'); sm.textContent = was; b.title = t(f === 2 ? 'gg.up2' : 'gg.up4'); ggAbort['up' + f] = null; }
-  if (r.aborted) { toast({type: 'warn', title: t('upc.stopped'), ttl: 2500}); return; }
-  if (r.error) {
-    toast({type: 'warn', title: t('gg.upFail'), text: esc(r.error), ttl: 8000, actions: r.needModel ? [{t: t('gn.err.models'), fn: () => { ggLbClose(); gmOpen(true); }}] : []});
-    return;
-  }
-  await ggStripLoad();
-  if (gg.open) await ggLoad(true);
-  if (gg.lb) await ggLbPath(r.path);
-  toast({type: 'ok', title: t('gg.upDone'), ttl: 3000});
-}
+const ggUp = f => ggRun('up', f);
 
 async function ggCopy() {
   const x = ggCur(); if (!x) return;
@@ -400,6 +405,7 @@ $('gnLbMore').addEventListener('click', () => ggUse('more'));
 $('gnLbVar').addEventListener('click', () => ggUse('var'));
 $('gnLbCopy').addEventListener('click', ggCopy);
 $('gnLbBg').addEventListener('click', ggBg);
+$('gnLbBusyStop').addEventListener('click', () => ggJob?.ac.abort());
 $('gnLbUp2').addEventListener('click', () => ggUp(2));
 $('gnLbUp4').addEventListener('click', () => ggUp(4));
 $('gnLbCp').addEventListener('click', e => { const b = e.target.closest('[data-cp]'), x = ggCur(); if (b && x) ggCopyText(ggCpText(x, b.dataset.cp)); });
