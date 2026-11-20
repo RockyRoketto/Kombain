@@ -82,6 +82,21 @@
       "defaults": {"steps": 30, "cfg": 5, "width": 1024, "height": 1024}
     },
     {
+      "id": "chroma1-hd", "kind": "image", "arch": "chroma",
+      "badges": ["art"],
+      "name": {"ru": "Chroma1-HD", "en": "Chroma1-HD"},
+      "purpose": {"ru": "Свободная и разнообразная: арт, аниме, фэнтези, необычные стили и сюжеты, где другие модели рисуют слишком гладко и одинаково. Следует длинным запросам, понимает негативный промт. Медленнее быстрых моделей (около 26 шагов). Весит около 15 ГБ вместе с текстовым энкодером. Понимает английский.", "en": "Free and varied: art, anime, fantasy, unusual styles and subjects where other models draw too smooth and too alike. Follows long prompts and understands a negative prompt. Slower than the fast models (about 26 steps). About 15 GB together with the text encoder. Understands English."},
+      "license": {"ru": "Apache 2.0 (модель и текстовый энкодер): картинки можно использовать и продавать, ограничений на коммерческое использование нет.", "en": "Apache 2.0 (model and text encoder): you can use and sell the images, no commercial restrictions."},
+      "licenseUrl": "https://huggingface.co/lodestones/Chroma1-HD",
+      "commercial": true, "vram": 6, "good": 12,
+      "files": [
+        {"name": "Chroma1-HD-Q8_0.gguf", "cat": "diffusion_models", "role": "diffusion", "url": "https://huggingface.co/silveroxides/Chroma1-HD-GGUF/resolve/main/Chroma1-HD-Q8_0.gguf", "size": 9735409824, "sha256": "8c8d66177bfc584573dd21584399ebc1f00bde60acbbc48ac3cc8f58f10c6094"},
+        {"name": "zimage_ae.safetensors", "cat": "vae", "role": "vae", "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38"},
+        {"name": "t5-v1_1-xxl-encoder-Q8_0.gguf", "cat": "text_encoders", "role": "t5xxl", "url": "https://huggingface.co/city96/t5-v1_1-xxl-encoder-gguf/resolve/main/t5-v1_1-xxl-encoder-Q8_0.gguf", "size": 5061584064, "sha256": "9ec60f6028534b7fe5af439fcb535d75a68592a9ca3fcdeb175ef89e3ee99825"}
+      ],
+      "defaults": {"steps": 26, "cfg": 4, "width": 1024, "height": 1024}
+    },
+    {
       "id": "zimage-turbo", "kind": "image", "arch": "zimage",
       "badges": ["fast", "light"],
       "name": {"ru": "Z-Image Turbo", "en": "Z-Image Turbo"},

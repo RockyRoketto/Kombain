@@ -139,6 +139,7 @@ const GM_IC = {
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>',
   crown: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z"/><path d="M5 15.5h14"/>',
   textpic: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M12 9v7"/>',
+  palette: '<path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/>',
   feather: '<path d="M20.2 3.8a6 6 0 0 0-8.5 0L5 10.5V19h8.5l6.7-6.7a6 6 0 0 0 0-8.5z"/><path d="M16 8 2 22M17.5 15H9"/>',
   layers: '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
@@ -150,7 +151,7 @@ const GM_IC = {
   sparks: '<path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 14l.8 2.2 2.2.8-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/>',
   tools: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
 };
-const GM_ID_IC = {'flux2-klein-4b': 'bolt', 'qwen-image-2512': 'crown', 'ernie-image': 'textpic', 'zimage-turbo': 'feather',
+const GM_ID_IC = {'flux2-klein-4b': 'bolt', 'qwen-image-2512': 'crown', 'ernie-image': 'textpic', 'chroma1-hd': 'palette', 'zimage-turbo': 'feather',
   'sdxl-base': 'layers', 'gemma3-4b': 'chat', 'gemma3-4b-eyes': 'eye', 'birefnet-matting': 'scissors', 'realesrgan': 'upscale'};
 const GM_KIND_IC = {image: 'image', llm: 'chat', bgremove: 'scissors', upscale: 'upscale'};
 const gmIcon = m => GM_SVG(GM_IC[(m.source !== 'user' && GM_ID_IC[m.id]) || GM_KIND_IC[m.kind] || 'cube']);

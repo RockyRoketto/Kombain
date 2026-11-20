@@ -98,7 +98,7 @@ type CatModel struct {
 }
 
 // aiBadges: метки моделей. Начинаются с need — модель нужна для своей кнопки, без неё та не работает.
-var aiBadges = []string{"default", "best", "quality", "fastest", "fast", "light", "heavy", "text", "outpaint", "backup",
+var aiBadges = []string{"default", "best", "quality", "fastest", "fast", "light", "heavy", "text", "art", "outpaint", "backup",
 	"needHelper", "needRefs", "needBg", "needUpscale"}
 
 var aiKinds = []string{"image", "lora", "tae", "upscale", "llm", "bgremove", "controlnet"}
