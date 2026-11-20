@@ -266,6 +266,11 @@ func llmCloseness(w float64) string {
 	return "light hint"
 }
 
+// llmImgChar: вместо описания «Персонажа», которого модель берёт картинкой (FLUX.2 klein). Внешность словами
+// спорила с картинкой: на запрос «мужик показывает сердечко» помощник дописывал причёску, щетину и рубашку,
+// и klein рисовала другого человека (ручной замер 2026-11-20: без слов то же лицо и жилет, со словами чужое лицо).
+const llmImgChar = "the same person as in the picture. The drawing model gets the picture itself, so never describe his or her face, hair, age, build or clothes: write only the pose, action and place."
+
 // llmRefBlock: блок «References:» для помощника. desc[i] — описание refs[i]; без описания референс пропускается.
 // Номер @N — место в списке, как на плитках. Замеры 2026-11-13 на Gemma 4B: предложение о стиле она в промт
 // не дописывает, а персонажа, на которого запрос не ссылается через @N, теряет даже с прямым указанием
@@ -305,7 +310,7 @@ func llmMentions(request string, n int) bool {
 func llmTail(refs []GenRef, desc []string, mention func(n int) bool) string {
 	var chars, styles []string
 	for i, r := range refs {
-		if i >= len(desc) || desc[i] == "" {
+		if i >= len(desc) || desc[i] == "" || r.Role == "character" && r.Img {
 			continue
 		}
 		d := strings.TrimRight(desc[i], ". ")
@@ -449,12 +454,15 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 		if desc, err = l.llmDescribe(ctx, base, refs); err != nil {
 			return nil, nil, err
 		}
-		block = llmRefBlock(request, refs, desc)
 		for i, r := range refs {
 			if r.Role == "character" && desc[i] == "" {
 				noChar = append(noChar, r.ID)
 			}
+			if r.Role == "character" && r.Img && desc[i] != "" {
+				desc[i] = llmImgChar
+			}
 		}
+		block = llmRefBlock(request, refs, desc)
 	}
 	if own { // свой промт: помощник его не трогает, описания персонажей и стиля дописываются в конец
 		return []string{llmJoin(request, llmTail(refs, desc, func(int) bool { return false }))}, noChar, nil
@@ -465,6 +473,11 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 	sys := llmSystem
 	if pre.Object && !part {
 		sys = llmSystemObject
+	}
+	imgChar := slices.ContainsFunc(refs, func(r GenRef) bool { return r.Role == "character" && r.Img })
+	if imgChar {
+		// Gemma 4B из блока «References» это правило не слушалась: дописывала «blue denim shirt» (2026-11-20)
+		sys += "\n- The person's looks come from a picture the drawing model sees. NEVER write his or her hair, beard, age, build, skin or clothes, not even one word like \"shirt\" or \"short hair\". Write only the pose, action, expression, place and light."
 	}
 	for _, v := range llmVariations(n, pre.Framed) {
 		user := request + "\n\n" + v
@@ -479,6 +492,9 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 		p, err := l.ask(ctx, base, sys, user)
 		if err != nil {
 			return nil, nil, err
+		}
+		if imgChar {
+			p = llmStripLooks(p)
 		}
 		out = append(out, llmJoin(p, llmTail(refs, desc, mention)))
 	}
@@ -557,4 +573,30 @@ func llmClean(s string) string {
 		s = m[1]
 	}
 	return strings.TrimSpace(s)
+}
+
+// Внешность «Персонажа», которого модель берёт картинкой (klein), в промте только мешает: Gemma 4B всё равно
+// дописывает «blue shirt», «short brown hair» (запрет в инструкции не слушает), и одежда с картинки заменяется
+// на выдуманную (жалоба автора 2026-11-20). Поэтому такие слова вырезаются из готового промта.
+const llmLookWords = `hair|hairstyle|beard|stubble|mustache|shirt|t-shirt|tee|jacket|vest|waistcoat|suit|coat|sweater|hoodie|tie|dress|blouse|clothes|clothing|outfit`
+
+var (
+	llmLookClause = regexp.MustCompile(`(?i)\s+(?:with|wearing|dressed in)\s+(?:(?:an?|the|his|her|their)\s+)?(?:[\w-]+\s+){0,3}(?:` + llmLookWords + `)\b(?:\s+and\s+(?:(?:an?|the|his|her)\s+)?(?:[\w-]+\s+){0,3}(?:` + llmLookWords + `)\b)*`)
+	llmLookSent   = regexp.MustCompile(`(?i)\b(?:wears?|wearing|dressed|` + llmLookWords + `)\b`)
+)
+
+// llmStripLooks: убирает из промта описание внешности (причёска, борода, одежда): и оборот «with short hair and a
+// shirt», и целые предложения «He wears a blue shirt.»
+func llmStripLooks(p string) string {
+	p = llmLookClause.ReplaceAllString(p, "")
+	var keep []string
+	for _, s := range strings.SplitAfter(p, ". ") {
+		if !llmLookSent.MatchString(s) {
+			keep = append(keep, s)
+		}
+	}
+	if len(keep) == 0 {
+		return p
+	}
+	return strings.TrimSpace(strings.Join(keep, ""))
 }

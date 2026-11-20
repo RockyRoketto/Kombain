@@ -108,3 +108,15 @@ func TestParseSMI(t *testing.T) {
 		}
 	}
 }
+
+func TestGenWithAnatomy(t *testing.T) {
+	if got := genWithAnatomy("A man shows a heart sign with his hands."); got != "A man shows a heart sign with his hands. "+genAnatomyTail {
+		t.Errorf("люди: %q", got)
+	}
+	if got := genWithAnatomy("мужик показывает сердечко"); !strings.HasSuffix(got, genAnatomyTail) {
+		t.Errorf("по-русски: %q", got)
+	}
+	if got := genWithAnatomy("A red fox in a snowy forest."); got != "A red fox in a snowy forest." {
+		t.Errorf("без людей хвоста нет: %q", got)
+	}
+}

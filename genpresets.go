@@ -6,6 +6,7 @@ package main
 
 import (
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -25,7 +26,7 @@ type GenPreset struct {
 }
 
 // genNegBase: что не нужно никогда. Текст на картинках автору не нужен (решение 2026-11-12), поэтому он тоже здесь.
-const genNegBase = "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra fingers, bad anatomy"
+const genNegBase = "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, disfigured, bad anatomy, extra fingers, fused fingers, missing fingers, malformed hands, mutated hands, extra limbs, extra arms, poorly drawn face, cropped, out of frame"
 
 // genPresets: порядок здесь не важен, группы и порядок в окне «Ещё стили…» задаёт GN_GROUPS в gentab.js.
 // Новый стиль: запись здесь, gn.pre.<id> и gn.preHint.<id> на обоих языках в web/i18n.json, группа и градиент в gentab.js.
@@ -236,4 +237,18 @@ func genArchDefaults(arch string) GenDefaults {
 // плавно перетекают друг в друга.
 func genPreviewEvery(steps int) int {
 	return max(1, int(math.Round(float64(steps)/5)))
+}
+
+// genAnatomyTail: что дописать к промту, когда на картинке люди и руки. У моделей с CFG 1 (klein, Z-Image Turbo, FLUX)
+// негативный промт не работает совсем, и «не рисуй клешни» им сказать нечем; остаётся сказать, что рисовать
+// (жалоба автора 2026-11-20: руки у klein выходят клешнями). Список слов короткий: лишний хвост без людей только мешает.
+const genAnatomyTail = "natural anatomy, well-formed hands with five fingers each"
+
+var genPeopleRe = regexp.MustCompile(`(?i)\b(man|men|woman|women|person|people|boy|girl|child|kid|portrait|hand|hands|finger|fingers|face|he|she|his|her)\b|муж|женщ|человек|люд|рук|палец|пальц|парен|девуш|дев[оч]|мальч|ребён|портрет|лиц`)
+
+func genWithAnatomy(prompt string) string {
+	if !genPeopleRe.MatchString(prompt) {
+		return prompt
+	}
+	return strings.TrimRight(prompt, ". ") + ". " + genAnatomyTail
 }

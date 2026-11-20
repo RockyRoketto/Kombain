@@ -115,6 +115,10 @@ func TestLLMRefText(t *testing.T) {
 	if got := llmJoin("A fox in a cafe.", tail); got != "A fox in a cafe. A grey cat. Style: Soft watercolor." {
 		t.Errorf("join: %q", got)
 	}
+	// «Персонаж» картинкой (klein): внешность в хвост промта не дописывается
+	if got := llmTail([]GenRef{{Role: "character", Weight: 1, Img: true}}, []string{llmImgChar}, func(int) bool { return false }); got != "" {
+		t.Errorf("хвост для персонажа-картинки: %q", got)
+	}
 	if llmMentions("@12 and @3", 1) || !llmMentions("@12 and @1.", 1) || !llmMentions("x @3", 3) {
 		t.Error("llmMentions")
 	}
@@ -139,10 +143,23 @@ func TestGenRefChars(t *testing.T) {
 		{ID: ids[2], Role: "character", Weight: 0.2}, // лёгкий намёк — словами
 		{ID: ids[3], Role: "character", Weight: 1},
 	})
-	if err != nil || len(imgs) != 2 || note != "The character has the same face, hair, body and clothes as the person in reference image 1 and image 2." {
+	if err != nil || len(imgs) != 2 || note != "The person from image 1 and image 2, exactly the same person: identical face, eyes, nose, jaw, hairstyle, facial hair and clothes." {
 		t.Errorf("%d %q %v", len(imgs), note, err)
 	}
 	if imgs, note, _ := genRefChars([]GenRef{{ID: ids[0], Role: "base", Weight: 1}}); imgs != nil || note != "" {
 		t.Error("без персонажа")
+	}
+}
+
+func TestLlmStripLooks(t *testing.T) {
+	for in, want := range map[string]string{
+		"A man with short brown hair and a blue shirt holds both hands in front of his chest. Soft light.": "A man holds both hands in front of his chest. Soft light.",
+		"A man holds both hands in front of his chest. He wears a dark gray casual shirt. Cool light.":     "A man holds both hands in front of his chest. Cool light.",
+		"A man in front of a window shows a heart sign.":                                                   "A man in front of a window shows a heart sign.",
+		"A woman with long red hair waves.":                                                                "A woman waves.",
+	} {
+		if got := llmStripLooks(in); got != want {
+			t.Errorf("%q → %q, ждали %q", in, got, want)
+		}
 	}
 }

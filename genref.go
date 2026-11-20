@@ -34,6 +34,7 @@ type GenRef struct {
 	ID     string  `json:"id"`
 	Role   string  `json:"role"` // style, character, base
 	Weight float64 `json:"weight"`
+	Img    bool    `json:"img,omitempty"` // «Персонаж» уйдёт модели картинкой (klein): помощник не описывает внешность словами
 }
 
 const (
@@ -199,7 +200,7 @@ func genRefChars(refs []GenRef) (imgs [][]byte, note string, err error) {
 	if len(imgs) == 0 {
 		return nil, "", nil
 	}
-	note = "The character has the same face, hair, body and clothes as the person in reference " + strings.Join(nums, " and ") + "."
+	note = "The person from " + strings.Join(nums, " and ") + ", exactly the same person: identical face, eyes, nose, jaw, hairstyle, facial hair and clothes."
 	return imgs, note, nil
 }
 

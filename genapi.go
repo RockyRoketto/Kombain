@@ -175,6 +175,10 @@ func genBuild(r genAddReq, m genModelInfo) GenParams {
 	if r.CFG > 0 {
 		p.CFG = min(r.CFG, 30)
 	}
+	// негатив при CFG 1 не работает: про руки и лица говорим позитивным хвостом (не для «предмет без людей»)
+	if p.CFG <= 1 && !genPreset(r.Preset).Object {
+		p.Prompt = genWithAnatomy(p.Prompt)
+	}
 	p.Width, p.Height = genSize(m.Def.Width, m.Def.Height, r.Ratio)
 	p.Preview = "none"
 	if r.Preview {
@@ -299,9 +303,11 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 				return
 			}
 			if len(imgs) > 0 {
-				p.Refs, p.Prompt = imgs, llmJoin(p.Prompt, note)
+				// указание первым: в хвосте после стиля («professional photograph…») klein его почти не слушала
+				// (замер 2026-11-20: в хвосте чужое лицо и рукава, в начале то же лицо и жилет)
+				p.Refs, p.Prompt = imgs, llmJoin(note, p.Prompt)
 				for i := range prompts {
-					prompts[i] = llmJoin(prompts[i], note)
+					prompts[i] = llmJoin(note, prompts[i])
 				}
 			}
 		}

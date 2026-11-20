@@ -28,7 +28,7 @@ $('gnRefWordsGo').addEventListener('click', () => {
   gn.set.model = k.id; $('gnModel').value = k.id; $('gnModel').dispatchEvent(new Event('change'));
 });
 // gnRefsFor: что уходит на сервер
-const gnRefsFor = () => gn.set.refs.map(r => ({id: r.id, role: r.role, weight: r.w / 100}));
+const gnRefsFor = () => gn.set.refs.map(r => ({id: r.id, role: r.role, weight: r.w / 100, img: gnRefImg(r)}));
 const gnRefsBlind = () => gn.set.refs.some(r => !gnRefSees(r));
 
 function gnRefRender() {
