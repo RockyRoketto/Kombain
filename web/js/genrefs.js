@@ -40,7 +40,8 @@ function gnRefRender() {
       <button type="button" class="gn-ref-at" title="${esc(t('gn.ref.at', {n: '@' + (i + 1)}))}">@${i + 1}</button>
       <button type="button" class="gn-ref-x" title="${esc(t('gn.ref.del'))}" aria-label="${esc(t('gn.ref.del'))}">✕</button>
       <button type="button" class="gn-ref-role${r.role === 'base' ? ' base' : ''}" title="${esc(t('gn.ref.roleHint'))}">${esc(role)}</button>
-      <input type="range" class="vol" min="0" max="100" step="5" value="${r.w}" title="${esc(t('gn.ref.w', {v: r.w}))}" aria-label="${esc(t('gn.ref.w', {v: r.w}))}">
+      <input type="range" class="vol" min="0" max="100" step="5" value="${r.w}" style="--p:${r.w}%" title="${esc(t('gn.ref.w', {v: r.w}))}" aria-label="${esc(t('gn.ref.w', {v: r.w}))}">
+      <div class="gn-ref-sc" title="${esc(t('gn.ref.scHint'))}"><span>${esc(t('gn.ref.weak'))}</span><span>${esc(t('gn.ref.strong'))}</span></div>
     </div>`;
   }).join('');
   const add = refs.length < GN_REF_MAX ? `<div class="gn-ref gn-ref-add"><b>+</b><small>${esc(t('gn.ref.add'))}</small>
@@ -118,6 +119,7 @@ $('gnRefs').addEventListener('input', e => {
   const r = gn.set.refs[+tile.dataset.i];
   r.w = +e.target.value;
   e.target.title = t('gn.ref.w', {v: r.w});
+  e.target.style.setProperty('--p', r.w + '%');
   gnSave();
   // слабый «Персонаж» у klein уходит только словами: плитка и плашки под блоком меняются (без перерисовки плиток,
   // чтобы не сбить перетаскивание ползунка)
