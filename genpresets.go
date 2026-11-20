@@ -19,10 +19,10 @@ type GenPreset struct {
 	Format string `json:"-"`
 	// Framed: кадр задаёт сам стиль (один предмет на фоне, вид сверху), подсказка разнообразия меняет только свет
 	Framed bool `json:"-"`
+	// Object: картинка — один предмет или персонаж, фон и свет задаёт стиль. Помощник пишет по своим указаниям
+	// llmSystemObject (только сам предмет), без подсказки разнообразия и строки «Format:».
+	Object bool `json:"-"`
 }
-
-// genFmtObject: формат стилей «один предмет или персонаж на фоне»
-const genFmtObject = "one subject (an object or a character, whole and clearly visible) centered on a plain solid-color background. No environment, no scene, no ground, no other objects."
 
 // genNegBase: что не нужно никогда. Текст на картинках автору не нужен (решение 2026-11-12), поэтому он тоже здесь.
 const genNegBase = "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra fingers, bad anatomy"
@@ -112,7 +112,7 @@ var genPresets = []GenPreset{
 	{ID: "icon3d",
 		Template: "3d icon of {p}, isometric, soft clay render, smooth glossy plastic, soft studio lighting, simple solid background, centered, single object",
 		Negative: "photo, photograph, photorealistic, realistic, depth of field, bokeh, busy background, multiple objects",
-		Format:   genFmtObject, Framed: true},
+		Object:   true, Framed: true},
 	{ID: "render3d",
 		Template: "3d animated movie still of {p}, stylized characters, soft global illumination, subsurface scattering, vibrant colors, high quality cgi",
 		Negative: "photo, photorealistic, 2d, flat, sketch"},
@@ -135,12 +135,11 @@ var genPresets = []GenPreset{
 	{ID: "sticker",
 		Template: "die-cut sticker of {p}, thick white border, bold outlines, vibrant colors, cute, plain white background",
 		Negative: "photo, photorealistic, busy background, multiple stickers, cropped",
-		Format:   genFmtObject, Framed: true},
+		Object:   true, Framed: true},
 	{ID: "flaticon",
 		Template: "flat icon of {p}, simple geometric shapes, few solid colors, centered, plain background, vector, ui icon",
 		Negative: "photo, photorealistic, 3d, gradient noise, detailed texture, busy background",
-		Format:   "one simple recognizable subject centered on a plain background, very few details. No environment, no scene.",
-		Framed:   true},
+		Object:   true, Framed: true},
 	{ID: "flat",
 		Template: "flat vector illustration of {p}, minimal, geometric shapes, limited color palette, clean background",
 		Negative: "photo, photorealistic, gradient noise, 3d",

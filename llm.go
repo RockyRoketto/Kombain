@@ -221,12 +221,24 @@ Rules:
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
 - The user message may have a "Format:" line: what this kind of picture needs (for example one object on a plain background). Follow it over the background rule, but never name the style itself.
-- The user message may have a "Variation:" line: a framing and a light to make this picture a bit different. Use them quietly in the middle or end of the prompt (for example "medium shot", "soft window light"). Never start the prompt with the framing, never write "Seen from", never repeat the "Variation:" line. Use its light only if the request does not set the time of day or weather. It never adds objects, places or backgrounds.
+- The user message may have a "Variation:" line: a framing and a light to make this picture a bit different. Use them quietly in the middle or end of the prompt (for example "medium shot", "soft window light"). Never start the prompt with the framing, never write "Seen from", never repeat the "Variation:" line. Use its light only if the request does not set the time of day or weather and the "Format:" line does not forbid lighting. It never adds objects, places or backgrounds.
 - Output only the prompt: no quotes, no explanations, no lists.
 - The user message may have a "References:" block: images the user attached, already described in words. "@N" in the request means reference N: write what that reference shows instead, never the "@N" itself.
 - A "character" reference: put that same character into the scene of the request with the looks from its description (kind, age, face, hair, body, clothes and their colors). The request decides the pose, action and place.
 - A "base" reference: the picture is drawn over that image. Keep its composition, main objects and colors and change only what the request asks.
 - "follow closely" means keep almost every detail of the reference, "follow loosely" keep its main features, "light hint" borrow only a little.`
+
+// llmSystemObject: указания для стилей «один предмет» (GenPreset.Object: стикер, значок, 3D-иконка). Замер 2026-11-20 на Gemma 4B:
+// с общими указаниями и строкой «Format: no background» она всё равно ставила апельсин «на серую поверхность в утреннем свете»,
+// фон спорил с белым фоном стиля. Короткие указания без слова о сцене она держит.
+const llmSystemObject = `You write prompts for a text-to-image model. The picture is ONE subject alone; the background, lighting and art style are added separately.
+The user gives a short request, possibly in Russian or another language. Translate it into ONE short English description of only that subject, 10-35 words: what it is, its shape, colors, the parts that are visible from outside, its pose or action if it is a character.
+Rules:
+- Keep every fact from the request: the number, kind, age and gender stay the same. Add no other objects, no people and no hands: an object lies alone, nobody holds it.
+- Only if the subject is a person or an animal doing something: describe the gesture literally, what the body does, never as a separate symbol. Do not invent an age.
+- Never mention a background, table, surface, ground, scene, shadow, light, camera, art style or medium.
+- No quotes, no lists, no explanations, no tags like "8k" or "masterpiece". Output only the description.
+- A "References:" block describes images the user attached. "@N" means reference N: write what it shows instead of "@N". A "character" reference gives the looks of the subject.`
 
 // llmLook: что спросить у помощника про картинку-референс каждой роли
 var llmLook = map[string]string{
@@ -447,15 +459,21 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 	mention := func(n int) bool { return llmMentions(request, n) }
 	out := make([]string, 0, n)
 	pre := genPreset(preset)
+	sys := llmSystem
+	if pre.Object {
+		sys = llmSystemObject
+	}
 	for _, v := range llmVariations(n, pre.Framed) {
 		user := request + "\n\n" + v
-		if pre.Format != "" {
+		if pre.Object { // стикер, значок, 3D-иконка: кадр, свет и фон задаёт стиль, подсказка только мешает
+			user = request
+		} else if pre.Format != "" {
 			user += "\nFormat: " + pre.Format
 		}
 		if block != "" {
 			user += "\n\n" + block
 		}
-		p, err := l.ask(ctx, base, user)
+		p, err := l.ask(ctx, base, sys, user)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -472,9 +490,9 @@ func llmJoin(p, tail string) string {
 	return strings.TrimRight(p, ". ") + ". " + tail
 }
 
-// ask: один промт от помощника
-func (l *llmServer) ask(ctx context.Context, base, user string) (string, error) {
-	s, err := l.chat(ctx, base, []map[string]any{{"role": "system", "content": llmSystem}, {"role": "user", "content": user}}, 0.9, 260)
+// ask: один промт от помощника по указаниям sys
+func (l *llmServer) ask(ctx context.Context, base, sys, user string) (string, error) {
+	s, err := l.chat(ctx, base, []map[string]any{{"role": "system", "content": sys}, {"role": "user", "content": user}}, 0.9, 260)
 	return llmClean(s), err
 }
 
