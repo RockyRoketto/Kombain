@@ -219,7 +219,7 @@ function meshResize(cols, rows) {
   // точки, которые совпали с прежними по месту в сетке, берут прежний цвет как есть (без потерь на пересчёте)
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
     const u = i / (cols - 1) * (m.cols - 1), v = j / (rows - 1) * (m.rows - 1);
-    if (Number.isInteger(u) && Number.isInteger(v)) { const o = m.pts[v * m.cols + u]; Object.assign(pts[j * cols + i], {x: o.x, y: o.y, c: o.c}); }
+    if (Number.isInteger(u) && Number.isInteger(v)) { const o = m.pts[v * m.cols + u]; Object.assign(pts[j * cols + i], {x: o.x, y: o.y, c: o.c, lock: o.lock}); }
   }
   cl.mesh = meshValid({cols, rows, mix: m.mix, pts, fx: m.fx});
   meshSel = Math.round(sv * (rows - 1)) * cols + Math.round(su * (cols - 1));   // выбранной остаётся точка в том же месте сетки
@@ -227,15 +227,18 @@ function meshResize(cols, rows) {
 // «Случайно» (и пробел): цвета по сочетаниям круга оттенков, как у градиента (CL_SCHEMES в color.js); соседние точки
 // берут разные цвета схемы (косыми полосами). Точки внутри и на краях чуть сдвигаются от ровной сетки — так живее.
 function meshRandom() {
-  const m = cl.mesh, base = Math.random() * 360, sch = CL_SCHEMES[Math.floor(Math.random() * CL_SCHEMES.length)];
+  const m = cl.mesh, locked = m.pts.filter(p => p.lock);   // закреплённые точки (замочек) сохраняют цвет, остальные строятся от оттенка первой из них
+  const base = locked.length ? clLch(cpParse(locked[0].c)).H : Math.random() * 360, sch = CL_SCHEMES[Math.floor(Math.random() * CL_SCHEMES.length)];
   const mono = sch.every(x => !x), L0 = .5 + Math.random() * .12, L1 = .78 + Math.random() * .15;
   const shake = (k, n) => Math.min(Math.max(k / (n - 1) + (Math.random() - .5) * .55 / (n - 1), .04), .96);
   m.pts.forEach((p, k) => {
     const i = k % m.cols, j = Math.floor(k / m.cols), d = (i + j) % sch.length;
-    const H = (base + sch[d] + (Math.random() - .5) * 20 + 360) % 360;
-    let L = mono ? L0 + (L1 - L0) * (i + j) / (m.cols + m.rows - 2) : L0 + (L1 - L0) * Math.random();
-    if (H > 60 && H < 130) L = Math.max(L, .8);   // тёмный жёлтый и салатовый выходят болотными
-    p.c = cpHex({...clFit({L, C: mono ? .06 + Math.random() * .1 : .1 + Math.random() * .12, H}), a: 1}, false);
+    if (!p.lock) {
+      const H = (base + sch[d] + (Math.random() - .5) * 20 + 360) % 360;
+      let L = mono ? L0 + (L1 - L0) * (i + j) / (m.cols + m.rows - 2) : L0 + (L1 - L0) * Math.random();
+      if (H > 60 && H < 130) L = Math.max(L, .8);   // тёмный жёлтый и салатовый выходят болотными
+      p.c = cpHex({...clFit({L, C: mono ? .06 + Math.random() * .1 : .1 + Math.random() * .12, H}), a: 1}, false);
+    }
     if (i > 0 && i < m.cols - 1) p.x = +shake(i, m.cols).toFixed(4);
     if (j > 0 && j < m.rows - 1) p.y = +shake(j, m.rows).toFixed(4);
   });
@@ -339,6 +342,11 @@ function meshRender() {
   const sw = $('meshSw');
   if (sw.value !== p.c && !(cp && cp.el === sw)) sw.value = p.c;
   if (document.activeElement !== $('meshHex')) $('meshHex').value = clUp(p.c);
+  const lk = $('meshLk');
+  lk.innerHTML = p.lock ? CL_ICO.lock : CL_ICO.open;
+  lk.classList.toggle('on', !!p.lock);
+  lk.title = t(p.lock ? 'cl.unlock' : 'cl.lock');
+  lk.setAttribute('aria-label', lk.title);
   $('meshLines').classList.toggle('on', meshLines);
   $('meshLines').setAttribute('aria-pressed', meshLines);
   $('meshSize').value = cl.size;
@@ -360,6 +368,7 @@ $('meshHex').addEventListener('change', () => {
   clRender();
 });
 $('meshHex').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('meshLk').onclick = () => { const p = meshNode(); if (p.lock) delete p.lock; else p.lock = true; clRender(); clSave(); };
 $('meshEye').onclick = async () => {
   toast({type: 'ok', title: t('cl.eyeGo'), ttl: 2500});
   const hex = await screenColor();   // null — Esc, передумали

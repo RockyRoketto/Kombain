@@ -32,7 +32,7 @@ function meshValid(o) {
   for (let k = 0; k < o.pts.length; k++) {
     const p = o.pts[k], i = k % o.cols, j = Math.floor(k / o.cols), c = p && cpValid(p.c, '');
     if (!c || !Number.isFinite(f(p.x)) || !Number.isFinite(f(p.y))) return null;
-    pts.push({x: i === 0 ? 0 : i === o.cols - 1 ? 1 : f(p.x), y: j === 0 ? 0 : j === o.rows - 1 ? 1 : f(p.y), c});
+    pts.push({x: i === 0 ? 0 : i === o.cols - 1 ? 1 : f(p.x), y: j === 0 ? 0 : j === o.rows - 1 ? 1 : f(p.y), c, ...(p.lock ? {lock: true} : {})});
   }
   const fx = o.fx ? clFxValid(o.fx) : null;   // стиль как у градиента (CL_FX ниже; вызывается уже после разбора файла)
   return {cols: o.cols, rows: o.rows, mix: o.mix === 'rgb' ? 'rgb' : 'oklch', pts, fx: fx && fx.t !== 'none' ? fx : undefined};
