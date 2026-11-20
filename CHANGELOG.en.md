@@ -3,6 +3,14 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.9
+
+- Generator: 20 new styles with sample images; prompts no longer invent scenes, and sticker, badge and 3D icon draw just the object.
+- Generator: the Character reference keeps the face with FLUX.2 klein; hands and anatomy in prompts are cleaner; outpainting is seamless and matches the image style.
+- Generator: models as tiles by section with icons, the 'will it run' bar also accounts for regular RAM; new Chroma1-HD model for art.
+- Generator: model downloads can be paused.
+- Image viewer: 'Process' block as a list, a progress overlay with Stop, and a Before / After comparison (in the gallery and in Utilities).
+
 ## 6.8
 
 - Color: the lock now works in the mesh gradient too. Random leaves locked points alone and builds the rest around their hue.
