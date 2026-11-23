@@ -2034,7 +2034,12 @@
 .bm-clip{position:absolute;inset:0;overflow:hidden;border-radius:6px;background:#000;box-shadow:0 0 0 1px var(--line2)}
 .bm-clip img{position:absolute;display:block;pointer-events:none}
 .bm-clip .bg{inset:0;width:100%;height:100%}
-.bm-clip .art{left:calc(var(--l) * 1%);top:calc(var(--t) * 1%);width:calc(var(--w) * 1%);height:calc(var(--h) * 1%)}
+/* картинка и элемент — спрайты с тенью и свечением (bannerfx.js): рамка спрайта шире самой картинки на поля эффектов */
+.bm-clip .art{left:calc(var(--al) * 1%);top:calc(var(--at) * 1%);width:calc(var(--aw) * 1%);height:calc(var(--ah) * 1%)}
+.bm-clip .el{display:none;left:calc(var(--el) * 1%);top:calc(var(--et) * 1%);width:calc(var(--ew) * 1%);height:calc(var(--eh) * 1%)}
+.bm-t.hasel .bm-clip .el{display:block}
+/* сейв-зона пунктиром: только в превью, в файл не попадает */
+.bm-zf{position:absolute;box-sizing:border-box;pointer-events:none;border:1px dashed rgba(255,255,255,.5);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .bm-t.run .bm-clip{box-shadow:0 0 0 2px var(--acc)}
 .bm-t.ok .bm-clip{box-shadow:0 0 0 1px var(--ok)}
 .bm-t.error .bm-clip{box-shadow:0 0 0 2px var(--err)}
@@ -2097,17 +2102,47 @@
 .bm-ebtn .btn{display:flex;align-items:center;justify-content:center;gap:6px}
 .bm-ebtn svg{width:14px;height:14px;flex:none}
 
+/* «Сборка баннеров», оформление: фоновый элемент, тень, свечение (bannerfx.js) */
+#bmLook.off{opacity:.5;pointer-events:none}
+#bmLook .lb{cursor:help}
+.bm-shp{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px;margin-top:6px}
+.bm-shp button{aspect-ratio:1;min-width:0;padding:5px;border-radius:9px;border:1px solid var(--line);cursor:pointer;display:grid;place-items:center;
+  background:repeating-conic-gradient(var(--s3) 0 25%,var(--s2) 0 50%) 0 0/10px 10px;transition:border-color .12s,box-shadow .12s}
+.bm-shp button:hover{border-color:var(--line2)}
+.bm-shp button.on{border-color:var(--acc);box-shadow:0 0 0 2px rgba(var(--acc-rgb),.22)}
+.bm-shp button img{max-width:100%;max-height:100%;display:block;pointer-events:none}
+.bm-shp button.none{background:var(--s2);color:var(--dim)}
+.bm-shp button.none svg{width:22px;height:22px}
+.bm-fxb{padding:0 0 10px}
+.bm-fr{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;font-size:12.5px;color:var(--tx2)}
+.bm-fr .cp-sw{width:56px;height:24px;flex:none}
+.bm-num{width:56px;height:24px;padding:0 6px;border-radius:7px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px}
+.bm-num::-webkit-inner-spin-button,.bm-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.bm-fxb input[type=range]{width:100%;margin-top:6px}
+.bm-fxb .bm-elrs{margin-top:10px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
+.bm-fxb .bm-elrs svg{width:14px;height:14px;flex:none}
+#bmFxObj{margin-top:14px}
+#bmFxObj .segb{padding-top:7px;padding-bottom:7px}
+.bm-fxsw{margin-top:10px}
+.bm-fxsw+.bm-fxb{margin-top:-4px}
+#bmFxBody.dis{opacity:.45;pointer-events:none}
+
 /* «Сборка баннеров», памятка «Сейв-зоны» */
 .bm-zbtn{display:flex;align-items:center;gap:6px}
 .bm-zbtn svg{width:14px;height:14px;flex:none}
-.bm-zw-card{max-width:1000px;display:flex;flex-direction:column;overflow:hidden}
-.bm-zw-p{flex:none;font-size:13px;line-height:1.5}
-.bm-zw-grid{flex:1;min-height:0;overflow:auto;padding:2px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-items:end}
-.bm-zw-t{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
-.bm-zw-img{position:relative;margin:0 auto;border-radius:6px;overflow:hidden;background:var(--s3);box-shadow:0 0 0 1px var(--line)}
+/* шапка и текст стоят, прокручивается только сетка; полоса прокрутки — в своей дорожке у правого края карточки,
+   не на плитках, и кончается выше скругления углов */
+.bm-zw-card{max-width:1000px;display:flex;flex-direction:column;overflow:hidden;padding:22px 0 12px}
+.bm-zw-card>.phead{flex:none;padding:0 24px}
+.mcard p.bm-zw-p{flex:none;font-size:13px;line-height:1.5;margin:0;padding:0 24px 14px;border-bottom:1px solid var(--line)}
+.bm-zw-grid{flex:1;min-height:0;overflow:hidden auto;scrollbar-width:thin;scrollbar-gutter:stable;margin-right:6px;padding:16px 12px 10px 24px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;align-content:start}
+.bm-zw-t{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px 8px 10px;border-radius:12px;background:var(--s2);border:1px solid var(--line)}
+.bm-zw-st{height:110px;display:flex;align-items:center;justify-content:center}
+.bm-zw-img{position:relative;flex:none;max-height:100%;border-radius:5px;overflow:hidden;background:var(--s3);box-shadow:0 0 0 1px var(--line)}
 .bm-zw-img img{position:absolute;inset:0;width:100%;height:100%;display:block}
 .bm-zw-img b{position:absolute;box-sizing:border-box;border:1.5px dashed var(--acc);background:color-mix(in srgb,var(--acc) 16%,transparent)}
-.bm-zw-t figcaption{display:flex;flex-direction:column;gap:1px;font-size:11.5px;color:var(--dim);line-height:1.35}
+.bm-zw-t figcaption{display:flex;flex-direction:column;gap:1px;padding:0 2px;font-size:11.5px;color:var(--dim);line-height:1.35}
 .bm-zw-t figcaption b{font-size:12.5px;font-weight:600;color:var(--tx-em)}
 
 /* «Сборка баннеров», куда сохранить: древо папок */

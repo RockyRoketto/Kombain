@@ -1,8 +1,9 @@
 package main
 
 // «Сборка баннеров» в «Утилитах»: одна картинка ложится на все шаблоны баннеров (web/bannerbg),
-// результат — папка матча <корень>\<месяц>\<день>\<матч>\ с подпапками png, jpeg и webp.
-// Страница шлёт картинку один раз (bmk-begin), потом баннеры по одному (bmk-one), чтобы показывать ход.
+// под ней может лежать фоновый элемент (web/bannershapes), у обоих тень и свечение.
+// Результат — папка матча <корень>\<месяц>\<день>\<матч>\ с подпапками png, jpeg и webp.
+// Страница создаёт папку (bmk-begin), потом шлёт готовые баннеры по одному (bmk-one), чтобы показывать ход.
 
 import (
 	"bytes"
@@ -12,17 +13,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/png"
-	"math"
+	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-
-	xdraw "golang.org/x/image/draw"
 )
 
 // bmkSlot: шаблон и его сейв-зона X, Y, ZW×ZH: туда вписывается непрозрачная часть картинки, по центру,
@@ -119,99 +118,37 @@ func bmkDays(month int) int {
 	return 31
 }
 
-// bmkTrim: непрозрачная часть картинки (альфа больше 8 из 255). Совсем прозрачная — вся картинка.
-func bmkTrim(img image.Image) image.Image {
-	b := img.Bounds()
-	x0, y0, x1, y1 := b.Max.X, b.Max.Y, b.Min.X-1, b.Min.Y-1
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			if _, _, _, a := img.At(x, y).RGBA(); a > 8*257 {
-				if x < x0 {
-					x0 = x
-				}
-				if x > x1 {
-					x1 = x
-				}
-				if y < y0 {
-					y0 = y
-				}
-				if y > y1 {
-					y1 = y
-				}
-			}
+// bmkShapes: фоновые элементы под картинкой — PNG с прозрачностью в web/bannershapes, по имени файла без .png.
+// Новый элемент — просто положить файл в папку.
+func bmkShapes() []string {
+	ents, _ := fs.ReadDir(webFS, "web/bannershapes")
+	var out []string
+	for _, e := range ents {
+		if n := e.Name(); !e.IsDir() && strings.EqualFold(filepath.Ext(n), ".png") {
+			out = append(out, strings.TrimSuffix(n, filepath.Ext(n)))
 		}
 	}
-	if x1 < x0 {
-		return img
-	}
-	r := image.Rect(x0, y0, x1+1, y1+1)
-	if r == b {
-		return img
-	}
-	if si, ok := img.(interface {
-		SubImage(image.Rectangle) image.Image
-	}); ok {
-		return si.SubImage(r)
-	}
-	return img
+	sort.Strings(out)
+	return out
 }
 
-// bmkAdj: правка из редактора. K — размер (1 — вписана в зону), DX и DY — сдвиг центра в долях ширины и высоты зоны
-type bmkAdj struct {
-	K  float64 `json:"k"`
-	DX float64 `json:"dx"`
-	DY float64 `json:"dy"`
+func bmkShapeOK(name string) bool {
+	for _, s := range bmkShapes() {
+		if s == name {
+			return true
+		}
+	}
+	return false
 }
 
-// ok: без правки или с разумной (размер 0.04–9: общая правка 0.2–3 на свою 0.2–3; сдвиг не дальше 16 ширин или высот зоны: у длинных баннеров до края до 8)
-func (a bmkAdj) norm() bmkAdj {
-	if a.K == 0 {
-		a.K = 1
-	}
-	a.K = min(max(a.K, 0.04), 9)
-	a.DX, a.DY = min(max(a.DX, -16), 16), min(max(a.DY, -16), 16)
-	return a
-}
+// Баннер целиком (шаблон, элемент, картинка, тени и свечение) собирает страница на холсте: так готовый файл
+// ровно такой, как превью. Сюда приходят готовые пиксели размера шаблона.
 
-// bmkFit: где картинка aw×ah встанет в баннер: вписана в сейв-зону слота по центру, потом правка adj.
-// Так же считает bmFit в web/js/bannermake.js.
-func bmkFit(sl bmkSlot, aw, ah int, adj bmkAdj) image.Rectangle {
-	if aw <= 0 || ah <= 0 {
-		return image.Rectangle{}
-	}
-	adj = adj.norm()
-	zw, zh := float64(sl.ZW), float64(sl.ZH)
-	k := math.Min(zw/float64(aw), zh/float64(ah))
-	w, h := float64(aw)*k, float64(ah)*k
-	w, h = math.Max(1, math.Round(w*adj.K)), math.Max(1, math.Round(h*adj.K))
-	cx, cy := float64(sl.X)+zw/2+adj.DX*zw, float64(sl.Y)+zh/2+adj.DY*zh
-	x, y := int(math.Round(cx-w/2)), int(math.Round(cy-h/2))
-	return image.Rect(x, y, x+int(w), y+int(h))
-}
-
-// bmkCompose: шаблон с картинкой art в его слоте
-func bmkCompose(sl bmkSlot, art image.Image, adj bmkAdj) (*image.NRGBA, error) {
-	raw, err := webFS.ReadFile("web/bannerbg/" + sl.Name + ".png")
-	if err != nil {
-		return nil, err
-	}
-	tpl, err := png.Decode(bytes.NewReader(raw))
-	if err != nil {
-		return nil, err
-	}
-	dst := image.NewNRGBA(image.Rect(0, 0, sl.W, sl.H))
-	draw.Draw(dst, dst.Bounds(), tpl, tpl.Bounds().Min, draw.Src)
-	ab := art.Bounds()
-	xdraw.CatmullRom.Scale(dst, bmkFit(sl, ab.Dx(), ab.Dy(), adj), art, ab, xdraw.Over, nil)
-	return dst, nil
-}
-
-// одна сборка за раз: картинка из bmk-begin живёт, пока не пришла следующая
+// одна сборка за раз: папка из bmk-begin живёт, пока не пришла следующая
 var bmk struct {
 	sync.Mutex
 	id  string
 	dir string
-	art image.Image
 }
 
 // bmkOthers: какие матчи уже лежат в папке дня
@@ -227,16 +164,15 @@ func bmkOthers(day, except string) []string {
 	return out
 }
 
-// bmkOne собирает баннер name: PNG (больше 500 КБ — в 256 цветов, как во вкладке «Баннеры»),
-// у баннеров сайта ещё JPEG и WebP не больше 500 КБ.
-func bmkOne(ctx context.Context, ffm, dir string, art image.Image, name string, adj bmkAdj) (map[string]any, error) {
+// bmkOne сохраняет баннер name из готовой картинки страницы: PNG (больше 500 КБ — в 256 цветов, как во вкладке «Баннеры»),
+// у баннеров сайта ещё JPEG и WebP не больше 500 КБ. Картинка не того размера, что шаблон, — ошибка.
+func bmkOne(ctx context.Context, ffm, dir, name string, img image.Image) (map[string]any, error) {
 	sl, ok := bmkSlotOf(name)
 	if !ok {
 		return nil, errT("err.badRequest")
 	}
-	img, err := bmkCompose(sl, art, adj)
-	if err != nil {
-		return nil, err
+	if b := img.Bounds(); b.Dx() != sl.W || b.Dy() != sl.H {
+		return nil, errT("bmk.badImage")
 	}
 	var buf bytes.Buffer
 	if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(&buf, img); err != nil {
@@ -290,8 +226,25 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 		w.Write(b)
 	})
 
+	// фоновые элементы: только из списка bmkShapes, имя в адресе закодировано (в нём бывают пробелы)
+	mux.HandleFunc("/bannershapes/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/bannershapes/"), ".png")
+		if r.Host != s.host || !bmkShapeOK(name) {
+			http.NotFound(w, r)
+			return
+		}
+		b, err := webFS.ReadFile("web/bannershapes/" + name + ".png")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(b)
+	})
+
 	mux.HandleFunc("/api/bmk-list", s.api(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"slots": bmkSlots})
+		writeJSON(w, map[string]any{"slots": bmkSlots, "shapes": bmkShapes()})
 	}))
 
 	// куда лягут баннеры и что из папок уже есть
@@ -319,14 +272,13 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 		writeJSON(w, out)
 	}))
 
-	// картинка (PNG в base64) и папка: создаёт папки и запоминает картинку для bmk-one
+	// папка: создаёт папки и запоминает их для bmk-one
 	mux.HandleFunc("/api/bmk-begin", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Root  string `json:"root"`
 			Month int    `json:"month"`
 			Day   int    `json:"day"`
 			Match string `json:"match"`
-			Image []byte `json:"image"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
@@ -341,11 +293,6 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return
 		}
-		art, _, err := image.Decode(bytes.NewReader(body.Image))
-		if err != nil {
-			writeJSON(w, map[string]any{"error": tr("bmk.badImage")})
-			return
-		}
 		for _, sub := range bmkSub {
 			if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
 				writeJSON(w, map[string]any{"error": err.Error()})
@@ -355,24 +302,28 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 		var id [8]byte
 		rand.Read(id[:])
 		bmk.Lock()
-		bmk.id, bmk.dir, bmk.art = hex.EncodeToString(id[:]), dir, bmkTrim(art)
+		bmk.id, bmk.dir = hex.EncodeToString(id[:]), dir
 		out := map[string]any{"id": bmk.id, "dir": dir}
 		bmk.Unlock()
 		writeJSON(w, out)
 	}))
 
+	// готовый баннер: ?id=…&name=…, тело — пиксели RGBA без премультипликации (getImageData), ровно W×H×4 байт.
+	// Сырые пиксели, а не PNG: сжимать PNG на странице долго (секунда на 4056x496), а пережимаем мы его всё равно сами.
 	mux.HandleFunc("/api/bmk-one", s.api(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-			Adj  bmkAdj `json:"adj"`
-		}
-		json.NewDecoder(r.Body).Decode(&body)
+		q := r.URL.Query()
+		id, name := q.Get("id"), q.Get("name")
 		bmk.Lock()
-		dir, art, cur := bmk.dir, bmk.art, bmk.id
+		dir, cur := bmk.dir, bmk.id
 		bmk.Unlock()
-		if body.ID == "" || body.ID != cur || art == nil {
+		sl, ok := bmkSlotOf(name)
+		if id == "" || id != cur || !ok {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
+			return
+		}
+		img := image.NewNRGBA(image.Rect(0, 0, sl.W, sl.H))
+		if _, err := io.ReadFull(r.Body, img.Pix); err != nil {
+			writeJSON(w, map[string]any{"error": tr("bmk.badImage")})
 			return
 		}
 		s.mu.Lock()
@@ -382,7 +333,7 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 			writeJSON(w, map[string]any{"error": tr("err.ffmpegMissing")})
 			return
 		}
-		res, err := bmkOne(r.Context(), ffm, dir, art, body.Name, body.Adj)
+		res, err := bmkOne(r.Context(), ffm, dir, name, img)
 		if err != nil {
 			writeJSON(w, map[string]any{"error": err.Error()})
 			return

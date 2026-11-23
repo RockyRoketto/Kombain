@@ -10,12 +10,16 @@ const BM_KEY = 'k9000.bmk';
 
 // середина сейв-зоны в пикселях шаблона; сдвиг dx и dy считается в долях ширины и высоты зоны
 const bmZx = sl => sl.x + sl.zw / 2, bmZy = sl => sl.y + sl.zh / 2;
-// как bmkFit в Go: картинка вписана в сейв-зону слота по центру, потом правка adj {k, dx, dy}; в процентах от шаблона
-function bmFit(sl, aw, ah, adj = BM_ID) {
+// картинка aw×ah вписана в сейв-зону слота по центру, потом правка adj {k, dx, dy}; в пикселях шаблона
+function bmFitPx(sl, aw, ah, adj = BM_ID) {
   const z = Math.min(sl.zw / aw, sl.zh / ah);
   const w = Math.max(1, Math.round(aw * z * adj.k)), h = Math.max(1, Math.round(ah * z * adj.k));
-  const x = Math.round(bmZx(sl) + adj.dx * sl.zw - w / 2), y = Math.round(bmZy(sl) + adj.dy * sl.zh - h / 2);
-  return {l: x / sl.w * 100, t: y / sl.h * 100, w: w / sl.w * 100, h: h / sl.h * 100};
+  return {x: Math.round(bmZx(sl) + adj.dx * sl.zw - w / 2), y: Math.round(bmZy(sl) + adj.dy * sl.zh - h / 2), w, h};
+}
+// то же в процентах от шаблона
+function bmFit(sl, aw, ah, adj = BM_ID) {
+  const r = bmFitPx(sl, aw, ah, adj);
+  return {l: r.x / sl.w * 100, t: r.y / sl.h * 100, w: r.w / sl.w * 100, h: r.h / sl.h * 100};
 }
 const bmPad = n => String(n).padStart(2, '0');
 
@@ -30,23 +34,14 @@ async function bmTake(file) {
     const url = URL.createObjectURL(file);
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
     URL.revokeObjectURL(url);
-    const W = img.naturalWidth, H = img.naturalHeight;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d', {willReadFrequently: true}); g.drawImage(img, 0, 0);
-    const d = g.getImageData(0, 0, W, H).data;
-    let x0 = W, y0 = H, x1 = -1, y1 = -1;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (d[(y * W + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    }
-    if (x1 < 0) { x0 = 0; y0 = 0; x1 = W - 1; y1 = H - 1; }   // совсем прозрачная: как есть
-    const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
-    o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
-    const blob = await new Promise(res => o.toBlob(res, 'image/png'));
+    const o = bmTrimCanvas(img);   // bannerfx.js
+    const blob = await new Promise(res => o.cv.toBlob(res, 'image/png'));
     if (!blob) throw new Error('png');
     bmDropImg();
-    bmImg = {name: file.name || 'image.png', blob, url: URL.createObjectURL(blob), w: o.width, h: o.height, trimmed: o.width !== W || o.height !== H};
+    bmImg = {name: file.name || 'image.png', url: URL.createObjectURL(blob), cv: o.cv, w: o.w, h: o.h, trimmed: o.trimmed};
     Object.keys(bmSt).forEach(k => delete bmSt[k]);
     bmResetAdj();
+    bmFxNewArt();   // до отрисовки: старый спрайт эффектов от прошлой картинки
     bmRender();
   } catch (e) { toast({type: 'warn', title: t('drop.notSuitableTitle'), text: t('bm.badFile', {name: esc(file.name || '')}), ttl: 7000}); }
 }
@@ -69,7 +64,7 @@ $('bmPick').onclick = () => dialog(async () => {
   await bmTake(new File([u8], x.name, {type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'}));
 });
 const bmDropImg = () => { if (bmImg) URL.revokeObjectURL(bmImg.url); bmImg = null; };
-$('bmClear').onclick = () => { if (!bmBusy) { bmDropImg(); bmResetAdj(); Object.keys(bmSt).forEach(k => delete bmSt[k]); bmRender(); } };
+$('bmClear').onclick = () => { if (!bmBusy) { bmDropImg(); bmResetAdj(); Object.keys(bmSt).forEach(k => delete bmSt[k]); bmFxNewArt(); bmRender(); } };
 // Ctrl+V: картинка из буфера; в поле ввода с текстом в буфере — обычная вставка
 document.addEventListener('paste', e => {
   if (tab !== 'bmake' || bmBusy || document.querySelector('.modal:not(.hide)')) return;
@@ -232,6 +227,7 @@ function bmSet(ch) {
   if ('dx' in ch) a.dx = Math.min(Math.max(ch.dx, -8), 8);
   if ('dy' in ch) a.dy = Math.min(Math.max(ch.dy, -8), 8);
   bmPlace(); bmEditSync();
+  if ('k' in ch) bmSprSoon();   // крупнее — спрайту эффектов может не хватить чёткости
 }
 function bmResetAdj() {
   for (const k in bmOne) delete bmOne[k];
@@ -245,13 +241,13 @@ function bmGeo(sl, a) {
 }
 
 // ---------- отмена: Ctrl+Z, Ctrl+Shift+Z и Ctrl+Y ----------
-// Снимок — вся правка (общая и своя у каждого баннера); выбор баннера в снимок не входит.
+// Снимок — вся правка (общая и своя у каждого баннера) и «Оформление» (bmFx); выбор баннера в снимок не входит.
 // Шаг ставится перед началом движения: тяга мышью, ползунок, число, серия стрелок — по одному шагу.
 const bmHist = {u: [], r: [], key: '', at: 0};
 function bmSnap() {
   const one = {};
   for (const n in bmOne) if (!bmIsId(bmOne[n])) one[n] = bmOne[n];
-  return JSON.stringify({all: bmAll, one});
+  return JSON.stringify({all: bmAll, one, fx: bmFx});
 }
 function bmMark(key) {
   const now = Date.now();
@@ -270,6 +266,8 @@ function bmLoad(s) {
   Object.assign(bmOne, o.one);
   bmHist.key = '';
   bmPlace(); bmEditSync();
+  if (JSON.stringify(o.fx) !== JSON.stringify(bmFx)) bmFxSetAll(o.fx);
+  else bmSprSoon();
 }
 function bmUndo(redo) {
   const from = redo ? bmHist.r : bmHist.u, to = redo ? bmHist.u : bmHist.r, cur = bmSnap();
@@ -319,7 +317,7 @@ function bmPlace() {
     if (!sl || !box) return;
     const p = bmFit(sl, bmImg.w, bmImg.h, bmAdj(sl.name));
     const ad = bmAdj(sl.name), hx = bmZx(sl) / sl.w * 100, hy = bmZy(sl) / sl.h * 100;
-    box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h};--hx:${hx};--hy:${hy}`;
+    box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h};--hx:${hx};--hy:${hy}` + bmFxVars(f, sl, ad, p);
     // метка «здесь картинка стоит по умолчанию» появляется, когда её сдвинули; вторая метка — центр самого баннера, если он не совпадает
     f.classList.toggle('off', Math.abs(ad.dx) > 0.004 || Math.abs(ad.dy) > 0.004);
     f.classList.toggle('offm', Math.abs(hx - 50) * sl.w / 100 > 1 || Math.abs(hy - 50) * sl.h / 100 > 1);
@@ -504,10 +502,10 @@ function bmZoomTo(z, cx, cy) {
     g.scrollTop += r.top + fy * r.height - (gb.top + cy);
   } else { g.scrollLeft = ax * g.scrollWidth - cx; g.scrollTop = ay * g.scrollHeight - cy; }
   try { localStorage.setItem(BM_ZOOM, z); } catch (e) {}
-  bmPlace();
+  bmPlace(); bmSprSoon();
 }
 const bmZoomMid = k => { const g = $('bmGrid'); bmZoomTo(+$('bmZoom').value * k, g.clientWidth / 2, g.clientHeight / 2); };
-$('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.setItem(BM_ZOOM, $('bmZoom').value); } catch (e) {} bmPlace(); });
+$('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.setItem(BM_ZOOM, $('bmZoom').value); } catch (e) {} bmPlace(); bmSprSoon(); });
 $('bmZm').addEventListener('click', () => bmZoomMid(1 / 1.2));
 $('bmZi').addEventListener('click', () => bmZoomMid(1.2));
 $('bmZp').addEventListener('click', () => { const g = $('bmGrid'); bmZoomTo(BM_Z0, g.clientWidth / 2, g.clientHeight / 2); });
@@ -524,11 +522,13 @@ function bmTile(sl) {
   const ov = s.st === 'run' ? '<div class="bm-ov"><span class="bm-dots"><i></i><i></i><i></i></span></div>'
     : s.st === 'ok' ? '<div class="bm-ov"><svg class="bm-chk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.3 3.3L17 9"/></svg></div>'
     : s.st === 'error' ? '<div class="bm-ov"><b class="bm-bad">!</b></div>' : '';
-  // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки ставит bmPlace
+  // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки и элемента ставит bmPlace.
+  // Пунктир bm-zf — сейв-зона, только в превью
+  const zf = `left:${sl.x / sl.w * 100}%;top:${sl.y / sl.h * 100}%;width:${sl.zw / sl.w * 100}%;height:${sl.zh / sl.h * 100}%`;
   return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(var(--bm-cap), calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
     `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h}">` +
     `<div class="bm-clip"><img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
-    `<img class="art" src="${bmImg.url}" alt="" draggable="false"><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
+    `<img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"><b class="bm-zf" style="${zf}"></b><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
     `<div class="bm-bx"><div class="bm-box"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>` +
     `<figcaption><b>${esc(sl.name)}</b><em>${t('bm.own')}</em><i>${pill}</i></figcaption>` +
     `${s.msg ? `<span class="bm-msg">${esc(s.msg)}</span>` : ''}</figure>`;
@@ -553,6 +553,7 @@ function bmRender() {
     bmPlace();
   }
   bmEditSync();
+  bmFxSync();
   updateButtons();
 }
 
@@ -566,13 +567,17 @@ async function bmRun() {
   bmBusy = true; bmAbort = new AbortController();
   Object.keys(bmSt).forEach(k => delete bmSt[k]);
   bmRender();
-  const b64 = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = () => res(''); fr.readAsDataURL(bmImg.blob); });
-  const b = await api('bmk-begin', Object.assign({image: b64}, q));
+  const b = await api('bmk-begin', q);
   if (b.error) { bmBusy = false; bmAbort = null; bmRender(); say('warn', t('bm.failTitle'), esc(b.error)); return; }
+  if (bmFx.el) await bmElLoad(bmFx.el);   // элемент выбран, но ещё не загружен
   let done = 0, fail = 0, stopped = false;
   for (const sl of bmSlots) {
     bmSt[sl.name] = {st: 'run'}; bmRender();
-    const r = await api('bmk-one', {id: b.id, name: sl.name, adj: bmAdj(sl.name)}, bmAbort.signal);
+    // баннер целиком собирает страница (bannerfx.js): шаблон, элемент, картинка, эффекты; сервер сохраняет форматы
+    let pix = null;
+    try { pix = await bmFxBanner(sl); } catch (e) {}
+    if (bmAbort.signal.aborted) { delete bmSt[sl.name]; stopped = true; break; }
+    const r = pix ? await bmFxPut(b.id, sl.name, pix, bmAbort.signal) : {error: t('bm.badFile', {name: sl.name})};
     if (r.aborted) { delete bmSt[sl.name]; stopped = true; break; }
     if (r.error) { bmSt[sl.name] = {st: 'error', msg: r.error}; fail++; }
     else {
@@ -602,6 +607,7 @@ async function bmShow() {
   bmFillDate();
   const r = await api('bmk-list');
   bmSlots = r.slots || [];
+  bmShapesFill(r.shapes);
   bmRender();
   bmCheck();
 }
@@ -612,9 +618,9 @@ function bmZonesOpen() {
   $('bmZwGrid').innerHTML = bmSlots.map(sl => {
     const r = sl.x + sl.zw, b = sl.y + sl.zh;
     const box = `left:${sl.x / sl.w * 100}%;top:${sl.y / sl.h * 100}%;width:${sl.zw / sl.w * 100}%;height:${sl.zh / sl.h * 100}%`;
-    // высокие шаблоны не выше 200 px: ширину ограничиваем по высоте
-    return `<figure class="bm-zw-t"><div class="bm-zw-img" style="aspect-ratio:${sl.w}/${sl.h};width:min(100%, ${Math.round(200 * sl.w / sl.h)}px)">` +
-      `<img src="/bannerbg/${esc(sl.name)}.png" alt="" draggable="false" onerror="this.remove()"><b style="${box}"></b></div>` +
+    // у всех плиток одна высота окошка (110 px), шаблон вписан в него: подписи стоят ровно
+    return `<figure class="bm-zw-t"><div class="bm-zw-st"><div class="bm-zw-img" style="aspect-ratio:${sl.w}/${sl.h};width:min(100%, ${Math.round(110 * sl.w / sl.h)}px)">` +
+      `<img src="/bannerbg/${esc(sl.name)}.png" alt="" draggable="false" onerror="this.remove()"><b style="${box}"></b></div></div>` +
       `<figcaption><b>${esc(sl.name)}</b><span>${t('bm.zoneSize', {w: sl.zw, h: sl.zh})}</span>` +
       `<span>${t('bm.zonePad', {l: sl.x, t: sl.y, r: sl.w - r, b: sl.h - b})}</span></figcaption></figure>`;
   }).join('');

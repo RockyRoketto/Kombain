@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -39,69 +40,57 @@ func TestBmkSlots(t *testing.T) {
 	}
 }
 
-func TestBmkFit(t *testing.T) {
-	sl := bmkSlot{X: 100, Y: 10, ZW: 200, ZH: 100}
-	cases := []struct {
-		w, h int
-		adj  bmkAdj
-		want image.Rectangle
-	}{
-		{50, 50, bmkAdj{}, image.Rect(150, 10, 250, 110)},
-		{200, 100, bmkAdj{}, image.Rect(100, 10, 300, 110)},
-		{400, 100, bmkAdj{}, image.Rect(100, 35, 300, 85)},
-		{100, 400, bmkAdj{}, image.Rect(188, 10, 213, 110)},
-		{50, 50, bmkAdj{K: 0.5}, image.Rect(175, 35, 225, 85)},
-		{50, 50, bmkAdj{K: 1, DX: 0.5, DY: -0.25}, image.Rect(250, -15, 350, 85)},
-		{50, 50, bmkAdj{K: 100}, image.Rect(-250, -390, 650, 510)},
-		{50, 50, bmkAdj{K: 1, DX: 100, DY: -100}, image.Rect(3350, -1590, 3450, -1490)},
+// фоновые элементы: PNG с прозрачностью, имя без странных знаков (оно идёт в адрес /bannershapes/)
+func TestBmkShapes(t *testing.T) {
+	list := bmkShapes()
+	if len(list) == 0 {
+		t.Fatal("нет ни одного элемента в web/bannershapes")
 	}
-	for _, c := range cases {
-		if got := bmkFit(sl, c.w, c.h, c.adj); got != c.want {
-			t.Errorf("%dx%d: %v, ждали %v", c.w, c.h, got, c.want)
+	for _, n := range list {
+		if strings.ContainsAny(n, `/\?#%`) || !bmkShapeOK(n) {
+			t.Errorf("%q: плохое имя", n)
 		}
-	}
-	// без правки картинка любой формы целиком внутри зоны каждого шаблона
-	for _, s := range bmkSlots {
-		zone := image.Rect(s.X, s.Y, s.X+s.ZW, s.Y+s.ZH)
-		for _, wh := range [][2]int{{1, 1}, {1000, 10}, {10, 1000}, {333, 217}, {s.ZW, s.ZH}} {
-			if r := bmkFit(s, wh[0], wh[1], bmkAdj{}); !r.In(zone) {
-				t.Errorf("%s %dx%d: %v вне зоны %v", s.Name, wh[0], wh[1], r, zone)
+		raw, err := webFS.ReadFile("web/bannershapes/" + n + ".png")
+		if err != nil {
+			t.Errorf("%s: %v", n, err)
+			continue
+		}
+		img, err := png.Decode(bytes.NewReader(raw))
+		if err != nil {
+			t.Errorf("%s: не PNG: %v", n, err)
+			continue
+		}
+		b, clear := img.Bounds(), false
+		for y := b.Min.Y; y < b.Max.Y && !clear; y += 7 {
+			for x := b.Min.X; x < b.Max.X; x += 7 {
+				if _, _, _, a := img.At(x, y).RGBA(); a < 0xffff {
+					clear = true
+					break
+				}
 			}
 		}
+		if !clear {
+			t.Errorf("%s: без прозрачности закроет весь фон", n)
+		}
+	}
+	if bmkShapeOK("../bannerbg/315x250") || bmkShapeOK("") {
+		t.Error("принято чужое имя")
 	}
 }
 
-// прозрачные поля обрезаются, картинка встаёт в сейв-зону, фон вне зоны не тронут
-func TestBmkTrimCompose(t *testing.T) {
-	art := image.NewNRGBA(image.Rect(0, 0, 100, 60))
-	for y := 20; y < 40; y++ {
-		for x := 30; x < 70; x++ {
-			art.Set(x, y, color.NRGBA{255, 0, 0, 255})
+// страница присылает баннер не того размера или чужое имя — ошибка, файлы не пишутся
+func TestBmkOneBad(t *testing.T) {
+	dir := t.TempDir()
+	for _, c := range []struct {
+		name string
+		w, h int
+	}{{"315x250", 100, 100}, {"315x250", 250, 315}, {"nope", 315, 250}} {
+		if _, err := bmkOne(context.Background(), "ffmpeg", dir, c.name, image.NewNRGBA(image.Rect(0, 0, c.w, c.h))); err == nil {
+			t.Errorf("%s %dx%d: ждали ошибку", c.name, c.w, c.h)
 		}
 	}
-	tr := bmkTrim(art)
-	if b := tr.Bounds(); b.Dx() != 40 || b.Dy() != 20 {
-		t.Fatalf("обрезка: %v", b)
-	}
-	sl, _ := bmkSlotOf("315x250")
-	img, err := bmkCompose(sl, tr, bmkAdj{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if img.Bounds().Dx() != 315 || img.Bounds().Dy() != 250 {
-		t.Fatalf("размер %v", img.Bounds())
-	}
-	r := bmkFit(sl, 40, 20, bmkAdj{})
-	c := img.NRGBAAt((r.Min.X+r.Max.X)/2, (r.Min.Y+r.Max.Y)/2)
-	if c.R < 240 || c.G > 15 {
-		t.Errorf("в середине зоны не картинка: %v", c)
-	}
-	raw, _ := webFS.ReadFile("web/bannerbg/315x250.png")
-	tpl, _ := png.Decode(bytes.NewReader(raw))
-	r0, g0, b0, _ := tpl.At(5, 5).RGBA()
-	r1, g1, b1, _ := img.At(5, 5).RGBA()
-	if r0 != r1 || g0 != g1 || b0 != b1 {
-		t.Errorf("фон в углу изменился")
+	if ents, _ := os.ReadDir(dir); len(ents) != 0 {
+		t.Error("что-то записано")
 	}
 }
 
@@ -140,18 +129,18 @@ func TestBmkOneFfmpeg(t *testing.T) {
 	for _, s := range bmkSub {
 		os.MkdirAll(filepath.Join(dir, s), 0o755)
 	}
-	art := image.NewNRGBA(image.Rect(0, 0, 300, 300))
-	for y := 0; y < 300; y++ {
-		for x := 0; x < 300; x++ {
-			art.Set(x, y, color.NRGBA{uint8(x), uint8(y), 200, 255})
-		}
-	}
 	for _, name := range []string{"4056x496_R", "105x167"} {
-		res, err := bmkOne(context.Background(), ffm, dir, art, name, bmkAdj{K: 1.3, DX: 0.2})
+		sl, _ := bmkSlotOf(name)
+		img := image.NewNRGBA(image.Rect(0, 0, sl.W, sl.H))
+		for y := 0; y < sl.H; y++ {
+			for x := 0; x < sl.W; x++ {
+				img.Set(x, y, color.NRGBA{uint8(x), uint8(y), uint8(x ^ y), 255})
+			}
+		}
+		res, err := bmkOne(context.Background(), ffm, dir, name, img)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		sl, _ := bmkSlotOf(name)
 		for i, p := range []string{"png/" + name + ".png", "jpeg/" + name + ".jpg", "webp/" + name + ".webp"} {
 			n := fileSize(filepath.Join(dir, p))
 			if i > 0 && !sl.Site {
