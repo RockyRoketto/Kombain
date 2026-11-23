@@ -56,6 +56,7 @@ function bmNeed(kind) {
     const L = kind === 'art' ? Math.max(src.w, src.h) * bmZs(sl, src.w, src.h) * ad.k : (r => Math.max(r.w, r.h))(bmElRect(sl, ad, src));
     full = Math.max(full, L); scr = Math.max(scr, L * z / sl.h);
   }
+  scr = Math.max(scr, bmLpNeed(kind));   // в «Крупно» объект больше, чем на плитке
   return {src, full, scr};
 }
 // u: пикселей спрайта в одном «пикселе большого баннера» при масштабе f (пикселей спрайта на пиксель источника).
@@ -118,11 +119,14 @@ async function bmSprPrev(kind) {
   // те же настройки и масштаб тот же или крупнее (но не больше чем вчетверо) — пересчитывать незачем
   if (old && !old.src && old.base === base && old.f >= f * 0.999 && old.f <= f * 4) return false;
   const s = bmSprite(n.src, fx, f, bmUnit(n.src, f));
-  const blob = await new Promise(res => s.cv.toBlob(res, 'image/png'));
+  // WebP, а не PNG: спрайт 1024 px PNG кодируется около секунды, WebP — в разы быстрее, и ползунок отзывается вживую.
+  // Это только превью: сборка берёт спрайт полного размера прямо с холста (bmSprBig), без кодирования
+  const blob = await new Promise(res => s.cv.toBlob(res, 'image/webp', 0.95));
   if (!blob) return false;
   const url = URL.createObjectURL(blob), im = new Image();
   im.src = url;
-  try { await im.decode(); } catch (e) {}   // показываем уже разобранную картинку: без мигания
+  // показываем уже разобранную картинку: без мигания. В свёрнутом окне decode может не прийти — ждём недолго
+  try { await Promise.race([im.decode(), new Promise(r => setTimeout(r, 500))]); } catch (e) {}
   bmSpr[kind] = {base, f, url, px: s.px, py: s.py};
   drop();
   return true;
@@ -169,6 +173,8 @@ function bmFxVars(f, sl, ad, p) {
   f.classList.toggle('hasel', !!q);
   if (q) {
     const r = bmElRect(sl, ad, e);
+    // --r*: сам элемент без полей эффектов — пунктир «правишь фон»
+    s += `;--rl:${r.x / sl.w * 100};--rt:${r.y / sl.h * 100};--rw:${r.w / sl.w * 100};--rh:${r.h / sl.h * 100}`;
     s += `;--el:${(r.x - r.w * q.px) / sl.w * 100};--et:${(r.y - r.h * q.py) / sl.h * 100};--ew:${r.w * (1 + 2 * q.px) / sl.w * 100};--eh:${r.h * (1 + 2 * q.py) / sl.h * 100}`;
     const ei = f.querySelector('img.el');
     if (ei && ei.getAttribute('src') !== q.url) ei.src = q.url;
@@ -291,7 +297,7 @@ function bmFxSync() {
   BM_FX_CARDS.forEach(id => $(id).classList.toggle('off', busy));
   $('bmShapes').querySelectorAll('button').forEach(b => b.classList.toggle('on', (b.dataset.n || '') === bmFx.el));
   $('bmElPos').classList.toggle('hide', !e);
-  document.querySelectorAll('#bmFxObj .segb').forEach(b => b.classList.toggle('on', b.dataset.o === bmFxObj));
+  bmObjSync();
   $('bmFxHint').classList.toggle('hide', !(elf && !e));
   $('bmFxBody').classList.toggle('dis', elf && !e);
   const fx = bmFxOf(bmFxObj);
@@ -299,6 +305,9 @@ function bmFxSync() {
   $('bmShBox').classList.toggle('hide', !fx.sh.on);
   $('bmGlBox').classList.toggle('hide', !fx.gl.on);
   $('bmBlBox').classList.toggle('hide', !elf);
+  // сброс тени и свечения — только когда есть что сбрасывать
+  $('bmShRs').disabled = bmSame(fx.sh, {...BM_SH0, on: fx.sh.on});
+  $('bmGlRs').disabled = bmSame(fx.gl, {...BM_GL0, on: fx.gl.on});
   bmFxAll('[data-p]').forEach(el => {
     const p = el.dataset.p, v = bmFxGet(p);
     if (el.matches('.cp-sw')) { if (!(cp && cp.el === el) && el.value !== v) el.value = v; return; }
@@ -341,14 +350,136 @@ bmFxOnCards('click', e => {
   if (e.target.closest('#bmElRs')) { bmMark(); Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0}); bmFxChanged(true); return; }
   const s = e.target.closest('#bmShapes button');
   if (s) { bmElPick(s.dataset.n || ''); return; }
-  const o = e.target.closest('#bmFxObj .segb');
-  if (o) { bmFxObj = o.dataset.o; bmFxSync(); }
 });
 ['Sh', 'Gl'].forEach(w => $(`bm${w}On`).addEventListener('change', e => {
   bmMark();
   bmFxOf(bmFxObj)[w.toLowerCase()].on = e.target.checked;
   bmFxChanged();
 }));
+// сброс тени или свечения выбранного объекта: значения как в начале, включённость та же
+$('bmShRs').onclick = () => { const f = bmFxOf(bmFxObj); bmMark(); f.sh = {...BM_SH0, on: f.sh.on}; bmFxChanged(); };
+$('bmGlRs').onclick = () => { const f = bmFxOf(bmFxObj); bmMark(); f.gl = {...BM_GL0, on: f.gl.on}; bmFxChanged(); };
+
+// ---------- что правим: картинку или фоновый элемент ----------
+// Выбор сверху панели решает, какие разделы видны («Положение картинки» или «Фоновый элемент»), чьи тень и свечение
+// в разделе эффектов, кого тянет мышь и стрелки в превью, и что подсвечено на плитках (у фона — пунктир, картинка бледнее).
+const bmSame = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const BM_NONE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5l11-11"/></svg>';
+// есть ли что сбрасывать у объекта kind
+function bmObjDirty(kind) {
+  if (kind === 'art') {
+    if (!bmIsId(bmAll) || Object.values(bmOne).some(a => !bmIsId(a))) return true;
+    return !bmSame(bmFx.art, {sh: BM_SH0, gl: BM_GL0});
+  }
+  const d = bmFxDef();
+  return bmFx.ek !== d.ek || bmFx.ex !== d.ex || bmFx.ey !== d.ey || !bmSame(bmFx.elf, d.elf);
+}
+function bmObjSync() {
+  const elf = bmFxObj === 'elf', e = bmElCur();
+  document.querySelectorAll('#bmObj button').forEach(b => { b.classList.toggle('on', b.dataset.o === bmFxObj); b.disabled = bmBusy; });
+  const at = $('bmObjArt'), et = $('bmObjEl');
+  const ah = bmImg ? `<img src="${bmImg.url}" alt="">` : BM_NONE_ICON, eh = bmFx.el ? `<img src="/bannershapes/${encodeURIComponent(bmFx.el)}.png" alt="">` : BM_NONE_ICON;
+  if (at.bmHtml !== ah) { at.innerHTML = ah; at.bmHtml = ah; }
+  if (et.bmHtml !== eh) { et.innerHTML = eh; et.bmHtml = eh; }
+  $('bmPosCard').classList.toggle('hide', elf);
+  $('bmLook').classList.toggle('hide', !elf);
+  // ключ в data-i18n: при смене языка текст переведёт applyLang
+  const lbl = (id, key) => { const el = $(id); if (el.dataset.i18n !== key) { el.dataset.i18n = key; el.textContent = t(key); } };
+  lbl('bmFxTitle', elf ? 'bm.fxsEl' : 'bm.fxsArt');
+  lbl('bmShTx', elf ? 'bm.shEl' : 'bm.shArt');
+  lbl('bmGlTx', elf ? 'bm.glEl' : 'bm.glArt');
+  lbl('bmRsAllTx', elf ? 'bm.rsAllEl' : 'bm.rsAllArt');
+  $('bmRsAll').disabled = bmBusy || !bmObjDirty(bmFxObj);
+  $('bmGrid').classList.toggle('o-elf', elf && !!e);
+}
+$('bmObj').addEventListener('click', e => {
+  const b = e.target.closest('button[data-o]');
+  if (!b || b.disabled || b.dataset.o === bmFxObj) return;
+  bmFxObj = b.dataset.o;
+  bmFxSync(); bmEditSync(); bmPlace();
+});
+// «Сбросить всё» у выбранного объекта: у картинки — общая и свои правки, тень, свечение; у фона — размер, сдвиг, эффекты.
+// Сам выбранный элемент остаётся
+$('bmRsAll').onclick = () => {
+  if (!bmObjDirty(bmFxObj)) return;
+  bmMark();
+  if (bmFxObj === 'art') {
+    bmAll = {...BM_ID};
+    for (const n in bmOne) delete bmOne[n];
+    bmFx.art = {sh: {...BM_SH0}, gl: {...BM_GL0}};
+  } else {
+    const d = bmFxDef();
+    Object.assign(bmFx, {ek: d.ek, ex: d.ex, ey: d.ey, elf: d.elf});
+  }
+  bmEditSync();
+  bmFxChanged(true);
+};
+
+// ---------- пока двигают ползунок: в превью только результат, без рамок, пунктира и меток ----------
+$('bmView').querySelector('.col.one').addEventListener('pointerdown', e => {
+  if (e.button === 0 && e.target.matches('input[type=range]')) $('bmGrid').classList.add('clean');
+});
+const bmCleanOff = () => $('bmGrid').classList.remove('clean');
+addEventListener('pointerup', bmCleanOff);
+addEventListener('pointercancel', bmCleanOff);
+addEventListener('blur', bmCleanOff);
+
+// ---------- «Крупно»: один баннер крупно вокруг выбранного объекта ----------
+// Те же спрайты превью, что у плиток (bmNeed учитывает масштаб лупы), поэтому и на шаблоне 4056×496 это не сборка
+// целого баннера, а одна плитка побольше: обновляется вместе с плитками в bmPlace.
+const BM_LP_KEY = 'k9000.bmlp';
+const bmLp = {on: false, name: ''};   // name — баннер, который смотрим (щелчок по плитке); пусто — самый большой
+try { bmLp.on = localStorage.getItem(BM_LP_KEY) === '1'; } catch (e) {}
+const bmLpSlot = () => bmSlots.find(s => s.name === (bmSel || bmLp.name)) || bmRef();
+// рамка объекта kind в баннере sl, в пикселях шаблона: {x, y, w, h} без полей эффектов
+function bmLpObj(sl, kind) {
+  const ad = bmAdj(sl.name), e = bmElCur();
+  if (kind === 'elf' && e) return bmElRect(sl, ad, e);
+  return bmFitPx(sl, bmImg.w, bmImg.h, ad);
+}
+// кадр лупы: объект с полями под эффекты, но только в пределах баннера (что за краем, в файл не попадёт);
+// s — масштаб (пикселей экрана на пиксель шаблона), чтобы кадр влез в окно
+function bmLpBox(sl, r, px, py) {
+  const v = $('bmLpV'), W = v.clientWidth || 400, H = v.clientHeight || 240;
+  const mx = r.w * (px + 0.04), my = r.h * (py + 0.04);
+  const x0 = Math.max(0, r.x - mx), y0 = Math.max(0, r.y - my), x1 = Math.min(sl.w, r.x + r.w + mx), y1 = Math.min(sl.h, r.y + r.h + my);
+  const w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
+  return {cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: Math.min(W / w, H / h, 8)};
+}
+// сколько пикселей экрана займёт объект kind в лупе (для чёткости спрайта); 0 — лупа закрыта или смотрит не его
+function bmLpNeed(kind) {
+  if (!bmLp.on || !bmImg) return 0;
+  const sl = bmLpSlot(), want = bmFxObj === 'elf' && bmElCur() ? 'el' : 'art';
+  if (!sl) return 0;
+  const r = bmLpObj(sl, want === 'el' ? 'elf' : 'art'), s = bmLpBox(sl, r, 0, 0).s;
+  const o = kind === want ? r : bmLpObj(sl, kind === 'el' ? 'elf' : 'art');
+  return Math.max(o.w, o.h) * s * (devicePixelRatio || 1);
+}
+function bmLpDraw() {
+  const lp = $('bmLp'), show = bmLp.on && !!bmImg;
+  lp.classList.toggle('hide', !show);
+  $('bmLpBtn').classList.toggle('on', show);
+  if (!show) return;
+  const sl = bmLpSlot();
+  if (!sl) return;
+  $('bmLpName').textContent = sl.name;
+  const elf = bmFxObj === 'elf' && !!bmElCur(), q = (elf ? bmSpr.el : bmSpr.art) || {px: 0, py: 0};
+  const r = bmLpObj(sl, elf ? 'elf' : 'art'), b = bmLpBox(sl, r, q.px, q.py), s = b.s;
+  const v = $('bmLpV'), W = v.clientWidth, H = v.clientHeight;
+  const ad = bmAdj(sl.name), p = bmFit(sl, bmImg.w, bmImg.h, ad);
+  const bg = lp.querySelector('img.bg'), src = `/bannerbg/${sl.name}.png`;
+  if (bg.getAttribute('src') !== src) bg.src = src;
+  $('bmLpI').style.cssText = `width:${sl.w * s}px;height:${sl.h * s}px;left:${W / 2 - b.cx * s}px;top:${H / 2 - b.cy * s}px` + bmFxVars(lp, sl, ad, p);
+}
+function bmLpSet(on) {
+  bmLp.on = on;
+  try { localStorage.setItem(BM_LP_KEY, on ? '1' : '0'); } catch (e) {}
+  bmLpDraw();
+  if (on) bmSprSoon();   // лупе может понадобиться спрайт почётче
+}
+$('bmLpBtn').onclick = () => bmLpSet(!bmLp.on);
+$('bmLpX').onclick = () => bmLpSet(false);
+addEventListener('resize', () => { if (bmLp.on) bmLpDraw(); });
 async function bmElPick(name) {
   if (name === bmFx.el) return;
   bmMark();

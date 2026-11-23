@@ -1217,6 +1217,7 @@ __CSS__
           <button class="btn sm" id="bmPick" data-i18n="bm.pick"></button>
           <button class="btn sm" id="bmClear" data-i18n="btn.clear"></button>
           <button class="btn sm bm-zbtn" id="bmZones" data-i18n-title="bm.zonesHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8.5" width="6" height="7" rx="1" stroke-dasharray="2 2"/></svg><span data-i18n="bm.zones"></span></button>
+          <button class="btn sm bm-zbtn hide" id="bmLpBtn" data-i18n-title="bm.lpHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M8 10.5h5M10.5 8v5"/></svg><span data-i18n="bm.lp"></span></button>
           <label class="bm-zoom hide" id="bmZoomL" data-i18n-title="bm.zoom">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="13" rx="1.5"/></svg>
             <input type="range" id="bmZoom" min="70" max="900" step="1" value="118" data-i18n-aria="bm.zoom">
@@ -1235,12 +1236,18 @@ __CSS__
           <button type="button" id="bmZp" class="pct" data-i18n-title="bm.zFit" data-i18n-aria="bm.zFit">100%</button>
           <button type="button" id="bmZi" data-i18n-title="bm.zIn" data-i18n-aria="bm.zIn">+</button>
         </div>
+        <!-- «Крупно»: один баннер крупно вокруг выбранного объекта, обновляется вживую (bmLpDraw в bannerfx.js) -->
+        <div class="bm-lp hide" id="bmLp">
+          <div class="bm-lph"><b data-i18n="bm.lp"></b><span id="bmLpName"></span><button type="button" class="bm-ib" id="bmLpX" data-i18n-title="btn.close" data-i18n-aria="btn.close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+          <div class="bm-lpv" id="bmLpV"><div class="bm-lpi" id="bmLpI"><div class="bm-clip"><img class="bg" alt="" draggable="false"><img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"></div></div></div>
+        </div>
       </section>
 
       <div class="col one">
+        <!-- что правим: картинку или фоновый элемент; от выбора зависят разделы ниже и подсветка в превью (bmObjSync в bannerfx.js) -->
         <section class="card" id="bmEdit">
           <div class="bm-eh">
-            <h2 data-i18n="bm.edit"></h2>
+            <h2 data-i18n="bm.obj"></h2>
             <button type="button" class="cl-q bm-q" data-i18n-aria="cl.help">?<span class="cl-qt bm-keys">
               <span><span data-i18n="bm.kDrag"></span><kbd data-i18n="bm.kMouse"></kbd></span>
               <span><span data-i18n="bm.kCorner"></span><kbd data-i18n="bm.kMouse"></kbd></span>
@@ -1255,20 +1262,30 @@ __CSS__
             <button class="bm-ib" id="bmUndo" data-i18n-title="bm.undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
             <button class="bm-ib" id="bmRedo" data-i18n-title="bm.redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
           </div>
-          <div class="seg bm-seg" id="bmTarget">
-            <button class="segb" data-m="all"><b data-i18n="bm.tAll"></b><span data-i18n="bm.tAllSub"></span></button>
-            <button class="segb" data-m="one"><b id="bmSelName"></b><span id="bmSelSub"></span></button>
+          <div class="bm-obj" id="bmObj">
+            <button type="button" data-o="art"><span class="bm-ot" id="bmObjArt"></span><b data-i18n="bm.fxArt"></b></button>
+            <button type="button" data-o="elf"><span class="bm-ot" id="bmObjEl"></span><b data-i18n="bm.elem"></b></button>
           </div>
-          <div class="bm-mh hide" id="bmModeHint"></div>
-          <div class="bm-sl bm-klb"><span data-i18n="bm.size"></span><input type="range" class="vol" id="bmK" data-origin="100" data-snap="8" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size"><label class="bm-kn"><input type="number" class="bm-num" id="bmKn" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size"><i>%</i></label></div>
-          <div class="bm-ebtn">
-            <button class="btn sm" id="bmCenter" data-i18n-title="bm.centerHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span data-i18n="bm.center"></span></button>
-            <button class="btn sm" id="bmReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset"></span></button>
-            <button class="btn sm bm-toall hide" id="bmToAll" data-i18n-title="bm.toAllHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.2"/><rect x="3" y="13" width="8" height="7" rx="1.2"/><rect x="13" y="13" width="8" height="7" rx="1.2"/></svg><span data-i18n="bm.toAll"></span></button>
+          <button type="button" class="bm-rsall" id="bmRsAll" data-i18n-title="bm.rsAllHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span id="bmRsAllTx"></span></button>
+        </section>
+        <!-- разделы со сворачиваемым заголовком .bm-gh (bmGrpInit в bannermake.js); «Положение картинки» — когда правим картинку -->
+        <section class="card bm-grp" id="bmPosCard" data-g="pos">
+          <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.edit"></span></button>
+          <div class="bm-gb">
+            <div class="seg bm-seg" id="bmTarget">
+              <button class="segb" data-m="all"><b data-i18n="bm.tAll"></b><span data-i18n="bm.tAllSub"></span></button>
+              <button class="segb" data-m="one"><b id="bmSelName"></b><span id="bmSelSub"></span></button>
+            </div>
+            <div class="bm-mh hide" id="bmModeHint"></div>
+            <div class="bm-sl bm-klb"><span data-i18n="bm.size"></span><input type="range" class="vol" id="bmK" data-origin="100" data-snap="8" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size"><label class="bm-kn"><input type="number" class="bm-num" id="bmKn" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size"><i>%</i></label></div>
+            <div class="bm-ebtn">
+              <button class="btn sm" id="bmCenter" data-i18n-title="bm.centerHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span data-i18n="bm.center"></span></button>
+              <button class="btn sm" id="bmReset" data-i18n-title="bm.resetPos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset"></span></button>
+              <button class="btn sm bm-toall hide" id="bmToAll" data-i18n-title="bm.toAllHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.2"/><rect x="3" y="13" width="8" height="7" rx="1.2"/><rect x="13" y="13" width="8" height="7" rx="1.2"/></svg><span data-i18n="bm.toAll"></span></button>
+            </div>
           </div>
         </section>
-        <!-- оформление: фоновый элемент, тень, свечение, блюр; ползунки строит web/js/bannerfx.js -->
-        <!-- разделы со сворачиваемым заголовком .bm-gh (bmGrpInit в bannermake.js) -->
+        <!-- «Фоновый элемент» — когда правим фон: выбор, размер и сдвиг; ползунки строит web/js/bannerfx.js -->
         <section class="card bm-grp" id="bmLook" data-g="el">
           <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.elem" data-i18n-title="bm.elemHint"></span></button>
           <div class="bm-gb">
@@ -1276,25 +1293,25 @@ __CSS__
             <div class="bm-fxb" id="bmElPos"></div>
           </div>
         </section>
+        <!-- тень и свечение выбранного объекта, у фона ещё блюр; у тени и свечения своя кнопка сброса -->
         <section class="card bm-grp" id="bmFxCard" data-g="fx">
-          <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.fxs"></span></button>
+          <button type="button" class="bm-gh" aria-expanded="true"><span id="bmFxTitle"></span></button>
           <div class="bm-gb">
-            <div class="seg bm-seg bm-seg2" id="bmFxObj">
-              <button class="segb" data-o="art"><b data-i18n="bm.fxArt"></b></button>
-              <button class="segb" data-o="elf"><b data-i18n="bm.fxEl"></b></button>
-            </div>
             <div class="bm-mh hide" id="bmFxHint" data-i18n="bm.fxNoEl"></div>
             <div id="bmFxBody">
-              <div class="bm-fxh"><label class="sw"><span data-i18n="bm.sh"></span><input type="checkbox" id="bmShOn"><i></i></label><span id="bmShC"></span></div>
+              <div class="bm-fxh"><label class="sw"><span id="bmShTx"></span><input type="checkbox" id="bmShOn"><i></i></label><button type="button" class="bm-ib bm-frs" id="bmShRs" data-i18n-title="bm.rsSh" data-i18n-aria="bm.rsSh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button><span id="bmShC"></span></div>
               <div class="bm-fxb" id="bmShBox"></div>
-              <div class="bm-fxh"><label class="sw"><span data-i18n="bm.gl"></span><input type="checkbox" id="bmGlOn"><i></i></label><span id="bmGlC"></span></div>
+              <div class="bm-fxh"><label class="sw"><span id="bmGlTx"></span><input type="checkbox" id="bmGlOn"><i></i></label><button type="button" class="bm-ib bm-frs" id="bmGlRs" data-i18n-title="bm.rsGl" data-i18n-aria="bm.rsGl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button><span id="bmGlC"></span></div>
               <div class="bm-fxb" id="bmGlBox"></div>
               <div class="bm-fxb bm-blb" id="bmBlBox"></div>
             </div>
           </div>
         </section>
         <section class="card bm-grp" data-g="where">
-          <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.where"></span></button>
+          <div class="bm-ghw">
+            <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.where"></span></button>
+            <button type="button" class="cl-q bm-q" data-i18n-aria="bm.what">?<span class="cl-qt bm-ptip"><b class="bm-pth" data-i18n="bm.what"></b><span class="bm-pbody" id="bmPath"></span><span class="bm-pnote" data-i18n="bm.note"></span></span></button>
+          </div>
           <div class="bm-gb bm-where">
             <div class="bm-fld">
               <span class="lb" data-i18n="bm.root"></span>
@@ -1316,12 +1333,8 @@ __CSS__
               <span class="lb" data-i18n="bm.match"></span>
               <input type="text" id="bmMatch" data-i18n-ph="bm.matchPh" spellcheck="false">
             </div>
-            <div class="note bm-path" id="bmPath"></div>
+            <div class="bm-pmsg hide" id="bmPathMsg"></div>
           </div>
-        </section>
-        <section class="card bm-grp" data-g="what">
-          <button type="button" class="bm-gh" aria-expanded="true"><span data-i18n="bm.what"></span></button>
-          <div class="bm-gb"><div class="note" data-i18n="bm.note"></div></div>
         </section>
       </div>
     </div>

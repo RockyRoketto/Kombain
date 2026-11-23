@@ -2098,12 +2098,64 @@
   font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
 .bm-gh span{flex:1;min-width:0}
 .bm-gh span[title]{cursor:help}
-.bm-gh::after{content:"";flex:none;width:6px;height:6px;margin:0 5px 3px 0;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);transition:transform .15s}
-.bm-grp.shut .bm-gh::after{transform:rotate(-45deg);margin-bottom:0}
+.bm-gh::before{content:"";flex:none;width:6px;height:6px;margin:0 2px 3px 2px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);transition:transform .15s}
+.bm-grp.shut .bm-gh::before{transform:rotate(-45deg);margin-bottom:0}
 .bm-gh:hover{color:var(--tx2)}
 .bm-gh:focus-visible{outline:2px solid var(--accs);outline-offset:2px}
 .bm-gb{margin-top:8px}
 .bm-grp.shut .bm-gb{display:none}
+/* заголовок раздела с кнопкой справа («?» у «Куда сохранить») */
+.bm-ghw{display:flex;align-items:center;gap:8px}
+.bm-ghw .bm-gh{flex:1;width:auto;min-width:0}
+.bm-ghw .bm-q{margin:0 2px 0 0}
+/* «Что правишь»: картинка или фоновый элемент, с миниатюрой; выбранное — акцентом */
+.bm-obj{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.bm-obj button{display:flex;align-items:center;gap:9px;min-width:0;padding:6px 10px 6px 6px;border-radius:var(--r2);background:var(--s2);border:1px solid var(--line);color:var(--tx2);font:inherit;text-align:left;cursor:pointer;transition:border-color .12s,background .12s,color .12s}
+.bm-obj button:hover:not(:disabled){border-color:var(--line2);color:var(--tx)}
+.bm-obj button.on{background:var(--accbg);border-color:var(--acc);color:var(--acct2);box-shadow:0 0 0 2px rgba(var(--acc-rgb),.18)}
+.bm-obj button:disabled{opacity:.5;cursor:default}
+.bm-obj b{min-width:0;font-size:13px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
+.bm-ot{flex:none;width:34px;height:34px;display:grid;place-items:center;padding:3px;box-sizing:border-box;border-radius:7px;border:1px solid var(--line);color:var(--dim);
+  background:repeating-conic-gradient(var(--s3) 0 25%,var(--s2) 0 50%) 0 0/8px 8px}
+.bm-ot img{max-width:100%;max-height:100%;display:block}
+.bm-ot svg{width:18px;height:18px}
+.bm-obj button.on .bm-ot{border-color:rgba(var(--acl-rgb),.55)}
+.bm-rsall{display:flex;align-items:center;gap:6px;margin:6px 0 0 auto;padding:3px 6px;border-radius:7px;background:none;border:0;color:var(--tx3);font:inherit;font-size:12px;cursor:pointer}
+.bm-rsall svg{width:13px;height:13px;flex:none}
+.bm-rsall:hover:not(:disabled){color:var(--tx);background:var(--s3)}
+.bm-rsall:disabled{opacity:.4;cursor:default}
+/* сброс тени или свечения в строке переключателя */
+.bm-fxh .bm-frs{order:1;width:24px;height:24px;flex:none}
+.bm-fxh .bm-frs svg{width:14px;height:14px}
+.bm-fxh:not(:has(input:checked)) .bm-frs{visibility:hidden}
+/* в «Куда сохранить» — только то, что требует действия; схема «что получится» — в подсказке «?» */
+.bm-where .bm-pmsg{line-height:1.4}
+.cl-qt.bm-ptip{display:flex;flex-direction:column;gap:8px;width:340px;max-width:calc(100vw - 16px)}
+.bm-pth{font-size:12.5px;font-weight:600;color:var(--tx-em)}
+.bm-pnote{font-size:11.5px;line-height:1.45;color:var(--dim)}
+.bm-ptip .bm-tree{background:var(--s2)}
+/* правим фон: пунктир вокруг элемента, картинка бледнее, рамки картинки и метки скрыты */
+.bm-eb{position:absolute;display:none;pointer-events:none;box-sizing:border-box;left:calc(var(--rl) * 1%);top:calc(var(--rt) * 1%);width:calc(var(--rw) * 1%);height:calc(var(--rh) * 1%);
+  border:1.5px dashed var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+#bmGrid.o-elf .bm-t.hasel .bm-eb{display:block}
+#bmGrid.o-elf .bm-clip img.art{opacity:.35;transition:opacity .12s}
+#bmGrid.o-elf .bm-bx,#bmGrid.o-elf .bm-hm{display:none!important}
+#bmGrid.o-elf .bm-t.hasel .bm-img{cursor:move}
+#bmGrid.o-elf .bm-t{border-color:var(--line)}
+/* пока двигают ползунок: только результат */
+#bmGrid.clean .bm-bx,#bmGrid.clean .bm-zf,#bmGrid.clean .bm-g,#bmGrid.clean .bm-hm,#bmGrid.clean .bm-eb{display:none!important}
+#bmGrid.clean .bm-clip img.art{opacity:1}
+/* «Крупно»: окно поверх превью слева снизу, внутри — один баннер вокруг выбранного объекта */
+.bm-zbtn.on{background:var(--accbg);border-color:rgba(var(--acl-rgb),.55);color:var(--acct2)}
+.bm-lp{position:absolute;left:12px;bottom:12px;z-index:5;width:min(460px,calc(100% - 24px));height:min(300px,calc(100% - 70px));display:flex;flex-direction:column;
+  border-radius:12px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 14px 40px -10px rgba(0,0,0,.6);overflow:hidden}
+.bm-lph{flex:none;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
+.bm-lph b{color:var(--tx-em);font-weight:600}
+.bm-lph span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bm-lpv{position:relative;flex:1;min-height:0;overflow:hidden;background:repeating-conic-gradient(var(--s2) 0 25%,var(--s1) 0 50%) 0 0/16px 16px}
+.bm-lpi{position:absolute}
+.bm-lpi .bm-clip{border-radius:0;box-shadow:none}
+.bm-lp.hasel .bm-clip .el{display:block}
 /* строка ползунка: подпись, ползунок, число; колонки одинаковые во всех строках, поэтому ползунки стоят ровно */
 .bm-sl{display:grid;grid-template-columns:minmax(64px,100px) minmax(48px,1fr) auto;align-items:center;column-gap:10px;min-height:28px;font-size:12.5px;color:var(--tx2)}
 .bm-sl>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2132,8 +2184,6 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 #bmElPos{margin-top:6px}
 .bm-fxb .bm-elrs{display:flex;width:fit-content;align-items:center;gap:6px;margin:4px 0 0 auto;padding:4px 10px;font-size:12px;border-radius:9px}
 .bm-fxb .bm-elrs svg{width:13px;height:13px;flex:none}
-#bmFxObj .segb{padding:5px 10px;align-items:center}
-#bmFxObj .segb b{font-size:13px}
 /* строка «Тень» / «Свечение»: подпись, цвет, переключатель; у label display:contents, чтобы цвет встал между подписью и тумблером */
 .bm-fxh{position:relative;display:flex;align-items:center;gap:10px;margin-top:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px;color:var(--tx2)}
 .bm-fxh .sw{display:contents}
@@ -2184,7 +2234,6 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-cal-g button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
 .bm-cal-t{width:100%;margin-top:9px;height:30px;border-radius:8px;background:var(--s3);border:1px solid var(--line);color:var(--tx2);font:inherit;font-size:12.5px;cursor:pointer}
 .bm-cal-t:hover{border-color:var(--line3);color:var(--tx)}
-.bm-path{margin-top:2px}
 .bm-where{display:flex;flex-direction:column;gap:10px}
 .bm-fld{display:flex;flex-direction:column;gap:5px;min-width:0}
 .bm-fld .lb{font-size:12.5px;color:var(--tx2)}

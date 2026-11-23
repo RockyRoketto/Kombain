@@ -102,16 +102,18 @@ async function bmCheck() {
   bmChk = r || {};
   bmRenderPath();
 }
-// путь и что из папок уже есть: древо со значками папок и плашками «есть / создам / заменятся»
+// путь и что из папок уже есть: древо со значками папок и плашками «есть / создам / заменятся» — в подсказке «?»
+// у «Куда сохранить»; в самой панели только то, что требует действия: нет папки, папки не существует, файлы заменятся
 const BM_DIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 function bmRenderPath() {
   const q = bmReq(), c = bmChk, mm = bmPad(q.month), dd = bmPad(q.day);
   const pill = ok => `<em class="bm-pl ${ok ? 'have' : 'new'}">${t(ok ? 'bm.have' : 'bm.new')}</em>`;
   const row = (d, cls, name, tail) => `<div class="bm-tn d${d} ${cls}"><span class="bm-ti">${BM_DIR}</span><span class="bm-tx">${name}${tail || ''}</span></div>`;
-  let h = '';
-  if (!q.root) h = `<div class="bm-pmsg">${t('bm.noRoot')}</div>`;
-  else if (!c.rootOk) h = `<div class="bm-pmsg warn">${t('bm.rootMissing')}</div>`;
+  let h = '', msg = '', warn = false;
+  if (!q.root) { msg = t('bm.noRoot'); h = `<div class="bm-pmsg">${msg}</div>`; }
+  else if (!c.rootOk) { msg = t('bm.rootMissing'); warn = true; h = `<div class="bm-pmsg warn">${msg}</div>`; }
   else {
+    if (c.matchName && c.matchOk) { msg = `${esc(c.matchName)}: ${t('bm.replace')}`; warn = true; }
     const site = bmSlots.filter(s => s.site).length;
     h = `<div class="bm-tree">` +
       row(0, '', esc(q.root)) +
@@ -125,6 +127,10 @@ function bmRenderPath() {
     if (c.others && c.others.length) h += `<div class="bm-others"><span>${t('bm.others', {n: c.others.length})}</span>${c.others.map(o => `<i>${esc(o)}</i>`).join('')}</div>`;
   }
   if ($('bmPath').innerHTML !== h) $('bmPath').innerHTML = h;
+  const m = $('bmPathMsg');
+  m.classList.toggle('hide', !msg);
+  m.classList.toggle('warn', warn);
+  if (m.innerHTML !== msg) m.innerHTML = msg;
 }
 try {
   const o = JSON.parse(localStorage.getItem(BM_KEY) || 'null');
@@ -308,6 +314,7 @@ function bmEditSync() {
     f.classList.toggle('sel', bmMode === 'one' && f.dataset.n === bmSel);
     f.classList.toggle('own', !bmIsId(bmOne[f.dataset.n]));
   });
+  bmObjSync();   // «Сбросить всё» и переключатель «что правишь» (bannerfx.js)
 }
 // положение картинки и рамки на плитках без перерисовки списка (её дёргает каждое движение мыши)
 function bmPlace() {
@@ -322,6 +329,7 @@ function bmPlace() {
     f.classList.toggle('off', Math.abs(ad.dx) > 0.004 || Math.abs(ad.dy) > 0.004);
     f.classList.toggle('offm', Math.abs(hx - 50) * sl.w / 100 > 1 || Math.abs(hy - 50) * sl.h / 100 > 1);
   });
+  bmLpDraw();   // «Крупно» (bannerfx.js)
 }
 $('bmTarget').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b || b.disabled) return;
@@ -399,6 +407,16 @@ $('bmGrid').addEventListener('pointerdown', e => {
   const box = e.target.closest('.bm-img'), f = box && box.closest('.bm-t');
   if (!f || bmBusy || e.button !== 0) return;
   e.preventDefault();
+  if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }   // «Крупно» смотрит этот баннер
+  // правим фон: тянем элемент, он общий для всех баннеров; сдвиг в долях сейв-зоны с учётом размера картинки
+  if (bmFxObj === 'elf') {
+    const sl = bmSlots.find(s => s.name === f.dataset.n), r = box.getBoundingClientRect();
+    if (!sl || !bmElCur()) return;
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc: r.width / sl.w, k: bmAdj(sl.name).k, moved: false};
+    f.classList.add('drag');
+    box.setPointerCapture(e.pointerId);
+    return;
+  }
   if (!bmMode) { bmNeedMode(); return; }
   const sl = bmSlots.find(s => s.name === f.dataset.n), hd = e.target.closest('.bm-box i');
   if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
@@ -420,6 +438,12 @@ $('bmGrid').addEventListener('pointermove', e => {
     if (Math.hypot(mx, my) < 3) return;
     d.moved = true;
     bmMark();
+  }
+  if (d.el) {
+    bmFx.ex = Math.min(Math.max(d.ex + mx / d.sc / (sl.zw * d.k), -1), 1);
+    bmFx.ey = Math.min(Math.max(d.ey + my / d.sc / (sl.zh * d.k), -1), 1);
+    bmFxChanged(true);
+    return;
   }
   if (d.h) {   // растягиваем за уголок: противоположный угол стоит на месте
     const px = (e.clientX - d.r.left) / d.sc, py = (e.clientY - d.r.top) / d.sc, bk = d.t0.k / d.a0.k;
@@ -461,7 +485,16 @@ document.addEventListener('keydown', e => {
   if (tab !== 'bmake' || !bmImg || bmBusy || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
   if (e.key === 'Escape') { if (bmSel) { bmSel = ''; bmEditSync(); } return; }
-  const st = e.shiftKey ? 0.05 : 0.01, a = bmCur();
+  const st = e.shiftKey ? 0.05 : 0.01;
+  if (bmFxObj === 'elf') {   // правим фон: стрелки двигают элемент, + и − меняют его размер
+    if (!bmElCur()) return;
+    const c = (v, a, b) => Math.min(Math.max(v, a), b);
+    const m = {ArrowLeft: {ex: c(bmFx.ex - st, -1, 1)}, ArrowRight: {ex: c(bmFx.ex + st, -1, 1)}, ArrowUp: {ey: c(bmFx.ey - st, -1, 1)}, ArrowDown: {ey: c(bmFx.ey + st, -1, 1)},
+      '+': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '=': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '-': {ek: c(bmFx.ek / 1.02, 0.2, 3)}}[e.key];
+    if (m) { e.preventDefault(); bmMark('key'); Object.assign(bmFx, m); bmFxChanged(true); }
+    return;
+  }
+  const a = bmCur();
   const m = a && {ArrowLeft: {dx: a.dx - st}, ArrowRight: {dx: a.dx + st}, ArrowUp: {dy: a.dy - st}, ArrowDown: {dy: a.dy + st},
     '+': {k: a.k * 1.02}, '=': {k: a.k * 1.02}, '-': {k: a.k / 1.02}}[e.key];
   if (m) { e.preventDefault(); bmMark('key'); bmSet(m); }
@@ -528,7 +561,7 @@ function bmTile(sl) {
   return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(var(--bm-cap), calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
     `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h}">` +
     `<div class="bm-clip"><img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
-    `<img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"><b class="bm-zf" style="${zf}"></b><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
+    `<img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"><b class="bm-eb"></b><b class="bm-zf" style="${zf}"></b><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
     `<div class="bm-bx"><div class="bm-box"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>` +
     `<figcaption><b>${esc(sl.name)}</b><em>${t('bm.own')}</em><i>${pill}</i></figcaption>` +
     `${s.msg ? `<span class="bm-msg">${esc(s.msg)}</span>` : ''}</figure>`;
@@ -540,6 +573,7 @@ function bmRender() {
   $('bmSrc').classList.toggle('hide', !has);
   $('bmZoomL').classList.toggle('hide', !has);
   $('bmZc').classList.toggle('hide', !has);
+  $('bmLpBtn').classList.toggle('hide', !has);
   $('bmDrop').classList.toggle('has', has);
   if (has) {
     if ($('bmThumb').getAttribute('src') !== bmImg.url) $('bmThumb').src = bmImg.url;
@@ -549,11 +583,12 @@ function bmRender() {
   $('bmPick').disabled = $('bmClear').disabled = $('bmRoot').disabled = $('bmPickRoot').disabled = $('bmMonth').disabled = $('bmDay').disabled = $('bmMatch').disabled = bmBusy;
   if (has) {
     const html = bmSlots.map(bmTile).join('');
-    if ($('bmGrid').dataset.k !== html) { $('bmGrid').innerHTML = html; $('bmGrid').dataset.k = html; }
+    if ($('bmGrid').bmHtml !== html) { $('bmGrid').innerHTML = html; $('bmGrid').bmHtml = html; }   // не dataset.k: data-k прячет applyKind (settings.js)
     bmPlace();
   }
   bmEditSync();
   bmFxSync();
+  bmLpDraw();
   updateButtons();
 }
 
