@@ -51,7 +51,8 @@ func TestBmkFit(t *testing.T) {
 		{100, 400, bmkAdj{}, image.Rect(175, 10, 225, 210)},
 		{50, 50, bmkAdj{K: 0.5}, image.Rect(150, 60, 250, 160)},
 		{50, 50, bmkAdj{K: 1, DX: 0.5, DY: -0.25}, image.Rect(200, -40, 400, 160)},
-		{50, 50, bmkAdj{K: 100}, image.Rect(-200, -290, 600, 510)},
+		{50, 50, bmkAdj{K: 100}, image.Rect(-700, -790, 1100, 1010)},
+		{50, 50, bmkAdj{K: 1, DX: 100, DY: -100}, image.Rect(3300, -3190, 3500, -2990)},
 	}
 	for _, c := range cases {
 		if got := bmkFit(sl, c.w, c.h, c.adj); got != c.want {

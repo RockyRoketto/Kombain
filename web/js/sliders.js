@@ -1,7 +1,7 @@
 // ---------- риска исходного значения и лёгкий магнит у ползунков ----------
 // Ползунок с data-origin="значение" получает риску (рисует style.css по --sl-p), а шарик под мышью прилипает к ней.
 // Клавиатура, поле с числом и Alt магнита не знают: так задаются точные значения рядом с риской.
-const SL_ZONE = 3;   // ширина магнита в пикселях по обе стороны от риски
+const SL_ZONE = 3;   // ширина магнита в пикселях по обе стороны от риски; у ползунка можно своя: data-snap="8"
 const SL_SEL = 'input[type=range][data-origin]';
 let slDrag = null;
 
@@ -24,7 +24,7 @@ addEventListener('input', e => {
   if (!slDrag || e.target !== slDrag.r) return;
   const r = slDrag.r, o = +r.dataset.origin, unit = (+r.max - +r.min) / r.getBoundingClientRect().width;
   slDrag.moved = true;
-  if (!slDrag.free && Math.abs(+r.value - o) <= SL_ZONE * unit) r.value = o;
+  if (!slDrag.free && Math.abs(+r.value - o) <= (+r.dataset.snap || SL_ZONE) * unit) r.value = o;
 }, true);
 addEventListener('pointerup', slEnd, true);
 addEventListener('pointercancel', slEnd, true);

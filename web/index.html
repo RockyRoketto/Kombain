@@ -1212,10 +1212,14 @@ __CSS__
     <!-- «Сборка баннеров», web/js/bannermake.js -->
     <div class="ut-pane hide" id="bmView">
       <section class="drop" id="bmDrop">
-        <div class="drop-head">
+        <div class="drop-head bm-head">
+          <div class="bm-src hide" id="bmSrc"><img id="bmThumb" alt=""><span><b id="bmName"></b><i id="bmCnt"></i></span></div>
           <button class="btn sm" id="bmPick" data-i18n="bm.pick"></button>
           <button class="btn sm" id="bmClear" data-i18n="btn.clear"></button>
-          <span class="cnt" id="bmCnt"></span>
+          <label class="bm-zoom hide" id="bmZoomL" data-i18n-title="bm.zoom">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="13" rx="1.5"/></svg>
+            <input type="range" id="bmZoom" min="70" max="260" step="1" value="118" data-i18n-aria="bm.zoom">
+          </label>
         </div>
         <div class="empty" id="bmEmpty">
           <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1229,18 +1233,32 @@ __CSS__
 
       <div class="col one">
         <section class="card" id="bmEdit">
-          <h2 data-i18n="bm.edit"></h2>
-          <div class="seg" id="bmTarget">
-            <button class="segb on" data-m="all"><b data-i18n="bm.tAll"></b><span data-i18n="bm.tAllSub"></span></button>
-            <button class="segb" data-m="one"><b id="bmSelName"></b><span data-i18n="bm.tOneSub"></span></button>
+          <div class="bm-eh">
+            <h2 data-i18n="bm.edit"></h2>
+            <button type="button" class="cl-q bm-q" data-i18n-aria="cl.help">?<span class="cl-qt bm-keys">
+              <span><span data-i18n="bm.kDrag"></span><kbd data-i18n="bm.kMouse"></kbd></span>
+              <span><span data-i18n="bm.kCorner"></span><kbd data-i18n="bm.kMouse"></kbd></span>
+              <span><span data-i18n="bm.kFree"></span><kbd>Alt</kbd></span>
+              <span><span data-i18n="bm.kMove"></span><span><kbd>←↑→↓</kbd> <kbd>Shift</kbd></span></span>
+              <span><span data-i18n="bm.kSize"></span><span><kbd>+</kbd> <kbd>−</kbd></span></span>
+              <span><span data-i18n="bm.kUndo"></span><span><kbd>Ctrl+Z</kbd> <kbd>Ctrl+Y</kbd></span></span>
+              <span><span data-i18n="bm.kAll"></span><kbd>Esc</kbd></span>
+            </span></button>
+            <button class="bm-ib" id="bmUndo" data-i18n-title="bm.undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+            <button class="bm-ib" id="bmRedo" data-i18n-title="bm.redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
           </div>
-          <span class="lb bm-klb"><span data-i18n="bm.size"></span><b id="bmKv">100%</b></span>
-          <input type="range" class="vol" id="bmK" data-origin="100" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size">
-          <div class="rowf bm-ebtn">
-            <button class="btn sm" id="bmCenter" data-i18n="bm.center"></button>
-            <button class="btn sm" id="bmReset" data-i18n="bm.reset"></button>
+          <div class="seg bm-seg" id="bmTarget">
+            <button class="segb" data-m="all"><b data-i18n="bm.tAll"></b><span data-i18n="bm.tAllSub"></span></button>
+            <button class="segb" data-m="one"><b id="bmSelName"></b><span id="bmSelSub"></span></button>
           </div>
-          <div class="note" data-i18n="bm.editNote"></div>
+          <div class="bm-mh hide" id="bmModeHint"></div>
+          <div class="bm-klb"><span class="lb" data-i18n="bm.size"></span><label class="bm-kn"><input type="number" id="bmKn" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size"><i>%</i></label></div>
+          <input type="range" class="vol" id="bmK" data-origin="100" data-snap="8" min="20" max="300" step="1" value="100" data-i18n-aria="bm.size">
+          <div class="bm-ebtn">
+            <button class="btn sm" id="bmCenter" data-i18n-title="bm.centerHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span data-i18n="bm.center"></span></button>
+            <button class="btn sm" id="bmReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset"></span></button>
+            <button class="btn sm bm-toall hide" id="bmToAll" data-i18n-title="bm.toAllHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.2"/><rect x="3" y="13" width="8" height="7" rx="1.2"/><rect x="13" y="13" width="8" height="7" rx="1.2"/></svg><span data-i18n="bm.toAll"></span></button>
+          </div>
         </section>
         <section class="card">
           <h2 data-i18n="bm.where"></h2>

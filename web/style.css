@@ -2009,42 +2009,117 @@
 .mt-file.ins-before{box-shadow:0 -2px 0 var(--acct)}
 .mt-file.ins-after{box-shadow:0 2px 0 var(--acct)}
 
-/* «Сборка баннеров» в «Утилитах» (web/js/bannermake.js): шаблоны с картинкой рядами, подпись под каждым */
-.bm-grid{--bm-h:118px;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14px 16px;margin:0 -6px;padding:2px 6px 6px;scrollbar-width:thin}
-.bm-t{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
-.bm-img{position:relative;width:100%;overflow:hidden;border-radius:6px;background:#000;box-shadow:0 0 0 1px var(--line2)}
-.bm-img img{position:absolute;display:block;pointer-events:none}
-.bm-img .bg{inset:0;width:100%;height:100%}
-.bm-t.run .bm-img{box-shadow:0 0 0 2px var(--acc)}
-.bm-t.ok .bm-img{box-shadow:0 0 0 1px var(--ok)}
-.bm-t.error .bm-img{box-shadow:0 0 0 2px var(--err)}
-.bm-t figcaption{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:var(--tx2)}
-.bm-t figcaption b{font-weight:600;color:var(--tx-em);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* «Сборка баннеров» в «Утилитах» (web/js/bannermake.js): шаблоны карточками в две группы, подпись под каждым */
+#bmDrop.has{border-style:solid;border-color:var(--line)}
+.bm-head{gap:8px;min-width:0}
+.bm-head .btn{flex:none}
+.bm-src{display:flex;align-items:center;gap:9px;min-width:0;flex:0 1 auto;margin-right:4px;padding:3px 10px 3px 3px;border-radius:10px;background:var(--s2);border:1px solid var(--line)}
+.bm-src img{flex:none;width:34px;height:34px;object-fit:contain;border-radius:7px;background:var(--chk-img) 0 0/10px 10px;box-shadow:0 0 0 1px var(--line)}
+.bm-src span{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.bm-src b{font-size:12.5px;font-weight:600;color:var(--tx-em);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.bm-src i{font-style:normal;font-size:11.5px;color:var(--dim);white-space:nowrap}
+.bm-zoom{flex:none;margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--dim)}
+.bm-zoom svg{width:17px;height:17px;flex:none}
+.bm-zoom input{width:90px;height:4px}
+.bm-zoom input::-webkit-slider-thumb{width:13px;height:13px;border-width:2px}
+.bm-grid{--bm-h:118px;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:12px;margin:0 -12px -12px;padding:4px 12px 14px;border-top:1px solid var(--line);
+  background:radial-gradient(circle,var(--line) 1px,transparent 1.2px) 0 0/16px 16px;scrollbar-width:thin}
+.bm-t{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0;box-sizing:border-box;padding:7px 7px 6px;border-radius:12px;background:var(--s2);border:1px solid var(--line);transition:border-color .12s,background .12s,box-shadow .12s}
+.bm-t:hover{border-color:var(--line2)}
+.bm-t.sel{border-color:rgba(var(--acl-rgb),.6);background:var(--accbg);box-shadow:0 0 0 3px rgba(var(--acc-rgb),.1)}
+.bm-clip{position:absolute;inset:0;overflow:hidden;border-radius:6px;background:#000;box-shadow:0 0 0 1px var(--line2)}
+.bm-clip img{position:absolute;display:block;pointer-events:none}
+.bm-clip .bg{inset:0;width:100%;height:100%}
+.bm-clip .art{left:calc(var(--l) * 1%);top:calc(var(--t) * 1%);width:calc(var(--w) * 1%);height:calc(var(--h) * 1%)}
+.bm-t.run .bm-clip{box-shadow:0 0 0 2px var(--acc)}
+.bm-t.ok .bm-clip{box-shadow:0 0 0 1px var(--ok)}
+.bm-t.error .bm-clip{box-shadow:0 0 0 2px var(--err)}
+/* направляющие магнита: середина баннера или места под картинку */
+.bm-g{position:absolute;display:none;pointer-events:none;background:none}
+.bm-g.v{top:0;bottom:0;left:calc(var(--gx) * 1%);border-left:1px dashed #ff4fa3;transform:translateX(-.5px)}
+.bm-g.h{left:0;right:0;top:calc(var(--gy) * 1%);border-top:1px dashed #ff4fa3;transform:translateY(-.5px)}
+.bm-t.snx .bm-g.v,.bm-t.sny .bm-g.h{display:block}
+/* рамка выбранного баннера: видна и за краем баннера на 10 px, уголки тянут размер */
+.bm-bx{position:absolute;inset:-10px;overflow:hidden;pointer-events:none;display:none}
+.bm-box{position:absolute;left:calc(10px + (100% - 20px) * var(--l) / 100);top:calc(10px + (100% - 20px) * var(--t) / 100);
+  width:calc((100% - 20px) * var(--w) / 100);height:calc((100% - 20px) * var(--h) / 100);box-sizing:border-box;outline:1.5px solid var(--acc);outline-offset:0;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+.bm-box i{position:absolute;width:9px;height:9px;margin:-5px;box-sizing:border-box;border-radius:2px;background:#fff;border:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:auto}
+.bm-box i[data-h=nw]{left:0;top:0;cursor:nwse-resize}.bm-box i[data-h=se]{right:0;bottom:0;cursor:nwse-resize}
+.bm-box i[data-h=ne]{right:0;top:0;cursor:nesw-resize}.bm-box i[data-h=sw]{left:0;bottom:0;cursor:nesw-resize}
+.bm-t.k100 .bm-box{outline-color:#ff4fa3}
+.bm-t figcaption{display:flex;align-items:center;gap:6px;min-width:0;padding:0 2px;font-size:12px;color:var(--tx2)}
+.bm-t figcaption b{font-weight:600;font-size:11.5px;color:var(--tx-em);font-family:ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bm-t figcaption i{margin-left:auto;font-style:normal;font-weight:700}
+.bm-t figcaption em{display:none;flex:none;font-style:normal;font-size:10.5px;padding:0 6px;border-radius:99px;background:var(--accbg);color:var(--acct)}
+.bm-t.own figcaption em{display:inline}
+.bm-t.sel figcaption b{color:var(--acct)}
 .bm-t.ok figcaption i{color:var(--ok)}
 .bm-t.error figcaption i,.bm-t.error .bm-msg{color:var(--err)}
-.bm-msg{font-size:11.5px;color:var(--dim);line-height:1.3;overflow-wrap:anywhere}
+.bm-msg{font-size:11.5px;color:var(--dim);line-height:1.3;overflow-wrap:anywhere;padding:0 2px}
+
+/* «Сборка баннеров», редактор справа */
+.bm-eh{display:flex;align-items:center;gap:2px}
+.bm-eh h2{flex:1;margin:0}
+.bm-ib{width:28px;height:28px;display:grid;place-items:center;padding:0;border-radius:8px;background:none;border:1px solid transparent;color:var(--tx3);cursor:pointer}
+.bm-ib svg{width:16px;height:16px}
+.bm-ib:hover:not(:disabled){background:var(--s3);border-color:var(--line);color:var(--tx)}
+.bm-ib:disabled{opacity:.35;cursor:default}
+.bm-klb{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.bm-klb .lb{margin:0}
+.bm-kn{display:flex;align-items:center;gap:3px;color:var(--dim);font-size:12.5px}
+.bm-kn i{font-style:normal}
+#bmKn{width:56px;height:26px;padding:0 6px;border-radius:7px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px}
+#bmKn::-webkit-inner-spin-button,#bmKn::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+#bmK{width:100%;margin-top:8px}
+.bm-ebtn{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.bm-ebtn .btn{display:flex;align-items:center;justify-content:center;gap:6px}
+.bm-ebtn svg{width:14px;height:14px;flex:none}
+
+/* «Сборка баннеров», куда сохранить: древо папок */
 .bm-date{display:grid;grid-template-columns:1fr 92px;gap:8px;margin-top:10px}
 .bm-date label{display:flex;flex-direction:column;min-width:0}
 .bm-date select{width:100%}
-.bm-path{margin-top:10px}
-.bm-tree{font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.55;overflow-wrap:anywhere;color:var(--tx-em)}
-.bm-tree .l1{padding-left:12px}.bm-tree .l2{padding-left:24px}.bm-tree .l3{padding-left:36px}.bm-tree .l4{padding-left:48px;color:var(--dim)}
-.bm-tree div:not(:first-child)::before{content:"└ ";color:var(--dim)}
-.bm-tree i{font-family:system-ui,sans-serif;font-style:normal;font-size:11.5px;margin-left:4px;color:var(--dim)}
-.bm-tree i.have{color:var(--ok)}
-.bm-path .warn,.bm-tree i.warn{color:var(--warn)}
-.bm-tree .dim{color:var(--dim)}
-.bm-others{margin-top:6px;font-size:12px;color:var(--tx2);overflow-wrap:anywhere}
-/* «Сборка баннеров», редактор: выбранный баннер, своя правка, ползунок размера */
-.bm-img{cursor:grab;touch-action:none;user-select:none}
-.bm-img:active{cursor:grabbing}
-.bm-t.sel .bm-img{box-shadow:0 0 0 2px var(--acc),0 0 0 5px rgba(var(--acc-rgb),.22)}
-.bm-t.sel figcaption b{color:var(--acct)}
-.bm-t figcaption em{display:none;font-style:normal;font-size:11px;color:var(--acct)}
-.bm-t.own figcaption em{display:inline}
-.bm-t figcaption .tag{flex:none;font-size:10.5px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--dim)}
-.bm-klb{display:flex;justify-content:space-between;margin-top:12px}
-.bm-klb b{color:var(--tx-em);font-variant-numeric:tabular-nums}
-#bmK{width:100%}
-.bm-ebtn{margin-top:8px}
+.bm-path{margin-top:12px}
+.bm-pmsg{font-size:12px;color:var(--dim)}
+.bm-pmsg.warn{color:var(--warn)}
+.bm-pl{flex:none;font-style:normal;font-size:11px;line-height:1.5;padding:0 7px;border-radius:99px}
+.bm-pl.have{background:rgba(var(--ok-rgb),.13);color:var(--ok)}
+.bm-pl.new{background:var(--accbg);color:var(--acct)}
+.bm-pl.warn{flex:0 1 auto;background:rgba(232,163,60,.15);color:var(--warn)}
+.bm-fc{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:1px 7px 1px 3px;border-radius:7px;background:var(--s3);color:var(--dim);font-variant-numeric:tabular-nums}
+.bm-fc b{font-weight:600;font-size:10.5px;padding:0 5px;border-radius:5px;background:var(--s4);color:var(--tx-em)}
+.bm-others{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;font-size:12px;color:var(--tx2)}
+.bm-others i{font-style:normal;font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--s2);border:1px solid var(--line);overflow-wrap:anywhere}
+/* «Сборка баннеров»: сначала выбор «Все баннеры» или «Один баннер», без него картинки не двигаются */
+.bm-img{position:relative;width:100%;touch-action:none;user-select:none;cursor:default}
+#bmGrid.m-all .bm-img,#bmGrid.m-one .bm-t.sel .bm-img{cursor:grab}
+#bmGrid.m-one .bm-t:not(.sel) .bm-img{cursor:pointer}
+#bmGrid .bm-t.drag .bm-img{cursor:grabbing}
+#bmGrid.m-all .bm-t{border-color:rgba(var(--acl-rgb),.3)}
+#bmGrid.m-all .bm-bx,#bmGrid .bm-t.sel .bm-bx{display:block}
+.bm-seg{margin-top:8px;border-radius:var(--r2)}
+.bm-seg .segb b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-seg.need{animation:bmNeed .7s}
+@keyframes bmNeed{0%,100%{box-shadow:0 0 0 0 rgba(var(--acc-rgb),0)}30%{box-shadow:0 0 0 4px rgba(var(--acc-rgb),.5)}}
+.bm-mh{margin-top:8px;padding:7px 10px;border-radius:10px;background:var(--accbg);color:var(--acct);font-size:12px;line-height:1.4}
+/* клавиши в подсказке «?» (ставит clQPlace из web/js/color.js) */
+.bm-q{margin:0 4px 0 0}
+.cl-qt.bm-keys{display:flex;flex-direction:column;gap:6px;width:280px;max-width:calc(100vw - 16px)}
+.bm-keys>span{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--tx2)}
+.bm-keys kbd{font-family:inherit;font-size:10.5px;font-weight:600;line-height:1.5;padding:0 6px;border-radius:5px;background:var(--s3);border:1px solid var(--line2);color:var(--tx3);white-space:nowrap}
+/* древо папок: шаг 20 px, линия идёт от середины значка родителя к значку ребёнка */
+.bm-tree{display:flex;flex-direction:column;gap:4px;padding:9px 10px;border-radius:12px;background:var(--s2);border:1px solid var(--line)}
+.bm-tn{position:relative;display:flex;align-items:flex-start;gap:7px;min-width:0;font-size:12.5px;color:var(--tx-em)}
+.bm-tn.d1{margin-left:20px}.bm-tn.d2{margin-left:40px}.bm-tn.d3{margin-left:60px}.bm-tn.d4{margin-left:80px}
+.bm-tn:not(.d0)::before{content:"";position:absolute;left:-12.75px;top:-4px;width:9px;height:16px;border:solid var(--line3);border-width:0 0 1.5px 1.5px;border-bottom-left-radius:5px}
+.bm-tn:not(:last-child)::after{content:"";position:absolute;left:7.25px;top:20px;bottom:-4px;border-left:1.5px solid var(--line3)}
+.bm-ti{flex:none;width:16px;height:24px;display:grid;place-items:center;color:var(--dim)}
+.bm-ti svg{width:16px;height:16px}
+.bm-tn.new .bm-ti,.bm-tn.match .bm-ti{color:var(--acct)}
+.bm-tx{min-width:0;padding:3px 0;line-height:18px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.bm-tx .bm-pl{display:inline-block;margin-left:6px;vertical-align:1px}
+.bm-tn.d0 .bm-tx{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.bm-tn.match .bm-tx b{font-weight:600;color:var(--tx)}
+.bm-tn.dim .bm-tx,.bm-tn.dim .bm-ti{color:var(--dim)}
+.bm-tn.files{align-items:center;flex-wrap:wrap;gap:5px;min-height:24px}
+.bm-ebtn .bm-toall{grid-column:1/-1}

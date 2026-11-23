@@ -105,21 +105,27 @@ async function bmCheck() {
   bmChk = r || {};
   bmRenderPath();
 }
-// путь и что из папок уже есть
+// путь и что из папок уже есть: древо со значками папок и плашками «есть / создам / заменятся»
+const BM_DIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.3l2 2.2h8.7A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>';
 function bmRenderPath() {
   const q = bmReq(), c = bmChk, mm = bmPad(q.month), dd = bmPad(q.day);
-  const st = ok => `<i class="${ok ? 'have' : 'new'}">${t(ok ? 'bm.have' : 'bm.new')}</i>`;
+  const pill = ok => `<em class="bm-pl ${ok ? 'have' : 'new'}">${t(ok ? 'bm.have' : 'bm.new')}</em>`;
+  const row = (d, cls, name, tail) => `<div class="bm-tn d${d} ${cls}"><span class="bm-ti">${BM_DIR}</span><span class="bm-tx">${name}${tail || ''}</span></div>`;
   let h = '';
-  if (!q.root) h = t('bm.noRoot');
-  else if (!c.rootOk) h = `<span class="warn">${t('bm.rootMissing')}</span>`;
+  if (!q.root) h = `<div class="bm-pmsg">${t('bm.noRoot')}</div>`;
+  else if (!c.rootOk) h = `<div class="bm-pmsg warn">${t('bm.rootMissing')}</div>`;
   else {
+    const site = bmSlots.filter(s => s.site).length;
     h = `<div class="bm-tree">` +
-      `<div>${esc(q.root)}</div>` +
-      `<div class="l1">${mm} ${st(c.monthOk)}</div>` +
-      `<div class="l2">${dd} ${st(c.dayOk)}</div>` +
-      (c.matchName ? `<div class="l3">${esc(c.matchName)} ${c.matchOk ? `<i class="warn">${t('bm.replace')}</i>` : st(false)}</div>` +
-        `<div class="l4">png · jpeg · webp</div>` : `<div class="l3 dim">${t('bm.noMatch')}</div>`) + '</div>';
-    if (c.others && c.others.length) h += `<div class="bm-others">${t('bm.others', {n: c.others.length})} ${c.others.map(esc).join(', ')}</div>`;
+      row(0, '', esc(q.root)) +
+      row(1, c.monthOk ? '' : 'new', mm, pill(c.monthOk)) +
+      row(2, c.dayOk ? '' : 'new', dd, pill(c.dayOk)) +
+      (c.matchName
+        ? row(3, 'match', `<b>${esc(c.matchName)}</b>`, c.matchOk ? `<em class="bm-pl warn">${t('bm.replace')}</em>` : pill(false)) +
+          `<div class="bm-tn d4 files">${[['png', bmSlots.length], ['jpeg', site], ['webp', site]].map(([f, n]) => `<span class="bm-fc"><b>${f}</b>${n}</span>`).join('')}</div>`
+        : row(3, 'dim', t('bm.noMatch'))) +
+      '</div>';
+    if (c.others && c.others.length) h += `<div class="bm-others"><span>${t('bm.others', {n: c.others.length})}</span>${c.others.map(o => `<i>${esc(o)}</i>`).join('')}</div>`;
   }
   if ($('bmPath').innerHTML !== h) $('bmPath').innerHTML = h;
 }
@@ -146,112 +152,278 @@ $('bmPickRoot').onclick = () => dialog(async () => {
 const BM_ID = {k: 1, dx: 0, dy: 0};
 let bmAll = {...BM_ID};
 let bmOne = {};
-let bmSel = '';            // выбранный баннер: правка только его; '' — правка всех
+// Сначала выбирают, что править (bmMode): 'all' — все баннеры, рамки у всех; 'one' — один, щелчком по нему (bmSel), рамка у него.
+// Пока ничего не выбрано, картинки не двигаются.
+let bmMode = '';
+let bmSel = '';
 const bmIsId = a => !a || (Math.abs(a.k - 1) < 1e-3 && Math.abs(a.dx) < 1e-3 && Math.abs(a.dy) < 1e-3);
 function bmAdj(name) {
   const o = bmOne[name] || BM_ID;
   return {k: bmAll.k * o.k, dx: bmAll.dx + o.dx, dy: bmAll.dy + o.dy};
 }
-const bmCur = () => bmSel ? (bmOne[bmSel] = bmOne[bmSel] || {...BM_ID}) : bmAll;
+// что сейчас правится; null — режим не выбран или в «Один баннер» ещё не щёлкнули по баннеру
+const bmCur = () => bmMode === 'all' ? bmAll : bmMode === 'one' && bmSel ? (bmOne[bmSel] = bmOne[bmSel] || {...BM_ID}) : null;
+// подсветить выбор режима, если пытаются править без него
+function bmNeedMode() {
+  const s = $('bmTarget');
+  s.classList.remove('need'); void s.offsetWidth; s.classList.add('need');
+}
 function bmSet(ch) {
   const a = bmCur();
+  if (!a) return;
   if ('k' in ch) a.k = Math.min(Math.max(ch.k, 0.2), 3);
-  if ('dx' in ch) a.dx = Math.min(Math.max(ch.dx, -2), 2);
-  if ('dy' in ch) a.dy = Math.min(Math.max(ch.dy, -2), 2);
+  if ('dx' in ch) a.dx = Math.min(Math.max(ch.dx, -8), 8);
+  if ('dy' in ch) a.dy = Math.min(Math.max(ch.dy, -8), 8);
   bmPlace(); bmEditSync();
 }
 function bmResetAdj() {
   for (const k in bmOne) delete bmOne[k];
   bmAll = {...BM_ID}; bmSel = '';
+  bmHist.u = []; bmHist.r = [];
 }
-// панель «Положение»: на что действует правка и её значения
+// без округления, в пикселях шаблона: размер картинки при k = 1 и её середина при правке a
+function bmGeo(sl, a) {
+  let bw = sl.s, bh = sl.s;
+  if (bmImg.w >= bmImg.h) bh = bmImg.h * sl.s / bmImg.w; else bw = bmImg.w * sl.s / bmImg.h;
+  return {bw, bh, cx: sl.x + sl.s / 2 + a.dx * sl.s, cy: sl.y + sl.s / 2 + a.dy * sl.s};
+}
+
+// ---------- отмена: Ctrl+Z, Ctrl+Shift+Z и Ctrl+Y ----------
+// Снимок — вся правка (общая и своя у каждого баннера); выбор баннера в снимок не входит.
+// Шаг ставится перед началом движения: тяга мышью, ползунок, число, серия стрелок — по одному шагу.
+const bmHist = {u: [], r: [], key: '', at: 0};
+function bmSnap() {
+  const one = {};
+  for (const n in bmOne) if (!bmIsId(bmOne[n])) one[n] = bmOne[n];
+  return JSON.stringify({all: bmAll, one});
+}
+function bmMark(key) {
+  const now = Date.now();
+  if (key && key === bmHist.key && now - bmHist.at < 900) { bmHist.at = now; return; }   // серия клавиш одним шагом
+  bmHist.key = key || ''; bmHist.at = now;
+  const s = bmSnap();
+  if (bmHist.u[bmHist.u.length - 1] !== s) bmHist.u.push(s);
+  if (bmHist.u.length > 200) bmHist.u.shift();
+  bmHist.r = [];
+  bmEditSync();
+}
+function bmLoad(s) {
+  const o = JSON.parse(s);
+  bmAll = o.all;
+  for (const n in bmOne) delete bmOne[n];
+  Object.assign(bmOne, o.one);
+  bmHist.key = '';
+  bmPlace(); bmEditSync();
+}
+function bmUndo(redo) {
+  const from = redo ? bmHist.r : bmHist.u, to = redo ? bmHist.u : bmHist.r, cur = bmSnap();
+  while (from.length && from[from.length - 1] === cur) from.pop();   // шаг без изменений не считаем
+  if (!from.length) return;
+  to.push(cur);
+  bmLoad(from.pop());
+}
+$('bmUndo').onclick = () => bmUndo(false);
+$('bmRedo').onclick = () => bmUndo(true);
+document.addEventListener('keydown', e => {
+  if (tab !== 'bmake' || !bmImg || bmBusy || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if (e.target.closest && e.target.closest('input:not([type=range]), textarea, select, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
+  const z = e.code === 'KeyZ', y = e.code === 'KeyY';   // по коду клавиши: в русской раскладке тоже
+  if (!z && !y) return;
+  e.preventDefault();
+  bmUndo(y || e.shiftKey);
+});
+
+// панель «Положение»: что правим и значения правки
 function bmEditSync() {
-  const a = bmCur(), on = !!bmImg && !bmBusy;
-  document.querySelectorAll('#bmTarget .segb').forEach(b => b.classList.toggle('on', (b.dataset.m === 'one') === !!bmSel));
-  $('bmSelName').textContent = bmSel || t('bm.tOne');
-  $('bmK').value = Math.round(a.k * 100);
-  $('bmKv').textContent = Math.round(a.k * 100) + '%';
-  $('bmK').disabled = $('bmCenter').disabled = $('bmReset').disabled = !on;
-  document.querySelectorAll('#bmTarget .segb').forEach(b => { b.disabled = !on; });
+  const a = bmCur(), on = !!bmImg && !bmBusy, kv = Math.round((a || BM_ID).k * 100);
+  document.querySelectorAll('#bmTarget .segb').forEach(b => { b.classList.toggle('on', b.dataset.m === bmMode); b.disabled = !on; });
+  $('bmSelName').textContent = bmMode === 'one' && bmSel ? bmSel : t('bm.tOne');
+  $('bmSelSub').textContent = t(bmMode === 'one' && bmSel ? 'bm.oneSel' : 'bm.tOneSub');
+  $('bmModeHint').classList.toggle('hide', !on || !!a);
+  $('bmModeHint').textContent = t(bmMode === 'one' ? 'bm.pickOne' : 'bm.pickMode');
+  $('bmK').value = kv;
+  if (document.activeElement !== $('bmKn')) $('bmKn').value = kv;
+  $('bmToAll').classList.toggle('hide', !(on && bmMode === 'one' && bmSel && !bmIsId(bmOne[bmSel])));
+  $('bmK').disabled = $('bmKn').disabled = $('bmCenter').disabled = $('bmReset').disabled = !on || !a;
+  const cur = bmSnap();
+  $('bmUndo').disabled = !on || !bmHist.u.some(s => s !== cur);
+  $('bmRedo').disabled = !on || !bmHist.r.some(s => s !== cur);
+  $('bmGrid').classList.toggle('m-all', bmMode === 'all');
+  $('bmGrid').classList.toggle('m-one', bmMode === 'one');
   document.querySelectorAll('#bmGrid .bm-t').forEach(f => {
-    f.classList.toggle('sel', f.dataset.n === bmSel);
+    f.classList.toggle('sel', bmMode === 'one' && f.dataset.n === bmSel);
     f.classList.toggle('own', !bmIsId(bmOne[f.dataset.n]));
   });
 }
-// положение картинки на плитках без перерисовки списка (её дёргает каждое движение мыши)
+// положение картинки и рамки на плитках без перерисовки списка (её дёргает каждое движение мыши)
 function bmPlace() {
   if (!bmImg) return;
   document.querySelectorAll('#bmGrid .bm-t').forEach(f => {
-    const sl = bmSlots.find(s => s.name === f.dataset.n), art = f.querySelector('.art');
-    if (!sl || !art) return;
+    const sl = bmSlots.find(s => s.name === f.dataset.n), box = f.querySelector('.bm-img');
+    if (!sl || !box) return;
     const p = bmFit(sl, bmImg.w, bmImg.h, bmAdj(sl.name));
-    art.style.cssText = `left:${p.l}%;top:${p.t}%;width:${p.w}%;height:${p.h}%`;
+    box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h}`;
   });
 }
-$('bmK').addEventListener('input', () => bmSet({k: +$('bmK').value / 100}));
-$('bmCenter').onclick = () => bmSet({dx: 0, dy: 0});
-$('bmReset').onclick = () => { if (bmSel) delete bmOne[bmSel]; else bmAll = {...BM_ID}; bmPlace(); bmEditSync(); };
 $('bmTarget').addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b || b.disabled) return;
-  if (b.dataset.m === 'all') bmSel = '';
-  else if (!bmSel) { say('info', t('bm.edit'), t('bm.pickOne')); return; }
+  bmMode = b.dataset.m;
+  if (bmMode === 'all') bmSel = '';
   bmEditSync();
 });
-// мышью по плитке: тянуть — сдвиг, щелчок — выбрать этот баннер (правка только его)
+let bmKMark = false;   // ползунок и число: один шаг отмены на всё движение
+$('bmK').addEventListener('input', () => {
+  if (!bmKMark) { bmMark(); bmKMark = true; }
+  bmSet({k: +$('bmK').value / 100});
+});
+$('bmK').addEventListener('change', () => { bmKMark = false; });
+$('bmKn').addEventListener('input', () => {
+  const v = +$('bmKn').value;
+  if (!(v >= 20 && v <= 300) || !bmCur()) return;
+  if (!bmKMark) { bmMark(); bmKMark = true; }
+  bmSet({k: v / 100});
+});
+$('bmKn').addEventListener('change', () => { bmKMark = false; $('bmKn').value = Math.round((bmCur() || BM_ID).k * 100); });
+$('bmKn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+// двойной щелчок по ползунку — снова 100%
+$('bmK').addEventListener('dblclick', () => { if (bmCur()) { bmMark(); bmSet({k: 1}); } });
+$('bmCenter').onclick = () => { bmMark(); bmSet({dx: 0, dy: 0}); };
+$('bmReset').onclick = () => {
+  if (!bmCur()) return;
+  bmMark();
+  if (bmMode === 'one') delete bmOne[bmSel]; else bmAll = {...BM_ID};
+  bmPlace(); bmEditSync();
+};
+
+// «Применить ко всем»: итог выбранного баннера становится общей правкой, свои правки у всех сбрасываются
+$('bmToAll').onclick = () => {
+  if (bmMode !== 'one' || !bmSel) return;
+  bmMark();
+  bmAll = bmAdj(bmSel);
+  for (const n in bmOne) delete bmOne[n];
+  bmPlace(); bmEditSync();
+};
+
+// ---------- мышью по плитке ----------
+// «Все баннеры»: тянешь любую картинку — едут все, уголки рамки любой — размер у всех.
+// «Один баннер»: щелчок выбирает баннер, тянуть и растягивать можно только его (нажал на другой — теперь правишь его).
+// Размер уголком — от противоположного угла. Середина картинки прилипает к середине баннера и к середине места
+// под картинку, размер — к 100%. Alt — без магнитов.
+const BM_SNAP = 7;   // ширина магнита в пикселях экрана
 let bmDrag = null;
+function bmGuides(f, gx, gy) {
+  f.classList.toggle('snx', gx != null); f.classList.toggle('sny', gy != null);
+  const b = f.querySelector('.bm-img');
+  if (gx != null) b.style.setProperty('--gx', gx);
+  if (gy != null) b.style.setProperty('--gy', gy);
+}
 $('bmGrid').addEventListener('pointerdown', e => {
   const box = e.target.closest('.bm-img'), f = box && box.closest('.bm-t');
   if (!f || bmBusy || e.button !== 0) return;
   e.preventDefault();
-  const sl = bmSlots.find(s => s.name === f.dataset.n);
-  if (bmSel && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }   // выбран другой: теперь правим этот
-  const a = bmCur();
-  bmDrag = {x: e.clientX, y: e.clientY, dx: a.dx, dy: a.dy, side: sl.s / sl.w * box.clientWidth, name: sl.name, moved: false};
+  if (!bmMode) { bmNeedMode(); return; }
+  const sl = bmSlots.find(s => s.name === f.dataset.n), hd = e.target.closest('.bm-box i');
+  if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
+  const r = box.getBoundingClientRect(), a = bmCur(), t0 = bmAdj(sl.name);
+  bmDrag = {x: e.clientX, y: e.clientY, a0: {...a}, t0, sl, f, r, sc: r.width / sl.w, moved: false};
+  if (hd) {
+    const g = bmGeo(sl, t0), h = hd.dataset.h, sx = h.includes('e') ? 1 : -1, sy = h.includes('s') ? 1 : -1;
+    Object.assign(bmDrag, {h, sx, sy, g, ax: g.cx - sx * g.bw * t0.k / 2, ay: g.cy - sy * g.bh * t0.k / 2, moved: true});
+    bmMark();
+  }
+  f.classList.add('drag');
   box.setPointerCapture(e.pointerId);
 });
 $('bmGrid').addEventListener('pointermove', e => {
-  if (!bmDrag) return;
-  const mx = e.clientX - bmDrag.x, my = e.clientY - bmDrag.y;
-  if (!bmDrag.moved && Math.hypot(mx, my) < 3) return;
-  bmDrag.moved = true;
-  bmSet({dx: bmDrag.dx + mx / bmDrag.side, dy: bmDrag.dy + my / bmDrag.side});
+  const d = bmDrag;
+  if (!d) return;
+  const mx = e.clientX - d.x, my = e.clientY - d.y, sl = d.sl, free = e.altKey;
+  if (!d.moved) {
+    if (Math.hypot(mx, my) < 3) return;
+    d.moved = true;
+    bmMark();
+  }
+  if (d.h) {   // растягиваем за уголок: противоположный угол стоит на месте
+    const px = (e.clientX - d.r.left) / d.sc, py = (e.clientY - d.r.top) / d.sc, bk = d.t0.k / d.a0.k;
+    let kt = Math.max((px - d.ax) * d.sx / d.g.bw, (py - d.ay) * d.sy / d.g.bh);
+    if (!free && Math.abs(kt - 1) * d.g.bw * d.sc < BM_SNAP) kt = 1;
+    const k = Math.min(Math.max(kt / bk, 0.2), 3);
+    kt = k * bk;
+    const cx = d.ax + d.sx * d.g.bw * kt / 2, cy = d.ay + d.sy * d.g.bh * kt / 2;
+    bmSet({k, dx: d.a0.dx + (cx - sl.x - sl.s / 2) / sl.s - d.t0.dx, dy: d.a0.dy + (cy - sl.y - sl.s / 2) / sl.s - d.t0.dy});
+    d.f.classList.toggle('k100', kt === 1);
+    return;
+  }
+  // сдвиг: середина картинки в пикселях шаблона, магнит к середине баннера и места
+  const g = bmGeo(sl, {dx: d.t0.dx + mx / d.sc / sl.s, dy: d.t0.dy + my / d.sc / sl.s});
+  const near = (v, list) => {
+    if (free) return null;
+    let best = null;
+    for (const c of list) if (Math.abs(v - c) * d.sc < BM_SNAP && (best == null || Math.abs(v - c) < Math.abs(v - best))) best = c;
+    return best;
+  };
+  const sx = near(g.cx, [sl.w / 2, sl.x + sl.s / 2]), sy = near(g.cy, [sl.h / 2, sl.y + sl.s / 2]);
+  const cx = sx ?? g.cx, cy = sy ?? g.cy;
+  bmSet({dx: d.a0.dx + (cx - sl.x - sl.s / 2) / sl.s - d.t0.dx, dy: d.a0.dy + (cy - sl.y - sl.s / 2) / sl.s - d.t0.dy});
+  bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
 });
 const bmDragEnd = () => {
-  if (!bmDrag) return;
-  if (!bmDrag.moved) { bmSel = bmSel === bmDrag.name ? '' : bmDrag.name; bmEditSync(); }   // щелчок по выбранному снимает выбор
+  const d = bmDrag;
+  if (!d) return;
   bmDrag = null;
+  d.f.classList.remove('drag', 'k100');
+  bmGuides(d.f, null, null);
 };
 $('bmGrid').addEventListener('pointerup', bmDragEnd);
 $('bmGrid').addEventListener('pointercancel', bmDragEnd);
-// стрелки двигают (с Shift крупнее), + и − меняют размер, Esc снимает выбор
+// щелчок по пустому месту поля снимает выбор баннера
+$('bmGrid').addEventListener('click', e => { if (bmSel && !e.target.closest('.bm-t')) { bmSel = ''; bmEditSync(); } });
+// стрелки двигают (с Shift крупнее), + и − меняют размер, Esc снимает выбор баннера
 document.addEventListener('keydown', e => {
   if (tab !== 'bmake' || !bmImg || bmBusy || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
+  if (e.key === 'Escape') { if (bmSel) { bmSel = ''; bmEditSync(); } return; }
   const st = e.shiftKey ? 0.05 : 0.01, a = bmCur();
-  const m = {ArrowLeft: {dx: a.dx - st}, ArrowRight: {dx: a.dx + st}, ArrowUp: {dy: a.dy - st}, ArrowDown: {dy: a.dy + st},
+  const m = a && {ArrowLeft: {dx: a.dx - st}, ArrowRight: {dx: a.dx + st}, ArrowUp: {dy: a.dy - st}, ArrowDown: {dy: a.dy + st},
     '+': {k: a.k * 1.02}, '=': {k: a.k * 1.02}, '-': {k: a.k / 1.02}}[e.key];
-  if (m) { e.preventDefault(); bmSet(m); }
-  else if (e.key === 'Escape' && bmSel) { bmSel = ''; bmEditSync(); }
+  if (m) { e.preventDefault(); bmMark('key'); bmSet(m); }
+  else if (!a && /^Arrow|^[+=-]$/.test(e.key)) bmNeedMode();
 });
+
 // ---------- вид ----------
+// размер превью: высота ряда плиток, помнится
+const BM_ZOOM = 'k9000.bmz';
+try { const z = +localStorage.getItem(BM_ZOOM); if (z >= 70 && z <= 260) $('bmZoom').value = z; } catch (e) {}
+const bmZoomSet = () => $('bmGrid').style.setProperty('--bm-h', $('bmZoom').value + 'px');
+$('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.setItem(BM_ZOOM, $('bmZoom').value); } catch (e) {} });
+bmZoomSet();
+function bmTile(sl) {
+  const s = bmSt[sl.name] || {}, r = (sl.w / sl.h).toFixed(4);
+  const pill = s.st === 'run' ? '<span class="spin"></span>' : s.st === 'ok' ? '✓' : s.st === 'error' ? '!' : '';
+  // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки ставит bmPlace
+  return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(100%, calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
+    `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h}">` +
+    `<div class="bm-clip"><img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
+    `<img class="art" src="${bmImg.url}" alt="" draggable="false"><b class="bm-g v"></b><b class="bm-g h"></b></div>` +
+    `<div class="bm-bx"><div class="bm-box"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>` +
+    `<figcaption><b>${esc(sl.name)}</b><em>${t('bm.own')}</em><i>${pill}</i></figcaption>` +
+    `${s.msg ? `<span class="bm-msg">${esc(s.msg)}</span>` : ''}</figure>`;
+}
 function bmRender() {
   const has = !!bmImg;
   $('bmEmpty').classList.toggle('hide', has);
   $('bmGrid').classList.toggle('hide', !has);
-  $('bmCnt').textContent = has ? `${bmImg.name} · ${bmImg.w}×${bmImg.h}` + (bmImg.trimmed ? ' · ' + t('bm.trimmed') : '') : '';
+  $('bmSrc').classList.toggle('hide', !has);
+  $('bmZoomL').classList.toggle('hide', !has);
+  $('bmDrop').classList.toggle('has', has);
+  if (has) {
+    if ($('bmThumb').getAttribute('src') !== bmImg.url) $('bmThumb').src = bmImg.url;
+    $('bmName').textContent = bmImg.name;
+    $('bmCnt').textContent = `${bmImg.w}×${bmImg.h}` + (bmImg.trimmed ? ' · ' + t('bm.trimmed') : '');
+  }
   $('bmPick').disabled = $('bmClear').disabled = $('bmRoot').disabled = $('bmPickRoot').disabled = $('bmMonth').disabled = $('bmDay').disabled = $('bmMatch').disabled = bmBusy;
   if (has) {
-    const html = bmSlots.map(sl => {
-      const s = bmSt[sl.name] || {};
-      const pill = s.st === 'run' ? '<span class="spin"></span>' : s.st === 'ok' ? '✓' : s.st === 'error' ? '!' : '';
-      // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки ставит bmPlace
-      return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(100%, calc(var(--bm-h) * ${(sl.w / sl.h).toFixed(4)})))" title="${esc(s.msg || sl.name)}">` +
-        `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h};max-width:calc(var(--bm-h) * ${(sl.w / sl.h).toFixed(4)})">` +
-        `<img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
-        `<img class="art" src="${bmImg.url}" alt="" draggable="false"></div>` +
-        `<figcaption><b>${esc(sl.name)}</b>${sl.site ? '' : `<span class="tag" title="${t('bm.pngOnlyHint')}">${t('bm.pngOnly')}</span>`}<em>${t('bm.own')}</em><i>${pill}</i></figcaption>` +
-        `${s.msg ? `<span class="bm-msg">${esc(s.msg)}</span>` : ''}</figure>`;
-    }).join('');
+    const html = bmSlots.map(bmTile).join('');
     if ($('bmGrid').dataset.k !== html) { $('bmGrid').innerHTML = html; $('bmGrid').dataset.k = html; }
     bmPlace();
   }
