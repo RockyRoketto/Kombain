@@ -377,6 +377,26 @@ function bmGuides(f, gx, gy) {
   if (gx != null) b.style.setProperty('--gx', gx);
   if (gy != null) b.style.setProperty('--gy', gy);
 }
+// перемещение холста: пробел + мышь или средняя кнопка (колёсико)
+let bmSpace = false;
+const bmPanOn = v => { bmSpace = v; $('bmGrid').classList.toggle('panr', v); };
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || tab !== 'bmake' || !bmImg || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.target.closest && e.target.closest('input, textarea, select, button, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
+  e.preventDefault(); bmPanOn(true);
+});
+document.addEventListener('keyup', e => { if (e.code === 'Space') bmPanOn(false); });
+window.addEventListener('blur', () => bmPanOn(false));
+$('bmGrid').addEventListener('pointerdown', e => {
+  if (!(e.button === 1 || (e.button === 0 && bmSpace))) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const g = $('bmGrid'), x0 = e.clientX, y0 = e.clientY, sl = g.scrollLeft, st = g.scrollTop;
+  g.classList.add('panning');
+  const mv = ev => { g.scrollLeft = sl - (ev.clientX - x0); g.scrollTop = st - (ev.clientY - y0); };
+  const up = () => { g.classList.remove('panning'); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+}, true);
+$('bmGrid').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
 $('bmGrid').addEventListener('pointerdown', e => {
   const box = e.target.closest('.bm-img'), f = box && box.closest('.bm-t');
   if (!f || bmBusy || e.button !== 0) return;

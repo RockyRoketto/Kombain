@@ -2163,3 +2163,5 @@
 .bm-tn.dim .bm-tx,.bm-tn.dim .bm-ti{color:var(--dim)}
 .bm-tn.files{align-items:center;flex-wrap:wrap;gap:5px;min-height:24px}
 .bm-ebtn .bm-toall{grid-column:1/-1}
+#bmGrid.panr,#bmGrid.panr .bm-img,#bmGrid.panr .bm-box i{cursor:grab!important}
+#bmGrid.panning,#bmGrid.panning .bm-img,#bmGrid.panning .bm-box i{cursor:grabbing!important}
