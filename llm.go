@@ -217,6 +217,10 @@ Rules:
 - NEVER add a person, animal, vehicle, building or any other main object that the request does not mention. A request about a place, weather or mood has NO people and NO animals in it: describe only the empty place itself, with no one in it. Do not name a brand or car model unless the request does.
 - If the request has several people, describe each one separately (left / center / right, clothing or uniform, pose, what they hold). Give them clearly different clothes and colors, never identical uniforms, unless the request says they are a team.
 - Do not impose a color palette unless the request names colors.
+- If the request names several objects, mention EVERY one of them, each once, as one composition (side by side or overlapping, with the main one in front); no object may be left out and none added.
+- The user message may have a "Colors:" line with the real colors of a country's flag. When the request says "in the colors of" a country, or names a team or a country for an object, paint the object or its panels and stripes with exactly those colors. Draw the flag itself (with its stars or emblem) only if the request asks for a flag.
+- The user message may have a "Flag:" line that says exactly how each country's flag looks. When the request asks for a flag, describe the flag the way that line says (stripes, colors, cross, emblem), nothing else.
+- If the request names two sides (two teams or countries, "A and B", "A vs B"), give each side its own object of equal size: the first on the left, the second on the right, with an empty gap between them in the middle.
 - Do not add text, letters, captions or logos.
 - Do not add generic tags like "8k", "masterpiece", "best quality", "trending on artstation".
 - Describe only the subject, scene, composition, lighting and colors. Do not name an art style, medium, camera, lens or render type: the style is added separately, so the prompt must work with any style.
@@ -231,10 +235,14 @@ Rules:
 // llmSystemObject: указания для стилей «один предмет» (GenPreset.Object: стикер, значок, 3D-иконка). Замер 2026-11-20 на Gemma 4B:
 // с общими указаниями и строкой «Format: no background» она всё равно ставила апельсин «на серую поверхность в утреннем свете»,
 // фон спорил с белым фоном стиля. Короткие указания без слова о сцене она держит.
-const llmSystemObject = `You write prompts for a text-to-image model. The picture is ONE subject alone; the background, lighting and art style are added separately.
-The user gives a short request, possibly in Russian or another language. Translate it into ONE short English description of only that subject, 10-35 words: what it is, its shape, colors, the parts that are visible from outside, its pose or action if it is a character.
+const llmSystemObject = `You write prompts for a text-to-image model. The picture shows only what the request names, nothing else; the background, lighting and art style are added separately.
+The user gives a short request, possibly in Russian or another language. Translate it into ONE short English description of only that subject, 10-35 words (up to 55 if the request names several objects): what it is, its shape, colors, the parts that are visible from outside, its pose or action if it is a character.
 Rules:
 - Keep every fact from the request: the number, kind, age and gender stay the same. Add no other objects, no people and no hands: an object lies alone, nobody holds it.
+- If the request names several objects, mention EVERY one of them, each once, as one group floating close together or overlapping (no object may be left out, none added), and give each its own color.
+- The user message may have a "Colors:" line with the real colors of a country's flag. When the request says "in the colors of" a country, or names a team or a country for an object, paint the object or its panels and stripes with exactly those colors. Draw the flag itself (with its stars or emblem) only if the request asks for a flag.
+- The user message may have a "Flag:" line that says exactly how each country's flag looks. When the request asks for a flag, describe the flag the way that line says (stripes, colors, cross, emblem), nothing else.
+- If the request names two sides (two teams or countries, "A and B", "A vs B"), give each side its own object of equal size: the first on the left, the second on the right, with an empty gap between them in the middle.
 - Only if the subject is a person or an animal doing something: describe the gesture literally, what the body does, never as a separate symbol. Do not invent an age.
 - Never mention a background, table, surface, ground, scene, shadow, light, camera, art style or medium.
 - No quotes, no lists, no explanations, no tags like "8k" or "masterpiece". Output only the description.
@@ -485,6 +493,9 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 			user = request
 		} else if pre.Format != "" {
 			user += "\nFormat: " + pre.Format
+		}
+		if h := countryColorsHint(request); h != "" {
+			user += "\n" + h
 		}
 		if block != "" {
 			user += "\n\n" + block

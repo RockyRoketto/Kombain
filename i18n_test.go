@@ -179,7 +179,7 @@ func TestNoStrayRussian(t *testing.T) {
 	}
 	allowed["`(?i)\\b(man|men|woman|women|person|people|boy|girl|child|kid|portrait|hand|hands|finger|fingers|face|he|she|his|her)\\b|муж|женщ|человек|люд|рук|палец|пальц|парен|девуш|дев[оч]|мальч|ребён|портрет|лиц`"] = true // genpresets.go: ищет людей в запросе пользователя
 	for name, f := range files {
-		if name == "i18n_strings.go" {
+		if name == "i18n_strings.go" || name == "flagcolors.go" { // flagcolors.go: русские основы слов для поиска в запросе, пользователю не показываются
 			continue
 		}
 		ast.Inspect(f, func(n ast.Node) bool {

@@ -42,16 +42,17 @@ const GN_GRAD = {
   poster: 'linear-gradient(180deg,#f4a259 0 45%,#bc4b51 45% 70%,#2b4162 70%)',
   synthwave: 'linear-gradient(180deg,#2b1055 0%,#d53a9d 55%,#ffcc66 100%)',
   blueprint: 'repeating-linear-gradient(0deg,#1d4e89 0 14px,#5c8dd6 14px 15px)',
+  sportbanner: 'linear-gradient(135deg,#1f4a47,#9be15d)',
 };
 // стили с картинкой-примером web/styles/<id>.jpg (её отдаёт /styles/ из genapi.go); без файла плитка показывает градиент
 const GN_IMG = new Set(['anime', 'cinema', 'comic', 'fantasy', 'flat', 'icon3d', 'illus', 'lowpoly', 'minimal', 'neon', 'none', 'oil', 'photo', 'pixel', 'product', 'retro', 'sketch', 'water',
-  'portrait', 'food', 'macro', 'aerial', 'bw', 'cartoon', 'storybook', 'impress', 'ink', 'popart', 'render3d', 'clay', 'isometric', 'sticker', 'flaticon', 'lineart', 'papercut', 'poster', 'synthwave', 'blueprint']);
+  'portrait', 'food', 'macro', 'aerial', 'bw', 'cartoon', 'storybook', 'impress', 'ink', 'popart', 'render3d', 'clay', 'isometric', 'sticker', 'flaticon', 'lineart', 'papercut', 'poster', 'synthwave', 'blueprint', 'sportbanner']);
 // группы в окне «Ещё стили…»
 const GN_GROUPS = {
   photo: ['photo', 'portrait', 'cinema', 'product', 'food', 'macro', 'aerial', 'bw', 'retro'],
   art: ['illus', 'cartoon', 'storybook', 'anime', 'water', 'oil', 'impress', 'sketch', 'ink', 'comic', 'popart', 'fantasy'],
   gfx: ['icon3d', 'render3d', 'clay', 'lowpoly', 'isometric', 'pixel'],
-  design: ['sticker', 'flaticon', 'flat', 'lineart', 'papercut', 'poster', 'minimal', 'neon', 'synthwave', 'blueprint'],
+  design: ['sticker', 'flaticon', 'flat', 'lineart', 'papercut', 'poster', 'minimal', 'neon', 'synthwave', 'blueprint', 'sportbanner'],
 };
 const GN_VIS = 5;                                    // сколько стилей видно плитками, шестая плитка — «Ещё стили…»
 const GN_VIS_DEF = ['photo', 'cinema', 'illus', 'icon3d', 'anime'];
