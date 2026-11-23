@@ -26,6 +26,9 @@ function updateButtons() {
   $('upStart').disabled = snap.running || upBusy || !upPending().length;
   $('upStart').classList.toggle('hide', snap.running || upBusy || tab !== 'upscale');
   $('upStop').classList.toggle('hide', tab !== 'upscale' || !upBusy);
+  $('bmStart').disabled = snap.running || bmBusy || !bmImg;
+  $('bmStart').classList.toggle('hide', snap.running || bmBusy || tab !== 'bmake');
+  $('bmStop').classList.toggle('hide', tab !== 'bmake' || !bmBusy);
   $('pdfAddFiles').disabled = $('pdfAddFolder').disabled = $('pdfClear').disabled = snap.running;
   const anyOk = (snap.files || []).some(f => f.status === 'ok' && f.dst);
   $('openOut').classList.toggle('hide', snap.running || !anyOk);
@@ -35,7 +38,7 @@ function renderSummary(s) {
   const fl = s.files || [];
   const done = fl.filter(f => ['ok','error','skipped','kept','canceled'].includes(f.status)).length;
   $('summary').textContent = s.running ? t('dock.running', {done, n: fl.length})
-    : (tab === 'pdf' && pdfPlanText()) || s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : tab === 'pdf' ? t('dock.idlePdf') : tab === 'bgcut' ? t(bgBusy ? 'dock.bgBusy' : 'dock.idleBg') : tab === 'imgops' ? t(imBusy ? 'dock.imBusy' : 'dock.idleIm') : tab === 'upscale' ? t(upBusy ? 'dock.upBusy' : 'dock.idleUp') : t('dock.idle'));
+    : (tab === 'pdf' && pdfPlanText()) || s.summary || (pending ? t('dock.copying') : tab === 'banner' ? t($('bAutoDirs').checked ? 'dock.idleBannerAuto' : 'dock.idleBanner') : tab === 'pdf' ? t('dock.idlePdf') : tab === 'bgcut' ? t(bgBusy ? 'dock.bgBusy' : 'dock.idleBg') : tab === 'imgops' ? t(imBusy ? 'dock.imBusy' : 'dock.idleIm') : tab === 'upscale' ? t(upBusy ? 'dock.upBusy' : 'dock.idleUp') : tab === 'bmake' ? t(bmBusy ? 'dock.bmBusy' : 'dock.idleBm') : t('dock.idle'));
   $('summary').title = $('summary').textContent;   // в узком окне строка обрезается многоточием
   document.title = s.running ? `${done}/${fl.length} · ${t('app.name')}` : t('app.name');
 }

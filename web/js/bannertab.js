@@ -21,7 +21,7 @@ async function bCheckSizes(force) {
 // t — вид из списка у `tab`; баннеры, фавиконы и PDF живут во вкладке шапки «Утилиты» (data-t="util")
 function setTab(t) {
   tab = t;
-  const ut = tab === 'util' || tab === 'banner' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale' || tab === 'imgops';
+  const ut = tab === 'util' || tab === 'banner' || tab === 'bmake' || tab === 'pdf' || tab === 'bgcut' || tab === 'upscale' || tab === 'imgops';
   if (ut) utl = tab;
   save();
   document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.t === (ut ? 'util' : tab)));
@@ -36,6 +36,8 @@ function setTab(t) {
   $('pdfView').classList.toggle('hide', tab !== 'pdf');
   $('bgView').classList.toggle('hide', tab !== 'bgcut');
   $('upView').classList.toggle('hide', tab !== 'upscale');
+  $('bmView').classList.toggle('hide', tab !== 'bmake');
+  if (tab === 'bmake') bmShow();
   $('imView').classList.toggle('hide', tab !== 'imgops');
   $('colorView').classList.toggle('hide', tab !== 'color');
   document.body.classList.toggle('cl-on', tab === 'color');   // нижняя панель по ширине рабочего поля (style.css)

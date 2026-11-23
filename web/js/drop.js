@@ -7,7 +7,7 @@ function pickButtons(filesBtn, folderBtn, add, pick = 'pick-files', purpose = 'a
 }
 pickButtons('addFiles', 'addFolder', addInfos);
 // щелчок по пустому полю списка = «+ Файлы» этой вкладки; поле видно, только пока список пуст
-const EMPTY_PICK = {empty: 'addFiles', plEmpty: 'plAddFiles', mtEmpty: 'mtAddFiles', bEmpty: 'bAddFiles', bgEmpty: 'bgAddFiles', imEmpty: 'imAddFiles', upEmpty: 'upAddFiles', pdfEmpty: 'pdfAddFiles'};
+const EMPTY_PICK = {empty: 'addFiles', plEmpty: 'plAddFiles', mtEmpty: 'mtAddFiles', bEmpty: 'bAddFiles', bgEmpty: 'bgAddFiles', imEmpty: 'imAddFiles', upEmpty: 'upAddFiles', bmEmpty: 'bmPick', pdfEmpty: 'pdfAddFiles'};
 for (const [em, btn] of Object.entries(EMPTY_PICK)) {
   const el = $(em); if (!el) continue;
   el.classList.add('pickable');
@@ -22,7 +22,7 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'imgops' ? 'imDrop' : tab === 'upscale' ? 'upDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
+const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'imgops' ? 'imDrop' : tab === 'upscale' ? 'upDrop' : tab === 'bmake' ? 'bmDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
@@ -47,6 +47,7 @@ window.addEventListener('drop', e => {
   if (tab === 'mont') mtDropHide();
   if (tab === 'color') { csDrop(e); return; }   // на вкладку «Цвет» — картинка в «Из фото»
   if (tab === 'util') { fvDrop(e); return; }   // фавиконам нужен сам файл в окне, путь на диске не нужен
+  if (tab === 'bmake') { bmDrop(e); return; }   // сборке баннеров тоже
   if (tab === 'gen') {   // картинка с настройками внутри: вернуть их в поля (gengallery.js), нужен путь на диске
     if (gnRefDrop(e)) return;   // на блок «Референсы»: сама картинка, путь не нужен (genrefs.js)
     if (NATIVE_DROP) { try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); return; } catch (err) {} }

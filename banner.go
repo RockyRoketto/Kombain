@@ -327,7 +327,7 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 			webp := filepath.Join(req.WebpDir, stem+".webp")
 			// JPG и WebP кодируем из исходного PNG, не друг из друга
 			jfit, err := fitUnderLimit(ctx, bannerJpgQ, func(q int) error {
-				return ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-q:v", strconv.Itoa(q), st.Dst)
+				return encJpg(ctx, ffm, st.Path, st.Dst, q)
 			}, st.Dst)
 			if err != nil {
 				if ctx.Err() == nil {
@@ -336,7 +336,7 @@ func (s *Server) runBanners(req BannerReq, ffm string) {
 				continue
 			}
 			wfit, err := fitUnderLimit(ctx, bannerWebpQ, func(q int) error {
-				return ffQuiet(ctx, ffm, "-i", st.Path, "-frames:v", "1", "-c:v", "libwebp", "-quality", strconv.Itoa(q), webp)
+				return encWebp(ctx, ffm, st.Path, webp, q)
 			}, webp)
 			if err != nil {
 				if ctx.Err() == nil {
@@ -427,4 +427,13 @@ func copyPNGText(from, to string) error {
 		return nil // странный результат ffmpeg: оставляем как есть
 	}
 	return os.WriteFile(to, out.Bytes(), 0o644)
+}
+
+// encJpg и encWebp: PNG src → JPG (-q:v, меньше = лучше) или WebP (-quality, больше = лучше)
+func encJpg(ctx context.Context, ffm, src, dst string, q int) error {
+	return ffQuiet(ctx, ffm, "-i", src, "-frames:v", "1", "-q:v", strconv.Itoa(q), dst)
+}
+
+func encWebp(ctx context.Context, ffm, src, dst string, q int) error {
+	return ffQuiet(ctx, ffm, "-i", src, "-frames:v", "1", "-c:v", "libwebp", "-quality", strconv.Itoa(q), dst)
 }

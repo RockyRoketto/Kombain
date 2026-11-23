@@ -2008,3 +2008,43 @@
 /* порядок файлов в списке «Монтажа»: линия вставки при перетаскивании (web/js/montage.js, mtDragFile) */
 .mt-file.ins-before{box-shadow:0 -2px 0 var(--acct)}
 .mt-file.ins-after{box-shadow:0 2px 0 var(--acct)}
+
+/* «Сборка баннеров» в «Утилитах» (web/js/bannermake.js): шаблоны с картинкой рядами, подпись под каждым */
+.bm-grid{--bm-h:118px;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:14px 16px;margin:0 -6px;padding:2px 6px 6px;scrollbar-width:thin}
+.bm-t{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.bm-img{position:relative;width:100%;overflow:hidden;border-radius:6px;background:#000;box-shadow:0 0 0 1px var(--line2)}
+.bm-img img{position:absolute;display:block;pointer-events:none}
+.bm-img .bg{inset:0;width:100%;height:100%}
+.bm-t.run .bm-img{box-shadow:0 0 0 2px var(--acc)}
+.bm-t.ok .bm-img{box-shadow:0 0 0 1px var(--ok)}
+.bm-t.error .bm-img{box-shadow:0 0 0 2px var(--err)}
+.bm-t figcaption{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:var(--tx2)}
+.bm-t figcaption b{font-weight:600;color:var(--tx-em);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bm-t figcaption i{margin-left:auto;font-style:normal;font-weight:700}
+.bm-t.ok figcaption i{color:var(--ok)}
+.bm-t.error figcaption i,.bm-t.error .bm-msg{color:var(--err)}
+.bm-msg{font-size:11.5px;color:var(--dim);line-height:1.3;overflow-wrap:anywhere}
+.bm-date{display:grid;grid-template-columns:1fr 92px;gap:8px;margin-top:10px}
+.bm-date label{display:flex;flex-direction:column;min-width:0}
+.bm-date select{width:100%}
+.bm-path{margin-top:10px}
+.bm-tree{font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.55;overflow-wrap:anywhere;color:var(--tx-em)}
+.bm-tree .l1{padding-left:12px}.bm-tree .l2{padding-left:24px}.bm-tree .l3{padding-left:36px}.bm-tree .l4{padding-left:48px;color:var(--dim)}
+.bm-tree div:not(:first-child)::before{content:"└ ";color:var(--dim)}
+.bm-tree i{font-family:system-ui,sans-serif;font-style:normal;font-size:11.5px;margin-left:4px;color:var(--dim)}
+.bm-tree i.have{color:var(--ok)}
+.bm-path .warn,.bm-tree i.warn{color:var(--warn)}
+.bm-tree .dim{color:var(--dim)}
+.bm-others{margin-top:6px;font-size:12px;color:var(--tx2);overflow-wrap:anywhere}
+/* «Сборка баннеров», редактор: выбранный баннер, своя правка, ползунок размера */
+.bm-img{cursor:grab;touch-action:none;user-select:none}
+.bm-img:active{cursor:grabbing}
+.bm-t.sel .bm-img{box-shadow:0 0 0 2px var(--acc),0 0 0 5px rgba(var(--acc-rgb),.22)}
+.bm-t.sel figcaption b{color:var(--acct)}
+.bm-t figcaption em{display:none;font-style:normal;font-size:11px;color:var(--acct)}
+.bm-t.own figcaption em{display:inline}
+.bm-t figcaption .tag{flex:none;font-size:10.5px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--dim)}
+.bm-klb{display:flex;justify-content:space-between;margin-top:12px}
+.bm-klb b{color:var(--tx-em);font-variant-numeric:tabular-nums}
+#bmK{width:100%}
+.bm-ebtn{margin-top:8px}
