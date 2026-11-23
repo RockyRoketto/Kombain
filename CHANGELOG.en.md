@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.12
+
+- Generator: the helper no longer mixes up how many objects there are ("3D racket, ball and cup" means one of each); the Sport banner style has no extra shapes in the background.
+
 ## 6.11
 
 - Generator: new "Sports banner" style (flags or objects of two teams on the sides, space for VS in the middle). The assistant now names every object from the request and draws countries and flags in their real colors.
