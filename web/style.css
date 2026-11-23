@@ -2022,7 +2022,7 @@
 .bm-zoom svg{width:17px;height:17px;flex:none}
 .bm-zoom input{width:90px;height:4px}
 .bm-zoom input::-webkit-slider-thumb{width:13px;height:13px;border-width:2px}
-.bm-grid{--bm-h:118px;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:12px;margin:0 -12px -12px;padding:4px 12px 14px;border-top:1px solid var(--line);
+.bm-grid{--bm-h:118px;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:12px;margin:0 -12px -12px;padding:4px 12px 14px;border-top:1px solid var(--line);
   background:radial-gradient(circle,var(--line) 1px,transparent 1.2px) 0 0/16px 16px;scrollbar-width:thin}
 .bm-t{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0;box-sizing:border-box;padding:7px 7px 6px;border-radius:12px;background:var(--s2);border:1px solid var(--line);transition:border-color .12s,background .12s,box-shadow .12s}
 .bm-t:hover{border-color:var(--line2)}
@@ -2039,6 +2039,15 @@
 .bm-g.v{top:0;bottom:0;left:calc(var(--gx) * 1%);border-left:1px dashed #ff4fa3;transform:translateX(-.5px)}
 .bm-g.h{left:0;right:0;top:calc(var(--gy) * 1%);border-top:1px dashed #ff4fa3;transform:translateY(-.5px)}
 .bm-t.snx .bm-g.v,.bm-t.sny .bm-g.h{display:block}
+/* метка места по умолчанию (кольцо с крестом) и центра самого баннера (маленький крест); видны, когда картинку сдвинули или тянут */
+.bm-hm{position:absolute;display:none;pointer-events:none;left:calc(var(--hx) * 1%);top:calc(var(--hy) * 1%);width:18px;height:18px;margin:-9px 0 0 -9px;box-sizing:border-box;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.45)}
+.bm-hm::before,.bm-hm::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.6)}
+.bm-hm::before{left:50%;top:-5px;bottom:-5px;width:1px;margin-left:-.5px}
+.bm-hm::after{top:50%;left:-5px;right:-5px;height:1px;margin-top:-.5px}
+.bm-hm.mid{left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border:0;border-radius:0;box-shadow:none;opacity:.7}
+.bm-hm.mid::before{top:0;bottom:0}.bm-hm.mid::after{left:0;right:0}
+.bm-t.off .bm-hm,.bm-t.drag .bm-hm{display:block}
+.bm-t:not(.offm) .bm-hm.mid{display:none!important}
 /* рамка выбранного баннера: видна и за краем баннера на 10 px, уголки тянут размер */
 .bm-bx{position:absolute;inset:-10px;overflow:hidden;pointer-events:none;display:none}
 .bm-box{position:absolute;left:calc(10px + (100% - 20px) * var(--l) / 100);top:calc(10px + (100% - 20px) * var(--t) / 100);
@@ -2048,6 +2057,15 @@
 .bm-box i[data-h=ne]{right:0;top:0;cursor:nesw-resize}.bm-box i[data-h=sw]{left:0;bottom:0;cursor:nesw-resize}
 .bm-t.k100 .bm-box{outline-color:#ff4fa3}
 .bm-t figcaption{display:flex;align-items:center;gap:6px;min-width:0;padding:0 2px;font-size:12px;color:var(--tx2)}
+.bm-ov{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;background:rgba(0,0,0,.55)}
+.bm-t.run .bm-ov{background:rgba(0,0,0,.35)}
+.bm-dots{display:flex;gap:6px}
+.bm-dots i{width:8px;height:8px;border-radius:50%;background:var(--acc);animation:bmDot 1s ease-in-out infinite}
+.bm-dots i:nth-child(2){animation-delay:.15s}.bm-dots i:nth-child(3){animation-delay:.3s}
+@keyframes bmDot{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-7px);opacity:1}}
+.bm-chk{width:min(34px,60%);max-height:70%;fill:var(--ok);stroke:none}
+.bm-chk path{fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.bm-bad{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--err);color:#fff;font-size:16px}
 .bm-t figcaption b{font-weight:600;font-size:11.5px;color:var(--tx-em);font-family:ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bm-t figcaption i{margin-left:auto;font-style:normal;font-weight:700}
 .bm-t figcaption em{display:none;flex:none;font-style:normal;font-size:10.5px;padding:0 6px;border-radius:99px;background:var(--accbg);color:var(--acct)}
@@ -2076,9 +2094,27 @@
 .bm-ebtn svg{width:14px;height:14px;flex:none}
 
 /* «Сборка баннеров», куда сохранить: древо папок */
-.bm-date{display:grid;grid-template-columns:1fr 92px;gap:8px;margin-top:10px}
-.bm-date label{display:flex;flex-direction:column;min-width:0}
-.bm-date select{width:100%}
+.bm-datebtn{display:flex;align-items:center;gap:9px;width:100%;height:36px;padding:0 10px;border-radius:var(--r2);background:var(--s2);border:1px solid var(--line);color:var(--tx-em);font:inherit;font-size:13px;cursor:pointer;transition:border-color .12s,background .12s}
+.bm-datebtn:hover,.bm-datebtn.open{border-color:var(--line3)}
+.bm-datebtn.open{border-color:rgba(var(--acl-rgb),.6)}
+.bm-datebtn svg{width:16px;height:16px;flex:none;color:var(--acct)}
+.bm-datebtn b{flex:1;text-align:left;font-weight:600}
+.bm-datebtn .chev{color:var(--dim);width:14px;height:14px}
+.bm-cal{position:fixed;z-index:90;width:268px;box-sizing:border-box;padding:12px;border-radius:14px;background:var(--s2);border:1px solid var(--line2);box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:auto;scrollbar-width:thin}
+.bm-cal.hide{display:none}
+.bm-cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.bm-cal-h b{font-size:13.5px;font-weight:600;color:var(--tx-em)}
+.bm-cal-n{width:28px;height:28px;display:grid;place-items:center;padding:0;border-radius:8px;background:none;border:1px solid transparent;color:var(--tx3);cursor:pointer}
+.bm-cal-n svg{width:16px;height:16px}
+.bm-cal-n:hover{background:var(--s3);border-color:var(--line);color:var(--tx)}
+.bm-cal-w,.bm-cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.bm-cal-w span{text-align:center;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);padding:2px 0 5px}
+.bm-cal-g button{height:30px;padding:0;border-radius:8px;background:none;border:1px solid transparent;color:var(--tx2);font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;cursor:pointer}
+.bm-cal-g button:hover{background:var(--s3);color:var(--tx)}
+.bm-cal-g button.today{border-color:rgba(var(--acl-rgb),.55);color:var(--acct)}
+.bm-cal-g button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc);font-weight:700}
+.bm-cal-t{width:100%;margin-top:9px;height:30px;border-radius:8px;background:var(--s3);border:1px solid var(--line);color:var(--tx2);font:inherit;font-size:12.5px;cursor:pointer}
+.bm-cal-t:hover{border-color:var(--line3);color:var(--tx)}
 .bm-path{margin-top:12px}
 .bm-pmsg{font-size:12px;color:var(--dim)}
 .bm-pmsg.warn{color:var(--warn)}

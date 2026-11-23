@@ -89,6 +89,7 @@ function bmFillDate() {
   }).join('');
   ms.value = now.getMonth() + 1;
   bmFillDays(now.getDate());
+  bmDateText();
 }
 function bmFillDays(keep) {
   const m = +$('bmMonth').value, n = m === 2 ? 29 : [4, 6, 9, 11].includes(m) ? 30 : 31;
@@ -137,8 +138,63 @@ const bmSave = () => { try { localStorage.setItem(BM_KEY, JSON.stringify({root: 
 $('bmRoot').addEventListener('input', () => { bmSave(); bmCheckSoon(); });
 $('bmMatch').addEventListener('input', bmCheckSoon);
 $('bmMatch').addEventListener('keydown', e => { if (e.key === 'Enter') bmRun(); });
-$('bmMonth').addEventListener('change', () => { bmFillDays(); bmCheck(); });
-$('bmDay').addEventListener('change', bmCheck);
+// календарь вместо списков: месяц и день лежат в скрытых bmMonth/bmDay (из них собирается путь), сегодняшняя дата — из часов Windows
+const bmCal = {el: null, m: 1};
+function bmDateText() {
+  const m = +$('bmMonth').value, d = +$('bmDay').value;
+  $('bmDateTx').textContent = new Intl.DateTimeFormat(lang === 'ru' ? 'ru' : 'en', {day: 'numeric', month: 'long'}).format(new Date(2024, m - 1, d));
+}
+function bmCalDraw() {
+  const el = bmCal.el, now = new Date(), y = now.getFullYear(), m = bmCal.m;
+  const loc = lang === 'ru' ? 'ru' : 'en', mn = new Intl.DateTimeFormat(loc, {month: 'long'}).format(new Date(y, m - 1, 1));
+  const first = (new Date(y, m - 1, 1).getDay() + 6) % 7, days = new Date(y, m, 0).getDate();
+  const wd = Array.from({length: 7}, (_, i) => new Intl.DateTimeFormat(loc, {weekday: 'short'}).format(new Date(2024, 0, 1 + i)));
+  const selM = +$('bmMonth').value, selD = +$('bmDay').value, tM = now.getMonth() + 1, tD = now.getDate();
+  let cells = '<i></i>'.repeat(first);
+  for (let d = 1; d <= days; d++) cells += `<button type="button" data-d="${d}" class="${m === selM && d === selD ? 'on' : ''} ${m === tM && d === tD ? 'today' : ''}">${d}</button>`;
+  el.innerHTML = `<div class="bm-cal-h"><button type="button" class="bm-cal-n" data-s="-1" aria-label="‹"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>` +
+    `<b>${esc(mn[0].toUpperCase() + mn.slice(1))}</b><button type="button" class="bm-cal-n" data-s="1" aria-label="›"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></div>` +
+    `<div class="bm-cal-w">${wd.map(w => `<span>${esc(w)}</span>`).join('')}</div><div class="bm-cal-g">${cells}</div>` +
+    `<button type="button" class="bm-cal-t" data-t="1">${t('bm.today')}</button>`;
+}
+function bmCalPlace() {
+  const el = bmCal.el, b = $('bmDateBtn').getBoundingClientRect();
+  const hero = document.querySelector('.hero'), minTop = (hero ? hero.getBoundingClientRect().bottom : 0) + 8;
+  el.style.maxHeight = '';
+  const w = el.offsetWidth, h = el.offsetHeight;
+  const below = window.innerHeight - b.bottom - 6 - 8, above = b.top - 6 - minTop;
+  let top;
+  if (h <= below) top = b.bottom + 6;
+  else if (h <= above) top = b.top - h - 6;
+  else { const room = Math.max(above, below, 120); el.style.maxHeight = room + 'px'; top = below >= above ? b.bottom + 6 : minTop; }
+  el.style.left = Math.max(8, Math.min(b.left, window.innerWidth - w - 8)) + 'px';
+  el.style.top = top + 'px';
+}
+function bmCalClose() { if (bmCal.el) bmCal.el.classList.add('hide'); $('bmDateBtn').classList.remove('open'); }
+function bmSetDate(m, d) {
+  $('bmMonth').value = m; bmFillDays(d); bmDateText(); bmCheck();
+}
+$('bmDateBtn').onclick = e => {
+  e.stopPropagation();
+  if (!bmCal.el) { bmCal.el = document.createElement('div'); bmCal.el.className = 'bm-cal hide'; document.body.appendChild(bmCal.el); }
+  if (!bmCal.el.classList.contains('hide')) { bmCalClose(); return; }
+  bmCal.m = +$('bmMonth').value || 1;
+  bmCalDraw();
+  bmCal.el.classList.remove('hide'); $('bmDateBtn').classList.add('open');
+  bmCalPlace();
+};
+document.addEventListener('click', e => {
+  if (!bmCal.el) return;
+  const el = bmCal.el;
+  if (el.classList.contains('hide')) return;
+  const n = e.target.closest('.bm-cal-n'), d = e.target.closest('.bm-cal-g button'), tb = e.target.closest('.bm-cal-t');
+  if (n && el.contains(n)) { bmCal.m = (bmCal.m - 1 + +n.dataset.s + 12) % 12 + 1; bmCalDraw(); bmCalPlace(); }
+  else if (d && el.contains(d)) { bmSetDate(bmCal.m, +d.dataset.d); bmCalClose(); }
+  else if (tb && el.contains(tb)) { const now = new Date(); bmSetDate(now.getMonth() + 1, now.getDate()); bmCalClose(); }
+  else if (!el.contains(e.target)) bmCalClose();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') bmCalClose(); });
+window.addEventListener('resize', bmCalClose);
 $('bmPickRoot').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose: 'out'});
   if (r.error) alert(r.error);
@@ -262,7 +318,11 @@ function bmPlace() {
     const sl = bmSlots.find(s => s.name === f.dataset.n), box = f.querySelector('.bm-img');
     if (!sl || !box) return;
     const p = bmFit(sl, bmImg.w, bmImg.h, bmAdj(sl.name));
-    box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h}`;
+    const ad = bmAdj(sl.name), hx = (sl.x + sl.s / 2) / sl.w * 100, hy = (sl.y + sl.s / 2) / sl.h * 100;
+    box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h};--hx:${hx};--hy:${hy}`;
+    // метка «здесь картинка стоит по умолчанию» появляется, когда её сдвинули; вторая метка — центр самого баннера, если он не совпадает
+    f.classList.toggle('off', Math.abs(ad.dx) > 0.004 || Math.abs(ad.dy) > 0.004);
+    f.classList.toggle('offm', Math.abs(hx - 50) * sl.w / 100 > 1 || Math.abs(hy - 50) * sl.h / 100 > 1);
   });
 }
 $('bmTarget').addEventListener('click', e => {
@@ -399,12 +459,15 @@ $('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.se
 bmZoomSet();
 function bmTile(sl) {
   const s = bmSt[sl.name] || {}, r = (sl.w / sl.h).toFixed(4);
-  const pill = s.st === 'run' ? '<span class="spin"></span>' : s.st === 'ok' ? '✓' : s.st === 'error' ? '!' : '';
+  const pill = s.st === 'ok' ? '✓' : s.st === 'error' ? '!' : '';
+  const ov = s.st === 'run' ? '<div class="bm-ov"><span class="bm-dots"><i></i><i></i><i></i></span></div>'
+    : s.st === 'ok' ? '<div class="bm-ov"><svg class="bm-chk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.3 3.3L17 9"/></svg></div>'
+    : s.st === 'error' ? '<div class="bm-ov"><b class="bm-bad">!</b></div>' : '';
   // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки ставит bmPlace
   return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(100%, calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
     `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h}">` +
     `<div class="bm-clip"><img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
-    `<img class="art" src="${bmImg.url}" alt="" draggable="false"><b class="bm-g v"></b><b class="bm-g h"></b></div>` +
+    `<img class="art" src="${bmImg.url}" alt="" draggable="false"><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
     `<div class="bm-bx"><div class="bm-box"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>` +
     `<figcaption><b>${esc(sl.name)}</b><em>${t('bm.own')}</em><i>${pill}</i></figcaption>` +
     `${s.msg ? `<span class="bm-msg">${esc(s.msg)}</span>` : ''}</figure>`;

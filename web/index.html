@@ -1267,10 +1267,13 @@ __CSS__
             <input type="text" id="bmRoot" data-i18n-ph="out.noFolder">
             <button class="btn" id="bmPickRoot" data-i18n="btn.pick"></button>
           </div>
-          <div class="bm-date">
-            <label><span class="lb" data-i18n="bm.month"></span><select id="bmMonth"></select></label>
-            <label><span class="lb" data-i18n="bm.day"></span><select id="bmDay"></select></label>
-          </div>
+          <span class="lb" style="margin-top:10px" data-i18n="bm.date"></span>
+          <button type="button" class="bm-datebtn" id="bmDateBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+            <b id="bmDateTx"></b>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <select id="bmMonth" hidden></select><select id="bmDay" hidden></select>
           <span class="lb" style="margin-top:10px" data-i18n="bm.match"></span>
           <input type="text" id="bmMatch" data-i18n-ph="bm.matchPh" spellcheck="false">
           <div class="note bm-path" id="bmPath"></div>
