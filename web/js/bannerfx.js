@@ -455,11 +455,22 @@ function bmLpNeed(kind) {
   const o = kind === want ? r : bmLpObj(sl, kind === 'el' ? 'elf' : 'art');
   return Math.max(o.w, o.h) * s * (devicePixelRatio || 1);
 }
+// Подложка окна «Крупно»: position:fixed от низа шапки .hero до низа окна, слева до панели настроек (она остаётся
+// доступной: ползунки двигаешь, а результат виден крупно). Если панель под превью (узкое окно) — подложка на верхнюю часть окна.
+function bmLpPlace() {
+  const lp = $('bmLp'), top = Math.round(document.querySelector('.hero').getBoundingClientRect().bottom);
+  const col = document.querySelector('#bmView .col.one'), cr = col ? col.getBoundingClientRect() : null;
+  const side = cr && cr.width > 0 && cr.left > innerWidth * 0.4 && cr.top < innerHeight - 60;
+  lp.style.top = top + 'px'; lp.style.left = '0';
+  lp.style.right = side ? Math.max(0, innerWidth - cr.left + 6) + 'px' : '0';
+  lp.style.bottom = side ? '0' : Math.round((innerHeight - top) * 0.42) + 'px';
+}
 function bmLpDraw() {
   const lp = $('bmLp'), show = bmLp.on && !!bmImg;
   lp.classList.toggle('hide', !show);
   $('bmLpBtn').classList.toggle('on', show);
   if (!show) return;
+  bmLpPlace();
   const sl = bmLpSlot();
   if (!sl) return;
   $('bmLpName').textContent = sl.name;
@@ -479,7 +490,9 @@ function bmLpSet(on) {
 }
 $('bmLpBtn').onclick = () => bmLpSet(!bmLp.on);
 $('bmLpX').onclick = () => bmLpSet(false);
-addEventListener('resize', () => { if (bmLp.on) bmLpDraw(); });
+$('bmLp').addEventListener('mousedown', e => { if (e.target === $('bmLp')) bmLpSet(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
+addEventListener('resize', () => { if (bmLp.on) { bmLpDraw(); bmSprSoon(); } });
 async function bmElPick(name) {
   if (name === bmFx.el) return;
   bmMark();

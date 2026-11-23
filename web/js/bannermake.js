@@ -572,7 +572,6 @@ function bmRender() {
   $('bmGrid').classList.toggle('hide', !has);
   $('bmSrc').classList.toggle('hide', !has);
   $('bmZoomL').classList.toggle('hide', !has);
-  $('bmZc').classList.toggle('hide', !has);
   $('bmLpBtn').classList.toggle('hide', !has);
   $('bmDrop').classList.toggle('has', has);
   if (has) {

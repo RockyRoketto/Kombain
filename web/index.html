@@ -1216,12 +1216,16 @@ __CSS__
           <div class="bm-src hide" id="bmSrc"><img id="bmThumb" alt=""><span><b id="bmName"></b><i id="bmCnt"></i></span></div>
           <button class="btn sm" id="bmPick" data-i18n="bm.pick"></button>
           <button class="btn sm" id="bmClear" data-i18n="btn.clear"></button>
-          <button class="btn sm bm-zbtn" id="bmZones" data-i18n-title="bm.zonesHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8.5" width="6" height="7" rx="1" stroke-dasharray="2 2"/></svg><span data-i18n="bm.zones"></span></button>
-          <button class="btn sm bm-zbtn hide" id="bmLpBtn" data-i18n-title="bm.lpHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M8 10.5h5M10.5 8v5"/></svg><span data-i18n="bm.lp"></span></button>
-          <label class="bm-zoom hide" id="bmZoomL" data-i18n-title="bm.zoom">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="13" rx="1.5"/></svg>
-            <input type="range" id="bmZoom" min="70" max="900" step="1" value="118" data-i18n-aria="bm.zoom">
-          </label>
+          <div class="bm-vg" id="bmVg" role="group" data-i18n-aria="bm.view">
+            <button type="button" class="bm-zbtn hide" id="bmLpBtn" data-i18n-title="bm.lpHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M8 10.5h5M10.5 8v5"/></svg><span data-i18n="bm.lp"></span></button>
+            <button type="button" class="bm-zbtn" id="bmZones" data-i18n-title="bm.zonesHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8.5" width="6" height="7" rx="1" stroke-dasharray="2 2"/></svg><span data-i18n="bm.zones"></span></button>
+            <div class="bm-zoom hide" id="bmZoomL" data-i18n-title="bm.zoom">
+              <button type="button" id="bmZm" data-i18n-title="bm.zOut" data-i18n-aria="bm.zOut">−</button>
+              <input type="range" id="bmZoom" min="70" max="900" step="1" value="118" data-i18n-aria="bm.zoom">
+              <button type="button" id="bmZi" data-i18n-title="bm.zIn" data-i18n-aria="bm.zIn">+</button>
+              <button type="button" id="bmZp" class="pct" data-i18n-title="bm.zFit" data-i18n-aria="bm.zFit">100%</button>
+            </div>
+          </div>
         </div>
         <div class="empty" id="bmEmpty">
           <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1231,16 +1235,6 @@ __CSS__
           <span data-i18n="bm.dropSub"></span>
         </div>
         <div class="bm-grid hide" id="bmGrid"></div>
-        <div class="bm-zc hide" id="bmZc">
-          <button type="button" id="bmZm" data-i18n-title="bm.zOut" data-i18n-aria="bm.zOut">−</button>
-          <button type="button" id="bmZp" class="pct" data-i18n-title="bm.zFit" data-i18n-aria="bm.zFit">100%</button>
-          <button type="button" id="bmZi" data-i18n-title="bm.zIn" data-i18n-aria="bm.zIn">+</button>
-        </div>
-        <!-- «Крупно»: один баннер крупно вокруг выбранного объекта, обновляется вживую (bmLpDraw в bannerfx.js) -->
-        <div class="bm-lp hide" id="bmLp">
-          <div class="bm-lph"><b data-i18n="bm.lp"></b><span id="bmLpName"></span><button type="button" class="bm-ib" id="bmLpX" data-i18n-title="btn.close" data-i18n-aria="btn.close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-          <div class="bm-lpv" id="bmLpV"><div class="bm-lpi" id="bmLpI"><div class="bm-clip"><img class="bg" alt="" draggable="false"><img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"></div></div></div>
-        </div>
       </section>
 
       <div class="col one">
@@ -2146,6 +2140,13 @@ __CSS__
 
 <!-- «до / после» для готового файла из «Утилит» (Убрать фон, Увеличить): web/js/gencompare.js -->
 <!-- «Сборка баннеров»: памятка по сейв-зонам, web/js/bannermake.js -->
+<!-- «Крупно»: окно по центру превью, подложка затемняет его, а панель справа остаётся доступной (bmLpDraw, bmLpPlace в bannerfx.js) -->
+<div class="bm-lp hide" id="bmLp">
+  <div class="bm-lpc" role="dialog" aria-labelledby="bmLpT">
+    <div class="bm-lph"><b id="bmLpT" data-i18n="bm.lp"></b><span id="bmLpName"></span><em data-i18n="bm.lpLive"></em><button type="button" class="bm-ib" id="bmLpX" data-i18n-title="btn.close" data-i18n-aria="btn.close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="bm-lpv" id="bmLpV"><div class="bm-lpi" id="bmLpI"><div class="bm-clip"><img class="bg" alt="" draggable="false"><img class="el" alt="" draggable="false"><img class="art" alt="" draggable="false"></div></div></div>
+  </div>
+</div>
 <div id="bmZw" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="bmZwT">
   <div class="mcard bm-zw-card">
     <div class="phead"><h3 id="bmZwT" data-i18n="bm.zones"></h3><button type="button" class="x" id="bmZwX" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>

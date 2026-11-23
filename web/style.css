@@ -2018,17 +2018,9 @@
 .bm-src span{display:flex;flex-direction:column;min-width:0;line-height:1.25}
 .bm-src b{font-size:12.5px;font-weight:600;color:var(--tx-em);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
 .bm-src i{font-style:normal;font-size:11.5px;color:var(--dim);white-space:nowrap}
-.bm-zoom{flex:none;margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--dim)}
-.bm-zoom svg{width:17px;height:17px;flex:none}
-.bm-zoom input{width:90px;height:4px}
-.bm-zoom input::-webkit-slider-thumb{width:13px;height:13px;border-width:2px}
 .bm-grid{--bm-h:118px;--bm-cap:100%;flex:1;min-height:0;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;gap:12px;margin:0 -12px -12px;padding:4px 12px 14px;border-top:1px solid var(--line);
   background:radial-gradient(circle,var(--line) 1px,transparent 1.2px) 0 0/16px 16px;scrollbar-width:thin}
 .bm-t{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0;box-sizing:border-box;padding:7px 7px 6px;border-radius:12px;background:var(--s2);border:1px solid var(--line);transition:border-color .12s,background .12s,box-shadow .12s}
-.bm-zc{position:absolute;right:26px;bottom:20px;z-index:5;display:flex;align-items:center;gap:1px;padding:3px;border-radius:10px;background:rgba(20,20,22,.88);border:1px solid var(--line2);box-shadow:0 4px 14px rgba(0,0,0,.4);backdrop-filter:blur(6px)}
-.bm-zc button{min-width:28px;height:26px;padding:0 6px;border:0;border-radius:7px;background:transparent;color:var(--tx2);font:inherit;font-size:15px;line-height:1;cursor:pointer}
-.bm-zc button.pct{min-width:52px;font-size:12px;font-variant-numeric:tabular-nums}
-.bm-zc button:hover{background:var(--accbg);color:var(--acct)}
 .bm-t:hover{border-color:var(--line2)}
 .bm-t.sel{border-color:rgba(var(--acl-rgb),.6);background:var(--accbg);box-shadow:0 0 0 3px rgba(var(--acc-rgb),.1)}
 .bm-clip{position:absolute;inset:0;overflow:hidden;border-radius:6px;background:#000;box-shadow:0 0 0 1px var(--line2)}
@@ -2145,13 +2137,27 @@
 /* пока двигают ползунок: только результат */
 #bmGrid.clean .bm-bx,#bmGrid.clean .bm-zf,#bmGrid.clean .bm-g,#bmGrid.clean .bm-hm,#bmGrid.clean .bm-eb{display:none!important}
 #bmGrid.clean .bm-clip img.art{opacity:1}
-/* «Крупно»: окно поверх превью слева снизу, внутри — один баннер вокруг выбранного объекта */
-.bm-zbtn.on{background:var(--accbg);border-color:rgba(var(--acl-rgb),.55);color:var(--acct2)}
-.bm-lp{position:absolute;left:12px;bottom:12px;z-index:5;width:min(460px,calc(100% - 24px));height:min(300px,calc(100% - 70px));display:flex;flex-direction:column;
-  border-radius:12px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 14px 40px -10px rgba(0,0,0,.6);overflow:hidden}
-.bm-lph{flex:none;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
+/* группа «Вид» в шапке превью: «Крупно», сейв-зоны, размер превью */
+.bm-vg{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px;padding:3px;border-radius:10px;background:var(--s2);border:1px solid var(--line)}
+.bm-zbtn{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--tx2);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.bm-zbtn svg{width:15px;height:15px;flex:none}
+.bm-zbtn:hover{background:var(--accbg);color:var(--acct)}
+.bm-zbtn.on{background:var(--accbg);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.55);color:var(--acct2)}
+#bmLpBtn{color:var(--acct)}
+.bm-zoom{display:flex;align-items:center;gap:2px;margin-left:4px;padding-left:6px;border-left:1px solid var(--line2);color:var(--dim)}
+.bm-zoom input{width:84px;height:4px;margin:0 4px}
+.bm-zoom input::-webkit-slider-thumb{width:13px;height:13px;border-width:2px}
+.bm-zoom button{min-width:26px;height:26px;padding:0 5px;border:0;border-radius:7px;background:transparent;color:var(--tx2);font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.bm-zoom button.pct{min-width:48px;font-size:12px;font-variant-numeric:tabular-nums}
+.bm-zoom button:hover{background:var(--accbg);color:var(--acct)}
+@media (max-width:760px){.bm-zbtn span{display:none}.bm-zbtn{padding:0 7px}.bm-zoom input{width:56px}}
+/* «Крупно»: окно по центру превью, подложка затемняет его; панель справа не закрыта (место ставит bmLpPlace). z-index ниже шапки .hero (30) */
+.bm-lp{position:fixed;z-index:25;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(8,8,10,.72);backdrop-filter:blur(2px)}
+.bm-lpc{display:flex;flex-direction:column;width:min(1100px,100%);height:min(760px,100%);border-radius:14px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 24px 60px -12px rgba(0,0,0,.7);overflow:hidden}
+.bm-lph{flex:none;display:flex;align-items:center;gap:10px;padding:5px 6px 5px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim)}
 .bm-lph b{color:var(--tx-em);font-weight:600}
 .bm-lph span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bm-lph em{flex:none;font-style:normal;font-size:11.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .bm-lpv{position:relative;flex:1;min-height:0;overflow:hidden;background:repeating-conic-gradient(var(--s2) 0 25%,var(--s1) 0 50%) 0 0/16px 16px}
 .bm-lpi{position:absolute}
 .bm-lpi .bm-clip{border-radius:0;box-shadow:none}
@@ -2195,8 +2201,6 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 #bmFxBody.dis{opacity:.45;pointer-events:none}
 
 /* «Сборка баннеров», памятка «Сейв-зоны» */
-.bm-zbtn{display:flex;align-items:center;gap:6px}
-.bm-zbtn svg{width:14px;height:14px;flex:none}
 /* шапка и текст стоят, прокручивается только сетка; полоса прокрутки — в своей дорожке у правого края карточки,
    не на плитках, и кончается выше скругления углов */
 .bm-zw-card{max-width:1000px;display:flex;flex-direction:column;overflow:hidden;padding:22px 0 12px}
