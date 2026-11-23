@@ -453,9 +453,37 @@ document.addEventListener('keydown', e => {
 // ---------- вид ----------
 // размер превью: высота ряда плиток, помнится
 const BM_ZOOM = 'k9000.bmz';
-try { const z = +localStorage.getItem(BM_ZOOM); if (z >= 70 && z <= 260) $('bmZoom').value = z; } catch (e) {}
-const bmZoomSet = () => $('bmGrid').style.setProperty('--bm-h', $('bmZoom').value + 'px');
-$('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.setItem(BM_ZOOM, $('bmZoom').value); } catch (e) {} });
+const BM_Z0 = 118, BM_ZMIN = 70, BM_ZMAX = 900;
+try { const z = +localStorage.getItem(BM_ZOOM); if (z >= BM_ZMIN && z <= BM_ZMAX) $('bmZoom').value = z; } catch (e) {}
+// масштаб — только вид (высота ряда); правку, отмену и сборку не трогает. Выше 260 плитки могут быть шире поля: сетка прокручивается
+const bmZoomSet = () => {
+  const z = +$('bmZoom').value, g = $('bmGrid');
+  g.style.setProperty('--bm-h', z + 'px');
+  g.style.setProperty('--bm-cap', z > 260 ? '100000px' : '100%');
+  $('bmZp').textContent = Math.round(z / BM_Z0 * 100) + '%';
+};
+// ставит масштаб z; (cx, cy) — точка поля в координатах сетки, которая остаётся на месте
+function bmZoomTo(z, cx, cy) {
+  z = Math.max(BM_ZMIN, Math.min(BM_ZMAX, Math.round(z)));
+  const g = $('bmGrid');
+  if (z === +$('bmZoom').value) return;
+  const fx = (g.scrollLeft + cx) / (g.scrollWidth || 1), fy = (g.scrollTop + cy) / (g.scrollHeight || 1);
+  $('bmZoom').value = z; bmZoomSet();
+  g.scrollLeft = fx * g.scrollWidth - cx; g.scrollTop = fy * g.scrollHeight - cy;
+  try { localStorage.setItem(BM_ZOOM, z); } catch (e) {}
+  bmPlace();
+}
+const bmZoomMid = k => { const g = $('bmGrid'); bmZoomTo(+$('bmZoom').value * k, g.clientWidth / 2, g.clientHeight / 2); };
+$('bmZoom').addEventListener('input', () => { bmZoomSet(); try { localStorage.setItem(BM_ZOOM, $('bmZoom').value); } catch (e) {} bmPlace(); });
+$('bmZm').addEventListener('click', () => bmZoomMid(1 / 1.2));
+$('bmZi').addEventListener('click', () => bmZoomMid(1.2));
+$('bmZp').addEventListener('click', () => { const g = $('bmGrid'); bmZoomTo(BM_Z0, g.clientWidth / 2, g.clientHeight / 2); });
+$('bmGrid').addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const g = $('bmGrid'), b = g.getBoundingClientRect();
+  bmZoomTo(+$('bmZoom').value * Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * 0.0025), e.clientX - b.left, e.clientY - b.top);
+}, {passive: false});
 bmZoomSet();
 function bmTile(sl) {
   const s = bmSt[sl.name] || {}, r = (sl.w / sl.h).toFixed(4);
@@ -464,7 +492,7 @@ function bmTile(sl) {
     : s.st === 'ok' ? '<div class="bm-ov"><svg class="bm-chk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11"/><path d="M7 12.5l3.3 3.3L17 9"/></svg></div>'
     : s.st === 'error' ? '<div class="bm-ov"><b class="bm-bad">!</b></div>' : '';
   // ширина по высоте ряда, но не шире поля; подпись под баннером, не меньше 130 px. Положение картинки ставит bmPlace
-  return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(100%, calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
+  return `<figure class="bm-t ${s.st || ''}" data-n="${esc(sl.name)}" style="width:max(130px, min(var(--bm-cap), calc(var(--bm-h) * ${r})))" title="${esc(s.msg || '')}">` +
     `<div class="bm-img" style="aspect-ratio:${sl.w}/${sl.h}">` +
     `<div class="bm-clip"><img class="bg" src="/bannerbg/${sl.name}.png" alt="" draggable="false">` +
     `<img class="art" src="${bmImg.url}" alt="" draggable="false"><b class="bm-g v"></b><b class="bm-g h"></b><b class="bm-hm"></b><b class="bm-hm mid"></b>${ov}</div>` +
@@ -478,6 +506,7 @@ function bmRender() {
   $('bmGrid').classList.toggle('hide', !has);
   $('bmSrc').classList.toggle('hide', !has);
   $('bmZoomL').classList.toggle('hide', !has);
+  $('bmZc').classList.toggle('hide', !has);
   $('bmDrop').classList.toggle('has', has);
   if (has) {
     if ($('bmThumb').getAttribute('src') !== bmImg.url) $('bmThumb').src = bmImg.url;
