@@ -181,10 +181,23 @@ function cpLockPaint() {
 }
 cpQ('.cp-lk').addEventListener('click', () => { if (cp && cp.opt.lock) { cp.opt.lock.set(!cp.opt.lock.get()); cpLockPaint(); } });
 // у поля: снизу, если не помещается — сверху; по краям окна не вылезает
+// как clQPlace (color.js): сверху граница — низ шапки .hero, не край окна; не влезает ни снизу, ни сверху —
+// сторона, где места больше, и высота ужимается (окно прокручивается внутри)
 function cpPlace() {
+  cpBox.style.maxHeight = cpBox.style.overflowY = '';
   const r = cp.el.getBoundingClientRect(), w = cpBox.offsetWidth, h = cpBox.offsetHeight, m = 8;
+  const hero = document.querySelector('.hero'), minTop = (hero ? hero.getBoundingClientRect().bottom : 0) + m;
   const x = Math.min(Math.max(r.right - w, m), innerWidth - w - m);
-  const y = r.bottom + 6 + h <= innerHeight - m ? r.bottom + 6 : Math.max(r.top - 6 - h, m);
+  const below = innerHeight - m - r.bottom - 6, above = r.top - 6 - minTop;
+  let y;
+  if (h <= below) y = r.bottom + 6;
+  else if (h <= above) y = r.top - 6 - h;
+  else {
+    const room = Math.max(below, above, 120);
+    cpBox.style.maxHeight = room + 'px';
+    cpBox.style.overflowY = 'auto';
+    y = below >= above ? r.bottom + 6 : Math.max(minTop, r.top - 6 - room);
+  }
   cpBox.style.left = x + 'px';
   cpBox.style.top = y + 'px';
 }

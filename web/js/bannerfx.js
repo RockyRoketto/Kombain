@@ -238,12 +238,12 @@ const BM_ROWS = [
   ['bmElPos', 'ek', 'bm.fxSize', 20, 300, 1, 150, '%', 100],
   ['bmElPos', 'ex', 'bm.fxX', -100, 100, 1, 0, '%', 100],
   ['bmElPos', 'ey', 'bm.fxY', -100, 100, 1, 0, '%', 100],
-  ['bmShBox', 'sh.c', 'bm.fxColor'],
+  ['bmShC', 'sh.c', 'bm.fxColor'],   // цвет — в строке переключателя
   ['bmShBox', 'sh.a', 'bm.fxOp', 0, 100, 1, BM_SH0.a, '%', 1],
   ['bmShBox', 'sh.d', 'bm.fxDist', 0, 80, 1, BM_SH0.d, 'px', 1],
   ['bmShBox', 'sh.ang', 'bm.fxAng', 0, 360, 1, BM_SH0.ang, '°', 1],
   ['bmShBox', 'sh.b', 'bm.fxBlur', 0, 80, 1, BM_SH0.b, 'px', 1],
-  ['bmGlBox', 'gl.c', 'bm.fxColor'],
+  ['bmGlC', 'gl.c', 'bm.fxColor'],
   ['bmGlBox', 'gl.r', 'bm.fxRad', 1, 120, 1, BM_GL0.r, 'px', 1],
   ['bmGlBox', 'gl.s', 'bm.fxStr', 0, 100, 1, BM_GL0.s, '%', 1],
   ['bmBlBox', 'bl', 'bm.fxBl', 0, 60, 0.5, 0, 'px', 1],
@@ -258,13 +258,17 @@ function bmFxRef(path) {
   return [bmFxOf(bmFxObj)[a], b];
 }
 const bmFxGet = p => { const [o, k] = bmFxRef(p); return o[k]; };
+// панель — два раздела: «Фоновый элемент» и «Тень и свечение»
+const BM_FX_CARDS = ['bmLook', 'bmFxCard'];
+const bmFxAll = sel => document.querySelectorAll(BM_FX_CARDS.map(id => `#${id} ${sel}`).join(', '));
+const bmFxOnCards = (ev, fn) => BM_FX_CARDS.forEach(id => $(id).addEventListener(ev, fn));
 function bmFxPanel() {
   const ids = [...new Set(BM_ROWS.map(r => r[0]))];
   for (const id of ids) $(id).innerHTML = '';
   for (const [box, p, key, min, max, step, origin, unit] of BM_ROWS) {
     const el = $(box);
     if (min === undefined) {
-      el.insertAdjacentHTML('beforeend', `<div class="bm-fr"><span data-i18n="${key}">${t(key)}</span><button type="button" class="cp-sw" data-p="${p}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"></button></div>`);
+      el.insertAdjacentHTML('beforeend', `<button type="button" class="cp-sw bm-cs" data-p="${p}" data-i18n-title="${key}" title="${esc(t(key))}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"></button>`);
       const sw = el.querySelector(`.cp-sw[data-p="${p}"]`);
       const put = v => { const [o, k] = bmFxRef(p); if (o[k] !== v) { o[k] = v; bmFxChanged(); } };
       cpField(sw, {live: put, done: () => put(sw.value)});
@@ -272,17 +276,19 @@ function bmFxPanel() {
       continue;
     }
     const tip = unit === 'px' ? ` title="${esc(t('bm.fxPx'))}" data-i18n-title="bm.fxPx"` : '';
-    el.insertAdjacentHTML('beforeend', `<div class="bm-fr"${tip}><span data-i18n="${key}">${t(key)}</span><label class="bm-kn"><input type="number" class="bm-num" data-p="${p}" min="${min}" max="${max}" step="${step}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"><i>${unit}</i></label></div>` +
-      `<input type="range" class="vol" data-p="${p}" min="${min}" max="${max}" step="${step}" data-origin="${origin}" data-snap="6" data-i18n-aria="${key}" aria-label="${esc(t(key))}">`);
+    // одна строка: подпись, ползунок, число с единицей
+    el.insertAdjacentHTML('beforeend', `<div class="bm-sl"${tip}><span data-i18n="${key}">${t(key)}</span>` +
+      `<input type="range" class="vol" data-p="${p}" min="${min}" max="${max}" step="${step}" data-origin="${origin}" data-snap="6" data-i18n-aria="${key}" aria-label="${esc(t(key))}">` +
+      `<label class="bm-kn"><input type="number" class="bm-num" data-p="${p}" min="${min}" max="${max}" step="${step}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"><i>${unit}</i></label></div>`);
   }
   if (!$('bmElRs')) $('bmElPos').insertAdjacentHTML('beforeend', `<button class="btn sm bm-elrs" id="bmElRs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset">${t('bm.reset')}</span></button>`);
-  document.querySelectorAll('#bmLook input[type=range][data-origin]').forEach(slPlace);
+  bmFxAll('input[type=range][data-origin]').forEach(slPlace);
 }
 const bmRow = p => BM_ROWS.find(r => r[1] === p);
 // значения в поля панели
 function bmFxSync() {
   const busy = bmBusy, e = !!bmFx.el, elf = bmFxObj === 'elf';
-  $('bmLook').classList.toggle('off', busy);
+  BM_FX_CARDS.forEach(id => $(id).classList.toggle('off', busy));
   $('bmShapes').querySelectorAll('button').forEach(b => b.classList.toggle('on', (b.dataset.n || '') === bmFx.el));
   $('bmElPos').classList.toggle('hide', !e);
   document.querySelectorAll('#bmFxObj .segb').forEach(b => b.classList.toggle('on', b.dataset.o === bmFxObj));
@@ -293,7 +299,7 @@ function bmFxSync() {
   $('bmShBox').classList.toggle('hide', !fx.sh.on);
   $('bmGlBox').classList.toggle('hide', !fx.gl.on);
   $('bmBlBox').classList.toggle('hide', !elf);
-  document.querySelectorAll('#bmLook [data-p]').forEach(el => {
+  bmFxAll('[data-p]').forEach(el => {
     const p = el.dataset.p, v = bmFxGet(p);
     if (el.matches('.cp-sw')) { if (!(cp && cp.el === el) && el.value !== v) el.value = v; return; }
     const m = bmRow(p)[8], n = Math.round(v * m * 100) / 100;
@@ -323,15 +329,15 @@ function bmFxInput(el) {
   o[k] = Math.min(Math.max(v, r[3]), r[4]) / r[8];
   bmFxChanged(!p.includes('.') && p !== 'bl');
 }
-$('bmLook').addEventListener('input', e => { if (e.target.matches('input[data-p]')) bmFxInput(e.target); });
-$('bmLook').addEventListener('change', e => { if (e.target.matches('input[data-p]')) { bmFxMarkOn = false; bmFxSync(); } });
-$('bmLook').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.bm-num')) e.target.blur(); });
-$('bmLook').addEventListener('dblclick', e => {   // двойной щелчок по ползунку — снова к риске
+bmFxOnCards('input', e => { if (e.target.matches('input[data-p]')) bmFxInput(e.target); });
+bmFxOnCards('change', e => { if (e.target.matches('input[data-p]')) { bmFxMarkOn = false; bmFxSync(); } });
+bmFxOnCards('keydown', e => { if (e.key === 'Enter' && e.target.matches('.bm-num')) e.target.blur(); });
+bmFxOnCards('dblclick', e => {   // двойной щелчок по ползунку — снова к риске
   const r = e.target.closest('input[type=range][data-p]');
   if (!r) return;
   bmMark(); r.value = r.dataset.origin; bmFxInput(r); bmFxMarkOn = false;
 });
-$('bmLook').addEventListener('click', e => {
+bmFxOnCards('click', e => {
   if (e.target.closest('#bmElRs')) { bmMark(); Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0}); bmFxChanged(true); return; }
   const s = e.target.closest('#bmShapes button');
   if (s) { bmElPick(s.dataset.n || ''); return; }

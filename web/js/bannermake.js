@@ -635,3 +635,23 @@ $('bmZones').addEventListener('click', async () => {
 $('bmZwX').addEventListener('click', bmZonesClose);
 $('bmZw').addEventListener('click', e => { if (e.target === $('bmZw')) bmZonesClose(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bmZw').classList.contains('hide')) { e.stopPropagation(); bmZonesClose(); } });
+
+// ---------- разделы правой колонки: заголовок .bm-gh сворачивает раздел, состояние помнится ----------
+const BM_GRP_KEY = 'k9000.bmgrp';
+function bmGrpInit() {
+  let shut = [];
+  try { shut = JSON.parse(localStorage.getItem(BM_GRP_KEY) || '[]') || []; } catch (e) {}
+  const set = (g, off) => {
+    g.classList.toggle('shut', off);
+    g.querySelector('.bm-gh').setAttribute('aria-expanded', String(!off));
+  };
+  document.querySelectorAll('#bmView .bm-grp').forEach(g => {
+    set(g, shut.includes(g.dataset.g));
+    g.querySelector('.bm-gh').addEventListener('click', () => {
+      set(g, !g.classList.contains('shut'));
+      const now = [...document.querySelectorAll('#bmView .bm-grp.shut')].map(x => x.dataset.g);
+      try { localStorage.setItem(BM_GRP_KEY, JSON.stringify(now)); } catch (e) {}
+    });
+  });
+}
+bmGrpInit();
