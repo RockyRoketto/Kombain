@@ -482,14 +482,27 @@ const bmZoomSet = () => {
   g.style.setProperty('--bm-cap', z > 260 ? '100000px' : '100%');
   $('bmZp').textContent = Math.round(z / BM_Z0 * 100) + '%';
 };
-// ставит масштаб z; (cx, cy) — точка поля в координатах сетки, которая остаётся на месте
+// ставит масштаб z. Точка под мышью (cx, cy в координатах сетки) остаётся на месте; если выбран баннер — масштаб идёт по нему (его центр не двигается)
 function bmZoomTo(z, cx, cy) {
   z = Math.max(BM_ZMIN, Math.min(BM_ZMAX, Math.round(z)));
   const g = $('bmGrid');
   if (z === +$('bmZoom').value) return;
-  const fx = (g.scrollLeft + cx) / (g.scrollWidth || 1), fy = (g.scrollTop + cy) / (g.scrollHeight || 1);
+  const gb = g.getBoundingClientRect();
+  const sel = bmSel && [...g.querySelectorAll('.bm-t')].find(f => f.dataset.n === bmSel);
+  let tile = sel, fx = .5, fy = .5;
+  if (sel) { const r = sel.getBoundingClientRect(); cx = r.left + r.width / 2 - gb.left; cy = r.top + r.height / 2 - gb.top; }
+  else {
+    const el = document.elementFromPoint(gb.left + cx, gb.top + cy);
+    tile = el && el.closest('#bmGrid .bm-t');
+    if (tile) { const r = tile.getBoundingClientRect(); fx = (gb.left + cx - r.left) / (r.width || 1); fy = (gb.top + cy - r.top) / (r.height || 1); }
+  }
+  const ax = (g.scrollLeft + cx) / (g.scrollWidth || 1), ay = (g.scrollTop + cy) / (g.scrollHeight || 1);
   $('bmZoom').value = z; bmZoomSet();
-  g.scrollLeft = fx * g.scrollWidth - cx; g.scrollTop = fy * g.scrollHeight - cy;
+  if (tile) {
+    const r = tile.getBoundingClientRect();
+    g.scrollLeft += r.left + fx * r.width - (gb.left + cx);
+    g.scrollTop += r.top + fy * r.height - (gb.top + cy);
+  } else { g.scrollLeft = ax * g.scrollWidth - cx; g.scrollTop = ay * g.scrollHeight - cy; }
   try { localStorage.setItem(BM_ZOOM, z); } catch (e) {}
   bmPlace();
 }
