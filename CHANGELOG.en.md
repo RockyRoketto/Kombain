@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 6.11
+
+- Generator: new "Sports banner" style (flags or objects of two teams on the sides, space for VS in the middle). The assistant now names every object from the request and draws countries and flags in their real colors.
+
 ## 6.10
 
 - Generator: the reference slider now shows "weaker" and "stronger" labels and a filled track, so it is clear which way is stronger.
