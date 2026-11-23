@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-// у каждого слота есть шаблон ровно того размера, что в имени, и квадрат внутри шаблона
+// у каждого слота есть шаблон ровно того размера, что в имени, и сейв-зона внутри шаблона
 func TestBmkSlots(t *testing.T) {
 	seen := map[string]bool{}
 	for _, sl := range bmkSlots {
@@ -33,35 +33,45 @@ func TestBmkSlots(t *testing.T) {
 		if w, h, ok := bannerDims(sl.Name + ".png"); !ok || w != strconv.Itoa(sl.W) || h != strconv.Itoa(sl.H) {
 			t.Errorf("%s: размер в имени не совпадает с %dx%d", sl.Name, sl.W, sl.H)
 		}
-		if sl.X < 0 || sl.Y < 0 || sl.X+sl.S > sl.W || sl.Y+sl.S > sl.H {
-			t.Errorf("%s: квадрат выходит за шаблон", sl.Name)
+		if sl.ZW <= 0 || sl.ZH <= 0 || sl.X < 0 || sl.Y < 0 || sl.X+sl.ZW > sl.W || sl.Y+sl.ZH > sl.H {
+			t.Errorf("%s: сейв-зона выходит за шаблон", sl.Name)
 		}
 	}
 }
 
 func TestBmkFit(t *testing.T) {
-	sl := bmkSlot{X: 100, Y: 10, S: 200}
+	sl := bmkSlot{X: 100, Y: 10, ZW: 200, ZH: 100}
 	cases := []struct {
 		w, h int
 		adj  bmkAdj
 		want image.Rectangle
 	}{
-		{50, 50, bmkAdj{}, image.Rect(100, 10, 300, 210)},
-		{400, 200, bmkAdj{}, image.Rect(100, 60, 300, 160)},
-		{100, 400, bmkAdj{}, image.Rect(175, 10, 225, 210)},
-		{50, 50, bmkAdj{K: 0.5}, image.Rect(150, 60, 250, 160)},
-		{50, 50, bmkAdj{K: 1, DX: 0.5, DY: -0.25}, image.Rect(200, -40, 400, 160)},
-		{50, 50, bmkAdj{K: 100}, image.Rect(-700, -790, 1100, 1010)},
-		{50, 50, bmkAdj{K: 1, DX: 100, DY: -100}, image.Rect(3300, -3190, 3500, -2990)},
+		{50, 50, bmkAdj{}, image.Rect(150, 10, 250, 110)},
+		{200, 100, bmkAdj{}, image.Rect(100, 10, 300, 110)},
+		{400, 100, bmkAdj{}, image.Rect(100, 35, 300, 85)},
+		{100, 400, bmkAdj{}, image.Rect(188, 10, 213, 110)},
+		{50, 50, bmkAdj{K: 0.5}, image.Rect(175, 35, 225, 85)},
+		{50, 50, bmkAdj{K: 1, DX: 0.5, DY: -0.25}, image.Rect(250, -15, 350, 85)},
+		{50, 50, bmkAdj{K: 100}, image.Rect(-250, -390, 650, 510)},
+		{50, 50, bmkAdj{K: 1, DX: 100, DY: -100}, image.Rect(3350, -1590, 3450, -1490)},
 	}
 	for _, c := range cases {
 		if got := bmkFit(sl, c.w, c.h, c.adj); got != c.want {
 			t.Errorf("%dx%d: %v, ждали %v", c.w, c.h, got, c.want)
 		}
 	}
+	// без правки картинка любой формы целиком внутри зоны каждого шаблона
+	for _, s := range bmkSlots {
+		zone := image.Rect(s.X, s.Y, s.X+s.ZW, s.Y+s.ZH)
+		for _, wh := range [][2]int{{1, 1}, {1000, 10}, {10, 1000}, {333, 217}, {s.ZW, s.ZH}} {
+			if r := bmkFit(s, wh[0], wh[1], bmkAdj{}); !r.In(zone) {
+				t.Errorf("%s %dx%d: %v вне зоны %v", s.Name, wh[0], wh[1], r, zone)
+			}
+		}
+	}
 }
 
-// прозрачные поля обрезаются, картинка встаёт в квадрат, фон вне квадрата не тронут
+// прозрачные поля обрезаются, картинка встаёт в сейв-зону, фон вне зоны не тронут
 func TestBmkTrimCompose(t *testing.T) {
 	art := image.NewNRGBA(image.Rect(0, 0, 100, 60))
 	for y := 20; y < 40; y++ {
@@ -84,7 +94,7 @@ func TestBmkTrimCompose(t *testing.T) {
 	r := bmkFit(sl, 40, 20, bmkAdj{})
 	c := img.NRGBAAt((r.Min.X+r.Max.X)/2, (r.Min.Y+r.Max.Y)/2)
 	if c.R < 240 || c.G > 15 {
-		t.Errorf("в середине квадрата не картинка: %v", c)
+		t.Errorf("в середине зоны не картинка: %v", c)
 	}
 	raw, _ := webFS.ReadFile("web/bannerbg/315x250.png")
 	tpl, _ := png.Decode(bytes.NewReader(raw))

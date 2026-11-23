@@ -1,6 +1,6 @@
 // ---------- «Сборка баннеров» в «Утилитах»: одна картинка на все шаблоны (bannermake.go) ----------
 // Результат: <общая папка>\<месяц>\<день>\<матч>\png|jpeg|webp. Месяц и день двумя цифрами.
-let bmSlots = [];          // [{name, w, h, x, y, s}] из /api/bmk-list: шаблон и квадрат под картинку
+let bmSlots = [];          // [{name, w, h, x, y, zw, zh}] из /api/bmk-list: шаблон и сейв-зона под картинку
 let bmImg = null;          // {name, blob: PNG уже без прозрачных полей, url: ссылка на blob для плиток, w, h}
 let bmBusy = false;
 let bmAbort = null;        // «Стоп»: обрыв запроса текущего баннера
@@ -8,18 +8,19 @@ const bmSt = {};           // имя баннера -> {st: run | ok | error, ms
 let bmChk = {};            // ответ /api/bmk-check
 const BM_KEY = 'k9000.bmk';
 
-// как bmkFit в Go: картинка вписана в квадрат слота по центру, потом правка adj {k, dx, dy}; в процентах от шаблона
+// середина сейв-зоны в пикселях шаблона; сдвиг dx и dy считается в долях ширины и высоты зоны
+const bmZx = sl => sl.x + sl.zw / 2, bmZy = sl => sl.y + sl.zh / 2;
+// как bmkFit в Go: картинка вписана в сейв-зону слота по центру, потом правка adj {k, dx, dy}; в процентах от шаблона
 function bmFit(sl, aw, ah, adj = BM_ID) {
-  let w = sl.s, h = sl.s;
-  if (aw >= ah) h = ah * sl.s / aw; else w = aw * sl.s / ah;
-  w = Math.max(1, Math.round(w * adj.k)); h = Math.max(1, Math.round(h * adj.k));
-  const x = Math.round(sl.x + sl.s / 2 + adj.dx * sl.s - w / 2), y = Math.round(sl.y + sl.s / 2 + adj.dy * sl.s - h / 2);
+  const z = Math.min(sl.zw / aw, sl.zh / ah);
+  const w = Math.max(1, Math.round(aw * z * adj.k)), h = Math.max(1, Math.round(ah * z * adj.k));
+  const x = Math.round(bmZx(sl) + adj.dx * sl.zw - w / 2), y = Math.round(bmZy(sl) + adj.dy * sl.zh - h / 2);
   return {l: x / sl.w * 100, t: y / sl.h * 100, w: w / sl.w * 100, h: h / sl.h * 100};
 }
 const bmPad = n => String(n).padStart(2, '0');
 
 // ---------- картинка ----------
-// прозрачные поля срезаем сразу: в шаблоне квадрат занимает сама картинка, а не её пустые края
+// прозрачные поля срезаем сразу: в сейв-зону вписывается сама картинка, а не её пустые края
 async function bmTake(file) {
   if (!file) return;
   if (!/^image\/(png|jpeg|webp|gif|bmp)$/.test(file.type) && !/\.(png|jpe?g|webp)$/i.test(file.name || '')) {
@@ -204,7 +205,7 @@ $('bmPickRoot').onclick = () => dialog(async () => {
 
 // ---------- редактор: размер и сдвиг ----------
 // Общая правка bmAll действует на все баннеры, своя bmOne[имя] — поверх неё (размер множится, сдвиг складывается).
-// Сдвиг в долях стороны квадрата: на всех баннерах он выглядит одинаково.
+// Сдвиг в долях ширины и высоты сейв-зоны: на всех баннерах он выглядит одинаково относительно зоны.
 const BM_ID = {k: 1, dx: 0, dy: 0};
 let bmAll = {...BM_ID};
 let bmOne = {};
@@ -239,9 +240,8 @@ function bmResetAdj() {
 }
 // без округления, в пикселях шаблона: размер картинки при k = 1 и её середина при правке a
 function bmGeo(sl, a) {
-  let bw = sl.s, bh = sl.s;
-  if (bmImg.w >= bmImg.h) bh = bmImg.h * sl.s / bmImg.w; else bw = bmImg.w * sl.s / bmImg.h;
-  return {bw, bh, cx: sl.x + sl.s / 2 + a.dx * sl.s, cy: sl.y + sl.s / 2 + a.dy * sl.s};
+  const z = Math.min(sl.zw / bmImg.w, sl.zh / bmImg.h);
+  return {bw: bmImg.w * z, bh: bmImg.h * z, cx: bmZx(sl) + a.dx * sl.zw, cy: bmZy(sl) + a.dy * sl.zh};
 }
 
 // ---------- отмена: Ctrl+Z, Ctrl+Shift+Z и Ctrl+Y ----------
@@ -318,7 +318,7 @@ function bmPlace() {
     const sl = bmSlots.find(s => s.name === f.dataset.n), box = f.querySelector('.bm-img');
     if (!sl || !box) return;
     const p = bmFit(sl, bmImg.w, bmImg.h, bmAdj(sl.name));
-    const ad = bmAdj(sl.name), hx = (sl.x + sl.s / 2) / sl.w * 100, hy = (sl.y + sl.s / 2) / sl.h * 100;
+    const ad = bmAdj(sl.name), hx = bmZx(sl) / sl.w * 100, hy = bmZy(sl) / sl.h * 100;
     box.style.cssText = `aspect-ratio:${sl.w}/${sl.h};--l:${p.l};--t:${p.t};--w:${p.w};--h:${p.h};--hx:${hx};--hy:${hy}`;
     // метка «здесь картинка стоит по умолчанию» появляется, когда её сдвинули; вторая метка — центр самого баннера, если он не совпадает
     f.classList.toggle('off', Math.abs(ad.dx) > 0.004 || Math.abs(ad.dy) > 0.004);
@@ -430,21 +430,21 @@ $('bmGrid').addEventListener('pointermove', e => {
     const k = Math.min(Math.max(kt / bk, 0.2), 3);
     kt = k * bk;
     const cx = d.ax + d.sx * d.g.bw * kt / 2, cy = d.ay + d.sy * d.g.bh * kt / 2;
-    bmSet({k, dx: d.a0.dx + (cx - sl.x - sl.s / 2) / sl.s - d.t0.dx, dy: d.a0.dy + (cy - sl.y - sl.s / 2) / sl.s - d.t0.dy});
+    bmSet({k, dx: d.a0.dx + (cx - bmZx(sl)) / sl.zw - d.t0.dx, dy: d.a0.dy + (cy - bmZy(sl)) / sl.zh - d.t0.dy});
     d.f.classList.toggle('k100', kt === 1);
     return;
   }
   // сдвиг: середина картинки в пикселях шаблона, магнит к середине баннера и места
-  const g = bmGeo(sl, {dx: d.t0.dx + mx / d.sc / sl.s, dy: d.t0.dy + my / d.sc / sl.s});
+  const g = bmGeo(sl, {dx: d.t0.dx + mx / d.sc / sl.zw, dy: d.t0.dy + my / d.sc / sl.zh});
   const near = (v, list) => {
     if (free) return null;
     let best = null;
     for (const c of list) if (Math.abs(v - c) * d.sc < BM_SNAP && (best == null || Math.abs(v - c) < Math.abs(v - best))) best = c;
     return best;
   };
-  const sx = near(g.cx, [sl.w / 2, sl.x + sl.s / 2]), sy = near(g.cy, [sl.h / 2, sl.y + sl.s / 2]);
+  const sx = near(g.cx, [sl.w / 2, bmZx(sl)]), sy = near(g.cy, [sl.h / 2, bmZy(sl)]);
   const cx = sx ?? g.cx, cy = sy ?? g.cy;
-  bmSet({dx: d.a0.dx + (cx - sl.x - sl.s / 2) / sl.s - d.t0.dx, dy: d.a0.dy + (cy - sl.y - sl.s / 2) / sl.s - d.t0.dy});
+  bmSet({dx: d.a0.dx + (cx - bmZx(sl)) / sl.zw - d.t0.dx, dy: d.a0.dy + (cy - bmZy(sl)) / sl.zh - d.t0.dy});
   bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
 });
 const bmDragEnd = () => {
@@ -605,3 +605,27 @@ async function bmShow() {
   bmRender();
   bmCheck();
 }
+
+// ---------- памятка «Сейв-зоны»: каждый шаблон с рамкой зоны, её размер и отступы до краёв ----------
+// Шаблон без картинки в web/bannerbg рисуется схемой: серый прямоугольник того же вида.
+function bmZonesOpen() {
+  $('bmZwGrid').innerHTML = bmSlots.map(sl => {
+    const r = sl.x + sl.zw, b = sl.y + sl.zh;
+    const box = `left:${sl.x / sl.w * 100}%;top:${sl.y / sl.h * 100}%;width:${sl.zw / sl.w * 100}%;height:${sl.zh / sl.h * 100}%`;
+    // высокие шаблоны не выше 200 px: ширину ограничиваем по высоте
+    return `<figure class="bm-zw-t"><div class="bm-zw-img" style="aspect-ratio:${sl.w}/${sl.h};width:min(100%, ${Math.round(200 * sl.w / sl.h)}px)">` +
+      `<img src="/bannerbg/${esc(sl.name)}.png" alt="" draggable="false" onerror="this.remove()"><b style="${box}"></b></div>` +
+      `<figcaption><b>${esc(sl.name)}</b><span>${t('bm.zoneSize', {w: sl.zw, h: sl.zh})}</span>` +
+      `<span>${t('bm.zonePad', {l: sl.x, t: sl.y, r: sl.w - r, b: sl.h - b})}</span></figcaption></figure>`;
+  }).join('');
+  $('bmZw').classList.remove('hide');
+  $('bmZwX').focus();
+}
+const bmZonesClose = () => $('bmZw').classList.add('hide');
+$('bmZones').addEventListener('click', async () => {
+  if (!bmSlots.length) bmSlots = (await api('bmk-list')).slots || [];
+  bmZonesOpen();
+});
+$('bmZwX').addEventListener('click', bmZonesClose);
+$('bmZw').addEventListener('click', e => { if (e.target === $('bmZw')) bmZonesClose(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('bmZw').classList.contains('hide')) { e.stopPropagation(); bmZonesClose(); } });

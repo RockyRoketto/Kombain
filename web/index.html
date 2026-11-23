@@ -1216,6 +1216,7 @@ __CSS__
           <div class="bm-src hide" id="bmSrc"><img id="bmThumb" alt=""><span><b id="bmName"></b><i id="bmCnt"></i></span></div>
           <button class="btn sm" id="bmPick" data-i18n="bm.pick"></button>
           <button class="btn sm" id="bmClear" data-i18n="btn.clear"></button>
+          <button class="btn sm bm-zbtn" id="bmZones" data-i18n-title="bm.zonesHint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="8.5" width="6" height="7" rx="1" stroke-dasharray="2 2"/></svg><span data-i18n="bm.zones"></span></button>
           <label class="bm-zoom hide" id="bmZoomL" data-i18n-title="bm.zoom">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="8" height="6" rx="1.5"/><rect x="13" y="4" width="8" height="13" rx="1.5"/></svg>
             <input type="range" id="bmZoom" min="70" max="900" step="1" value="118" data-i18n-aria="bm.zoom">
@@ -2098,7 +2099,16 @@ __CSS__
 </div>
 
 <!-- «до / после» для готового файла из «Утилит» (Убрать фон, Увеличить): web/js/gencompare.js -->
-<div id="utCmp" class="modal hide ut-cmp" role="dialog" aria-modal="true" aria-labelledby="utCmpT">
+<!-- «Сборка баннеров»: памятка по сейв-зонам, web/js/bannermake.js -->
+<div id="bmZw" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="bmZwT">
+  <div class="mcard bm-zw-card">
+    <div class="phead"><h3 id="bmZwT" data-i18n="bm.zones"></h3><button type="button" class="x" id="bmZwX" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>
+    <p class="bm-zw-p" data-i18n="bm.zonesText"></p>
+    <div class="bm-zw-grid" id="bmZwGrid"></div>
+  </div>
+</div>
+
+<div id="utCmp" class="modal hide ut-cmp"role="dialog" aria-modal="true" aria-labelledby="utCmpT">
   <div class="ut-cmp-card">
     <div class="phead"><h3 id="utCmpT"></h3>
       <button type="button" class="x" id="utCmpClose" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>
