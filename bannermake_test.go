@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -206,5 +207,43 @@ func TestBmkSite(t *testing.T) {
 	}
 	if n != len(bannerNames) {
 		t.Errorf("баннеров сайта %d, в bannerNames %d", n, len(bannerNames))
+	}
+}
+
+// Правка в «Сборке баннеров»: выбран ровно один объект (картинка или фон), и выбор меняется в одном месте — bmObjSet,
+// иначе «Крупно», плитки и панель расходятся. Фоновый элемент не зависит от правки картинки (bmAdj, bmGeo):
+// тянешь картинку — фон стоит.
+func TestBmkObjSelect(t *testing.T) {
+	read := func(name string) string {
+		b, err := os.ReadFile(filepath.Join("web", "js", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	fx, mk := read("bannerfx.js"), read("bannermake.js")
+	set := regexp.MustCompile(`(?m)(^|[;{,])[ \t]*bmFxObj\s*=[^=]`) // присваивание, не объявление и не комментарий
+	if n := len(set.FindAllString(fx, -1)) + len(set.FindAllString(mk, -1)); n != 1 {
+		t.Errorf("bmFxObj присваивается %d раз, нужно один раз в bmObjSet", n)
+	}
+	body := func(src, fn string) string {
+		i := strings.Index(src, "function "+fn+"(")
+		if i < 0 {
+			t.Fatalf("нет функции %s", fn)
+		}
+		j := strings.Index(src[i:], "\n}\n")
+		return src[i : i+j]
+	}
+	if b := body(fx, "bmObjSet"); !strings.Contains(b, "bmFxObj = kind") || !strings.Contains(b, "bmDrag") {
+		t.Error("bmObjSet: должна менять bmFxObj и не менять его, пока тянут мышью (bmDrag)")
+	}
+	for _, fn := range []string{"bmElGeo", "bmElRect"} {
+		if b := body(fx, fn); strings.Contains(b, "bmAdj") || strings.Contains(b, "bmGeo(") {
+			t.Errorf("%s зависит от правки картинки", fn)
+		}
+	}
+	// нажатие в «Крупно» само не меняет выбор: только тянет выбранный, смена — щелчком без движения
+	if b := body(fx, "bmLpGrab"); strings.Contains(b, "bmObjSet") {
+		t.Error("bmLpGrab меняет выбор объекта")
 	}
 }

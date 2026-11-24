@@ -8,6 +8,7 @@
 const BM_FX_KEY = 'k9000.bmfx';
 const BM_SH0 = {on: false, c: '#000000', a: 55, d: 10, ang: 90, b: 18};
 const BM_GL0 = {on: false, c: '#ffe2a8', r: 24, s: 60};
+const BM_EL_D = 8;   // предел сдвига элемента в долях сейв-зоны (как у картинки): на широком баннере дотянуть до его середины
 const bmFxDef = () => ({el: '', ek: 1.5, ex: 0, ey: 0, er: 0, art: {sh: {...BM_SH0}, gl: {...BM_GL0}}, elf: {sh: {...BM_SH0}, gl: {...BM_GL0}, bl: 0}});
 let bmFx = bmFxDef();
 let bmFxObj = 'art';        // чьи эффекты в панели: art — картинка, elf — элемент
@@ -25,7 +26,7 @@ function bmFxValid(o) {
   const sh = (s = {}) => ({on: !!s.on, c: cpValid(s.c, BM_SH0.c), a: bmNum(s.a, 0, 100, BM_SH0.a), d: bmNum(s.d, 0, 80, BM_SH0.d), ang: bmNum(s.ang, 0, 360, BM_SH0.ang), b: bmNum(s.b, 0, 80, BM_SH0.b)});
   const gl = (s = {}) => ({on: !!s.on, c: cpValid(s.c, BM_GL0.c), r: bmNum(s.r, 1, 120, BM_GL0.r), s: bmNum(s.s, 0, 100, BM_GL0.s)});
   const art = o.art || {}, elf = o.elf || {};
-  return {el: typeof o.el === 'string' ? o.el : '', ek: bmNum(o.ek, 0.2, 3, 1.5), ex: bmNum(o.ex, -1, 1, 0), ey: bmNum(o.ey, -1, 1, 0), er: bmNum(o.er, 0, 360, 0),
+  return {el: typeof o.el === 'string' ? o.el : '', ek: bmNum(o.ek, 0.2, 3, 1.5), ex: bmNum(o.ex, -BM_EL_D, BM_EL_D, 0), ey: bmNum(o.ey, -BM_EL_D, BM_EL_D, 0), er: bmNum(o.er, 0, 360, 0),
     art: {sh: sh(art.sh), gl: gl(art.gl)}, elf: {sh: sh(elf.sh), gl: gl(elf.gl), bl: bmNum(elf.bl, 0, 60, 0)}};
 }
 try { bmFx = bmFxValid(JSON.parse(localStorage.getItem(BM_FX_KEY) || 'null')); } catch (e) {}
@@ -39,18 +40,32 @@ const bmRgba = (hex, a) => { const c = cpParse(hex) || {r: 0, g: 0, b: 0, a: 1};
 // баннер, по которому меряются пиксели эффектов: самый большой
 const bmRef = () => bmSlots.reduce((m, s) => !m || s.w * s.h > m.w * m.h ? s : m, null);
 const bmZs = (sl, w, h) => Math.min(sl.zw / w, sl.zh / h);
-// элемент в баннере sl при правке картинки ad: в пикселях шаблона, без округления
 // Повёрнутая фигура описана рамкой по её краям (bmRotBox): центр рамки — центр фигуры, поворот идёт вокруг него.
 function bmRotBox(w, h, deg) {
   const a = (deg || 0) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
   return {w: w * c + h * s, h: w * s + h * c};
 }
 const bmRotOf = kind => kind === 'el' ? bmFx.er : 0;
-function bmElRect(sl, ad, e) {
-  const z = bmZs(sl, e.w, e.h) * ad.k * bmFx.ek, g = bmGeo(sl, ad);
-  const b = bmRotBox(e.w * z, e.h * z, bmFx.er), w = b.w, h = b.h;
-  return {x: g.cx + bmFx.ex * sl.zw * ad.k - w / 2, y: g.cy + bmFx.ey * sl.zh * ad.k - h / 2, w, h};
+// Фоновый элемент не зависит от правки картинки: двигаешь картинку — фон стоит. Середина — середина сейв-зоны
+// плюс сдвиг ex, ey (в долях её ширины и высоты), размер — вписан в сейв-зону и умножен на ek.
+// элемент в баннере sl без поворота: середина и размер в пикселях шаблона
+function bmElGeo(sl, e) {
+  const z = bmZs(sl, e.w, e.h) * bmFx.ek;
+  return {cx: bmZx(sl) + bmFx.ex * sl.zw, cy: bmZy(sl) + bmFx.ey * sl.zh, w: e.w * z, h: e.h * z};
 }
+// рамка элемента по краям с учётом поворота, в пикселях шаблона, без округления
+function bmElRect(sl, e) {
+  const g = bmElGeo(sl, e), b = bmRotBox(g.w, g.h, bmFx.er);
+  return {x: g.cx - b.w / 2, y: g.cy - b.h / 2, w: b.w, h: b.h};
+}
+// магнит: ближайшая к v точка из list, если до неё меньше tol; иначе null
+function bmSnapTo(v, list, tol) {
+  let best = null;
+  for (const c of list) if (Math.abs(v - c) < tol && (best == null || Math.abs(v - c) < Math.abs(v - best))) best = c;
+  return best;
+}
+// куда прилипает середина объекта в баннере sl: середина баннера и середина сейв-зоны, по каждой оси
+const bmSnapX = sl => [sl.w / 2, bmZx(sl)], bmSnapY = sl => [sl.h / 2, bmZy(sl)];
 const bmElCur = () => bmFx.el && bmEls[bmFx.el] && bmEls[bmFx.el].cv ? bmEls[bmFx.el] : null;
 // самый крупный объект по всем баннерам: длинная сторона в пикселях шаблона и в пикселях экрана (высота ряда превью z)
 function bmNeed(kind) {
@@ -60,7 +75,7 @@ function bmNeed(kind) {
   let full = 0, scr = 0;
   for (const sl of bmSlots) {
     const ad = bmAdj(sl.name);
-    const L = kind === 'art' ? Math.max(src.w, src.h) * bmZs(sl, src.w, src.h) * ad.k : (r => Math.max(r.w, r.h))(bmElRect(sl, ad, src));
+    const L = kind === 'art' ? Math.max(src.w, src.h) * bmZs(sl, src.w, src.h) * ad.k : (r => Math.max(r.w, r.h))(bmElRect(sl, src));
     full = Math.max(full, L); scr = Math.max(scr, L * z / sl.h);
   }
   scr = Math.max(scr, bmLpNeed(kind));   // в «Крупно» объект больше, чем на плитке
@@ -188,7 +203,7 @@ function bmFxVars(f, sl, ad, p) {
   const e = bmElCur(), q = e && bmSpr.el;
   f.classList.toggle('hasel', !!q);
   if (q) {
-    const r = bmElRect(sl, ad, e);
+    const r = bmElRect(sl, e);
     // --r*: сам элемент без полей эффектов — пунктир «правишь фон»
     s += `;--rl:${r.x / sl.w * 100};--rt:${r.y / sl.h * 100};--rw:${r.w / sl.w * 100};--rh:${r.h / sl.h * 100}`;
     s += `;--el:${(r.x - r.w * q.px) / sl.w * 100};--et:${(r.y - r.h * q.py) / sl.h * 100};--ew:${r.w * (1 + 2 * q.px) / sl.w * 100};--eh:${r.h * (1 + 2 * q.py) / sl.h * 100}`;
@@ -213,7 +228,7 @@ async function bmFxBanner(sl) {
   g.drawImage(tpl, 0, 0, sl.w, sl.h);
   const ad = bmAdj(sl.name), e = bmElCur();
   const put = (s, r) => g.drawImage(s.cv, r.x - r.w * s.px, r.y - r.h * s.py, r.w * (1 + 2 * s.px), r.h * (1 + 2 * s.py));
-  if (e) put(bmSprBig('el'), bmElRect(sl, ad, e));
+  if (e) put(bmSprBig('el'), bmElRect(sl, e));
   put(bmSprBig('art'), bmFitPx(sl, bmImg.w, bmImg.h, ad));
   return g.getImageData(0, 0, sl.w, sl.h).data;
 }
@@ -255,12 +270,12 @@ async function bmElLoad(name) {
 }
 
 // ---------- панель «Оформление» ----------
-// строки ползунков: [контейнер, путь, текст, min, max, шаг, риска, единица, множитель]; путь без точки — у элемента,
+// строки ползунков: [контейнер, путь, текст, min, max, шаг, риска, единица, множитель, ноль в центре, предел числа]; путь без точки — у элемента,
 // с точкой — у эффектов выбранного объекта (картинка или элемент)
 const BM_ROWS = [
   ['bmElPos', 'ek', 'bm.fxSize', 20, 300, 1, 150, '%', 100],
-  ['bmElPos', 'ex', 'bm.fxX', -100, 100, 1, 0, '%', 100],
-  ['bmElPos', 'ey', 'bm.fxY', -100, 100, 1, 0, '%', 100],
+  ['bmElPos', 'ex', 'bm.fxX', -100, 100, 1, 0, '%', 100, false, BM_EL_D * 100],   // число шире ползунка: мышью фон уезжает дальше
+  ['bmElPos', 'ey', 'bm.fxY', -100, 100, 1, 0, '%', 100, false, BM_EL_D * 100],
   ['bmElPos', 'er', 'bm.fxRot', -180, 180, 1, 0, '°', 1, true],   // ноль в центре; хранится 0…360, как раньше
   ['bmShC', 'sh.c', 'bm.fxColor'],   // цвет — в строке переключателя
   ['bmShBox', 'sh.a', 'bm.fxOp', 0, 100, 1, BM_SH0.a, '%', 1],
@@ -289,7 +304,7 @@ const bmFxOnCards = (ev, fn) => BM_FX_CARDS.forEach(id => $(id).addEventListener
 function bmFxPanel() {
   const ids = [...new Set(BM_ROWS.map(r => r[0]))];
   for (const id of ids) $(id).innerHTML = '';
-  for (const [box, p, key, min, max, step, origin, unit] of BM_ROWS) {
+  for (const [box, p, key, min, max, step, origin, unit, , , nl] of BM_ROWS) {
     const el = $(box);
     if (min === undefined) {
       el.insertAdjacentHTML('beforeend', `<button type="button" class="cp-sw bm-cs" data-p="${p}" data-i18n-title="${key}" title="${esc(t(key))}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"></button>`);
@@ -303,7 +318,7 @@ function bmFxPanel() {
     // одна строка: подпись, ползунок, число с единицей
     el.insertAdjacentHTML('beforeend', `<div class="bm-sl"${tip}><span data-i18n="${key}">${t(key)}</span>` +
       `<input type="range" class="vol" data-p="${p}" min="${min}" max="${max}" step="${step}" data-origin="${origin}" data-fill="${min < 0 ? 'mid' : 'left'}" data-snap="6" data-i18n-aria="${key}" aria-label="${esc(t(key))}">` +
-      `<label class="bm-kn"><input type="number" class="bm-num" data-p="${p}" min="${min}" max="${max}" step="${step}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"><i>${unit}</i></label></div>`);
+      `<label class="bm-kn"><input type="number" class="bm-num" data-p="${p}" min="${nl ? -nl : min}" max="${nl || max}" step="${step}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"><i>${unit}</i></label></div>`);
   }
   if (!$('bmElRs')) $('bmElPos').insertAdjacentHTML('beforeend', `<button class="btn sm bm-elrs" id="bmElRs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset">${t('bm.reset')}</span></button>`);
   bmFxAll('input[type=range][data-origin]').forEach(r => { slPlace(r); slFill(r); });
@@ -356,7 +371,8 @@ function bmFxInput(el) {
   if (el.value === '' || !Number.isFinite(v)) return;
   if (!bmFxMarkOn) { bmMark(); bmFxMarkOn = true; }
   const [o, k] = bmFxRef(p);
-  let n = Math.min(Math.max(v, r[3]), r[4]);
+  const lo = el.type === 'number' && r[10] ? -r[10] : r[3], hi = el.type === 'number' && r[10] ? r[10] : r[4];
+  let n = Math.min(Math.max(v, lo), hi);
   if (r[9] && n < 0) n += 360;
   o[k] = n / r[8];
   bmFxChanged(!p.includes('.') && p !== 'bl');
@@ -415,11 +431,16 @@ function bmObjSync() {
   $('bmLp').classList.toggle('o-elf', elf && !!e);
   if (bmLpReady) bmLpDraw();   // подпись режима и рамка выбранного в «Крупно»
 }
+// выбрать объект: единственное место, где меняется bmFxObj (панель, переключатель и щелчок в «Крупно»).
+// Пока тянешь мышью, выбор не меняется: тянется тот, кого взяли
+function bmObjSet(kind) {
+  if (kind === bmFxObj || bmDrag || (kind !== 'art' && kind !== 'elf')) return;
+  bmFxObj = kind;
+  bmFxSync(); bmEditSync(); bmPlace();
+}
 $('bmObj').addEventListener('click', e => {
   const b = e.target.closest('button[data-o]');
-  if (!b || b.disabled || b.dataset.o === bmFxObj) return;
-  bmFxObj = b.dataset.o;
-  bmFxSync(); bmEditSync(); bmPlace();
+  if (b && !b.disabled) bmObjSet(b.dataset.o);
 });
 // «Сбросить всё» у выбранного объекта: у картинки — общая и свои правки, тень, свечение; у фона — размер, сдвиг, эффекты.
 // Сам выбранный элемент остаётся
@@ -487,9 +508,9 @@ addEventListener('pointercancel', bmLpUp);
 addEventListener('blur', bmLpUp);
 // рамка объекта kind в баннере sl, в пикселях шаблона: {x, y, w, h} без полей эффектов
 function bmLpObj(sl, kind) {
-  const ad = bmAdj(sl.name), e = bmElCur();
-  if (kind === 'elf' && e) return bmElRect(sl, ad, e);
-  return bmFitPx(sl, bmImg.w, bmImg.h, ad);
+  const e = bmElCur();
+  if (kind === 'elf' && e) return bmElRect(sl, e);
+  return bmFitPx(sl, bmImg.w, bmImg.h, bmAdj(sl.name));
 }
 const bmLpSize = () => { const v = $('bmLpV'); return {W: v.clientWidth || 400, H: v.clientHeight || 240}; };
 // масштаб «весь баннер»: влезает в окно с отступом, но не крупнее предела
@@ -600,35 +621,54 @@ $('bmLpV').addEventListener('wheel', e => {
   const r = $('bmLpV').getBoundingClientRect();
   bmLpZoom(Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * 0.0022), e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2, false);
 }, {passive: false});
-// ---------- правка в «Крупно»: щелчок выбирает картинку или фон, тянешь сам объект, размер — за углы, поворот фона — за кружок ----------
-// Сверху картинка (по непрозрачным пикселям), под ней фон (его видимая часть внутри баннера). Если объект уже выбран
-// (щелчком или переключателем «Картинка / Фон»), он берётся и там, где его закрывает другой: так фон под картинкой можно тянуть.
-// Вид двигают пробел + мышь, средняя кнопка или пустое место. Тянут той же bmDragMove, что и плитки: магниты, Alt, отмена.
+// ---------- правка в «Крупно»: тянешь выбранный объект, щелчок по другому выбирает его ----------
+// Выбран всегда один объект (bmFxObj — общий для «Крупно», плиток и панели), второй мышь не трогает никогда.
+// Нажал внутри рамки выбранного (даже там, где его закрывает другой) и повёл — тянешь его. Щелчок без движения
+// по видимой части другого объекта (сверху картинка, под ней фон) выбирает тот; само нажатие выбор не меняет,
+// поэтому выбор не перескакивает посреди перетаскивания. Вид двигают пробел + мышь, средняя кнопка или пустое место.
+// Тянут той же bmDragMove, что и плитки: магниты, Alt, отмена.
 let bmLpPan = null;   // сдвиг вида
-// фигура в баннере sl без поворота: середина и размер в пикселях шаблона
-function bmLpElGeo(sl, ad, e) {
-  const z = bmZs(sl, e.w, e.h) * ad.k * bmFx.ek, g = bmGeo(sl, ad);
-  return {cx: g.cx + bmFx.ex * sl.zw * ad.k, cy: g.cy + bmFx.ey * sl.zh * ad.k, w: e.w * z, h: e.h * z};
+let bmLpClick = null;   // {id, x, y, kind}: нажали на другой объект; отпустили без движения — выбрать его
+// что делает нажатие (чистая логика): sel — выбранный объект, inSel — точка внутри его рамки, top — верхний видимый
+// объект в точке ('' — пусто). grab — кого тянуть, click — кого выбрать щелчком без движения
+function bmLpRule(sel, inSel, top) {
+  return {grab: inSel ? sel : '', click: top && top !== sel ? top : ''};
 }
 // непрозрачна ли точка холста (fx, fy — доли ширины и высоты)
 function bmLpAlpha(cv, fx, fy) {
   if (!(fx >= 0 && fx < 1 && fy >= 0 && fy < 1)) return false;
   try { return cv.getContext('2d').getImageData(Math.floor(fx * cv.width), Math.floor(fy * cv.height), 1, 1).data[3] > 16; } catch (e) { return true; }
 }
-// какой объект взять в точке экрана: выбранный, если он там есть, иначе верхний; '' — пусто
-function bmLpPick(cx, cy) {
+// точка экрана в баннере лупы: {sl, x, y} в пикселях шаблона
+function bmLpAt(cx, cy) {
   const sl = bmLpSlot();
-  if (!sl || !bmImg) return '';
-  const r = $('bmLpI').getBoundingClientRect(), s = r.width / sl.w, x = (cx - r.left) / s, y = (cy - r.top) / s, ad = bmAdj(sl.name);
-  const a = bmFitPx(sl, bmImg.w, bmImg.h, ad), hits = [];
-  if (bmLpAlpha(bmImg.cv, (x - a.x) / a.w, (y - a.y) / a.h)) hits.push('art');
-  const e = bmElCur();
-  if (e && x >= 0 && y >= 0 && x <= sl.w && y <= sl.h) {
-    const g = bmLpElGeo(sl, ad, e), ang = -bmFx.er * Math.PI / 180, dx = x - g.cx, dy = y - g.cy;
-    const u = dx * Math.cos(ang) - dy * Math.sin(ang), v = dx * Math.sin(ang) + dy * Math.cos(ang);
-    if (bmLpAlpha(e.cv, u / g.w + 0.5, v / g.h + 0.5)) hits.push('elf');
+  if (!sl) return null;
+  const r = $('bmLpI').getBoundingClientRect(), s = r.width / sl.w;
+  return {sl, x: (cx - r.left) / s, y: (cy - r.top) / s};
+}
+// объект kind в точке (x, y) баннера sl: {box — внутри рамки, px — на непрозрачном пикселе}. Вне баннера объектов не видно
+function bmLpHitObj(sl, kind, x, y) {
+  const no = {box: false, px: false};
+  if (!bmImg || !(x >= 0 && y >= 0 && x <= sl.w && y <= sl.h)) return no;
+  if (kind === 'art') {
+    const a = bmFitPx(sl, bmImg.w, bmImg.h, bmAdj(sl.name)), fx = (x - a.x) / a.w, fy = (y - a.y) / a.h;
+    const box = fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1;
+    return {box, px: box && bmLpAlpha(bmImg.cv, fx, fy)};
   }
-  return hits.includes(bmFxObj) ? bmFxObj : hits[0] || '';
+  const e = bmElCur();
+  if (!e) return no;
+  const g = bmElGeo(sl, e), ang = -bmFx.er * Math.PI / 180, dx = x - g.cx, dy = y - g.cy;
+  const fx = (dx * Math.cos(ang) - dy * Math.sin(ang)) / g.w + 0.5, fy = (dx * Math.sin(ang) + dy * Math.cos(ang)) / g.h + 0.5;
+  const box = fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1;
+  return {box, px: box && bmLpAlpha(e.cv, fx, fy)};
+}
+// что делает нажатие в точке экрана: {grab, click} по bmLpRule
+function bmLpPick(cx, cy) {
+  const p = bmLpAt(cx, cy);
+  if (!p || !bmImg) return {grab: '', click: ''};
+  const art = bmLpHitObj(p.sl, 'art', p.x, p.y), elf = bmLpHitObj(p.sl, 'elf', p.x, p.y);
+  const top = art.px ? 'art' : elf.px ? 'elf' : '';
+  return bmLpRule(bmFxObj, (bmFxObj === 'art' ? art : elf).box, top);
 }
 // рамка объекта kind на баннере лупы: стиль для position:absolute внутри #bmLpI
 function bmLpObjCss(sl, kind) {
@@ -637,7 +677,7 @@ function bmLpObjCss(sl, kind) {
   if (kind === 'elf') {
     const e = bmElCur();
     if (!e) return '';
-    const g = bmLpElGeo(sl, ad, e);
+    const g = bmElGeo(sl, e);
     cx = g.cx; cy = g.cy; w = g.w; h = g.h; rot = bmFx.er;
   } else {
     if (!bmImg) return '';
@@ -647,22 +687,16 @@ function bmLpObjCss(sl, kind) {
   // в процентах баннера: при плавном приближении рамка едет вместе с ним
   return `left:${(cx - w / 2) / sl.w * 100}%;top:${(cy - h / 2) / sl.h * 100}%;width:${w / sl.w * 100}%;height:${h / sl.h * 100}%;transform:rotate(${rot}deg)`;
 }
-// выбрать объект (как переключатель в панели)
-function bmLpObjSet(kind) {
-  if (kind === bmFxObj) return;
-  bmFxObj = kind;
-  bmFxSync(); bmEditSync(); bmPlace();
-}
-$('bmLpK').addEventListener('click', e => { const b = e.target.closest('button[data-o]'); if (b && !b.disabled) bmLpObjSet(b.dataset.o); });
-// взять объект kind: тянуть, а за ручку hd — размер или поворот
+$('bmLpK').addEventListener('click', e => { const b = e.target.closest('button[data-o]'); if (b && !b.disabled) bmObjSet(b.dataset.o); });
+// взять выбранный объект kind: тянуть, а за ручку hd — размер или поворот
 function bmLpGrab(e, kind, hd) {
   const sl = bmLpSlot(), I = $('bmLpI'), r = I.getBoundingClientRect(), sc = r.width / sl.w;
-  bmLpObjSet(kind);
+  if (kind !== bmFxObj) return false;
   if (kind === 'elf') {
     const el = bmElCur();
     if (!el) return false;
-    const ad = bmAdj(sl.name), g = bmLpElGeo(sl, ad, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
-    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f: I, sc, k: ad.k, moved: false};
+    const g = bmElGeo(sl, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f: I, sc, moved: false};
     if (hd && hd.tagName === 'U') Object.assign(bmDrag, {er: bmFx.er, cx, cy});
     else if (hd) Object.assign(bmDrag, {ek: bmFx.ek, cx, cy});
   } else {
@@ -693,31 +727,37 @@ $('bmLpV').addEventListener('pointerdown', e => {
   if (!pan && e.button !== 0) return;
   e.preventDefault();
   const v = $('bmLpV');
+  bmLpClick = null;
   if (!pan && !bmBusy) {
-    const hd = e.target.closest('#bmLpSel i, #bmLpSel u'), kind = hd ? bmFxObj : bmLpPick(e.clientX, e.clientY);
-    if (kind) {
-      if (bmLpGrab(e, kind, hd)) { v.setPointerCapture(e.pointerId); v.classList.remove('ov'); $('bmLpHov').classList.add('hide'); }
+    const hd = e.target.closest('#bmLpSel i, #bmLpSel u'), pk = hd ? {grab: bmFxObj, click: ''} : bmLpPick(e.clientX, e.clientY);
+    if (pk.click) bmLpClick = {id: e.pointerId, x: e.clientX, y: e.clientY, kind: pk.click};
+    if (pk.grab && bmLpGrab(e, pk.grab, hd)) {
+      v.setPointerCapture(e.pointerId); v.classList.remove('ov', 'pk'); $('bmLpHov').classList.add('hide');
       return;
     }
+    if (bmLpClick) v.setPointerCapture(e.pointerId);
   }
   if (bmLp.z <= 1.0001) return;   // целый баннер двигать некуда
   bmLpPan = {id: e.pointerId, x: e.clientX, y: e.clientY};
   v.setPointerCapture(e.pointerId);
+  v.classList.remove('ov', 'pk');
   v.classList.add('drag');
   $('bmLpI').classList.remove('ease');
 });
 $('bmLpV').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
-// наведение: рамка объекта, который возьмёт щелчок
+// наведение: внутри рамки выбранного — курсор «двигать»; над другим объектом — его рамка и курсор-рука (щелчок выберет его)
 let bmLpHovRaf = 0, bmLpHovPt = null;
 function bmLpHover() {
   bmLpHovRaf = 0;
-  const v = $('bmLpV'), hv = $('bmLpHov'), sl = bmLpSlot();
-  const kind = bmLpHovPt && !bmDrag && !bmLpPan && !bmSpace && !bmBusy && sl ? (bmLpHovPt.h ? bmFxObj : bmLpPick(bmLpHovPt.x, bmLpHovPt.y)) : '';
-  v.classList.toggle('ov', !!kind);
-  hv.classList.toggle('hide', !kind || !!bmLpHovPt.h);
-  if (kind && !bmLpHovPt.h) { hv.style.cssText = bmLpObjCss(sl, kind); hv.classList.toggle('cur', kind === bmFxObj); }
+  const v = $('bmLpV'), hv = $('bmLpHov'), sl = bmLpSlot(), pt = bmLpHovPt;
+  const pk = pt && !bmDrag && !bmLpPan && !bmSpace && !bmBusy && sl ? (pt.h ? {grab: bmFxObj, click: ''} : bmLpPick(pt.x, pt.y)) : {grab: '', click: ''};
+  v.classList.toggle('ov', !!pk.grab);
+  v.classList.toggle('pk', !pk.grab && !!pk.click);
+  hv.classList.toggle('hide', !pk.click);
+  if (pk.click) hv.style.cssText = bmLpObjCss(sl, pk.click);
 }
 $('bmLpV').addEventListener('pointermove', e => {
+  if (bmLpClick && bmLpClick.id === e.pointerId && Math.hypot(e.clientX - bmLpClick.x, e.clientY - bmLpClick.y) >= 3) bmLpClick = null;   // повёл — это не щелчок
   if (bmDrag && bmDrag.lp) { bmDragMove(e); return; }
   if (bmLpPan && bmLpPan.id === e.pointerId) {
     bmLp.ox += e.clientX - bmLpPan.x; bmLp.oy += e.clientY - bmLpPan.y;
@@ -730,8 +770,12 @@ $('bmLpV').addEventListener('pointermove', e => {
 });
 $('bmLpV').addEventListener('pointerleave', () => { bmLpHovPt = null; if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover); });
 const bmLpDragEnd = e => {
+  const c = bmLpClick && bmLpClick.id === e.pointerId && e.type === 'pointerup' ? bmLpClick.kind : '';
+  bmLpClick = null;
   if (bmDrag && bmDrag.lp) { bmDragEnd(); $('bmLpI').classList.remove('drag'); }
   if (bmLpPan && bmLpPan.id === e.pointerId) { bmLpPan = null; $('bmLpV').classList.remove('drag'); }
+  if (c) bmObjSet(c);   // щелчок без движения по другому объекту — теперь правишь его
+  if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover);
 };
 $('bmLpV').addEventListener('pointerup', bmLpDragEnd);
 $('bmLpV').addEventListener('pointercancel', bmLpDragEnd);

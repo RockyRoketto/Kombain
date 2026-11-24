@@ -375,6 +375,7 @@ $('bmToAll').onclick = () => {
 // «Один баннер»: щелчок выбирает баннер, тянуть и растягивать можно только его (нажал на другой — теперь правишь его).
 // Размер уголком — от противоположного угла. Середина картинки прилипает к середине баннера и к середине места
 // под картинку, размер — к 100%. Alt — без магнитов.
+// Фон (bmFxObj = 'elf') тянется так же, его середина прилипает к тем же точкам; картинку он не трогает и сам от неё не зависит.
 const BM_SNAP = 7;   // ширина магнита в пикселях экрана
 let bmDrag = null;
 function bmGuides(f, gx, gy) {
@@ -408,11 +409,11 @@ $('bmGrid').addEventListener('pointerdown', e => {
   if (!f || bmBusy || e.button !== 0) return;
   e.preventDefault();
   if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }   // «Крупно» смотрит этот баннер
-  // правим фон: тянем элемент, он общий для всех баннеров; сдвиг в долях сейв-зоны с учётом размера картинки
+  // правим фон: тянем элемент, он общий для всех баннеров и не зависит от картинки; сдвиг в долях сейв-зоны
   if (bmFxObj === 'elf') {
     const sl = bmSlots.find(s => s.name === f.dataset.n), r = box.getBoundingClientRect();
     if (!sl || !bmElCur()) return;
-    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc: r.width / sl.w, k: bmAdj(sl.name).k, moved: false};
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc: r.width / sl.w, moved: false};
     f.classList.add('drag');
     box.setPointerCapture(e.pointerId);
     return;
@@ -441,9 +442,11 @@ function bmDragMove(e) {
     d.moved = true;
     bmMark();
   }
-  if (d.ek) {   // размер элемента: от центра, по расстоянию до него
+  if (d.ek) {   // размер элемента: от центра, по расстоянию до него; прилипает к 100% (вписан в сейв-зону), Alt — без магнита
     const r0 = Math.hypot(d.x - d.cx, d.y - d.cy) || 1, r1 = Math.hypot(e.clientX - d.cx, e.clientY - d.cy);
-    bmFx.ek = Math.min(Math.max(d.ek * r1 / r0, 0.2), 3);
+    const one = !free && Math.abs(r1 - r0 / d.ek) < BM_SNAP;
+    bmFx.ek = one ? 1 : Math.min(Math.max(d.ek * r1 / r0, 0.2), 3);
+    d.f.classList.toggle('k100', one);
     bmFxChanged(true);
     return;
   }
@@ -456,10 +459,14 @@ function bmDragMove(e) {
     bmFxChanged(true);
     return;
   }
-  if (d.el) {
-    bmFx.ex = Math.min(Math.max(d.ex + mx / d.sc / (sl.zw * d.k), -1), 1);
-    bmFx.ey = Math.min(Math.max(d.ey + my / d.sc / (sl.zh * d.k), -1), 1);
+  const tol = free ? 0 : BM_SNAP / d.sc;   // магнит в пикселях шаблона
+  if (d.el) {   // сдвиг элемента: его середина прилипает к середине баннера и сейв-зоны, как у картинки
+    const gx = bmZx(sl) + d.ex * sl.zw + mx / d.sc, gy = bmZy(sl) + d.ey * sl.zh + my / d.sc;
+    const sx = bmSnapTo(gx, bmSnapX(sl), tol), sy = bmSnapTo(gy, bmSnapY(sl), tol);
+    bmFx.ex = Math.min(Math.max(((sx ?? gx) - bmZx(sl)) / sl.zw, -BM_EL_D), BM_EL_D);
+    bmFx.ey = Math.min(Math.max(((sy ?? gy) - bmZy(sl)) / sl.zh, -BM_EL_D), BM_EL_D);
     bmFxChanged(true);
+    bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
     return;
   }
   if (d.h) {   // растягиваем за уголок: противоположный угол стоит на месте
@@ -475,13 +482,7 @@ function bmDragMove(e) {
   }
   // сдвиг: середина картинки в пикселях шаблона, магнит к середине баннера и места
   const g = bmGeo(sl, {dx: d.t0.dx + mx / d.sc / sl.zw, dy: d.t0.dy + my / d.sc / sl.zh});
-  const near = (v, list) => {
-    if (free) return null;
-    let best = null;
-    for (const c of list) if (Math.abs(v - c) * d.sc < BM_SNAP && (best == null || Math.abs(v - c) < Math.abs(v - best))) best = c;
-    return best;
-  };
-  const sx = near(g.cx, [sl.w / 2, bmZx(sl)]), sy = near(g.cy, [sl.h / 2, bmZy(sl)]);
+  const sx = bmSnapTo(g.cx, bmSnapX(sl), tol), sy = bmSnapTo(g.cy, bmSnapY(sl), tol);
   const cx = sx ?? g.cx, cy = sy ?? g.cy;
   bmSet({dx: d.a0.dx + (cx - bmZx(sl)) / sl.zw - d.t0.dx, dy: d.a0.dy + (cy - bmZy(sl)) / sl.zh - d.t0.dy});
   bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
@@ -507,7 +508,7 @@ document.addEventListener('keydown', e => {
   if (bmFxObj === 'elf') {   // правим фон: стрелки двигают элемент, + и − меняют его размер
     if (!bmElCur()) return;
     const c = (v, a, b) => Math.min(Math.max(v, a), b);
-    const m = {ArrowLeft: {ex: c(bmFx.ex - st, -1, 1)}, ArrowRight: {ex: c(bmFx.ex + st, -1, 1)}, ArrowUp: {ey: c(bmFx.ey - st, -1, 1)}, ArrowDown: {ey: c(bmFx.ey + st, -1, 1)},
+    const m = {ArrowLeft: {ex: c(bmFx.ex - st, -BM_EL_D, BM_EL_D)}, ArrowRight: {ex: c(bmFx.ex + st, -BM_EL_D, BM_EL_D)}, ArrowUp: {ey: c(bmFx.ey - st, -BM_EL_D, BM_EL_D)}, ArrowDown: {ey: c(bmFx.ey + st, -BM_EL_D, BM_EL_D)},
       '+': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '=': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '-': {ek: c(bmFx.ek / 1.02, 0.2, 3)}}[e.key];
     if (m) { e.preventDefault(); bmMark('key'); Object.assign(bmFx, m); bmFxChanged(true); }
     return;

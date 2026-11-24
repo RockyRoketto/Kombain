@@ -2183,7 +2183,7 @@
 .bm-lpv.drag,.bm-lpv.drag .bm-lpsl i,.bm-lpv.drag .bm-lpsl u{cursor:grabbing}
 .bm-lphv,.bm-lpsl{position:absolute;box-sizing:border-box;pointer-events:none;transform-origin:50% 50%}
 .bm-lphv{border:1px solid rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
-.bm-lphv.cur{display:none}
+.bm-lpv.pk{cursor:pointer}
 .bm-lpsl{outline:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.4)}
 .bm-lpsl.el{outline-style:dashed}
 .bm-lpsl i{position:absolute;width:10px;height:10px;margin:-5px;box-sizing:border-box;border-radius:2px;background:#fff;border:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:auto}
