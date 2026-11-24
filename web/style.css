@@ -2129,9 +2129,13 @@
 /* правим фон: пунктир вокруг элемента, картинка бледнее, рамки картинки и метки скрыты */
 .bm-eb{position:absolute;display:none;pointer-events:none;box-sizing:border-box;left:calc(var(--rl) * 1%);top:calc(var(--rt) * 1%);width:calc(var(--rw) * 1%);height:calc(var(--rh) * 1%);
   border:1.5px dashed var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
-#bmGrid.o-elf .bm-t.hasel .bm-eb{display:block}
 #bmGrid.o-elf .bm-clip img.art{opacity:.35;transition:opacity .12s}
-#bmGrid.o-elf .bm-bx,#bmGrid.o-elf .bm-hm{display:none!important}
+#bmGrid.o-elf .bm-hm{display:none!important}
+/* у фона та же рамка с уголками, что у картинки: по размеру элемента и с его поворотом */
+#bmGrid.o-elf .bm-bx{display:none}
+#bmGrid.o-elf .bm-t.hasel .bm-bx{display:block}
+#bmGrid.o-elf .bm-box{left:calc(10px + (100% - 20px) * var(--gl) / 100);top:calc(10px + (100% - 20px) * var(--gt) / 100);
+  width:calc((100% - 20px) * var(--gw) / 100);height:calc((100% - 20px) * var(--gh) / 100);transform:rotate(calc(var(--gr) * 1deg));outline-style:dashed}
 #bmGrid.o-elf .bm-t{border-color:var(--line)}
 /* пока двигают ползунок: только результат */
 #bmGrid.clean .bm-bx,#bmGrid.clean .bm-zf,#bmGrid.clean .bm-g,#bmGrid.clean .bm-hm,#bmGrid.clean .bm-eb{display:none!important}

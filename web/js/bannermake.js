@@ -482,10 +482,21 @@ function bmDragMove(e) {
     d.moved = true;
     bmMark();
   }
-  if (d.ek) {   // размер элемента: от центра, по расстоянию до него; прилипает к 100% (вписан в сейв-зону), Alt — без магнита
-    const r0 = Math.hypot(d.x - d.cx, d.y - d.cy) || 1, r1 = Math.hypot(e.clientX - d.cx, e.clientY - d.cy);
-    const one = !free && Math.abs(r1 - r0 / d.ek) < BM_SNAP;
-    bmFx.ek = one ? 1 : Math.min(Math.max(d.ek * r1 / r0, 0.2), 3);
+  if (d.ek) {   // размер элемента за уголок, как у картинки: противоположный угол стоит на месте; прилипает к 100%, Alt — без магнита
+    const a = -bmFx.er * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    const dx = e.clientX - d.cx, dy = e.clientY - d.cy;
+    const px = dx * ca - dy * sa, py = dx * sa + dy * ca;   // мышь в осях элемента, от его середины
+    const ax = -d.sx * d.gw / 2, ay = -d.sy * d.gh / 2;     // стоящий угол
+    let kt = Math.max((px - ax) * d.sx / d.gw, (py - ay) * d.sy / d.gh);
+    let nk = Math.min(Math.max(d.ek * kt, 0.2), 3);
+    const one = !free && Math.abs(nk - 1) * d.gw / d.ek < BM_SNAP;
+    if (one) nk = 1;
+    kt = nk / d.ek;
+    const lx = ax + d.sx * d.gw * kt / 2, ly = ay + d.sy * d.gh * kt / 2, b = -a, cb = Math.cos(b), sb = Math.sin(b);
+    const cx = d.cx + lx * cb - ly * sb, cy = d.cy + lx * sb + ly * cb;   // новая середина на экране
+    bmFx.ek = nk;
+    bmFx.ex = Math.min(Math.max(d.ex0 + (cx - d.cx) / d.sc / sl.zw, -BM_EL_D), BM_EL_D);
+    bmFx.ey = Math.min(Math.max(d.ey0 + (cy - d.cy) / d.sc / sl.zh, -BM_EL_D), BM_EL_D);
     d.f.classList.toggle('k100', one);
     bmFxChanged(true);
     return;

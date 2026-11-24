@@ -206,6 +206,8 @@ function bmFxVars(f, sl, ad, p) {
     const r = bmElRect(sl, e);
     // --r*: сам элемент без полей эффектов — пунктир «правишь фон»
     s += `;--rl:${r.x / sl.w * 100};--rt:${r.y / sl.h * 100};--rw:${r.w / sl.w * 100};--rh:${r.h / sl.h * 100}`;
+    const g = bmElGeo(sl, e);
+    s += `;--gl:${(g.cx - g.w / 2) / sl.w * 100};--gt:${(g.cy - g.h / 2) / sl.h * 100};--gw:${g.w / sl.w * 100};--gh:${g.h / sl.h * 100};--gr:${bmFx.er}`;
     s += `;--el:${(r.x - r.w * q.px) / sl.w * 100};--et:${(r.y - r.h * q.py) / sl.h * 100};--ew:${r.w * (1 + 2 * q.px) / sl.w * 100};--eh:${r.h * (1 + 2 * q.py) / sl.h * 100}`;
     const ei = f.querySelector('img.el');
     if (ei && ei.getAttribute('src') !== q.url) ei.src = q.url;
@@ -712,7 +714,11 @@ function bmGrab(e, kind, hd, sl, f, box) {
     const g = bmElGeo(sl, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
     bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc, moved: false};
     if (hd && hd.tagName === 'U') Object.assign(bmDrag, {er: bmFx.er, cx, cy});
-    else if (hd) Object.assign(bmDrag, {ek: bmFx.ek, cx, cy});
+    else if (hd && hd.dataset.h) {   // размер за уголок, как у картинки: противоположный угол стоит на месте
+      const h = hd.dataset.h;
+      Object.assign(bmDrag, {ek: bmFx.ek, cx, cy, gw: g.w * sc, gh: g.h * sc, sx: h.includes('e') ? 1 : -1, sy: h.includes('s') ? 1 : -1, ex0: bmFx.ex, ey0: bmFx.ey, moved: true});
+      bmMark();
+    }
   } else {
     if (!bmMode) { bmNeedMode(); return false; }
     if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
