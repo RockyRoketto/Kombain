@@ -5,7 +5,8 @@ A section goes into the GitHub release text and into the program's update window
 
 ## 7.1
 
-- Сборка баннеров: фоновые элементы выровнены по размеру, а в баннере 315x250 фон по умолчанию стал заметно меньше.
+- Banner builder: you can pick the banner for the picture by clicking it even while editing the background element; the background card now has the All banners / One banner switch.
+- Banner builder: background elements are balanced in size, and the default background in the 315x250 banner is now noticeably smaller.
 
 ## 7.0
 
