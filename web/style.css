@@ -2155,13 +2155,26 @@
 .bm-lp{position:fixed;z-index:25;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(8,8,10,.72);backdrop-filter:blur(2px)}
 .bm-lpc{display:flex;flex-direction:column;width:min(1100px,100%);height:min(760px,100%);border-radius:14px;background:var(--s1);border:1px solid var(--line2);box-shadow:0 24px 60px -12px rgba(0,0,0,.7);overflow:hidden}
 .bm-lph{flex:none;display:flex;align-items:center;gap:10px;padding:5px 6px 5px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim)}
-.bm-lph b{color:var(--tx-em);font-weight:600}
+.bm-lph b{color:var(--tx-em);font-weight:600;white-space:nowrap}
 .bm-lph span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
 .bm-lph em{flex:none;font-style:normal;font-size:11.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.bm-lpv{position:relative;flex:1;min-height:0;overflow:hidden;background:repeating-conic-gradient(var(--s2) 0 25%,var(--s1) 0 50%) 0 0/16px 16px}
-.bm-lpi{position:absolute}
+.bm-lpv{position:relative;flex:1;min-height:0;overflow:hidden;background:#07070a;touch-action:none}
+.bm-lpv.zoomed{cursor:grab}
+.bm-lpv.drag{cursor:grabbing}
+/* за краем баннера темно, сам баннер обведён тонкой линией; всё, что вылезает за край, обрезает .bm-clip */
+.bm-lpi{position:absolute;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
 .bm-lpi.ease{transition:width .22s ease,height .22s ease,left .22s ease,top .22s ease}
 .bm-lpi .bm-clip{border-radius:0;box-shadow:none}
+.bm-lp .bm-zf{border-color:rgba(255,255,255,.4);transition:opacity .15s}
+.bm-lp.clean .bm-zf,.bm-lp.clean .bm-lpl{opacity:0}
+.bm-lpb{position:absolute;left:10px;right:10px;bottom:8px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;pointer-events:none}
+.bm-lpl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:6px;background:rgba(8,8,10,.55);transition:opacity .15s}
+.bm-lpt{flex:none;display:flex;gap:2px;padding:2px;border-radius:8px;background:rgba(8,8,10,.7);border:1px solid var(--line);pointer-events:auto;transition:opacity .15s}
+.bm-lp.clean .bm-lpt{opacity:.3}
+.bm-lpt button{min-width:26px;height:24px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:15px;line-height:1;cursor:pointer}
+.bm-lpt button.wide{font-size:12px}
+.bm-lpt button:hover:not(:disabled){background:var(--accbg);color:var(--acct)}
+.bm-lpt button:disabled{opacity:.35;cursor:default}
 .bm-lp.hasel .bm-clip .el{display:block}
 /* строка ползунка: подпись, ползунок, число; колонки одинаковые во всех строках, поэтому ползунки стоят ровно */
 .bm-sl{display:grid;grid-template-columns:minmax(64px,100px) minmax(48px,1fr) auto;align-items:center;column-gap:10px;min-height:28px;font-size:12.5px;color:var(--tx2)}

@@ -444,45 +444,34 @@ addEventListener('pointerup', bmCleanOff);
 addEventListener('pointercancel', bmCleanOff);
 addEventListener('blur', bmCleanOff);
 
-// ---------- «Крупно»: один баннер крупно вокруг выбранного объекта ----------
+// ---------- «Крупно»: баннер целиком по центру, колесо и кнопки приближают, мышь двигает ----------
 // Те же спрайты превью, что у плиток (bmNeed учитывает масштаб лупы), поэтому и на шаблоне 4056×496 это не сборка
 // целого баннера, а одна плитка побольше: обновляется вместе с плитками в bmPlace.
+// Кадр (масштаб и сдвиг) зависит только от баннера и размера окна, а не от спрайта эффектов: ползунки его не двигают.
 const BM_LP_KEY = 'k9000.bmlp';
+const BM_LP_MAX = 8;    // предел приближения: 800% (экранных пикселей на пиксель шаблона)
+const BM_LP_PAD = 24;   // отступ целого баннера от краёв окна
 const bmLp = {on: false, name: ''};   // name — баннер, который смотрим (щелчок по плитке); пусто — самый большой
 try { bmLp.on = localStorage.getItem(BM_LP_KEY) === '1'; } catch (e) {}
 const bmLpSlot = () => bmSlots.find(s => s.name === (bmSel || bmLp.name)) || bmRef();
-// Пока двигаешь ползунок (hold), рамка кадра стоит на месте: иначе каждый новый спрайт эффектов (поля тени, свечения)
-// и каждый шаг размера, положения, поворота пересчитывает масштаб, и картинка прыгает. Отпустил — рамка плавно
-// пересчитывается по итоговому кадру, а спрайт досчитывается в полном качестве.
-bmLp.hold = false; bmLp.down = false; bmLp.frame = null; bmLp.timer = 0;
-const bmLpFrameKey = (sl, elf) => { const v = $('bmLpV'); return [sl.name, elf, v.clientWidth, v.clientHeight].join('|'); };
-// рамка кадра по тому, что показано сейчас (спрайт и настройки на этот момент)
-function bmLpFrame() {
-  const sl = bmLpSlot();
-  if (!sl) return null;
-  const elf = bmFxObj === 'elf' && !!bmElCur(), q = (elf ? bmSpr.el : bmSpr.art) || {px: 0, py: 0};
-  const b = bmLpBox(sl, bmLpObj(sl, elf ? 'elf' : 'art'), q.px, q.py);
-  b.key = bmLpFrameKey(sl, elf);
-  return b;
-}
+// hold — пока двигаешь ползунок: спрайт грубее и быстрее, пунктир и подписи скрыты; отпустил — точный спрайт.
+// z — приближение к целому баннеру (1 — весь), ox/oy — сдвиг центра баннера от центра окна в пикселях экрана
+bmLp.hold = false; bmLp.down = false; bmLp.timer = 0; bmLp.z = 1; bmLp.ox = 0; bmLp.oy = 0; bmLp.cur = '';
 function bmLpHold() {
   if (!bmLp.on) return;
-  if (!bmLp.hold) { bmLp.frame = bmLpFrame(); bmLp.hold = true; }   // слушатель ловит событие раньше обработчика ползунка: рамка ещё прежняя
   bmLp.hold = true;
+  $('bmLp').classList.add('clean');
   clearTimeout(bmLp.timer);
   if (!bmLp.down) bmLp.timer = setTimeout(bmLpRelease, 450);
 }
 function bmLpRelease() {
   clearTimeout(bmLp.timer);
   if (bmLp.down) return;
-  if (bmSprBusy) { bmLp.timer = setTimeout(bmLpRelease, 120); return; }   // ждём последний спрайт, чтобы рамка встала сразу по нему
-  bmLp.hold = false; bmLp.frame = null;
-  const i = $('bmLpI');
-  i.classList.add('ease');
+  if (bmSprBusy) { bmLp.timer = setTimeout(bmLpRelease, 120); return; }   // ждём последний спрайт
+  bmLp.hold = false;
+  $('bmLp').classList.remove('clean');
   bmLpDraw();
   bmSprSoon();   // спрайт в полном качестве (во время движения он грубее)
-  clearTimeout(bmLp.easeT);
-  bmLp.easeT = setTimeout(() => i.classList.remove('ease'), 260);
 }
 // движение в панели и на плитках: поле ввода, ползунок, перетаскивание картинки
 document.addEventListener('input', e => { if (bmLp.on && e.target.closest && e.target.closest('#bmView')) bmLpHold(); }, true);
@@ -499,23 +488,48 @@ function bmLpObj(sl, kind) {
   if (kind === 'elf' && e) return bmElRect(sl, ad, e);
   return bmFitPx(sl, bmImg.w, bmImg.h, ad);
 }
-// кадр лупы: объект с полями под эффекты, но только в пределах баннера (что за краем, в файл не попадёт);
-// s — масштаб (пикселей экрана на пиксель шаблона), чтобы кадр влез в окно
-function bmLpBox(sl, r, px, py) {
-  const v = $('bmLpV'), W = v.clientWidth || 400, H = v.clientHeight || 240;
-  const mx = r.w * (px + 0.04), my = r.h * (py + 0.04);
-  const x0 = Math.max(0, r.x - mx), y0 = Math.max(0, r.y - my), x1 = Math.min(sl.w, r.x + r.w + mx), y1 = Math.min(sl.h, r.y + r.h + my);
-  const w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
-  return {cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: Math.min(W / w, H / h, 8)};
+const bmLpSize = () => { const v = $('bmLpV'); return {W: v.clientWidth || 400, H: v.clientHeight || 240}; };
+// масштаб «весь баннер»: влезает в окно с отступом, но не крупнее предела
+function bmLpFit(sl) {
+  const {W, H} = bmLpSize();
+  return Math.max(0.01, Math.min(Math.max(W - 2 * BM_LP_PAD, 40) / sl.w, Math.max(H - 2 * BM_LP_PAD, 40) / sl.h, BM_LP_MAX));
 }
-// сколько пикселей экрана займёт объект kind в лупе (для чёткости спрайта); 0 — лупа закрыта или смотрит не его
+const bmLpZMax = f => Math.max(1, BM_LP_MAX / f);
+// текущий масштаб: пикселей экрана на пиксель шаблона
+function bmLpScale(sl) {
+  const f = bmLpFit(sl);
+  return f * Math.min(Math.max(bmLp.z, 1), bmLpZMax(f));
+}
+// баннер не уходит из окна: крупный можно двигать, пока его край не дойдёт до отступа; целый стоит по центру
+function bmLpClamp(sl, s) {
+  const {W, H} = bmLpSize();
+  const lx = Math.max(0, sl.w * s / 2 - (W / 2 - BM_LP_PAD)), ly = Math.max(0, sl.h * s / 2 - (H / 2 - BM_LP_PAD));
+  bmLp.ox = Math.max(-lx, Math.min(lx, bmLp.ox)); bmLp.oy = Math.max(-ly, Math.min(ly, bmLp.oy));
+}
+// сколько пикселей экрана займёт объект kind в лупе (для чёткости спрайта); 0 — лупа закрыта
 function bmLpNeed(kind) {
   if (!bmLp.on || !bmImg) return 0;
-  const sl = bmLpSlot(), want = bmFxObj === 'elf' && bmElCur() ? 'el' : 'art';
+  const sl = bmLpSlot();
   if (!sl) return 0;
-  const r = bmLpObj(sl, want === 'el' ? 'elf' : 'art'), s = bmLpBox(sl, r, 0, 0).s;
-  const o = kind === want ? r : bmLpObj(sl, kind === 'el' ? 'elf' : 'art');
-  return Math.max(o.w, o.h) * s * (devicePixelRatio || 1);
+  const o = bmLpObj(sl, kind === 'el' ? 'elf' : 'art');
+  return Math.max(o.w, o.h) * bmLpScale(sl) * (devicePixelRatio || 1);
+}
+// приблизить в k раз к точке (mx, my) окна, считая от его центра
+function bmLpZoom(k, mx, my, ease) {
+  const sl = bmLpSlot();
+  if (!sl) return;
+  const z = Math.min(bmLpZMax(bmLpFit(sl)), Math.max(1, bmLp.z * k)), kk = z / bmLp.z;
+  if (kk === 1) return;
+  bmLp.ox = mx - (mx - bmLp.ox) * kk; bmLp.oy = my - (my - bmLp.oy) * kk; bmLp.z = z;
+  bmLpMoved(ease);
+}
+function bmLpWhole() { bmLp.z = 1; bmLp.ox = 0; bmLp.oy = 0; bmLpMoved(true); }
+function bmLpMoved(ease) {
+  const i = $('bmLpI');
+  i.classList.toggle('ease', !!ease);
+  if (ease) { clearTimeout(bmLp.easeT); bmLp.easeT = setTimeout(() => i.classList.remove('ease'), 260); }
+  bmLpDraw();
+  bmSprSoon();   // чёткость спрайта под новый масштаб
 }
 // Подложка окна «Крупно»: position:fixed от низа шапки .hero до низа окна, слева до панели настроек (она остаётся
 // доступной: ползунки двигаешь, а результат виден крупно). Если панель под превью (узкое окно) — подложка на верхнюю часть окна.
@@ -535,19 +549,26 @@ function bmLpDraw() {
   bmLpPlace();
   const sl = bmLpSlot();
   if (!sl) return;
+  if (bmLp.cur !== sl.name) { bmLp.cur = sl.name; bmLp.z = 1; bmLp.ox = 0; bmLp.oy = 0; }   // другой баннер — снова целиком
   $('bmLpName').textContent = sl.name;
-  const elf = bmFxObj === 'elf' && !!bmElCur(), q = (elf ? bmSpr.el : bmSpr.art) || {px: 0, py: 0};
-  const v = $('bmLpV'), W = v.clientWidth, H = v.clientHeight;
-  let b = bmLp.hold && bmLp.frame && bmLp.frame.key === bmLpFrameKey(sl, elf) ? bmLp.frame : null;
-  if (!b) { b = bmLpFrame(); bmLp.frame = bmLp.hold ? b : null; }
-  const s = b.s;
+  const {W, H} = bmLpSize(), f = bmLpFit(sl), s = bmLpScale(sl);
+  bmLpClamp(sl, s);
   const ad = bmAdj(sl.name), p = bmFit(sl, bmImg.w, bmImg.h, ad);
   const bg = lp.querySelector('img.bg'), src = `/bannerbg/${sl.name}.png`;
   if (bg.getAttribute('src') !== src) bg.src = src;
-  $('bmLpI').style.cssText = `width:${sl.w * s}px;height:${sl.h * s}px;left:${W / 2 - b.cx * s}px;top:${H / 2 - b.cy * s}px` + bmFxVars(lp, sl, ad, p);
+  $('bmLpI').style.cssText = `width:${sl.w * s}px;height:${sl.h * s}px;left:${W / 2 + bmLp.ox - sl.w * s / 2}px;top:${H / 2 + bmLp.oy - sl.h * s / 2}px` + bmFxVars(lp, sl, ad, p);
+  // сейв-зона пунктиром, как на плитках
+  lp.querySelector('.bm-zf').style.cssText = `left:${sl.x / sl.w * 100}%;top:${sl.y / sl.h * 100}%;width:${sl.zw / sl.w * 100}%;height:${sl.zh / sl.h * 100}%`;
+  $('bmLpL').textContent = `${sl.w}×${sl.h}, ${Math.round(s * 100)}%`;
+  const z = Math.min(Math.max(bmLp.z, 1), bmLpZMax(f));
+  $('bmLpO').disabled = $('bmLpW').disabled = z <= 1.0001;
+  $('bmLpIn').disabled = z >= bmLpZMax(f) - 0.0001;
+  $('bmLpV').classList.toggle('zoomed', z > 1.0001);
 }
 function bmLpSet(on) {
-  bmLp.on = on; bmLp.hold = false; bmLp.down = false; bmLp.frame = null;
+  bmLp.on = on; bmLp.hold = false; bmLp.down = false; clearTimeout(bmLp.timer);
+  bmLp.z = 1; bmLp.ox = 0; bmLp.oy = 0;   // открываем всегда на целом баннере
+  $('bmLp').classList.remove('clean');
   try { localStorage.setItem(BM_LP_KEY, on ? '1' : '0'); } catch (e) {}
   bmLpDraw();
   if (on) bmSprSoon();   // лупе может понадобиться спрайт почётче
@@ -555,6 +576,35 @@ function bmLpSet(on) {
 $('bmLpBtn').onclick = () => bmLpSet(!bmLp.on);
 $('bmLpX').onclick = () => bmLpSet(false);
 $('bmLp').addEventListener('mousedown', e => { if (e.target === $('bmLp')) bmLpSet(false); });
+$('bmLpIn').onclick = () => bmLpZoom(1.5, 0, 0, true);
+$('bmLpO').onclick = () => bmLpZoom(1 / 1.5, 0, 0, true);
+$('bmLpW').onclick = bmLpWhole;
+// колесо приближает к курсору, перетаскивание двигает приблизившуюся картинку
+$('bmLpV').addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = $('bmLpV').getBoundingClientRect();
+  bmLpZoom(Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * 0.0022), e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2, false);
+}, {passive: false});
+let bmLpDrag = null;
+$('bmLpV').addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.target.closest('.bm-lpt') || bmLp.z <= 1.0001) return;
+  bmLpDrag = {id: e.pointerId, x: e.clientX, y: e.clientY};
+  $('bmLpV').setPointerCapture(e.pointerId);
+  $('bmLpV').classList.add('drag');
+  $('bmLpI').classList.remove('ease');
+});
+$('bmLpV').addEventListener('pointermove', e => {
+  if (!bmLpDrag || bmLpDrag.id !== e.pointerId) return;
+  bmLp.ox += e.clientX - bmLpDrag.x; bmLp.oy += e.clientY - bmLpDrag.y;
+  bmLpDrag.x = e.clientX; bmLpDrag.y = e.clientY;
+  bmLpDraw();
+});
+const bmLpDragEnd = e => {
+  if (!bmLpDrag || bmLpDrag.id !== e.pointerId) return;
+  bmLpDrag = null; $('bmLpV').classList.remove('drag');
+};
+$('bmLpV').addEventListener('pointerup', bmLpDragEnd);
+$('bmLpV').addEventListener('pointercancel', bmLpDragEnd);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
 addEventListener('resize', () => { if (bmLp.on) { bmLpDraw(); bmSprSoon(); } });
 // список элементов: кнопка с текущим и выпадающая плашка с плитками («без элемента» первым).
