@@ -9,6 +9,18 @@ function slPlace(r) {
   const a = +r.min || 0, b = r.max === '' ? 100 : +r.max;
   r.style.setProperty('--sl-p', b > a ? Math.min(Math.max((+r.dataset.origin - a) / (b - a), 0), 1) : 0);
 }
+// Заливка шкалы (data-fill): "left" — от начала до шарика, "mid" — от риски (нуля) до шарика в сторону движения.
+// Края заливки в долях шкалы кладём в --sl-lo и --sl-hi, рисует их style.css. После программной смены value звать slFill.
+function slFill(r) {
+  const f = r.dataset.fill;
+  if (!f) return;
+  const a = +r.min || 0, b = r.max === '' ? 100 : +r.max, w = b > a ? b - a : 1;
+  const v = Math.min(Math.max((+r.value - a) / w, 0), 1);
+  const o = f === 'mid' ? Math.min(Math.max((+r.dataset.origin - a) / w, 0), 1) : 0;
+  r.style.setProperty('--sl-lo', Math.min(o, v));
+  r.style.setProperty('--sl-hi', Math.max(o, v));
+}
+addEventListener('input', e => { if (e.target.matches && e.target.matches('input[type=range][data-fill]')) slFill(e.target); });
 // Если шарик за одно движение ушёл и вернулся на риску, браузер не пошлёт change: значение то же, что в начале.
 // Посылаем сами: на нём держится отмена одним шагом в mtRow. Второй change от браузера никому не мешает.
 function slEnd() {

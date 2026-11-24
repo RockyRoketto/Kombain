@@ -301,7 +301,7 @@ function bmEditSync() {
   $('bmSelSub').textContent = t(bmMode === 'one' && bmSel ? 'bm.oneSel' : 'bm.tOneSub');
   $('bmModeHint').classList.toggle('hide', !on || !!a);
   $('bmModeHint').textContent = t(bmMode === 'one' ? 'bm.pickOne' : 'bm.pickMode');
-  $('bmK').value = kv;
+  $('bmK').value = kv; slFill($('bmK'));
   if (document.activeElement !== $('bmKn')) $('bmKn').value = kv;
   $('bmToAll').classList.toggle('hide', !(on && bmMode === 'one' && bmSel && !bmIsId(bmOne[bmSel])));
   $('bmK').disabled = $('bmKn').disabled = $('bmCenter').disabled = $('bmReset').disabled = !on || !a;

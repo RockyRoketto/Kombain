@@ -258,7 +258,7 @@ const BM_ROWS = [
   ['bmElPos', 'ek', 'bm.fxSize', 20, 300, 1, 150, '%', 100],
   ['bmElPos', 'ex', 'bm.fxX', -100, 100, 1, 0, '%', 100],
   ['bmElPos', 'ey', 'bm.fxY', -100, 100, 1, 0, '%', 100],
-  ['bmElPos', 'er', 'bm.fxRot', 0, 360, 1, 0, '°', 1],
+  ['bmElPos', 'er', 'bm.fxRot', -180, 180, 1, 0, '°', 1, true],   // ноль в центре; хранится 0…360, как раньше
   ['bmShC', 'sh.c', 'bm.fxColor'],   // цвет — в строке переключателя
   ['bmShBox', 'sh.a', 'bm.fxOp', 0, 100, 1, BM_SH0.a, '%', 1],
   ['bmShBox', 'sh.d', 'bm.fxDist', 0, 80, 1, BM_SH0.d, 'px', 1],
@@ -299,11 +299,11 @@ function bmFxPanel() {
     const tip = unit === 'px' ? ` title="${esc(t('bm.fxPx'))}" data-i18n-title="bm.fxPx"` : '';
     // одна строка: подпись, ползунок, число с единицей
     el.insertAdjacentHTML('beforeend', `<div class="bm-sl"${tip}><span data-i18n="${key}">${t(key)}</span>` +
-      `<input type="range" class="vol" data-p="${p}" min="${min}" max="${max}" step="${step}" data-origin="${origin}" data-snap="6" data-i18n-aria="${key}" aria-label="${esc(t(key))}">` +
+      `<input type="range" class="vol" data-p="${p}" min="${min}" max="${max}" step="${step}" data-origin="${origin}" data-fill="${min < 0 ? 'mid' : 'left'}" data-snap="6" data-i18n-aria="${key}" aria-label="${esc(t(key))}">` +
       `<label class="bm-kn"><input type="number" class="bm-num" data-p="${p}" min="${min}" max="${max}" step="${step}" data-i18n-aria="${key}" aria-label="${esc(t(key))}"><i>${unit}</i></label></div>`);
   }
   if (!$('bmElRs')) $('bmElPos').insertAdjacentHTML('beforeend', `<button class="btn sm bm-elrs" id="bmElRs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span data-i18n="bm.reset">${t('bm.reset')}</span></button>`);
-  bmFxAll('input[type=range][data-origin]').forEach(slPlace);
+  bmFxAll('input[type=range][data-origin]').forEach(r => { slPlace(r); slFill(r); });
 }
 const bmRow = p => BM_ROWS.find(r => r[1] === p);
 // значения в поля панели
@@ -327,8 +327,10 @@ function bmFxSync() {
   bmFxAll('[data-p]').forEach(el => {
     const p = el.dataset.p, v = bmFxGet(p);
     if (el.matches('.cp-sw')) { if (!(cp && cp.el === el) && el.value !== v) el.value = v; return; }
-    const m = bmRow(p)[8], n = Math.round(v * m * 100) / 100;
-    if (el.type === 'range') el.value = n;
+    const row = bmRow(p), m = row[8];
+    let n = Math.round(v * m * 100) / 100;
+    if (row[9] && n > 180) n -= 360;   // поворот: 270° показываем как −90°
+    if (el.type === 'range') { el.value = n; slFill(el); }
     else if (document.activeElement !== el) el.value = n;
   });
 }
@@ -351,7 +353,9 @@ function bmFxInput(el) {
   if (el.value === '' || !Number.isFinite(v)) return;
   if (!bmFxMarkOn) { bmMark(); bmFxMarkOn = true; }
   const [o, k] = bmFxRef(p);
-  o[k] = Math.min(Math.max(v, r[3]), r[4]) / r[8];
+  let n = Math.min(Math.max(v, r[3]), r[4]);
+  if (r[9] && n < 0) n += 360;
+  o[k] = n / r[8];
   bmFxChanged(!p.includes('.') && p !== 'bl');
 }
 bmFxOnCards('input', e => { if (e.target.matches('input[data-p]')) bmFxInput(e.target); });
