@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 7.0
+
+- Utilities: new tool «Banner builder». Drop a picture, pick month, day and match, and it is placed on all 14 banner templates inside each safe zone.
+- Banner builder: background element (24 shapes) under the picture with rotation, size and offset, plus shadow, glow and blur with a colour from the palette.
+- Banner builder: edit with the mouse right on the banners and in the «Zoom» window: «Picture / Background» switch, resize by the corners, snapping to the centre, Ctrl+Z undo, zoom and pan of the canvas.
+- Banner builder: background removal for the picture, «No frames» button, save path shown as one line with folder colours.
+
 ## 6.12
 
 - Generator: the helper no longer mixes up how many objects there are ("3D racket, ball and cup" means one of each); the Sport banner style has no extra shapes in the background.
