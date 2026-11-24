@@ -302,7 +302,7 @@ function bmAdj(name) {
 const bmCur = () => bmMode === 'all' ? bmAll : bmMode === 'one' && bmSel ? (bmOne[bmSel] = bmOne[bmSel] || {...BM_ID}) : null;
 // подсветить выбор режима, если пытаются править без него
 function bmNeedMode() {
-  const s = $('bmTarget');
+  const s = $(bmFxObj === 'elf' ? 'bmTarget2' : 'bmTarget');
   s.classList.remove('need'); void s.offsetWidth; s.classList.add('need');
 }
 function bmSet(ch) {
@@ -389,9 +389,11 @@ document.addEventListener('keydown', e => {
 // панель «Положение»: что правим и значения правки
 function bmEditSync() {
   const a = bmCur(), on = !!bmImg && !bmBusy, kv = Math.round((a || BM_ID).k * 100);
-  document.querySelectorAll('#bmTarget .segb').forEach(b => { b.classList.toggle('on', b.dataset.m === bmMode); b.disabled = !on; });
-  $('bmSelName').textContent = bmMode === 'one' && bmSel ? bmSel : t('bm.tOne');
-  $('bmSelSub').textContent = t(bmMode === 'one' && bmSel ? 'bm.oneSel' : 'bm.tOneSub');
+  document.querySelectorAll('.bm-seg .segb').forEach(b => { b.classList.toggle('on', b.dataset.m === bmMode); b.disabled = !on; });
+  for (const n of ['', '2']) {   // второй переключатель стоит в карточке фона
+    $('bmSelName' + n).textContent = bmMode === 'one' && bmSel ? bmSel : t('bm.tOne');
+    $('bmSelSub' + n).textContent = t(bmMode === 'one' && bmSel ? 'bm.oneSel' : 'bm.tOneSub');
+  }
   $('bmModeHint').classList.toggle('hide', !on || !!a);
   $('bmModeHint').textContent = t(bmMode === 'one' ? 'bm.pickOne' : 'bm.pickMode');
   $('bmK').value = kv; slFill($('bmK'));
@@ -424,7 +426,7 @@ function bmPlace() {
   });
   bmLpDraw();   // «Крупно» (bannerfx.js)
 }
-$('bmTarget').addEventListener('click', e => {
+for (const id of ['bmTarget', 'bmTarget2']) $(id).addEventListener('click', e => {
   const b = e.target.closest('.segb'); if (!b || b.disabled) return;
   bmMode = b.dataset.m;
   if (bmMode === 'all') bmSel = '';
@@ -533,7 +535,7 @@ $('bmGrid').addEventListener('pointerdown', e => {
   const sl = bmSlots.find(s => s.name === f.dataset.n);
   if (!sl) return;
   if (bmLp.name !== sl.name) { bmLp.name = sl.name; bmLpDraw(); if (bmLp.on) bmSprSoon(); }   // «Крупно» смотрит этот баннер
-  if (bmFxObj === 'art' && bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
+  if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }   // и при правке фона: баннер для картинки выбирается из любого места
   const hd = e.target.closest('.bm-box i'), pk = hd ? {grab: bmFxObj, click: ''} : bmTilePick(f, e.clientX, e.clientY);
   if (pk.click) bmTileClick = {id: e.pointerId, x: e.clientX, y: e.clientY, kind: pk.click};
   if (!pk.grab && !pk.click && !hd) bmShowSet(false);   // нажал на пустое — выбор снят
@@ -656,8 +658,8 @@ $('bmGrid').addEventListener('click', e => {
   if (!f) { bmShowSet(false); if (bmSel) { bmSel = ''; bmEditSync(); } return; }
   if (e.target.closest('.bm-img') || bmBusy) return;   // по самому баннеру выбирает pointerdown
   if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }
-  if (bmFxObj === 'elf') return;   // фон общий для всех баннеров, выбирать нечего
-  if (!bmMode) { bmNeedMode(); return; }
+  // фон общий для всех баннеров, но баннер для картинки выбирается и при правке фона
+  if (!bmMode) { if (bmFxObj === 'elf') { bmMode = 'one'; bmSel = f.dataset.n; bmEditSync(); } else bmNeedMode(); return; }
   if (bmMode === 'one' && bmSel !== f.dataset.n) { bmSel = f.dataset.n; bmEditSync(); }
 });
 // стрелки двигают (с Shift крупнее), + и − меняют размер, Esc снимает выбор баннера
