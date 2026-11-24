@@ -2178,14 +2178,7 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 
 /* «Сборка баннеров», фоновый элемент, тень, свечение (bannerfx.js) */
 #bmLook.off,#bmFxCard.off{opacity:.5;pointer-events:none}
-.bm-shp{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:5px}
-.bm-shp button{aspect-ratio:1;min-width:0;padding:4px;border-radius:8px;border:1px solid var(--line);cursor:pointer;display:grid;place-items:center;
   background:repeating-conic-gradient(var(--s3) 0 25%,var(--s2) 0 50%) 0 0/10px 10px;transition:border-color .12s,box-shadow .12s}
-.bm-shp button:hover{border-color:var(--line2)}
-.bm-shp button.on{border-color:var(--acc);box-shadow:0 0 0 2px rgba(var(--acc-rgb),.22)}
-.bm-shp button img{max-width:100%;max-height:100%;display:block;pointer-events:none}
-.bm-shp button.none{background:var(--s2);color:var(--dim)}
-.bm-shp button.none svg{width:20px;height:20px}
 .bm-fxb{padding:2px 0 6px}
 #bmElPos{margin-top:6px}
 .bm-fxb .bm-elrs{display:flex;width:fit-content;align-items:center;gap:6px;margin:4px 0 0 auto;padding:4px 10px;font-size:12px;border-radius:9px}
@@ -2293,3 +2286,31 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-ebtn .bm-toall{grid-column:1/-1}
 #bmGrid.panr,#bmGrid.panr .bm-img,#bmGrid.panr .bm-box i{cursor:grab!important}
 #bmGrid.panning,#bmGrid.panning .bm-img,#bmGrid.panning .bm-box i{cursor:grabbing!important}
+/* выбор фонового элемента: кнопка и выпадающая плашка с плитками (bannerfx.js), плашка и увеличенная плитка fixed */
+.bm-pk{display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;min-width:0;padding:5px 10px 5px 5px;border-radius:var(--r2);background:var(--s2);border:1px solid var(--line);color:var(--tx);font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color .12s}
+.bm-pk:hover,.bm-pk[aria-expanded=true]{border-color:var(--line2)}
+.bm-pk[aria-expanded=true]{border-color:var(--acc);box-shadow:0 0 0 2px rgba(var(--acc-rgb),.18)}
+.bm-pk span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.bm-pk .bm-pkc{width:14px;height:14px;flex:none;color:var(--dim)}
+.bm-pkt{flex:none;width:34px;height:34px;box-sizing:border-box;padding:3px;border-radius:7px;display:grid;place-items:center;font-style:normal;color:var(--dim);
+  background:repeating-conic-gradient(var(--s3) 0 25%,var(--s2) 0 50%) 0 0/10px 10px}
+.bm-pkt img{max-width:100%;max-height:100%;display:block}
+.bm-pkt svg{width:20px;height:20px}
+.bm-pop{position:fixed;z-index:1002;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;background:var(--s2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 14px 36px var(--sh)}
+.bm-pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;padding:8px}
+.bm-pg button{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0;padding:4px;border-radius:9px;border:1px solid var(--line);background:var(--s1);color:var(--tx2);font:inherit;font-size:11.5px;line-height:1.2;text-align:center;cursor:pointer}
+.bm-pg button:hover,.bm-pg button:focus-visible{border-color:var(--line2);color:var(--tx);outline:none}
+.bm-pg button.on{border-color:var(--acc);box-shadow:0 0 0 2px rgba(var(--acc-rgb),.22);color:var(--acct2)}
+.bm-pg .bm-pt{display:grid;place-items:center;aspect-ratio:1;border-radius:6px;color:var(--dim);overflow:hidden;
+  background:repeating-conic-gradient(var(--s3) 0 25%,var(--s2) 0 50%) 0 0/10px 10px}
+.bm-pg .bm-pt img{max-width:92%;max-height:92%;display:block;pointer-events:none}
+.bm-pg .bm-pt svg{width:24px;height:24px}
+.bm-pg .bm-pn{display:block;min-height:2.4em;overflow-wrap:anywhere;hyphens:auto}
+.bm-pg button.none{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;text-align:left}
+.bm-pg button.none .bm-pt{width:30px;aspect-ratio:1;flex:none}
+.bm-pg button.none .bm-pn{min-height:0;font-size:12.5px}
+.bm-zm{position:fixed;z-index:1003;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:14px;background:var(--s2);border:1px solid var(--acc);box-shadow:0 18px 44px var(--sh);pointer-events:none}
+.bm-zm i{flex:1;min-height:0;border-radius:8px;display:grid;place-items:center;overflow:hidden;
+  background:repeating-conic-gradient(var(--s3) 0 25%,var(--s1) 0 50%) 0 0/12px 12px}
+.bm-zm img{max-width:96%;max-height:96%;display:block}
+.bm-zm b{flex:none;font-size:12.5px;font-weight:600;text-align:center;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

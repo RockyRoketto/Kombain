@@ -1,6 +1,6 @@
 // ---------- «Сборка баннеров»: фоновый элемент, тень, свечение и готовые баннеры на холсте (bannermake.js) ----------
 // Элемент — PNG из web/bannershapes, один на все баннеры: лежит под картинкой, вписан в сейв-зону как она,
-// дальше свой размер ek и сдвиг ex, ey (в долях зоны). Двигается и растёт вместе с картинкой, за зону выходить может.
+// дальше свой размер ek, сдвиг ex, ey (в долях зоны) и поворот er (градусы, вокруг центра фигуры). Двигается и растёт вместе с картинкой, за зону выходить может.
 // Эффекты считаются один раз на объект в «спрайт»: объект с полями под тень и свечение. На всех баннерах спрайт
 // просто масштабируется: пиксели эффектов заданы как на самом большом баннере и растут вместе с объектом.
 // Превью берёт спрайт под размер на экране (ступенями 256, 512, 1024…), сборка — спрайт полного размера (кэш по настройкам).
@@ -8,7 +8,7 @@
 const BM_FX_KEY = 'k9000.bmfx';
 const BM_SH0 = {on: false, c: '#000000', a: 55, d: 10, ang: 90, b: 18};
 const BM_GL0 = {on: false, c: '#ffe2a8', r: 24, s: 60};
-const bmFxDef = () => ({el: '', ek: 1.5, ex: 0, ey: 0, art: {sh: {...BM_SH0}, gl: {...BM_GL0}}, elf: {sh: {...BM_SH0}, gl: {...BM_GL0}, bl: 0}});
+const bmFxDef = () => ({el: '', ek: 1.5, ex: 0, ey: 0, er: 0, art: {sh: {...BM_SH0}, gl: {...BM_GL0}}, elf: {sh: {...BM_SH0}, gl: {...BM_GL0}, bl: 0}});
 let bmFx = bmFxDef();
 let bmFxObj = 'art';        // чьи эффекты в панели: art — картинка, elf — элемент
 let bmShapes = [];          // имена элементов из /api/bmk-list
@@ -24,7 +24,7 @@ function bmFxValid(o) {
   const sh = (s = {}) => ({on: !!s.on, c: cpValid(s.c, BM_SH0.c), a: bmNum(s.a, 0, 100, BM_SH0.a), d: bmNum(s.d, 0, 80, BM_SH0.d), ang: bmNum(s.ang, 0, 360, BM_SH0.ang), b: bmNum(s.b, 0, 80, BM_SH0.b)});
   const gl = (s = {}) => ({on: !!s.on, c: cpValid(s.c, BM_GL0.c), r: bmNum(s.r, 1, 120, BM_GL0.r), s: bmNum(s.s, 0, 100, BM_GL0.s)});
   const art = o.art || {}, elf = o.elf || {};
-  return {el: typeof o.el === 'string' ? o.el : '', ek: bmNum(o.ek, 0.2, 3, 1.5), ex: bmNum(o.ex, -1, 1, 0), ey: bmNum(o.ey, -1, 1, 0),
+  return {el: typeof o.el === 'string' ? o.el : '', ek: bmNum(o.ek, 0.2, 3, 1.5), ex: bmNum(o.ex, -1, 1, 0), ey: bmNum(o.ey, -1, 1, 0), er: bmNum(o.er, 0, 360, 0),
     art: {sh: sh(art.sh), gl: gl(art.gl)}, elf: {sh: sh(elf.sh), gl: gl(elf.gl), bl: bmNum(elf.bl, 0, 60, 0)}};
 }
 try { bmFx = bmFxValid(JSON.parse(localStorage.getItem(BM_FX_KEY) || 'null')); } catch (e) {}
@@ -39,9 +39,15 @@ const bmRgba = (hex, a) => { const c = cpParse(hex) || {r: 0, g: 0, b: 0, a: 1};
 const bmRef = () => bmSlots.reduce((m, s) => !m || s.w * s.h > m.w * m.h ? s : m, null);
 const bmZs = (sl, w, h) => Math.min(sl.zw / w, sl.zh / h);
 // элемент в баннере sl при правке картинки ad: в пикселях шаблона, без округления
+// Повёрнутая фигура описана рамкой по её краям (bmRotBox): центр рамки — центр фигуры, поворот идёт вокруг него.
+function bmRotBox(w, h, deg) {
+  const a = (deg || 0) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  return {w: w * c + h * s, h: w * s + h * c};
+}
+const bmRotOf = kind => kind === 'el' ? bmFx.er : 0;
 function bmElRect(sl, ad, e) {
   const z = bmZs(sl, e.w, e.h) * ad.k * bmFx.ek, g = bmGeo(sl, ad);
-  const w = e.w * z, h = e.h * z;
+  const b = bmRotBox(e.w * z, e.h * z, bmFx.er), w = b.w, h = b.h;
   return {x: g.cx + bmFx.ex * sl.zw * ad.k - w / 2, y: g.cy + bmFx.ey * sl.zh * ad.k - h / 2, w, h};
 }
 const bmElCur = () => bmFx.el && bmEls[bmFx.el] && bmEls[bmFx.el].cv ? bmEls[bmFx.el] : null;
@@ -69,35 +75,43 @@ function bmUnit(src, f) {
 // ---------- спрайт: объект со своими эффектами ----------
 // src — холст источника w×h, масштаб f, u — см. bmUnit. Тень и свечение — тенью холста без самого объекта
 // (объект рисуется за краем, тень сдвигается обратно), сверху сам объект; блюр элемента — на всё вместе.
-function bmSprite(src, fx, f, u) {
+// rot — поворот объекта в градусах: тень и свечение считаются уже у повёрнутого (направление тени от поворота не зависит)
+function bmSprite(src, fx, f, u, rot = 0) {
   const W = Math.max(1, Math.round(src.w * f)), H = Math.max(1, Math.round(src.h * f));
+  const bb = bmRotBox(W, H, rot), BW = Math.max(1, Math.round(bb.w)), BH = Math.max(1, Math.round(bb.h));
   const sh = fx.sh.on && fx.sh.a > 0 ? fx.sh : null, gl = fx.gl.on && fx.gl.s > 0 ? fx.gl : null, bl = (fx.bl || 0) * u;
   let pad = 0;
   if (sh) pad = Math.max(pad, sh.d * u + sh.b * u * 1.6);
   if (gl) pad = Math.max(pad, gl.r * u * 1.6);
   pad = Math.ceil(pad + bl * 3 + 2);
   const c = document.createElement('canvas');
-  c.width = W + 2 * pad; c.height = H + 2 * pad;
+  c.width = BW + 2 * pad; c.height = BH + 2 * pad;
   const g = c.getContext('2d');
   g.imageSmoothingQuality = 'high';
-  const far = c.width + c.height + 64;
+  const far = c.width + c.height + 64, cx = pad + BW / 2, cy = pad + BH / 2, ang = rot * Math.PI / 180;
+  const put = ox => { g.save(); g.translate(cx + ox, cy); g.rotate(ang); g.drawImage(src.cv, -W / 2, -H / 2, W, H); g.restore(); };
+  // сдвиг и размытие тени заданы в пикселях холста и поворотом не меняются
   const only = (col, blur, dx, dy) => {
     g.save(); g.shadowColor = col; g.shadowBlur = blur; g.shadowOffsetX = dx + far; g.shadowOffsetY = dy;
-    g.drawImage(src.cv, pad - far, pad, W, H); g.restore();
+    put(-far); g.restore();
   };
   if (sh) { const r = sh.ang * Math.PI / 180; only(bmRgba(sh.c, sh.a / 100), sh.b * u, Math.cos(r) * sh.d * u, Math.sin(r) * sh.d * u); }
   if (gl) { const col = bmRgba(gl.c, gl.s / 100); only(col, gl.r * u, 0, 0); only(col, gl.r * u / 3, 0, 0); }
-  g.drawImage(src.cv, pad, pad, W, H);
+  put(0);
   let out = c;
   if (bl > 0.05) {
     out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
     const o = out.getContext('2d'); o.filter = `blur(${bl.toFixed(2)}px)`; o.drawImage(c, 0, 0);
   }
-  return {cv: out, px: pad / W, py: pad / H};
+  return {cv: out, px: pad / BW, py: pad / BH};
 }
 const bmFxOf = kind => kind === 'art' ? bmFx.art : bmFx.elf;
 // что меняет вид спрайта, кроме масштаба: источник и эффекты
-const bmSprBase = (kind, src) => JSON.stringify([kind, src.url, bmFxOf(kind)]);
+const bmSprBase = (kind, src) => JSON.stringify([kind, src.url, bmFxOf(kind), bmRotOf(kind)]);
+// спрайт нужен, если есть эффекты или фигура повёрнута
+const bmSprNeeded = kind => bmFxOn(bmFxOf(kind)) || bmRotOf(kind) % 360 !== 0;
+// длинная сторона источника после поворота: от неё считается масштаб спрайта
+const bmSrcMax = (kind, src) => { const b = bmRotBox(src.w, src.h, bmRotOf(kind)); return Math.max(b.w, b.h); };
 const BM_SPR_MAX = 4096;   // длинная сторона спрайта: больше холст не нужен и тяжёл
 
 // спрайт превью: под размер на экране ступенями, не больше полного; без эффектов — сам источник. true — сменился
@@ -106,7 +120,7 @@ async function bmSprPrev(kind) {
   const drop = () => { if (old && !old.src) URL.revokeObjectURL(old.url); };
   if (!n) { bmSpr[kind] = null; drop(); return !!old; }
   const fx = bmFxOf(kind);
-  if (!bmFxOn(fx)) {
+  if (!bmSprNeeded(kind)) {
     if (old && old.src && old.url === n.src.url) return false;
     bmSpr[kind] = {url: n.src.url, px: 0, py: 0, src: true};
     drop();
@@ -115,10 +129,10 @@ async function bmSprPrev(kind) {
   let T = 256;
   while (T < n.scr && T < BM_SPR_MAX) T *= 2;
   T = Math.min(T, Math.max(64, Math.ceil(n.full)), BM_SPR_MAX);
-  const f = T / Math.max(n.src.w, n.src.h), base = bmSprBase(kind, n.src);
+  const f = T / bmSrcMax(kind, n.src), base = bmSprBase(kind, n.src);
   // те же настройки и масштаб тот же или крупнее (но не больше чем вчетверо) — пересчитывать незачем
   if (old && !old.src && old.base === base && old.f >= f * 0.999 && old.f <= f * 4) return false;
-  const s = bmSprite(n.src, fx, f, bmUnit(n.src, f));
+  const s = bmSprite(n.src, fx, f, bmUnit(n.src, f), bmRotOf(kind));
   // WebP, а не PNG: спрайт 1024 px PNG кодируется около секунды, WebP — в разы быстрее, и ползунок отзывается вживую.
   // Это только превью: сборка берёт спрайт полного размера прямо с холста (bmSprBig), без кодирования
   const blob = await new Promise(res => s.cv.toBlob(res, 'image/webp', 0.95));
@@ -155,10 +169,10 @@ function bmSprBig(kind) {
   const n = bmNeed(kind);
   if (!n) return null;
   const fx = bmFxOf(kind);
-  if (!bmFxOn(fx)) return {cv: n.src.cv, px: 0, py: 0};
-  const f = Math.min(n.full, BM_SPR_MAX) / Math.max(n.src.w, n.src.h), key = bmSprBase(kind, n.src) + f.toFixed(6);
+  if (!bmSprNeeded(kind)) return {cv: n.src.cv, px: 0, py: 0};
+  const f = Math.min(n.full, BM_SPR_MAX) / bmSrcMax(kind, n.src), key = bmSprBase(kind, n.src) + f.toFixed(6);
   if (bmSprFull[kind] && bmSprFull[kind].key === key) return bmSprFull[kind];
-  const s = bmSprite(n.src, fx, f, bmUnit(n.src, f));
+  const s = bmSprite(n.src, fx, f, bmUnit(n.src, f), bmRotOf(kind));
   return (bmSprFull[kind] = {key, cv: s.cv, px: s.px, py: s.py});
 }
 
@@ -244,6 +258,7 @@ const BM_ROWS = [
   ['bmElPos', 'ek', 'bm.fxSize', 20, 300, 1, 150, '%', 100],
   ['bmElPos', 'ex', 'bm.fxX', -100, 100, 1, 0, '%', 100],
   ['bmElPos', 'ey', 'bm.fxY', -100, 100, 1, 0, '%', 100],
+  ['bmElPos', 'er', 'bm.fxRot', 0, 360, 1, 0, '°', 1],
   ['bmShC', 'sh.c', 'bm.fxColor'],   // цвет — в строке переключателя
   ['bmShBox', 'sh.a', 'bm.fxOp', 0, 100, 1, BM_SH0.a, '%', 1],
   ['bmShBox', 'sh.d', 'bm.fxDist', 0, 80, 1, BM_SH0.d, 'px', 1],
@@ -295,7 +310,8 @@ const bmRow = p => BM_ROWS.find(r => r[1] === p);
 function bmFxSync() {
   const busy = bmBusy, e = !!bmFx.el, elf = bmFxObj === 'elf';
   BM_FX_CARDS.forEach(id => $(id).classList.toggle('off', busy));
-  $('bmShapes').querySelectorAll('button').forEach(b => b.classList.toggle('on', (b.dataset.n || '') === bmFx.el));
+  $('bmShapes').querySelectorAll('button').forEach(b => { const on = (b.dataset.n || '') === bmFx.el; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  bmPkSync();
   $('bmElPos').classList.toggle('hide', !e);
   bmObjSync();
   $('bmFxHint').classList.toggle('hide', !(elf && !e));
@@ -347,9 +363,7 @@ bmFxOnCards('dblclick', e => {   // двойной щелчок по ползу�
   bmMark(); r.value = r.dataset.origin; bmFxInput(r); bmFxMarkOn = false;
 });
 bmFxOnCards('click', e => {
-  if (e.target.closest('#bmElRs')) { bmMark(); Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0}); bmFxChanged(true); return; }
-  const s = e.target.closest('#bmShapes button');
-  if (s) { bmElPick(s.dataset.n || ''); return; }
+  if (e.target.closest('#bmElRs')) { bmMark(); Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0, er: 0}); bmFxChanged(true); return; }
 });
 ['Sh', 'Gl'].forEach(w => $(`bm${w}On`).addEventListener('change', e => {
   bmMark();
@@ -372,7 +386,7 @@ function bmObjDirty(kind) {
     return !bmSame(bmFx.art, {sh: BM_SH0, gl: BM_GL0});
   }
   const d = bmFxDef();
-  return bmFx.ek !== d.ek || bmFx.ex !== d.ex || bmFx.ey !== d.ey || !bmSame(bmFx.elf, d.elf);
+  return bmFx.ek !== d.ek || bmFx.ex !== d.ex || bmFx.ey !== d.ey || bmFx.er !== d.er || !bmSame(bmFx.elf, d.elf);
 }
 function bmObjSync() {
   const elf = bmFxObj === 'elf', e = bmElCur();
@@ -409,7 +423,7 @@ $('bmRsAll').onclick = () => {
     bmFx.art = {sh: {...BM_SH0}, gl: {...BM_GL0}};
   } else {
     const d = bmFxDef();
-    Object.assign(bmFx, {ek: d.ek, ex: d.ex, ey: d.ey, elf: d.elf});
+    Object.assign(bmFx, {ek: d.ek, ex: d.ex, ey: d.ey, er: d.er, elf: d.elf});
   }
   bmEditSync();
   bmFxChanged(true);
@@ -493,6 +507,66 @@ $('bmLpX').onclick = () => bmLpSet(false);
 $('bmLp').addEventListener('mousedown', e => { if (e.target === $('bmLp')) bmLpSet(false); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
 addEventListener('resize', () => { if (bmLp.on) { bmLpDraw(); bmSprSoon(); } });
+// список элементов: кнопка с текущим и выпадающая плашка с плитками («без элемента» первым).
+// Плашка и увеличенная плитка — position:fixed (как clQPlace в color.js), чтобы рамка карточки их не обрезала;
+// живут в body. Верхняя граница — низ шапки .hero, она лежит поверх.
+const BM_CHEV = '<svg class="bm-pkc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+const bmShapeName = n => { const k = 'bm.shape.' + n, v = t(k); return v === k ? n : v; };
+const bmPkTop = () => { const h = document.querySelector('.hero'); return (h ? h.getBoundingClientRect().bottom : 0) + 8; };
+const bmPkOpen = () => !$('bmShapes').classList.contains('hide');
+// кнопка: миниатюра и название текущего элемента
+function bmPkSync() {
+  const b = $('bmPk'), n = bmFx.el;
+  if (b.bmKey !== n) {
+    b.bmKey = n;
+    const th = n ? `<img src="/bannershapes/${encodeURIComponent(n)}.png" alt="" draggable="false">` : BM_NONE_ICON, key = n ? 'bm.shape.' + n : 'bm.elNone';
+    b.innerHTML = `<i class="bm-pkt">${th}</i><span data-i18n="${key}">${esc(n ? bmShapeName(n) : t('bm.elNone'))}</span>${BM_CHEV}`;
+  }
+  b.disabled = bmBusy;
+  if (bmBusy && bmPkOpen()) bmPkShow(false);
+}
+function bmPkPlace() {
+  const p = $('bmShapes'), b = $('bmPk');
+  if (!bmPkOpen()) return;
+  const r = b.getBoundingClientRect(), minTop = bmPkTop();
+  if (!r.width || r.bottom < minTop - 4 || r.top > innerHeight) { bmPkShow(false); return; }   // кнопку унесло за край или скрыли
+  const w = Math.min(Math.max(r.width, 340), innerWidth - 16);
+  p.style.width = w + 'px'; p.style.maxHeight = '';
+  const h = Math.min(p.scrollHeight + 2, 460), above = r.top - 6 - minTop, below = innerHeight - r.bottom - 6 - 8;
+  let top, mh = h;
+  if (h <= below) top = r.bottom + 6;
+  else if (h <= above) top = r.top - 6 - h;
+  else {   // не влезает ни снизу, ни сверху: берём где больше места и ужимаем высоту
+    mh = Math.max(Math.max(above, below), 80);
+    top = below >= above ? r.bottom + 6 : r.top - 6 - mh;
+  }
+  p.style.maxHeight = mh + 'px';
+  p.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  p.style.top = Math.max(minTop, top) + 'px';
+}
+function bmPkShow(on) {
+  const p = $('bmShapes');
+  p.classList.toggle('hide', !on);
+  $('bmPk').setAttribute('aria-expanded', on ? 'true' : 'false');
+  bmPzHide();
+  if (!on) return;
+  bmPkPlace();
+  const cur = p.querySelector('button.on');
+  if (cur) cur.scrollIntoView({block: 'nearest'});
+}
+// увеличенная плитка: квадрат вокруг плитки под курсором, внутри окна и ниже шапки; мышь не ловит
+function bmPzShow(btn) {
+  const z = $('bmPz'), n = btn && btn.dataset.n;
+  if (!n) { bmPzHide(); return; }
+  const minTop = bmPkTop(), S = Math.max(90, Math.min(230, innerWidth - 16, innerHeight - minTop - 8)), r = btn.getBoundingClientRect();
+  z.querySelector('img').src = `/bannershapes/${encodeURIComponent(n)}.png`;
+  z.querySelector('b').textContent = bmShapeName(n);
+  z.style.width = z.style.height = S + 'px';
+  z.style.left = Math.max(8, Math.min(r.left + r.width / 2 - S / 2, innerWidth - S - 8)) + 'px';
+  z.style.top = Math.max(minTop, Math.min(r.top + r.height / 2 - S / 2, innerHeight - S - 8)) + 'px';
+  z.classList.remove('hide');
+}
+const bmPzHide = () => $('bmPz').classList.add('hide');
 async function bmElPick(name) {
   if (name === bmFx.el) return;
   bmMark();
@@ -500,14 +574,31 @@ async function bmElPick(name) {
   bmFxChanged(true);
   if (name && !bmEls[name]) { await bmElLoad(name); bmFxChanged(true); }
 }
-// список элементов: «без элемента» и плитки с картинками
 function bmShapesFill(list) {
   bmShapes = list || [];
   if (bmFx.el && !bmShapes.includes(bmFx.el)) bmFx.el = '';
-  const none = `<button type="button" class="none" data-n="" title="${esc(t('bm.elNone'))}" data-i18n-title="bm.elNone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M6.5 17.5l11-11"/></svg></button>`;
-  $('bmShapes').innerHTML = none + bmShapes.map(n => `<button type="button" data-n="${esc(n)}" title="${esc(n)}"><img src="/bannershapes/${encodeURIComponent(n)}.png" alt="" draggable="false" loading="lazy"></button>`).join('');
+  const none = `<button type="button" class="none" data-n="" role="option"><span class="bm-pt">${BM_NONE_ICON}</span><span class="bm-pn" data-i18n="bm.elNone">${esc(t('bm.elNone'))}</span></button>`;
+  $('bmShapes').firstElementChild.innerHTML = none + bmShapes.map(n => `<button type="button" data-n="${esc(n)}" role="option"><span class="bm-pt"><img src="/bannershapes/${encodeURIComponent(n)}.png" alt="" draggable="false" loading="lazy"></span><span class="bm-pn" data-i18n="bm.shape.${esc(n)}">${esc(bmShapeName(n))}</span></button>`).join('');
   bmFxSync();
   if (bmFx.el) bmElLoad(bmFx.el).then(() => bmFxChanged(true));
 }
+document.body.append($('bmShapes'), $('bmPz'));
+$('bmPk').addEventListener('click', () => { if (!bmBusy) bmPkShow(!bmPkOpen()); });
+$('bmShapes').addEventListener('click', e => {
+  const s = e.target.closest('button[data-n]');
+  if (!s) return;
+  bmPkShow(false);
+  bmElPick(s.dataset.n || '');
+  $('bmPk').focus({preventScroll: true});
+});
+['mouseover', 'focusin'].forEach(ev => $('bmShapes').addEventListener(ev, e => { const s = e.target.closest('button[data-n]'); if (s) bmPzShow(s); }));
+$('bmShapes').addEventListener('mouseleave', bmPzHide);
+$('bmShapes').addEventListener('focusout', bmPzHide);
+$('bmShapes').addEventListener('scroll', bmPzHide);
+// закрытие: щелчок мимо, Esc (раньше «Крупно»), смена размера окна; прокрутка страницы двигает кнопку — плашка за ней
+document.addEventListener('pointerdown', e => { if (bmPkOpen() && !e.target.closest('#bmShapes, #bmPk')) bmPkShow(false); }, true);
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && bmPkOpen()) { e.stopPropagation(); e.preventDefault(); bmPkShow(false); $('bmPk').focus({preventScroll: true}); } }, true);
+addEventListener('resize', bmPkPlace);
+document.addEventListener('scroll', e => { if (bmPkOpen() && !e.target.closest?.('#bmShapes')) bmPkPlace(); }, true);
 bmFxPanel();
 bmFxSync();
