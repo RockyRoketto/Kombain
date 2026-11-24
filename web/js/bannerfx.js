@@ -225,7 +225,8 @@ async function bmFxPut(id, name, pix, signal) {
 }
 
 // ---------- источники: элемент без прозрачных полей ----------
-// холст непрозрачной части картинки (альфа больше 8 из 255); совсем прозрачная — целиком
+// холст непрозрачной части картинки (альфа больше нуля); совсем прозрачная — целиком.
+// Порог именно ноль: у свечений и дыма хвост с альфой в единицы, срез по нему виден ровным прямоугольником
 function bmTrimCanvas(img) {
   const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -233,7 +234,7 @@ function bmTrimCanvas(img) {
   const d = g.getImageData(0, 0, W, H).data;
   let x0 = W, y0 = H, x1 = -1, y1 = -1;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (d[(y * W + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (d[(y * W + x) * 4 + 3] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   }
   if (x1 < 0) { x0 = 0; y0 = 0; x1 = W - 1; y1 = H - 1; }
   const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;

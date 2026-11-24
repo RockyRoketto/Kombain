@@ -78,6 +78,43 @@ func TestBmkShapes(t *testing.T) {
 	}
 }
 
+// фигура не обрезана краем своего файла: иначе посреди баннера виден ровный срез (кусок конфетти, хвост свечения).
+// Касаться края можно только острым углом — вершина треугольника, пара пикселей на сторону
+func TestBmkShapesEdge(t *testing.T) {
+	for _, n := range bmkShapes() {
+		raw, err := webFS.ReadFile("web/bannershapes/" + n + ".png")
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := png.Decode(bytes.NewReader(raw))
+		if err != nil {
+			t.Fatalf("%s: %v", n, err)
+		}
+		b := img.Bounds()
+		solid := func(x, y int) bool { _, _, _, a := img.At(x, y).RGBA(); return a > 24*0x101 }
+		count := func(pts func(i int) (int, int), n int) (c int) {
+			for i := 0; i < n; i++ {
+				if solid(pts(i)) {
+					c++
+				}
+			}
+			return
+		}
+		W, H := b.Dx(), b.Dy()
+		sides := map[string]int{
+			"слева":  count(func(i int) (int, int) { return b.Min.X, b.Min.Y + i }, H),
+			"справа": count(func(i int) (int, int) { return b.Max.X - 1, b.Min.Y + i }, H),
+			"сверху": count(func(i int) (int, int) { return b.Min.X + i, b.Min.Y }, W),
+			"снизу":  count(func(i int) (int, int) { return b.Min.X + i, b.Max.Y - 1 }, W),
+		}
+		for s, c := range sides {
+			if c > 3 {
+				t.Errorf("%s: %s упирается в край файла (%d px), срез будет виден", n, s, c)
+			}
+		}
+	}
+}
+
 // страница присылает баннер не того размера или чужое имя — ошибка, файлы не пишутся
 func TestBmkOneBad(t *testing.T) {
 	dir := t.TempDir()
