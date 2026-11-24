@@ -128,6 +128,7 @@ async function bmSprPrev(kind) {
   }
   let T = 256;
   while (T < n.scr && T < BM_SPR_MAX) T *= 2;
+  if (bmLp.hold) T = Math.min(T, 1024);   // пока двигаешь ползунок в «Крупно», спрайт грубее и быстрее; точный — после отпускания
   T = Math.min(T, Math.max(64, Math.ceil(n.full)), BM_SPR_MAX);
   const f = T / bmSrcMax(kind, n.src), base = bmSprBase(kind, n.src);
   // те же настройки и масштаб тот же или крупнее (но не больше чем вчетверо) — пересчитывать незачем
@@ -450,6 +451,48 @@ const BM_LP_KEY = 'k9000.bmlp';
 const bmLp = {on: false, name: ''};   // name — баннер, который смотрим (щелчок по плитке); пусто — самый большой
 try { bmLp.on = localStorage.getItem(BM_LP_KEY) === '1'; } catch (e) {}
 const bmLpSlot = () => bmSlots.find(s => s.name === (bmSel || bmLp.name)) || bmRef();
+// Пока двигаешь ползунок (hold), рамка кадра стоит на месте: иначе каждый новый спрайт эффектов (поля тени, свечения)
+// и каждый шаг размера, положения, поворота пересчитывает масштаб, и картинка прыгает. Отпустил — рамка плавно
+// пересчитывается по итоговому кадру, а спрайт досчитывается в полном качестве.
+bmLp.hold = false; bmLp.down = false; bmLp.frame = null; bmLp.timer = 0;
+const bmLpFrameKey = (sl, elf) => { const v = $('bmLpV'); return [sl.name, elf, v.clientWidth, v.clientHeight].join('|'); };
+// рамка кадра по тому, что показано сейчас (спрайт и настройки на этот момент)
+function bmLpFrame() {
+  const sl = bmLpSlot();
+  if (!sl) return null;
+  const elf = bmFxObj === 'elf' && !!bmElCur(), q = (elf ? bmSpr.el : bmSpr.art) || {px: 0, py: 0};
+  const b = bmLpBox(sl, bmLpObj(sl, elf ? 'elf' : 'art'), q.px, q.py);
+  b.key = bmLpFrameKey(sl, elf);
+  return b;
+}
+function bmLpHold() {
+  if (!bmLp.on) return;
+  if (!bmLp.hold) { bmLp.frame = bmLpFrame(); bmLp.hold = true; }   // слушатель ловит событие раньше обработчика ползунка: рамка ещё прежняя
+  bmLp.hold = true;
+  clearTimeout(bmLp.timer);
+  if (!bmLp.down) bmLp.timer = setTimeout(bmLpRelease, 450);
+}
+function bmLpRelease() {
+  clearTimeout(bmLp.timer);
+  if (bmLp.down) return;
+  if (bmSprBusy) { bmLp.timer = setTimeout(bmLpRelease, 120); return; }   // ждём последний спрайт, чтобы рамка встала сразу по нему
+  bmLp.hold = false; bmLp.frame = null;
+  const i = $('bmLpI');
+  i.classList.add('ease');
+  bmLpDraw();
+  bmSprSoon();   // спрайт в полном качестве (во время движения он грубее)
+  clearTimeout(bmLp.easeT);
+  bmLp.easeT = setTimeout(() => i.classList.remove('ease'), 260);
+}
+// движение в панели и на плитках: поле ввода, ползунок, перетаскивание картинки
+document.addEventListener('input', e => { if (bmLp.on && e.target.closest && e.target.closest('#bmView')) bmLpHold(); }, true);
+document.addEventListener('pointerdown', e => {
+  if (bmLp.on && e.target.closest && e.target.closest('#bmView') && !e.target.closest('#bmLp')) { bmLp.down = true; bmLpHold(); }
+}, true);
+const bmLpUp = () => { if (bmLp.down) { bmLp.down = false; if (bmLp.hold) { clearTimeout(bmLp.timer); bmLp.timer = setTimeout(bmLpRelease, 120); } } };
+addEventListener('pointerup', bmLpUp);
+addEventListener('pointercancel', bmLpUp);
+addEventListener('blur', bmLpUp);
 // рамка объекта kind в баннере sl, в пикселях шаблона: {x, y, w, h} без полей эффектов
 function bmLpObj(sl, kind) {
   const ad = bmAdj(sl.name), e = bmElCur();
@@ -494,15 +537,17 @@ function bmLpDraw() {
   if (!sl) return;
   $('bmLpName').textContent = sl.name;
   const elf = bmFxObj === 'elf' && !!bmElCur(), q = (elf ? bmSpr.el : bmSpr.art) || {px: 0, py: 0};
-  const r = bmLpObj(sl, elf ? 'elf' : 'art'), b = bmLpBox(sl, r, q.px, q.py), s = b.s;
   const v = $('bmLpV'), W = v.clientWidth, H = v.clientHeight;
+  let b = bmLp.hold && bmLp.frame && bmLp.frame.key === bmLpFrameKey(sl, elf) ? bmLp.frame : null;
+  if (!b) { b = bmLpFrame(); bmLp.frame = bmLp.hold ? b : null; }
+  const s = b.s;
   const ad = bmAdj(sl.name), p = bmFit(sl, bmImg.w, bmImg.h, ad);
   const bg = lp.querySelector('img.bg'), src = `/bannerbg/${sl.name}.png`;
   if (bg.getAttribute('src') !== src) bg.src = src;
   $('bmLpI').style.cssText = `width:${sl.w * s}px;height:${sl.h * s}px;left:${W / 2 - b.cx * s}px;top:${H / 2 - b.cy * s}px` + bmFxVars(lp, sl, ad, p);
 }
 function bmLpSet(on) {
-  bmLp.on = on;
+  bmLp.on = on; bmLp.hold = false; bmLp.down = false; bmLp.frame = null;
   try { localStorage.setItem(BM_LP_KEY, on ? '1' : '0'); } catch (e) {}
   bmLpDraw();
   if (on) bmSprSoon();   // лупе может понадобиться спрайт почётче

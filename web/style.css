@@ -2160,6 +2160,7 @@
 .bm-lph em{flex:none;font-style:normal;font-size:11.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .bm-lpv{position:relative;flex:1;min-height:0;overflow:hidden;background:repeating-conic-gradient(var(--s2) 0 25%,var(--s1) 0 50%) 0 0/16px 16px}
 .bm-lpi{position:absolute}
+.bm-lpi.ease{transition:width .22s ease,height .22s ease,left .22s ease,top .22s ease}
 .bm-lpi .bm-clip{border-radius:0;box-shadow:none}
 .bm-lp.hasel .bm-clip .el{display:block}
 /* строка ползунка: подпись, ползунок, число; колонки одинаковые во всех строках, поэтому ползунки стоят ровно */
