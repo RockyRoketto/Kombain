@@ -36,6 +36,7 @@ async function bmTake(file) {
     bmImg = {name: file.name || 'image.png', url: d.url, cv: d.cv, w: d.w, h: d.h, trimmed: d.trimmed, bg: bmHasBg(d.cv) ? 'ask' : ''};
     Object.keys(bmSt).forEach(k => delete bmSt[k]);
     bmResetAdj();
+    bmSelOn = false;   // новая картинка: рамок нет, пока не выберешь
     bmFxNewArt();   // до отрисовки: старый спрайт эффектов от прошлой картинки
     bmRender();
   } catch (e) { toast({type: 'warn', title: t('drop.notSuitableTitle'), text: t('bm.badFile', {name: esc(file.name || '')}), ttl: 7000}); }
@@ -74,6 +75,9 @@ function bmBgSync() {
   no.classList.toggle('hide', s === 'busy');
   no.textContent = t(s === 'done' ? 'bm.bgUndo' : 'bm.bgKeep');
   no.disabled = bmBusy;
+  $('bmBgnPr').classList.toggle('hide', s !== 'busy');   // бегущая полоска, пока нейросеть работает
+  $('bmBgnX').classList.toggle('hide', s !== 'done');
+  $('bmBgnX').disabled = bmBusy;
 }
 async function bmBgCut() {
   const prev = bmImg;
@@ -108,6 +112,7 @@ function bmBgBack() {
   bmFxNewArt(); bmRender();
 }
 $('bmBgnGo').onclick = bmBgCut;
+$('bmBgnX').onclick = () => { if (!bmImg || bmImg.bg !== 'done') return; bmImg.bg = ''; bmBgSync(); };   // фон убран, плашка больше не нужна
 $('bmBgnNo').onclick = () => { if (!bmImg || bmBusy) return; if (bmImg.bg === 'done') bmBgBack(); else { bmImg.bg = ''; bmBgSync(); } };
 // перетаскивание (вызывает drop.js): нужен сам файл в окне, путь на диске не нужен
 function bmDrop(e) {
@@ -531,13 +536,15 @@ $('bmGrid').addEventListener('pointerdown', e => {
   if (bmFxObj === 'art' && bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
   const hd = e.target.closest('.bm-box i'), pk = hd ? {grab: bmFxObj, click: ''} : bmTilePick(f, e.clientX, e.clientY);
   if (pk.click) bmTileClick = {id: e.pointerId, x: e.clientX, y: e.clientY, kind: pk.click};
+  if (!pk.grab && !pk.click && !hd) bmShowSet(false);   // нажал на пустое — выбор снят
+  if (pk.grab && !bmSelOn) bmObjSet(pk.grab);
   if (pk.grab && bmGrab(e, pk.grab, hd, sl, f, box)) {
     f.classList.remove('ov', 'pk');
     box.setPointerCapture(e.pointerId);
     return;
   }
   if (bmTileClick) box.setPointerCapture(e.pointerId);
-  else if (bmFxObj === 'art' && !bmMode && !pk.grab) bmNeedMode();   // нажал мимо картинки без режима — подсказать режим
+  else if (bmSelOn && bmFxObj === 'art' && !bmMode && !pk.grab) bmNeedMode();   // нажал мимо картинки без режима — подсказать режим
 });
 // наведение на плитку: внутри рамки выбранного — курсор «тянуть», над другим объектом — рука (щелчок выберет его)
 let bmTileHov = null, bmTileHovRaf = 0;
@@ -646,7 +653,7 @@ $('bmGrid').addEventListener('pointercancel', bmTileUp);
 // (картинку при этом не трогает). «Крупно» не открывает, только показывает этот баннер, если уже открыто
 $('bmGrid').addEventListener('click', e => {
   const f = e.target.closest('.bm-t');
-  if (!f) { if (bmSel) { bmSel = ''; bmEditSync(); } return; }
+  if (!f) { bmShowSet(false); if (bmSel) { bmSel = ''; bmEditSync(); } return; }
   if (e.target.closest('.bm-img') || bmBusy) return;   // по самому баннеру выбирает pointerdown
   if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }
   if (bmFxObj === 'elf') return;   // фон общий для всех баннеров, выбирать нечего
@@ -657,7 +664,7 @@ $('bmGrid').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (tab !== 'bmake' || !bmImg || bmBusy || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
-  if (e.key === 'Escape') { if (bmSel) { bmSel = ''; bmEditSync(); } return; }
+  if (e.key === 'Escape') { bmShowSet(false); if (bmSel) { bmSel = ''; bmEditSync(); } return; }
   const st = e.shiftKey ? 0.05 : 0.01;
   if (bmFxObj === 'elf') {   // правим фон: стрелки двигают элемент, + и − меняют его размер
     if (!bmElCur()) return;

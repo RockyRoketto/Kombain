@@ -12,6 +12,8 @@ const BM_EL_D = 8;   // предел сдвига элемента в долях
 const bmFxDef = () => ({el: '', ek: 1.5, ex: 0, ey: 0, er: 0, art: {sh: {...BM_SH0}, gl: {...BM_GL0}}, elf: {sh: {...BM_SH0}, gl: {...BM_GL0}, bl: 0}});
 let bmFx = bmFxDef();
 let bmFxObj = 'art';        // чьи эффекты в панели: art — картинка, elf — элемент
+let bmSelOn = false;         // рамка выбранного объекта показана; по умолчанию ничего не выбрано, пустое место снимает выбор
+function bmShowSet(v) { if (bmSelOn === v) return; bmSelOn = v; bmObjSync(); }
 let bmLpReady = false;     // «Крупно» уже настроено (bmObjSync зовётся и раньше)
 let bmShapes = [];          // имена элементов из /api/bmk-list
 const bmEls = {};           // имя -> {cv, w, h, url}: элемент без прозрачных полей
@@ -429,15 +431,17 @@ function bmObjSync() {
   lbl('bmGlTx', elf ? 'bm.glEl' : 'bm.glArt');
   lbl('bmRsAllTx', elf ? 'bm.rsAllEl' : 'bm.rsAllArt');
   $('bmRsAll').disabled = bmBusy || !bmObjDirty(bmFxObj);
-  $('bmGrid').classList.toggle('o-elf', elf && !!e);
-  $('bmLp').classList.toggle('o-elf', elf && !!e);
+  $('bmGrid').classList.toggle('o-elf', elf && !!e && bmSelOn);
+  $('bmLp').classList.toggle('o-elf', elf && !!e && bmSelOn);
+  $('bmGrid').classList.toggle('nosel', !bmSelOn);
+  $('bmLp').classList.toggle('nosel', !bmSelOn);
   if (bmLpReady) bmLpDraw();   // подпись режима и рамка выбранного в «Крупно»
 }
 // выбрать объект: единственное место, где меняется bmFxObj (панель, переключатель и щелчок в «Крупно»).
 // Пока тянешь мышью, выбор не меняется: тянется тот, кого взяли
 function bmObjSet(kind) {
-  if (kind === bmFxObj || bmDrag || (kind !== 'art' && kind !== 'elf')) return;
-  bmFxObj = kind;
+  if ((kind === bmFxObj && bmSelOn) || bmDrag || (kind !== 'art' && kind !== 'elf')) return;
+  bmFxObj = kind; bmSelOn = true;
   bmFxSync(); bmEditSync(); bmPlace();
 }
 $('bmObj').addEventListener('click', e => {
@@ -592,7 +596,7 @@ function bmLpDraw() {
   $('bmLpL').classList.toggle('warn', !elf && !bmMode);
   // рамка выбранного объекта с ручками (у фона ещё кружок поворота)
   const sel = $('bmLpSel'), css = bmLpObjCss(sl, bmFxObj);
-  sel.classList.toggle('hide', !css);
+  sel.classList.toggle('hide', !css || !bmSelOn);
   sel.classList.toggle('el', elf);
   if (css) sel.style.cssText = css;
   if (bmLpHovPt && !bmDrag) { if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover); }
@@ -670,6 +674,7 @@ function bmPickAt(sl, x, y) {
   if (!sl || !bmImg) return {grab: '', click: ''};
   const art = bmLpHitObj(sl, 'art', x, y), elf = bmLpHitObj(sl, 'elf', x, y);
   const top = art.px ? 'art' : elf.px ? 'elf' : '';
+  if (!bmSelOn) return {grab: top, click: ''};   // ничего не выбрано: нажатие по объекту выбирает его и сразу берёт
   return bmLpRule(bmFxObj, (bmFxObj === 'art' ? art : elf).box, top);
 }
 // то же в точке экрана для «Крупно»
@@ -758,6 +763,8 @@ $('bmLpV').addEventListener('pointerdown', e => {
   if (!pan && !bmBusy) {
     const hd = e.target.closest('#bmLpSel i, #bmLpSel u'), pk = hd ? {grab: bmFxObj, click: ''} : bmLpPick(e.clientX, e.clientY);
     if (pk.click) bmLpClick = {id: e.pointerId, x: e.clientX, y: e.clientY, kind: pk.click};
+    if (!pk.grab && !pk.click && !hd) bmShowSet(false);   // нажал на пустое — выбор снят
+    if (pk.grab && !bmSelOn) bmObjSet(pk.grab);
     if (pk.grab && bmLpGrab(e, pk.grab, hd)) {
       v.setPointerCapture(e.pointerId); v.classList.remove('ov', 'pk'); $('bmLpHov').classList.add('hide');
       return;
