@@ -281,7 +281,18 @@ func bgRun(img *image.NRGBA, infer func(x []float32, shape []int64) ([]float32, 
 	if err != nil {
 		return nil, err
 	}
-	return bgCutout(img, bgResizeMask(m, ms, w, h)), nil
+	a := bgResizeMask(m, ms, w, h)
+	key := bgKeyAlpha(img)
+	if key != nil { // фон-хромакей: спицы и тонкие детали сохраняет цвет
+		for i := range a {
+			a[i] = max(a[i], key[i])
+		}
+	}
+	out2 := bgCutout(img, a)
+	if key != nil {
+		bgDespillGreen(out2, a)
+	}
+	return out2, nil
 }
 
 // ---- отдельный процесс ----
@@ -707,4 +718,69 @@ func (s *Server) bgFileRoutes(mux *http.ServeMux) {
 		}
 		writeJSON(w, map[string]any{"ok": true, "path": out})
 	}))
+}
+
+// bgKeyAlpha: если фон картинки — сплошной хромакей (зелёный экран по всему краю), прозрачность по цвету: пиксель тем
+// прозрачнее, чем он зеленее. Нейросеть теряет тонкие спицы и тросики, цвет их держит. nil — фон не хромакей.
+func bgKeyAlpha(img *image.NRGBA) []float32 {
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	green := func(p []uint8) float32 { // 1 — чистый зелёный любой яркости, 0 и меньше — не зелёный
+		r, g, b := float32(p[0]), float32(p[1]), float32(p[2])
+		return (g - max(r, b)) / max(g, 1)
+	}
+	n, hit := 0, 0
+	for i := 0; i < w; i += 3 {
+		for _, y := range []int{0, h - 1} {
+			n++
+			if green(img.Pix[y*img.Stride+i*4:]) > 0.6 {
+				hit++
+			}
+		}
+	}
+	for j := 0; j < h; j += 3 {
+		for _, x := range []int{0, w - 1} {
+			n++
+			if green(img.Pix[j*img.Stride+x*4:]) > 0.6 {
+				hit++
+			}
+		}
+	}
+	if n == 0 || hit*10 < n*9 {
+		return nil
+	}
+	a := make([]float32, w*h)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			k := green(img.Pix[y*img.Stride+x*4:])
+			a[y*w+x] = min(max(1-(k-0.3)/0.4, 0), 1) // k<0.3 — предмет, k>0.7 — фон
+		}
+	}
+	return a
+}
+
+// bgDespillGreen: зелёные засветы от экрана на краях предметов. Только в полосе у прозрачного (внутри предмета
+// зелёное — его настоящий цвет): зелёный канал не выше красного/синего, у самого края строже (среднее красного и синего).
+func bgDespillGreen(o *image.NRGBA, a []float32) {
+	w, h := o.Bounds().Dx(), o.Bounds().Dy()
+	r := max(w, h)/50 + 2
+	t := make([]float64, w*h*4)
+	for i := range a {
+		t[i*4] = float64(1 - min(max(a[i], 0), 1))
+	}
+	bl := bgBoxBlur4(t, w, h, r)
+	area := float64((2*r + 1) * (2*r + 1))
+	for i := 0; i < w*h; i++ {
+		near := bl[i*4] / area // доля прозрачного рядом
+		if near < 0.01 {
+			continue
+		}
+		p := o.Pix[(i/w)*o.Stride+(i%w)*4:]
+		rr, gg, bb := float64(p[0]), float64(p[1]), float64(p[2])
+		wt := min(near/0.12, 1)
+		hi := max(rr, bb)
+		limit := hi + (rr+bb)/2*wt - hi*wt
+		if gg > limit {
+			p[1] = uint8(limit + 0.5)
+		}
+	}
 }

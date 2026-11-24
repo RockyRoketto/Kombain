@@ -72,3 +72,22 @@ func TestSportHintExplicit(t *testing.T) {
 		}
 	}
 }
+
+func TestSportFixSoccer(t *testing.T) {
+	if got := sportFixSoccer("футбольный мяч, кубок", "A large orange football and a football boot"); got != "A large orange soccer ball and a soccer boot" {
+		t.Fatal(got)
+	}
+	if got := sportFixSoccer("регби: мяч", "a rugby football"); got != "a rugby football" {
+		t.Fatal(got)
+	}
+}
+
+func TestSportHintManyVariants(t *testing.T) {
+	seen := map[string]bool{}
+	for i := 0; i < 40; i++ {
+		seen[sportHint("велосипед, шлем, бутылка", nil)] = true
+	}
+	if len(seen) < 20 {
+		t.Fatal("мало вариаций:", len(seen))
+	}
+}

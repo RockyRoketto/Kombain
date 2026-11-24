@@ -117,8 +117,8 @@ var genPresets = []GenPreset{
 	// Спорт 3D: группа 2-4 спортивных предметов или один крупно, глянцевая пластилиновая 3D-иконка на белом фоне
 	// (потом фон вырезается). Какие предметы и как расставлены, помогает решить sportHint (sportkit.go).
 	{ID: "sport3d",
-		Template: "3d icon of {p}, soft clay plastic render, glossy toy look, rounded bevelled shapes, soft studio lighting, bright lime green and dark teal accents, soft shadow, isolated on a plain pure white background",
-		Negative: "photo, photograph, photorealistic, realistic, flat, 2d, sketch, text, letters, banner, frame, stripes, ribbon, busy background, ground, floor",
+		Template: "premium 3d icon of {p}, semi-realistic proportions with accurate real-world shapes, thin crisp parts, hard-surface modeling, satin plastic, black rubber and brushed metal materials, small subtle bevels, neutral white even lighting on the objects, every object in its own different natural vivid color, one compact group of objects at different sizes close together, nothing else in the picture, isolated on a seamless plain pure white background, the whole background is one flat white, no floor, no horizon, no ground, only a very soft shadow right under the objects, no gradient, no text, no numbers",
+		Negative: "photo, photograph, photorealistic, flat, 2d, sketch, text, letters, banner, frame, ribbon, busy background, inflated, puffy, balloon, bloated, chubby, cartoon, toy, clay, duplicate objects, extra objects, green tyres, colored wheels, studio backdrop, podium, platform, text, logo, monochrome, all objects the same color, floating stack",
 		Object:   true, Framed: true},
 	{ID: "render3d",
 		Template: "3d animated movie still of {p}, stylized characters, soft global illumination, subsurface scattering, vibrant colors, high quality cgi",
