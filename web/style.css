@@ -2132,7 +2132,6 @@
 #bmGrid.o-elf .bm-t.hasel .bm-eb{display:block}
 #bmGrid.o-elf .bm-clip img.art{opacity:.35;transition:opacity .12s}
 #bmGrid.o-elf .bm-bx,#bmGrid.o-elf .bm-hm{display:none!important}
-#bmGrid.o-elf .bm-t.hasel .bm-img{cursor:move}
 #bmGrid.o-elf .bm-t{border-color:var(--line)}
 /* пока двигают ползунок: только результат */
 #bmGrid.clean .bm-bx,#bmGrid.clean .bm-zf,#bmGrid.clean .bm-g,#bmGrid.clean .bm-hm,#bmGrid.clean .bm-eb{display:none!important}
@@ -2298,8 +2297,8 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-others i{font-style:normal;font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--s2);border:1px solid var(--line);overflow-wrap:anywhere}
 /* «Сборка баннеров»: сначала выбор «Все баннеры» или «Один баннер», без него картинки не двигаются */
 .bm-img{position:relative;width:100%;touch-action:none;user-select:none;cursor:default}
-#bmGrid.m-all .bm-img,#bmGrid.m-one .bm-t.sel .bm-img{cursor:grab}
-#bmGrid.m-one .bm-t:not(.sel) .bm-img{cursor:pointer}
+#bmGrid .bm-t.ov .bm-img{cursor:move}
+#bmGrid .bm-t.pk .bm-img{cursor:pointer}
 #bmGrid .bm-t.drag .bm-img{cursor:grabbing}
 #bmGrid.m-all .bm-t{border-color:rgba(var(--acl-rgb),.3)}
 #bmGrid.m-all .bm-bx,#bmGrid .bm-t.sel .bm-bx{display:block}

@@ -372,8 +372,9 @@ $('bmToAll').onclick = () => {
 };
 
 // ---------- мышью по плитке ----------
-// «Все баннеры»: тянешь любую картинку — едут все, уголки рамки любой — размер у всех.
-// «Один баннер»: щелчок выбирает баннер, тянуть и растягивать можно только его (нажал на другой — теперь правишь его).
+// Правишь один объект — картинку или фон (bmFxObj, меняет только bmObjSet). Тянешь его, нажав внутри его рамки.
+// «Все баннеры»: тянешь картинку любого — едут все, уголки рамки любой — размер у всех.
+// «Один баннер»: нажатие выбирает баннер, тянуть и растягивать можно только его (нажал на другой — теперь правишь его).
 // Размер уголком — от противоположного угла. Середина картинки прилипает к середине баннера и к середине места
 // под картинку, размер — к 100%. Alt — без магнитов.
 // Фон (bmFxObj = 'elf') тянется так же, его середина прилипает к тем же точкам; картинку он не трогает и сам от неё не зависит.
@@ -393,6 +394,7 @@ let bmSpace = false;
 const bmPanOn = v => {
   if (bmSpace === v) return;
   bmSpace = v; $('bmGrid').classList.toggle('panr', v); $('bmLpV').classList.toggle('panr', v);
+  requestAnimationFrame(bmTileHover);   // курсор над плиткой: при пробеле только «двигать вид»
   if (bmLp.on && typeof bmLpHover === 'function') requestAnimationFrame(bmLpHover);   // в «Крупно» убрать или вернуть подсветку под мышью
 };
 const BM_TXT = 'textarea, select, [contenteditable], input:not([type=button]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=submit]):not([type=reset])';
@@ -426,33 +428,49 @@ $('bmGrid').addEventListener('pointerdown', e => {
 }, true);
 $('bmGrid').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
 $('bmGrid').addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });   // средняя кнопка — без автопрокрутки
+// Модель та же, что в «Крупно» (bmPickAt, bmGrab в bannerfx.js): правишь один объект (bmFxObj), тянешь его, только если
+// нажал внутри его рамки (или за уголок); второй объект не двигается никогда. Щелчок без движения по видимой части
+// другого объекта выбирает его через bmObjSet, само нажатие выбор объекта не меняет. Баннер (bmSel в режиме «Один»)
+// выбирается любым нажатием на него, пока правишь картинку.
+let bmTileClick = null;   // {id, x, y, kind}: нажали на другой объект; отпустили без движения — выбрать его
 $('bmGrid').addEventListener('pointerdown', e => {
   const box = e.target.closest('.bm-img'), f = box && box.closest('.bm-t');
+  bmTileClick = null;
   if (!f || bmBusy || e.button !== 0) return;
   e.preventDefault();
-  if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }   // «Крупно» смотрит этот баннер
-  // правим фон: тянем элемент, он общий для всех баннеров и не зависит от картинки; сдвиг в долях сейв-зоны
-  if (bmFxObj === 'elf') {
-    const sl = bmSlots.find(s => s.name === f.dataset.n), r = box.getBoundingClientRect();
-    if (!sl || !bmElCur()) return;
-    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc: r.width / sl.w, moved: false};
-    f.classList.add('drag');
+  const sl = bmSlots.find(s => s.name === f.dataset.n);
+  if (!sl) return;
+  if (bmLp.name !== sl.name) { bmLp.name = sl.name; bmLpDraw(); if (bmLp.on) bmSprSoon(); }   // «Крупно» смотрит этот баннер
+  if (bmFxObj === 'art' && bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
+  const hd = e.target.closest('.bm-box i'), pk = hd ? {grab: bmFxObj, click: ''} : bmTilePick(f, e.clientX, e.clientY);
+  if (pk.click) bmTileClick = {id: e.pointerId, x: e.clientX, y: e.clientY, kind: pk.click};
+  if (pk.grab && bmGrab(e, pk.grab, hd, sl, f, box)) {
+    f.classList.remove('ov', 'pk');
     box.setPointerCapture(e.pointerId);
     return;
   }
-  if (!bmMode) { bmNeedMode(); return; }
-  const sl = bmSlots.find(s => s.name === f.dataset.n), hd = e.target.closest('.bm-box i');
-  if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
-  const r = box.getBoundingClientRect(), a = bmCur(), t0 = bmAdj(sl.name);
-  bmDrag = {x: e.clientX, y: e.clientY, a0: {...a}, t0, sl, f, r, sc: r.width / sl.w, moved: false};
-  if (hd) {
-    const g = bmGeo(sl, t0), h = hd.dataset.h, sx = h.includes('e') ? 1 : -1, sy = h.includes('s') ? 1 : -1;
-    Object.assign(bmDrag, {h, sx, sy, g, ax: g.cx - sx * g.bw * t0.k / 2, ay: g.cy - sy * g.bh * t0.k / 2, moved: true});
-    bmMark();
-  }
-  f.classList.add('drag');
-  box.setPointerCapture(e.pointerId);
+  if (bmTileClick) box.setPointerCapture(e.pointerId);
+  else if (bmFxObj === 'art' && !bmMode && !pk.grab) bmNeedMode();   // нажал мимо картинки без режима — подсказать режим
 });
+// наведение на плитку: внутри рамки выбранного — курсор «тянуть», над другим объектом — рука (щелчок выберет его)
+let bmTileHov = null, bmTileHovRaf = 0;
+function bmTileHover() {
+  bmTileHovRaf = 0;
+  const p = bmTileHov, f = p && p.f;
+  document.querySelectorAll('#bmGrid .bm-t.ov, #bmGrid .bm-t.pk').forEach(o => { if (o !== f) o.classList.remove('ov', 'pk'); });
+  if (!f) return;
+  const pk = !bmDrag && !bmSpace && !bmBusy ? (p.h ? {grab: bmFxObj, click: ''} : bmTilePick(f, p.x, p.y)) : {grab: '', click: ''};
+  f.classList.toggle('ov', !!pk.grab);
+  f.classList.toggle('pk', !pk.grab && !!pk.click);
+}
+$('bmGrid').addEventListener('pointermove', e => {
+  if (bmTileClick && bmTileClick.id === e.pointerId && Math.hypot(e.clientX - bmTileClick.x, e.clientY - bmTileClick.y) >= 3) bmTileClick = null;   // повёл — не щелчок
+  if (bmDrag) return;
+  const box = e.target.closest('.bm-img');
+  bmTileHov = box ? {f: box.closest('.bm-t'), x: e.clientX, y: e.clientY, h: !!e.target.closest('.bm-box i')} : null;
+  if (!bmTileHovRaf) bmTileHovRaf = requestAnimationFrame(bmTileHover);
+});
+$('bmGrid').addEventListener('pointerleave', () => { bmTileHov = null; if (!bmTileHovRaf) bmTileHovRaf = requestAnimationFrame(bmTileHover); });
 // движение мышью: общее для плиток и «Крупно» (там d.f — баннер #bmLpI, d.r — его место на экране, d.sc — масштаб лупы).
 // d.el — тянем фоновый элемент, d.ek — его размер от центра, d.er — поворот вокруг центра (cx, cy в пикселях экрана)
 function bmDragMove(e) {
@@ -517,8 +535,15 @@ const bmDragEnd = () => {
   d.f.classList.remove('drag', 'k100');
   bmGuides(d.f, null, null);
 };
-$('bmGrid').addEventListener('pointerup', bmDragEnd);
-$('bmGrid').addEventListener('pointercancel', bmDragEnd);
+const bmTileUp = e => {
+  const c = bmTileClick && bmTileClick.id === e.pointerId && e.type === 'pointerup' ? bmTileClick.kind : '';
+  bmTileClick = null;
+  if (bmDrag && !bmDrag.lp) bmDragEnd();
+  if (c) bmObjSet(c);   // щелчок без движения по другому объекту — теперь правишь его
+  if (!bmTileHovRaf) bmTileHovRaf = requestAnimationFrame(bmTileHover);
+};
+$('bmGrid').addEventListener('pointerup', bmTileUp);
+$('bmGrid').addEventListener('pointercancel', bmTileUp);
 // щелчок по пустому месту поля снимает выбор баннера; по подписи или краю плитки — выбирает его, как щелчок по самому баннеру
 // (картинку при этом не трогает). «Крупно» не открывает, только показывает этот баннер, если уже открыто
 $('bmGrid').addEventListener('click', e => {

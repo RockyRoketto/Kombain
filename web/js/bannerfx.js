@@ -662,13 +662,25 @@ function bmLpHitObj(sl, kind, x, y) {
   const box = fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1;
   return {box, px: box && bmLpAlpha(e.cv, fx, fy)};
 }
-// что делает нажатие в точке экрана: {grab, click} по bmLpRule
-function bmLpPick(cx, cy) {
-  const p = bmLpAt(cx, cy);
-  if (!p || !bmImg) return {grab: '', click: ''};
-  const art = bmLpHitObj(p.sl, 'art', p.x, p.y), elf = bmLpHitObj(p.sl, 'elf', p.x, p.y);
+// что делает нажатие в точке (x, y) баннера sl в пикселях шаблона: {grab, click} по bmLpRule.
+// Общее для плиток и «Крупно»: одна и та же модель выбора
+function bmPickAt(sl, x, y) {
+  if (!sl || !bmImg) return {grab: '', click: ''};
+  const art = bmLpHitObj(sl, 'art', x, y), elf = bmLpHitObj(sl, 'elf', x, y);
   const top = art.px ? 'art' : elf.px ? 'elf' : '';
   return bmLpRule(bmFxObj, (bmFxObj === 'art' ? art : elf).box, top);
+}
+// то же в точке экрана для «Крупно»
+function bmLpPick(cx, cy) {
+  const p = bmLpAt(cx, cy);
+  return p ? bmPickAt(p.sl, p.x, p.y) : {grab: '', click: ''};
+}
+// то же в точке экрана для плитки f (её баннер .bm-img)
+function bmTilePick(f, cx, cy) {
+  const sl = bmSlots.find(s => s.name === f.dataset.n), box = f.querySelector('.bm-img');
+  if (!sl || !box) return {grab: '', click: ''};
+  const r = box.getBoundingClientRect(), s = r.width / sl.w || 1;
+  return bmPickAt(sl, (cx - r.left) / s, (cy - r.top) / s);
 }
 // рамка объекта kind на баннере лупы: стиль для position:absolute внутри #bmLpI
 function bmLpObjCss(sl, kind) {
@@ -688,30 +700,39 @@ function bmLpObjCss(sl, kind) {
   return `left:${(cx - w / 2) / sl.w * 100}%;top:${(cy - h / 2) / sl.h * 100}%;width:${w / sl.w * 100}%;height:${h / sl.h * 100}%;transform:rotate(${rot}deg)`;
 }
 $('bmLpK').addEventListener('click', e => { const b = e.target.closest('button[data-o]'); if (b && !b.disabled) bmObjSet(b.dataset.o); });
-// взять выбранный объект kind: тянуть, а за ручку hd — размер или поворот
-function bmLpGrab(e, kind, hd) {
-  const sl = bmLpSlot(), I = $('bmLpI'), r = I.getBoundingClientRect(), sc = r.width / sl.w;
-  if (kind !== bmFxObj) return false;
+// взять выбранный объект kind на баннере sl: тянуть, а за ручку hd — размер (у фона ещё поворот).
+// Общее для плиток и «Крупно»: f — что подсвечивать (плитка .bm-t или баннер #bmLpI), box — баннер на экране
+// (по нему пиксели шаблона). Выбор объекта не меняет: тянуть можно только выбранный
+function bmGrab(e, kind, hd, sl, f, box) {
+  if (!sl || kind !== bmFxObj) return false;
+  const r = box.getBoundingClientRect(), sc = r.width / sl.w;
   if (kind === 'elf') {
     const el = bmElCur();
     if (!el) return false;
     const g = bmElGeo(sl, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
-    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f: I, sc, moved: false};
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc, moved: false};
     if (hd && hd.tagName === 'U') Object.assign(bmDrag, {er: bmFx.er, cx, cy});
     else if (hd) Object.assign(bmDrag, {ek: bmFx.ek, cx, cy});
   } else {
-    if (!bmMode) { bmNeedMode(); bmLpNeedMode(); return false; }
+    if (!bmMode) { bmNeedMode(); return false; }
     if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
     const a = bmCur(), t0 = bmAdj(sl.name);
-    bmDrag = {x: e.clientX, y: e.clientY, a0: {...a}, t0, sl, f: I, r, sc, moved: false};
+    bmDrag = {x: e.clientX, y: e.clientY, a0: {...a}, t0, sl, f, r, sc, moved: false};
     if (hd && hd.dataset.h) {
       const g = bmGeo(sl, t0), h = hd.dataset.h, sx = h.includes('e') ? 1 : -1, sy = h.includes('s') ? 1 : -1;
       Object.assign(bmDrag, {h, sx, sy, g, ax: g.cx - sx * g.bw * t0.k / 2, ay: g.cy - sy * g.bh * t0.k / 2, moved: true});
       bmMark();
     }
   }
+  f.classList.add('drag');
+  return true;
+}
+// в «Крупно»: то же на баннере лупы
+function bmLpGrab(e, kind, hd) {
+  const I = $('bmLpI');
+  if (kind === 'art' && !bmMode && kind === bmFxObj) bmLpNeedMode();
+  if (!bmGrab(e, kind, hd, bmLpSlot(), I, I)) return false;
   bmDrag.lp = true;
-  I.classList.add('drag');
   // пока тянешь: спрайт эффектов грубее и быстрее, после отпускания точный (bmLpUp → bmLpRelease)
   bmLp.hold = true; bmLp.down = true;
   return true;

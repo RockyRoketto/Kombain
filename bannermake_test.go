@@ -242,8 +242,76 @@ func TestBmkObjSelect(t *testing.T) {
 			t.Errorf("%s зависит от правки картинки", fn)
 		}
 	}
-	// нажатие в «Крупно» само не меняет выбор: только тянет выбранный, смена — щелчком без движения
-	if b := body(fx, "bmLpGrab"); strings.Contains(b, "bmObjSet") {
-		t.Error("bmLpGrab меняет выбор объекта")
+	// нажатие само не меняет выбор: только тянет выбранный, смена — щелчком без движения
+	for _, fn := range []string{"bmGrab", "bmLpGrab", "bmPickAt", "bmLpRule"} {
+		if b := body(fx, fn); strings.Contains(b, "bmObjSet") {
+			t.Errorf("%s меняет выбор объекта", fn)
+		}
+	}
+	// тянуть берут только выбранный объект
+	if b := body(fx, "bmGrab"); !strings.Contains(b, "kind !== bmFxObj") {
+		t.Error("bmGrab должна отказывать, если объект не выбран")
+	}
+	// плитки и «Крупно» — один код: перетаскивание начинается только в bmGrab, выбор по точке — только в bmPickAt
+	start := regexp.MustCompile(`bmDrag\s*=\s*\{`)
+	if n := len(start.FindAllString(mk, -1)); n != 0 {
+		t.Errorf("bannermake.js начинает перетаскивание сам (%d раз), нужно через bmGrab", n)
+	}
+	if n := len(start.FindAllString(body(fx, "bmGrab"), -1)); n != len(start.FindAllString(fx, -1)) {
+		t.Error("перетаскивание начинается вне bmGrab")
+	}
+	if n := strings.Count(fx+mk, "bmLpRule("); n != 2 { // объявление и вызов в bmPickAt
+		t.Errorf("bmLpRule встречается %d раз, нужен один вызов (в bmPickAt)", n-1)
+	}
+	if b := body(fx, "bmPickAt"); !strings.Contains(b, "bmLpRule(") {
+		t.Error("bmPickAt должна решать через bmLpRule")
+	}
+	for _, s := range []string{"bmTilePick(", "bmGrab(e, pk.grab, hd, sl, f, box)", "bmObjSet(c)"} {
+		if !strings.Contains(mk, s) {
+			t.Errorf("плитки не по общей модели: нет %s", s)
+		}
+	}
+}
+
+// Чистая логика нажатия (bmLpRule): тянуть можно только выбранный и только внутри его рамки; щелчок выбирает
+// верхний видимый объект в точке, если он не выбран. Таблица проверяется по тексту правила.
+func TestBmkPickRule(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("web", "js", "bannerfx.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "return {grab: inSel ? sel : '', click: top && top !== sel ? top : ''};"
+	if !strings.Contains(string(b), want) {
+		t.Errorf("bmLpRule изменилось, нужно: %s", want)
+	}
+	// то же правило на Go: сверить таблицу случаев
+	rule := func(sel string, inSel bool, top string) (string, string) {
+		g, c := "", ""
+		if inSel {
+			g = sel
+		}
+		if top != "" && top != sel {
+			c = top
+		}
+		return g, c
+	}
+	cases := []struct {
+		sel   string
+		inSel bool
+		top   string
+		grab  string
+		click string
+	}{
+		{"art", true, "art", "art", ""},    // на картинке, правишь картинку — тянешь её
+		{"art", true, "elf", "art", "elf"}, // в рамке картинки, но видно фон (прозрачная часть): повёл — тянешь картинку, щелчок без движения выберет фон
+		{"art", false, "elf", "", "elf"},   // на фоне вне картинки — щелчок выберет фон, ничего не тянется
+		{"elf", true, "art", "elf", "art"}, // картинка закрывает фон: тянешь фон, щелчок без движения выберет картинку
+		{"elf", false, "art", "", "art"},
+		{"elf", false, "", "", ""}, // пусто — ничего
+	}
+	for _, c := range cases {
+		if g, k := rule(c.sel, c.inSel, c.top); g != c.grab || k != c.click {
+			t.Errorf("%+v: получилось grab=%q click=%q", c, g, k)
+		}
 	}
 }
