@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	subsNeonC        = "#ff2bd6" // цвет свечения неона по умолчанию
-	subsStrDef       = 0.5       // сила эффекта по умолчанию (при первом выборе, на странице)
-	subsShakeSteps   = 8         // тряска слова после его начала: шагов по subsPopStep (0,32 с)
-	subsPopStep      = 0.04      // шаг тряски и глитча, с
-	subsGlitchSteps  = 5         // длина одного сбоя в шагах (0,2 с)
-	subsGlitchPeriod = 1.2       // сбой в начале реплики и дальше через столько секунд
+	subsStrDef       = 0.5  // сила эффекта по умолчанию (при первом выборе, на странице)
+	subsShakeSteps   = 8    // тряска слова после его начала: шагов по subsPopStep (0,32 с)
+	subsPopStep      = 0.04 // шаг тряски и глитча, с
+	subsGlitchSteps  = 5    // длина одного сбоя в шагах (0,2 с)
+	subsGlitchPeriod = 1.2  // сбой в начале реплики и дальше через столько секунд
 )
 
 // subsHash: детерминированное число в [-1, 1) по двум целым; зеркало subFxHash (Math.imul там даёт то же, что uint32 здесь)
@@ -98,20 +97,6 @@ func subsKarBackFlat(sb *strings.Builder, c SubCue, ch []subsKChunk, lines [][2]
 
 func subsPopPlain(c SubCue, text, place string, esc *strings.Replacer) string {
 	return fmt.Sprintf("Dialogue: 0,%s,%s,Default,,0,0,0,,%s%s\n", subsAssClock(c.Start), subsAssClock(c.End), place, esc.Replace(text))
-}
-
-// subsFxNeon: три слоя одного текста: широкое размытое свечение, узкое яркое и сам текст. Стиль Neon: без плашки и обводки.
-func subsFxNeon(c SubCue, text string, s Subs, w, h int, place string, esc *strings.Replacer) string {
-	size, k := s.Size*float64(h), s.Fx.Str
-	glow, txt := "&H"+subsAssColor(s.Fx.Glow, 1)[4:]+"&", esc.Replace(text) // &HBBGGRR& без прозрачности
-	var sb strings.Builder
-	layer := func(n int, tags string) {
-		fmt.Fprintf(&sb, "Dialogue: %d,%s,%s,Neon,,0,0,0,,%s{%s}%s\n", n, subsAssClock(c.Start), subsAssClock(c.End), place, tags, txt)
-	}
-	layer(0, fmt.Sprintf(`\1c%s\3c%s\bord%.1f\blur%.1f\3a&H40&`, glow, glow, size*0.3*k, size*0.25*k))
-	layer(1, fmt.Sprintf(`\1c%s\3c%s\bord%.1f\blur%.1f`, glow, glow, size*0.08*k, size*0.07*k))
-	layer(2, "")
-	return sb.String()
 }
 
 // subsFxShake: кусок дрожит subsShakeDur после своего начала, амплитуда падает к нулю. Только громкие: см. subsHit.

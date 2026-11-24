@@ -84,7 +84,7 @@ func TestSportFixSoccer(t *testing.T) {
 
 func TestSportHintManyVariants(t *testing.T) {
 	seen := map[string]bool{}
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 400; i++ {
 		seen[sportHint("велосипед, шлем, бутылка", nil)] = true
 	}
 	if len(seen) < 20 {

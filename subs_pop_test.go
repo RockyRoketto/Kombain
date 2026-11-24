@@ -27,30 +27,12 @@ func TestSubsHash(t *testing.T) {
 }
 
 func TestSubsFxPopFit(t *testing.T) {
-	s := Subs{Fx: SubFx{K: "neon"}}.fit()
-	if s.Fx.Glow != subsNeonC || s.Fx.Str != subsStrDef {
-		t.Fatalf("neon %+v", s.Fx)
-	}
-	s = Subs{Fx: SubFx{K: "shake", Str: 5, Hit: true, Glow: "#ff0000", Cps: 9}}.fit()
-	if s.Fx.Str != 1 || !s.Fx.Hit || s.Fx.Glow != "" || s.Fx.Cps != 0 {
+	s := Subs{Fx: SubFx{K: "shake", Str: 5, Hit: true, Cps: 9}}.fit()
+	if s.Fx.Str != 1 || !s.Fx.Hit || s.Fx.Cps != 0 {
 		t.Fatalf("shake %+v", s.Fx)
 	}
 	if s = (Subs{Fx: SubFx{K: "flip", Dur: 9}}).fit(); s.Fx.Dur != 0.6 {
 		t.Fatalf("flip %+v", s.Fx)
-	}
-}
-
-func TestSubsFxNeon(t *testing.T) {
-	c := []SubCue{{Start: 0, End: 2, Text: "Привет"}}
-	out := subsASS(c, Subs{Back: "#000000", Fx: SubFx{K: "neon", Glow: "#00ff00"}}.fit(), 640, 360)
-	for _, want := range []string{
-		"Style: Neon,", ",1,0,0,2,", // без обводки и подложки
-		"Dialogue: 0,0:00:00.00,0:00:02.00,Neon,,0,0,0,,{\\1c&H00FF00&\\3c&H00FF00&\\bord",
-		"Dialogue: 2,0:00:00.00,0:00:02.00,Neon,,0,0,0,,{}Привет",
-	} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("%q: %s", want, out)
-		}
 	}
 }
 

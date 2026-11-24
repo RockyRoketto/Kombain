@@ -106,7 +106,7 @@ function mvSubsDraw() {
   // эффект (subfx.js): span по частям, перерисовка только при смене букв или курсора
   const fx = s.fx && s.fx.k === 'type' ? s.fx : null, parts = fx && cues.map(c => subFxParts(fx, c, line(c), tkAt)), key = fx ? JSON.stringify([parts, fx.cur]) : text;
   const kar = !!(s.fx && s.fx.k === 'kar'), act = !!(s.fx && s.fx.k === 'act');
-  const pop = !!(s.fx && ['shake', 'glitch', 'flip'].includes(s.fx.k)), neon = !!(s.fx && s.fx.k === 'neon');
+  const pop = !!(s.fx && ['shake', 'glitch', 'flip'].includes(s.fx.k));
   if (!kar && !act && !pop) span.classList.remove('mv-subs-kar');
   if (kar) subFxKarPaint(span, cues, line, s.fx, tkAt, s);
   else if (act) subFxActPaint(span, cues, line, s.fx, tkAt, s);
@@ -124,10 +124,9 @@ function mvSubsDraw() {
   Object.assign(el.style, {left: (x - w / 2) * 100 + '%', width: w * 100 + '%', bottom: s.y > 0 ? (1 - s.y) * 100 + '%' : '', height: s.y > 0 && s.h > 0 ? s.h * 100 + '%' : '',
     fontFamily: `"${s.font}"`, fontSize: size / mvSubLine(s.font) + 'px', lineHeight: size * (1 + b) + 'px', color: s.color || '#fff'});
   const a = s.backA > 0 ? s.backA : .6, hex = s.back || '#000000';
-  span.style.textShadow = neon ? subFxNeonShadow(s.fx.glow || SUBFX_POP.glow, size, s.fx.str ?? SUBFX_POP.str) : '';
-  Object.assign(span.style, s.back && !neon   // у неона плашки и обводки нет
+  Object.assign(span.style, s.back
     ? {webkitTextStroke: '', backgroundColor: `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`, padding: `${pad + up}px ${pad}px ${pad + down}px`}
-    : {webkitTextStroke: `${neon ? 0 : pad}px #000`, backgroundColor: '', padding: ''});
+    : {webkitTextStroke: `${pad}px #000`, backgroundColor: '', padding: ''});
   Object.assign(span.style, b ? {position: 'relative', top: (up - down) / 2 + 'px'} : {position: '', top: ''});
 }
 // Субтитры и их ручки под мышью. Смотрим по точке, а не по e.target: рамка выбранного слоя лежит выше холста и забирает нажатие.

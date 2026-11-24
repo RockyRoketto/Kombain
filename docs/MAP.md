@@ -146,7 +146,7 @@
 | `subtitles.go` | картинка клипа «Текст» `saveTextPNG`; субтитры монтажа: `Subs`, `subsDecode`, `subsParse`, `subsRead`, `subsRange`, `subsASS`, `subsSRT`, `subsTemp`, `subsFilterPath`, `subsTrackCodec`, `subsPlan` |
 | `subs_karaoke.go` | эффект субтитров «Караоке»: плашка растёт, прыгает или заливка букв, см. таблицу задач |
 | `subs_active.go` | эффект субтитров «Активное слово»: слово цветом и крупнее, соседи расступаются, см. таблицу задач |
-| `subs_pop.go` | эффекты субтитров «Неон», «Тряска», «Глитч», «Переворот»: `subsFxNeon`, `subsFxShake`, `subsFxGlitch`, `subsFxFlip`, `subsHash`/`subsHit` (зеркала `subFxHash`/`subFxHit`), в просмотре `subFxPopPaint` и `subFxNeonShadow` (`subfx.js`), панель `#mtSubsFxPop`, готовые стили `SUBFX_PRESETS` и `#mtSubsPreset`. Проверка: `subs_pop_test.go` |
+| `subs_pop.go` | эффекты субтитров «Тряска», «Глитч», «Переворот»: `subsFxShake`, `subsFxGlitch`, `subsFxFlip`, `subsHash`/`subsHit` (зеркала `subFxHash`/`subFxHit`), в просмотре `subFxPopPaint` и `subFxNeonShadow` (`subfx.js`), панель `#mtSubsFxPop`, готовые стили `SUBFX_PRESETS` и `#mtSubsPreset`. Проверка: `subs_pop_test.go` |
 | `subs_chunks.go` | «Слов на экране»: `Subs.Chunk`, нарезка реплик на куски `subsChunks` (в `subsPlan` до вжигания и дорожки), времена `subsChunkTimes`; зеркало `subChunks` в `web/js/subfx.js` (вызов в `mvSubsDraw`), список `#mtSubsChunk`. Проверка: `TestSubsChunks` |
 | `files.go` | `dataDir`, `ffDir`, `cacheDir`, `modelDir`, `toolDir`, `migrateData`, `dropDir`, `ffPath`, `findFFmpeg`, `isTemp`, `fileExists`, `fileSize`, `walkMedia`, `expandPaths`, `openFolder`, `safeName`, `outPath` |
 | `cache.go` | чистка кэша: `cacheTidy`, `textDir`, `textPrune` |
