@@ -25,7 +25,7 @@ Theme, language and settings are behind the gear icon in the top right.
 | **Editor** | Tracks, text and shapes, transitions, keyframes, colour and chroma key, subtitles from speech, export to the converter. |
 | **Colour** | Gradients and mesh gradients, palettes, eyedropper, WCAG contrast. Export to PNG, SVG, CSS, ASE. |
 | **Utilities** | Favicons, remove background, upscale ×2/×4, image batch, banners, banner builder, PDF. |
-| **Generator** | Offline text-to-image: FLUX.2, Z-Image, SDXL and more, references, gallery, 38 styles. |
+| **Generator** | Offline text-to-image: FLUX.2, Z-Image, SDXL and more, references, gallery, 39 styles (including "Sports 3D" for banners), a sample request in every style. |
 
 Only the generator needs an NVIDIA, AMD or Intel GPU with 4 GB+ of video memory (8 GB is comfortable); everything else runs on any PC.
 

@@ -380,11 +380,12 @@ async function ggSend(to) {
   const x = ggCur(); if (!x) return;
   const f = {path: x.path, size: x.size || 0};
   ggLbClose();
-  if (to === 'color') {
+  if (to === 'color' || to === 'bmake') {   // «Сборка баннеров» сама предложит убрать фон, если он есть
     try {
       const b = await (await fetch(mediaUrl(x.path))).blob();
-      setTab('color');
-      csPhTake(new File([b], base(x.path), {type: 'image/png'}));
+      setTab(to);
+      const file = new File([b], base(x.path), {type: 'image/png'});
+      if (to === 'bmake') bmTake(file); else csPhTake(file);
     } catch (e) { say('warn', t('warn.title'), String(e)); }
     return;
   }

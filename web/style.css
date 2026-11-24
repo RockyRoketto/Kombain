@@ -57,6 +57,9 @@
   .hide{display:none!important}
   *::-webkit-scrollbar{width:8px}
   *::-webkit-scrollbar-thumb{background:var(--track);border-radius:10px}
+  /* карточка окна прокручивается сама и скруглена: без отступа полоса ложится на угол (жалоба автора 2026-11-24), поэтому дорожка короче на радиус */
+  .mcard::-webkit-scrollbar-track{margin:20px 0;background:transparent}
+  .pg-grid::-webkit-scrollbar-track{margin:10px 0;background:transparent}   /* список страниц PDF: свой скруглённый блок внутри окна */
 
   /* ----- шапка ----- */
   .hero{flex:none;position:relative;z-index:30;background:var(--s1);border-bottom:1px solid var(--line)}
@@ -1619,8 +1622,11 @@
   .gn-more-t::before,.gn-more-t::after{display:none}
   .gn-more-t b{text-shadow:none;color:var(--acct)}
   .gn-more-t:hover{border-color:var(--accs)}
-  .gn-st-card{max-width:640px}
-  .gn-st-card input[type=search]{width:100%;margin:2px 0 4px}
+  /* прокручивается только список стилей, полоса внутри рамки с отступом: у самой карточки она ложилась на скруглённый угол */
+  .gn-st-card{max-width:640px;display:flex;flex-direction:column;overflow:hidden;padding-right:12px}
+  .gn-st-card .phead{flex:none;padding-right:12px}
+  .gn-st-card input[type=search]{flex:none;width:calc(100% - 12px);margin:2px 0 4px}
+  .gn-st-body{flex:1;min-height:0;overflow:hidden auto;scrollbar-width:thin;scrollbar-gutter:stable;padding-right:6px}
   .gn-st-body h4{margin:14px 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
   .gn-st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
   .gn-st-grid .gn-pre{height:76px}
@@ -2122,6 +2128,7 @@
 .bm-fxh:not(:has(input:checked)) .bm-frs{visibility:hidden}
 /* в «Куда сохранить» — только то, что требует действия; схема «что получится» — в подсказке «?» */
 .bm-where .bm-pmsg{line-height:1.4}
+.cl-qt.gn-qt{width:360px;max-width:calc(100vw - 16px)}
 .cl-qt.bm-ptip{display:flex;flex-direction:column;gap:8px;width:340px;max-width:calc(100vw - 16px)}
 .bm-pth{font-size:12.5px;font-weight:600;color:var(--tx-em)}
 .bm-pnote{font-size:11.5px;line-height:1.45;color:var(--dim)}

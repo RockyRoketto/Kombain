@@ -247,6 +247,7 @@ Rules:
 - Only if the request pits two teams or countries against each other ("A vs B", a match between A and B; NOT a list of different objects), give each side its own object of equal size: the first on the left, the second on the right, with an empty gap between them in the middle.
 - COUNT: an object without a number in the request is exactly ONE. Russian nouns in the genitive are still one each. "3D" (also written with Cyrillic letters) is a look, not a number: never turn it into "three" or "3" objects.
 - Take every word in its most common everyday meaning for the language it is written in, and describe each object by its standard real-world shape and the features that make it recognizable (form, parts, pattern, proportions), so the model cannot confuse it with a similar object. Never swap an object for a different one.
+- The user message may have "Group:", "Props:", "Arrangement:" and "Accent:" lines for a sports composition. "Group: N objects": the picture shows exactly N objects close together. First keep EVERY object the request names (their real shapes and everyday colors, a basketball is orange). If the request names fewer than N objects, or only a sport ("football composition"), complete the group with items from "Props:" until there are N, naming each item once. Never add an item that is neither in the request nor in "Props:". Write the "Arrangement:" in your own words. Paint objects without a natural color in the "Accent:" colors; never recolor a ball or an object whose color the request or its real look fixes. "Group: exactly the objects the request names": the picture shows those objects and no others, none dropped and none replaced by a similar item (a helmet stays a helmet). A decoration word in the request such as "lines", "streaks", "trail", "flame" or "sparks" is drawn as glossy lime green motion streaks or a flame trail behind and around the objects, not as separate objects. "Group: ONE object only": describe that one object (the one the request names, or the main item of the sport) with no other objects, and use "Arrangement:" for its pose or motion.
 - Only if the subject is a person or an animal doing something: describe the gesture literally, what the body does, never as a separate symbol. Do not invent an age.
 - Never mention a background, table, surface, ground, scene, shadow, light, camera, art style or medium.
 - No quotes, no lists, no explanations, no tags like "8k" or "masterpiece". Output only the description.
@@ -500,6 +501,9 @@ func llmEnhance(ctx context.Context, request, preset string, n int, refs []GenRe
 		}
 		if h := countryColorsHint(request); h != "" {
 			user += "\n" + h
+		}
+		if pre.ID == "sport3d" && !part { // каждая картинка пачки получает свои предметы и расстановку
+			user += "\n" + sportHint(request, nil)
 		}
 		if block != "" {
 			user += "\n\n" + block

@@ -46,12 +46,12 @@ const GN_GRAD = {
 };
 // стили с картинкой-примером web/styles/<id>.jpg (её отдаёт /styles/ из genapi.go); без файла плитка показывает градиент
 const GN_IMG = new Set(['anime', 'cinema', 'comic', 'fantasy', 'flat', 'icon3d', 'illus', 'lowpoly', 'minimal', 'neon', 'none', 'oil', 'photo', 'pixel', 'product', 'retro', 'sketch', 'water',
-  'portrait', 'food', 'macro', 'aerial', 'bw', 'cartoon', 'storybook', 'impress', 'ink', 'popart', 'render3d', 'clay', 'isometric', 'sticker', 'flaticon', 'lineart', 'papercut', 'poster', 'synthwave', 'blueprint', 'sportbanner']);
+  'portrait', 'food', 'macro', 'aerial', 'bw', 'cartoon', 'storybook', 'impress', 'ink', 'popart', 'render3d', 'clay', 'isometric', 'sticker', 'flaticon', 'lineart', 'papercut', 'poster', 'synthwave', 'blueprint', 'sportbanner', 'sport3d']);
 // группы в окне «Ещё стили…»
 const GN_GROUPS = {
   photo: ['photo', 'portrait', 'cinema', 'product', 'food', 'macro', 'aerial', 'bw', 'retro'],
   art: ['illus', 'cartoon', 'storybook', 'anime', 'water', 'oil', 'impress', 'sketch', 'ink', 'comic', 'popart', 'fantasy'],
-  gfx: ['icon3d', 'render3d', 'clay', 'lowpoly', 'isometric', 'pixel'],
+  gfx: ['icon3d', 'sport3d', 'render3d', 'clay', 'lowpoly', 'isometric', 'pixel'],
   design: ['sticker', 'flaticon', 'flat', 'lineart', 'papercut', 'poster', 'minimal', 'neon', 'synthwave', 'blueprint', 'sportbanner'],
 };
 const GN_VIS = 5;                                    // сколько стилей видно плитками, шестая плитка — «Ещё стили…»
@@ -273,7 +273,26 @@ function gnStyleRender() {
     `<button type="button" class="gn-pre gn-more-t" id="gnStylesBtn"><b>${esc(t('gn.moreStyles'))}</b></button>`;
   $('gnNoStyle').classList.toggle('on', gn.set.preset === 'none');
   gnSecSums();
+  gnPromptHint();
 }
+
+// Подсказка, как писать запрос в выбранном стиле: пример полупрозрачными буквами в пустом поле (Tab вставляет его)
+// и абзац про стиль во всплывашке «?» (gn.tip.<id>, есть не у всех стилей)
+function gnPromptHint() {
+  const ex = I18N[lang]['gn.ex.' + gn.set.preset];
+  $('gnPrompt').placeholder = ex ? t('gn.exLead') + ex : t('gn.promptPh');
+  const tip = I18N[lang]['gn.tip.' + gn.set.preset];
+  const q = document.querySelector('#gnPrompt')?.previousElementSibling?.querySelector('.cl-qt');
+  // у стиля со своим абзацем общая справка не нужна: плашка и так длинная, а ниже окна она не должна обрезаться
+  if (q) { q.classList.add('gn-qt'); q.innerHTML = (tip || t('gn.promptHelp')) + '<br><br>' + t('gn.tipTab'); }
+}
+$('gnPrompt').addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey || $('gnPrompt').value) return;
+  const ex = I18N[lang]['gn.ex.' + gn.set.preset]; if (!ex) return;
+  e.preventDefault();
+  $('gnPrompt').value = ex;
+  $('gnPrompt').dispatchEvent(new Event('input'));
+});
 
 function gnStylesOpen() {
   $('gnStylesQ').value = '';
