@@ -3,6 +3,12 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 7.2
+
+- Generator: new «Sports 3D» style for banners: semi-realistic 3D, custom colours per object, variations and cut-out from a green background. The picture can be sent straight to the Banner builder.
+- Generator: every style now has a hint with a sample request.
+- Subtitles: the «Neon» effect was removed.
+
 ## 7.1
 
 - Banner builder: you can pick the banner for the picture by clicking it even while editing the background element; the background card now has the All banners / One banner switch.
