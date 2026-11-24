@@ -3,6 +3,10 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 7.1
+
+- Сборка баннеров: фоновые элементы выровнены по размеру, а в баннере 315x250 фон по умолчанию стал заметно меньше.
+
 ## 7.0
 
 - Utilities: new tool «Banner builder». Drop a picture, pick month, day and match, and it is placed on all 14 banner templates inside each safe zone.
