@@ -610,7 +610,7 @@ function bmLpSet(on) {
 }
 $('bmLpBtn').onclick = () => bmLpSet(!bmLp.on);
 $('bmLpX').onclick = () => bmLpSet(false);
-$('bmLp').addEventListener('mousedown', e => { if (e.target === $('bmLp')) bmLpSet(false); });
+$('bmLp').addEventListener('mousedown', e => { if (e.target === $('bmLp') && e.button === 0 && !bmSpace) bmLpSet(false); });
 $('bmLpIn').onclick = () => bmLpZoom(1.5, 0, 0, true);
 $('bmLpO').onclick = () => bmLpZoom(1 / 1.5, 0, 0, true);
 $('bmLpW').onclick = bmLpWhole;
@@ -745,6 +745,7 @@ $('bmLpV').addEventListener('pointerdown', e => {
   $('bmLpI').classList.remove('ease');
 });
 $('bmLpV').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+$('bmLpV').addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });   // средняя кнопка — без автопрокрутки
 // наведение: внутри рамки выбранного — курсор «двигать»; над другим объектом — его рамка и курсор-рука (щелчок выберет его)
 let bmLpHovRaf = 0, bmLpHovPt = null;
 function bmLpHover() {
@@ -780,7 +781,8 @@ const bmLpDragEnd = e => {
 $('bmLpV').addEventListener('pointerup', bmLpDragEnd);
 $('bmLpV').addEventListener('pointercancel', bmLpDragEnd);
 bmLpReady = true;
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
+// Esc закрывает «Крупно», но не поверх окна (сейв-зоны и др.): там Esc закрывает окно
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg && tab === 'bmake' && !document.querySelector('.modal:not(.hide)')) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
 addEventListener('resize', () => { if (bmLp.on) { bmLpDraw(); bmSprSoon(); } });
 // список элементов: кнопка с текущим и выпадающая плашка с плитками («без элемента» первым).
 // Плашка и увеличенная плитка — position:fixed (как clQPlace в color.js), чтобы рамка карточки их не обрезала;

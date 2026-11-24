@@ -195,7 +195,8 @@ document.addEventListener('click', e => {
   else if (tb && el.contains(tb)) { const now = new Date(); bmSetDate(now.getMonth() + 1, now.getDate()); bmCalClose(); }
   else if (!el.contains(e.target)) bmCalClose();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') bmCalClose(); });
+// Esc при открытом календаре закрывает только его (не снимает выбор баннера и не закрывает «Крупно»)
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && bmCal.el && !bmCal.el.classList.contains('hide')) { e.stopPropagation(); e.preventDefault(); bmCalClose(); } }, true);
 window.addEventListener('resize', bmCalClose);
 $('bmPickRoot').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose: 'out'});
@@ -385,25 +386,46 @@ function bmGuides(f, gx, gy) {
   if (gy != null) b.style.setProperty('--gy', gy);
 }
 // перемещение холста: пробел + мышь или средняя кнопка (колёсико)
+// Пробел в «Сборке баннеров» только включает перемещение: кнопку под фокусом не нажимает, галочку не ставит
+// (фокус после щелчка мышью остаётся на кнопке, и пробел на ней = щелчок: так открывалось «Крупно»).
+// Пробелом остаётся только в полях для текста и в списках. Ловим в фазе захвата, раньше кнопки.
 let bmSpace = false;
-const bmPanOn = v => { bmSpace = v; $('bmGrid').classList.toggle('panr', v); };
+const bmPanOn = v => {
+  if (bmSpace === v) return;
+  bmSpace = v; $('bmGrid').classList.toggle('panr', v); $('bmLpV').classList.toggle('panr', v);
+  if (bmLp.on && typeof bmLpHover === 'function') requestAnimationFrame(bmLpHover);   // в «Крупно» убрать или вернуть подсветку под мышью
+};
+const BM_TXT = 'textarea, select, [contenteditable], input:not([type=button]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=submit]):not([type=reset])';
+const bmSpaceKey = e => e.code === 'Space' && tab === 'bmake' && !document.querySelector('.modal:not(.hide)') && !(e.target.closest && e.target.closest(BM_TXT));
 document.addEventListener('keydown', e => {
-  if (e.code !== 'Space' || tab !== 'bmake' || !bmImg || e.ctrlKey || e.altKey || e.metaKey) return;
-  if (e.target.closest && e.target.closest('input, textarea, select, button, [contenteditable]') || document.querySelector('.modal:not(.hide)')) return;
-  e.preventDefault(); bmPanOn(true);
-});
-document.addEventListener('keyup', e => { if (e.code === 'Space') bmPanOn(false); });
+  if (!bmSpaceKey(e)) return;
+  e.preventDefault();
+  if (bmImg && !e.ctrlKey && !e.altKey && !e.metaKey) bmPanOn(true);
+}, true);
+document.addEventListener('keyup', e => {
+  if (e.code !== 'Space') return;
+  if (bmSpaceKey(e)) e.preventDefault();
+  bmPanOn(false);
+}, true);
 window.addEventListener('blur', () => bmPanOn(false));
+// после перемещения холста щелчок не считается: не снимает и не меняет выбор
+let bmPanClick = false;
+document.addEventListener('click', e => { if (bmPanClick) { bmPanClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
 $('bmGrid').addEventListener('pointerdown', e => {
   if (!(e.button === 1 || (e.button === 0 && bmSpace))) return;
   e.preventDefault(); e.stopImmediatePropagation();
   const g = $('bmGrid'), x0 = e.clientX, y0 = e.clientY, sl = g.scrollLeft, st = g.scrollTop;
   g.classList.add('panning');
+  if (e.button === 0) bmPanClick = true;
   const mv = ev => { g.scrollLeft = sl - (ev.clientX - x0); g.scrollTop = st - (ev.clientY - y0); };
-  const up = () => { g.classList.remove('panning'); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+  const up = () => {
+    g.classList.remove('panning'); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    setTimeout(() => { bmPanClick = false; });   // click приходит сразу после pointerup; если не пришёл — флаг не должен съесть следующий
+  };
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 }, true);
 $('bmGrid').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+$('bmGrid').addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });   // средняя кнопка — без автопрокрутки
 $('bmGrid').addEventListener('pointerdown', e => {
   const box = e.target.closest('.bm-img'), f = box && box.closest('.bm-t');
   if (!f || bmBusy || e.button !== 0) return;
@@ -497,8 +519,17 @@ const bmDragEnd = () => {
 };
 $('bmGrid').addEventListener('pointerup', bmDragEnd);
 $('bmGrid').addEventListener('pointercancel', bmDragEnd);
-// щелчок по пустому месту поля снимает выбор баннера
-$('bmGrid').addEventListener('click', e => { if (bmSel && !e.target.closest('.bm-t')) { bmSel = ''; bmEditSync(); } });
+// щелчок по пустому месту поля снимает выбор баннера; по подписи или краю плитки — выбирает его, как щелчок по самому баннеру
+// (картинку при этом не трогает). «Крупно» не открывает, только показывает этот баннер, если уже открыто
+$('bmGrid').addEventListener('click', e => {
+  const f = e.target.closest('.bm-t');
+  if (!f) { if (bmSel) { bmSel = ''; bmEditSync(); } return; }
+  if (e.target.closest('.bm-img') || bmBusy) return;   // по самому баннеру выбирает pointerdown
+  if (bmLp.name !== f.dataset.n) { bmLp.name = f.dataset.n; bmLpDraw(); if (bmLp.on) bmSprSoon(); }
+  if (bmFxObj === 'elf') return;   // фон общий для всех баннеров, выбирать нечего
+  if (!bmMode) { bmNeedMode(); return; }
+  if (bmMode === 'one' && bmSel !== f.dataset.n) { bmSel = f.dataset.n; bmEditSync(); }
+});
 // стрелки двигают (с Shift крупнее), + и − меняют размер, Esc снимает выбор баннера
 document.addEventListener('keydown', e => {
   if (tab !== 'bmake' || !bmImg || bmBusy || e.ctrlKey || e.altKey || e.metaKey) return;

@@ -2332,7 +2332,10 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-tn.dim .bm-tx,.bm-tn.dim .bm-ti{color:var(--dim)}
 .bm-tn.files{align-items:center;flex-wrap:wrap;gap:5px;min-height:24px}
 .bm-ebtn .bm-toall{grid-column:1/-1}
-#bmGrid.panr,#bmGrid.panr .bm-img,#bmGrid.panr .bm-box i{cursor:grab!important}
+#bmGrid .bm-t{cursor:pointer}
+#bmGrid.panr,#bmGrid.panr .bm-t,#bmGrid.panr .bm-img,#bmGrid.panr .bm-box i{cursor:grab!important}
+.bm-lpv.zoomed.panr,.bm-lpv.zoomed.panr .bm-lpsl i,.bm-lpv.zoomed.panr .bm-lpsl u{cursor:grab!important}
+.bm-lpv.drag.panr,.bm-lpv.drag.panr .bm-lpsl i,.bm-lpv.drag.panr .bm-lpsl u{cursor:grabbing!important}
 #bmGrid.panning,#bmGrid.panning .bm-img,#bmGrid.panning .bm-box i{cursor:grabbing!important}
 /* выбор фонового элемента: кнопка и выпадающая плашка с плитками (bannerfx.js), плашка и увеличенная плитка fixed */
 .bm-pk{display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;min-width:0;padding:5px 10px 5px 5px;border-radius:var(--r2);background:var(--s2);border:1px solid var(--line);color:var(--tx);font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color .12s}
