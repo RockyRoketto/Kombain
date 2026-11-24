@@ -11,6 +11,7 @@ const BM_GL0 = {on: false, c: '#ffe2a8', r: 24, s: 60};
 const bmFxDef = () => ({el: '', ek: 1.5, ex: 0, ey: 0, er: 0, art: {sh: {...BM_SH0}, gl: {...BM_GL0}}, elf: {sh: {...BM_SH0}, gl: {...BM_GL0}, bl: 0}});
 let bmFx = bmFxDef();
 let bmFxObj = 'art';        // чьи эффекты в панели: art — картинка, elf — элемент
+let bmLpReady = false;     // «Крупно» уже настроено (bmObjSync зовётся и раньше)
 let bmShapes = [];          // имена элементов из /api/bmk-list
 const bmEls = {};           // имя -> {cv, w, h, url}: элемент без прозрачных полей
 const bmSpr = {art: null, el: null};   // спрайты превью: {key, url, px, py}; px, py — поля в долях ширины и высоты объекта
@@ -396,7 +397,7 @@ function bmObjDirty(kind) {
 }
 function bmObjSync() {
   const elf = bmFxObj === 'elf', e = bmElCur();
-  document.querySelectorAll('#bmObj button').forEach(b => { b.classList.toggle('on', b.dataset.o === bmFxObj); b.disabled = bmBusy; });
+  document.querySelectorAll('#bmObj button, #bmLpK button').forEach(b => { b.classList.toggle('on', b.dataset.o === bmFxObj); b.disabled = bmBusy; });
   const at = $('bmObjArt'), et = $('bmObjEl');
   const ah = bmImg ? `<img src="${bmImg.url}" alt="">` : BM_NONE_ICON, eh = bmFx.el ? `<img src="/bannershapes/${encodeURIComponent(bmFx.el)}.png" alt="">` : BM_NONE_ICON;
   if (at.bmHtml !== ah) { at.innerHTML = ah; at.bmHtml = ah; }
@@ -411,6 +412,8 @@ function bmObjSync() {
   lbl('bmRsAllTx', elf ? 'bm.rsAllEl' : 'bm.rsAllArt');
   $('bmRsAll').disabled = bmBusy || !bmObjDirty(bmFxObj);
   $('bmGrid').classList.toggle('o-elf', elf && !!e);
+  $('bmLp').classList.toggle('o-elf', elf && !!e);
+  if (bmLpReady) bmLpDraw();   // подпись режима и рамка выбранного в «Крупно»
 }
 $('bmObj').addEventListener('click', e => {
   const b = e.target.closest('button[data-o]');
@@ -559,7 +562,18 @@ function bmLpDraw() {
   $('bmLpI').style.cssText = `width:${sl.w * s}px;height:${sl.h * s}px;left:${W / 2 + bmLp.ox - sl.w * s / 2}px;top:${H / 2 + bmLp.oy - sl.h * s / 2}px` + bmFxVars(lp, sl, ad, p);
   // сейв-зона пунктиром, как на плитках
   lp.querySelector('.bm-zf').style.cssText = `left:${sl.x / sl.w * 100}%;top:${sl.y / sl.h * 100}%;width:${sl.zw / sl.w * 100}%;height:${sl.zh / sl.h * 100}%`;
-  $('bmLpL').textContent = `${sl.w}×${sl.h}, ${Math.round(s * 100)}%`;
+  // подпись: размер, масштаб и что правит мышь (режим «Все / Один баннер» у картинки, фон всегда общий)
+  const elf = bmFxObj === 'elf';
+  const mode = elf ? t('bm.lpElAll') : bmMode === 'all' ? t('bm.tAll') : bmMode === 'one' ? t('bm.tOne') : t('bm.lpNoMode');
+  $('bmLpL').textContent = `${sl.w}×${sl.h}, ${Math.round(s * 100)}% · ${mode}`;
+  $('bmLpL').classList.toggle('warn', !elf && !bmMode);
+  // рамка выбранного объекта с ручками (у фона ещё кружок поворота)
+  const sel = $('bmLpSel'), css = bmLpObjCss(sl, bmFxObj);
+  sel.classList.toggle('hide', !css);
+  sel.classList.toggle('el', elf);
+  if (css) sel.style.cssText = css;
+  if (bmLpHovPt && !bmDrag) { if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover); }
+  else if (bmDrag) $('bmLpHov').classList.add('hide');
   const z = Math.min(Math.max(bmLp.z, 1), bmLpZMax(f));
   $('bmLpO').disabled = $('bmLpW').disabled = z <= 1.0001;
   $('bmLpIn').disabled = z >= bmLpZMax(f) - 0.0001;
@@ -582,29 +596,146 @@ $('bmLpW').onclick = bmLpWhole;
 // колесо приближает к курсору, перетаскивание двигает приблизившуюся картинку
 $('bmLpV').addEventListener('wheel', e => {
   e.preventDefault();
+  if ((bmDrag && bmDrag.lp) || bmLpPan) return;   // пока тянешь, вид не меняется
   const r = $('bmLpV').getBoundingClientRect();
   bmLpZoom(Math.exp(-Math.max(-120, Math.min(120, e.deltaY)) * 0.0022), e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2, false);
 }, {passive: false});
-let bmLpDrag = null;
+// ---------- правка в «Крупно»: щелчок выбирает картинку или фон, тянешь сам объект, размер — за углы, поворот фона — за кружок ----------
+// Сверху картинка (по непрозрачным пикселям), под ней фон (его видимая часть внутри баннера). Если объект уже выбран
+// (щелчком или переключателем «Картинка / Фон»), он берётся и там, где его закрывает другой: так фон под картинкой можно тянуть.
+// Вид двигают пробел + мышь, средняя кнопка или пустое место. Тянут той же bmDragMove, что и плитки: магниты, Alt, отмена.
+let bmLpPan = null;   // сдвиг вида
+// фигура в баннере sl без поворота: середина и размер в пикселях шаблона
+function bmLpElGeo(sl, ad, e) {
+  const z = bmZs(sl, e.w, e.h) * ad.k * bmFx.ek, g = bmGeo(sl, ad);
+  return {cx: g.cx + bmFx.ex * sl.zw * ad.k, cy: g.cy + bmFx.ey * sl.zh * ad.k, w: e.w * z, h: e.h * z};
+}
+// непрозрачна ли точка холста (fx, fy — доли ширины и высоты)
+function bmLpAlpha(cv, fx, fy) {
+  if (!(fx >= 0 && fx < 1 && fy >= 0 && fy < 1)) return false;
+  try { return cv.getContext('2d').getImageData(Math.floor(fx * cv.width), Math.floor(fy * cv.height), 1, 1).data[3] > 16; } catch (e) { return true; }
+}
+// какой объект взять в точке экрана: выбранный, если он там есть, иначе верхний; '' — пусто
+function bmLpPick(cx, cy) {
+  const sl = bmLpSlot();
+  if (!sl || !bmImg) return '';
+  const r = $('bmLpI').getBoundingClientRect(), s = r.width / sl.w, x = (cx - r.left) / s, y = (cy - r.top) / s, ad = bmAdj(sl.name);
+  const a = bmFitPx(sl, bmImg.w, bmImg.h, ad), hits = [];
+  if (bmLpAlpha(bmImg.cv, (x - a.x) / a.w, (y - a.y) / a.h)) hits.push('art');
+  const e = bmElCur();
+  if (e && x >= 0 && y >= 0 && x <= sl.w && y <= sl.h) {
+    const g = bmLpElGeo(sl, ad, e), ang = -bmFx.er * Math.PI / 180, dx = x - g.cx, dy = y - g.cy;
+    const u = dx * Math.cos(ang) - dy * Math.sin(ang), v = dx * Math.sin(ang) + dy * Math.cos(ang);
+    if (bmLpAlpha(e.cv, u / g.w + 0.5, v / g.h + 0.5)) hits.push('elf');
+  }
+  return hits.includes(bmFxObj) ? bmFxObj : hits[0] || '';
+}
+// рамка объекта kind на баннере лупы: стиль для position:absolute внутри #bmLpI
+function bmLpObjCss(sl, kind) {
+  const ad = bmAdj(sl.name);
+  let cx, cy, w, h, rot = 0;
+  if (kind === 'elf') {
+    const e = bmElCur();
+    if (!e) return '';
+    const g = bmLpElGeo(sl, ad, e);
+    cx = g.cx; cy = g.cy; w = g.w; h = g.h; rot = bmFx.er;
+  } else {
+    if (!bmImg) return '';
+    const a = bmFitPx(sl, bmImg.w, bmImg.h, ad);
+    cx = a.x + a.w / 2; cy = a.y + a.h / 2; w = a.w; h = a.h;
+  }
+  // в процентах баннера: при плавном приближении рамка едет вместе с ним
+  return `left:${(cx - w / 2) / sl.w * 100}%;top:${(cy - h / 2) / sl.h * 100}%;width:${w / sl.w * 100}%;height:${h / sl.h * 100}%;transform:rotate(${rot}deg)`;
+}
+// выбрать объект (как переключатель в панели)
+function bmLpObjSet(kind) {
+  if (kind === bmFxObj) return;
+  bmFxObj = kind;
+  bmFxSync(); bmEditSync(); bmPlace();
+}
+$('bmLpK').addEventListener('click', e => { const b = e.target.closest('button[data-o]'); if (b && !b.disabled) bmLpObjSet(b.dataset.o); });
+// взять объект kind: тянуть, а за ручку hd — размер или поворот
+function bmLpGrab(e, kind, hd) {
+  const sl = bmLpSlot(), I = $('bmLpI'), r = I.getBoundingClientRect(), sc = r.width / sl.w;
+  bmLpObjSet(kind);
+  if (kind === 'elf') {
+    const el = bmElCur();
+    if (!el) return false;
+    const ad = bmAdj(sl.name), g = bmLpElGeo(sl, ad, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f: I, sc, k: ad.k, moved: false};
+    if (hd && hd.tagName === 'U') Object.assign(bmDrag, {er: bmFx.er, cx, cy});
+    else if (hd) Object.assign(bmDrag, {ek: bmFx.ek, cx, cy});
+  } else {
+    if (!bmMode) { bmNeedMode(); bmLpNeedMode(); return false; }
+    if (bmMode === 'one' && bmSel !== sl.name) { bmSel = sl.name; bmEditSync(); }
+    const a = bmCur(), t0 = bmAdj(sl.name);
+    bmDrag = {x: e.clientX, y: e.clientY, a0: {...a}, t0, sl, f: I, r, sc, moved: false};
+    if (hd && hd.dataset.h) {
+      const g = bmGeo(sl, t0), h = hd.dataset.h, sx = h.includes('e') ? 1 : -1, sy = h.includes('s') ? 1 : -1;
+      Object.assign(bmDrag, {h, sx, sy, g, ax: g.cx - sx * g.bw * t0.k / 2, ay: g.cy - sy * g.bh * t0.k / 2, moved: true});
+      bmMark();
+    }
+  }
+  bmDrag.lp = true;
+  I.classList.add('drag');
+  // пока тянешь: спрайт эффектов грубее и быстрее, после отпускания точный (bmLpUp → bmLpRelease)
+  bmLp.hold = true; bmLp.down = true;
+  return true;
+}
+// подсветить подпись режима в окне, если режим «Все / Один баннер» не выбран
+function bmLpNeedMode() {
+  const l = $('bmLpL');
+  l.classList.remove('need'); void l.offsetWidth; l.classList.add('need');
+}
 $('bmLpV').addEventListener('pointerdown', e => {
-  if (e.button !== 0 || e.target.closest('.bm-lpt') || bmLp.z <= 1.0001) return;
-  bmLpDrag = {id: e.pointerId, x: e.clientX, y: e.clientY};
-  $('bmLpV').setPointerCapture(e.pointerId);
-  $('bmLpV').classList.add('drag');
+  if (e.target.closest('.bm-lpt, .bm-lpk')) return;
+  const pan = e.button === 1 || (e.button === 0 && bmSpace);
+  if (!pan && e.button !== 0) return;
+  e.preventDefault();
+  const v = $('bmLpV');
+  if (!pan && !bmBusy) {
+    const hd = e.target.closest('#bmLpSel i, #bmLpSel u'), kind = hd ? bmFxObj : bmLpPick(e.clientX, e.clientY);
+    if (kind) {
+      if (bmLpGrab(e, kind, hd)) { v.setPointerCapture(e.pointerId); v.classList.remove('ov'); $('bmLpHov').classList.add('hide'); }
+      return;
+    }
+  }
+  if (bmLp.z <= 1.0001) return;   // целый баннер двигать некуда
+  bmLpPan = {id: e.pointerId, x: e.clientX, y: e.clientY};
+  v.setPointerCapture(e.pointerId);
+  v.classList.add('drag');
   $('bmLpI').classList.remove('ease');
 });
+$('bmLpV').addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+// наведение: рамка объекта, который возьмёт щелчок
+let bmLpHovRaf = 0, bmLpHovPt = null;
+function bmLpHover() {
+  bmLpHovRaf = 0;
+  const v = $('bmLpV'), hv = $('bmLpHov'), sl = bmLpSlot();
+  const kind = bmLpHovPt && !bmDrag && !bmLpPan && !bmSpace && !bmBusy && sl ? (bmLpHovPt.h ? bmFxObj : bmLpPick(bmLpHovPt.x, bmLpHovPt.y)) : '';
+  v.classList.toggle('ov', !!kind);
+  hv.classList.toggle('hide', !kind || !!bmLpHovPt.h);
+  if (kind && !bmLpHovPt.h) { hv.style.cssText = bmLpObjCss(sl, kind); hv.classList.toggle('cur', kind === bmFxObj); }
+}
 $('bmLpV').addEventListener('pointermove', e => {
-  if (!bmLpDrag || bmLpDrag.id !== e.pointerId) return;
-  bmLp.ox += e.clientX - bmLpDrag.x; bmLp.oy += e.clientY - bmLpDrag.y;
-  bmLpDrag.x = e.clientX; bmLpDrag.y = e.clientY;
-  bmLpDraw();
+  if (bmDrag && bmDrag.lp) { bmDragMove(e); return; }
+  if (bmLpPan && bmLpPan.id === e.pointerId) {
+    bmLp.ox += e.clientX - bmLpPan.x; bmLp.oy += e.clientY - bmLpPan.y;
+    bmLpPan.x = e.clientX; bmLpPan.y = e.clientY;
+    bmLpDraw();
+    return;
+  }
+  bmLpHovPt = {x: e.clientX, y: e.clientY, h: !!e.target.closest('#bmLpSel i, #bmLpSel u')};
+  if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover);
 });
+$('bmLpV').addEventListener('pointerleave', () => { bmLpHovPt = null; if (!bmLpHovRaf) bmLpHovRaf = requestAnimationFrame(bmLpHover); });
 const bmLpDragEnd = e => {
-  if (!bmLpDrag || bmLpDrag.id !== e.pointerId) return;
-  bmLpDrag = null; $('bmLpV').classList.remove('drag');
+  if (bmDrag && bmDrag.lp) { bmDragEnd(); $('bmLpI').classList.remove('drag'); }
+  if (bmLpPan && bmLpPan.id === e.pointerId) { bmLpPan = null; $('bmLpV').classList.remove('drag'); }
 };
 $('bmLpV').addEventListener('pointerup', bmLpDragEnd);
 $('bmLpV').addEventListener('pointercancel', bmLpDragEnd);
+bmLpReady = true;
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && bmLp.on && bmImg) { e.stopPropagation(); e.preventDefault(); bmLpSet(false); } }, true);
 addEventListener('resize', () => { if (bmLp.on) { bmLpDraw(); bmSprSoon(); } });
 // список элементов: кнопка с текущим и выпадающая плашка с плитками («без элемента» первым).

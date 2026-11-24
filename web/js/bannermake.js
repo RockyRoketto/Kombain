@@ -379,7 +379,7 @@ const BM_SNAP = 7;   // ширина магнита в пикселях экра
 let bmDrag = null;
 function bmGuides(f, gx, gy) {
   f.classList.toggle('snx', gx != null); f.classList.toggle('sny', gy != null);
-  const b = f.querySelector('.bm-img');
+  const b = f.querySelector('.bm-img') || f;   // в «Крупно» f — сам баннер #bmLpI
   if (gx != null) b.style.setProperty('--gx', gx);
   if (gy != null) b.style.setProperty('--gy', gy);
 }
@@ -430,7 +430,9 @@ $('bmGrid').addEventListener('pointerdown', e => {
   f.classList.add('drag');
   box.setPointerCapture(e.pointerId);
 });
-$('bmGrid').addEventListener('pointermove', e => {
+// движение мышью: общее для плиток и «Крупно» (там d.f — баннер #bmLpI, d.r — его место на экране, d.sc — масштаб лупы).
+// d.el — тянем фоновый элемент, d.ek — его размер от центра, d.er — поворот вокруг центра (cx, cy в пикселях экрана)
+function bmDragMove(e) {
   const d = bmDrag;
   if (!d) return;
   const mx = e.clientX - d.x, my = e.clientY - d.y, sl = d.sl, free = e.altKey;
@@ -438,6 +440,21 @@ $('bmGrid').addEventListener('pointermove', e => {
     if (Math.hypot(mx, my) < 3) return;
     d.moved = true;
     bmMark();
+  }
+  if (d.ek) {   // размер элемента: от центра, по расстоянию до него
+    const r0 = Math.hypot(d.x - d.cx, d.y - d.cy) || 1, r1 = Math.hypot(e.clientX - d.cx, e.clientY - d.cy);
+    bmFx.ek = Math.min(Math.max(d.ek * r1 / r0, 0.2), 3);
+    bmFxChanged(true);
+    return;
+  }
+  if (d.er != null) {   // поворот: прилипает к 0°, 90°, 180°, 270° (Alt — без магнита)
+    const a = Math.atan2(e.clientY - d.cy, e.clientX - d.cx) - Math.atan2(d.y - d.cy, d.x - d.cx);
+    let v = ((d.er + a * 180 / Math.PI) % 360 + 360) % 360;
+    const q = Math.round(v / 90) * 90;
+    if (!free && Math.abs(v - q) < 4) v = q % 360;
+    bmFx.er = Math.round(v * 10) / 10;
+    bmFxChanged(true);
+    return;
   }
   if (d.el) {
     bmFx.ex = Math.min(Math.max(d.ex + mx / d.sc / (sl.zw * d.k), -1), 1);
@@ -468,7 +485,8 @@ $('bmGrid').addEventListener('pointermove', e => {
   const cx = sx ?? g.cx, cy = sy ?? g.cy;
   bmSet({dx: d.a0.dx + (cx - bmZx(sl)) / sl.zw - d.t0.dx, dy: d.a0.dy + (cy - bmZy(sl)) / sl.zh - d.t0.dy});
   bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
-});
+}
+$('bmGrid').addEventListener('pointermove', bmDragMove);
 const bmDragEnd = () => {
   const d = bmDrag;
   if (!d) return;

@@ -2168,13 +2168,39 @@
 .bm-lp .bm-zf{border-color:rgba(255,255,255,.4);transition:opacity .15s}
 .bm-lp.clean .bm-zf,.bm-lp.clean .bm-lpl{opacity:0}
 .bm-lpb{position:absolute;left:10px;right:10px;bottom:8px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;pointer-events:none}
-.bm-lpl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:6px;background:rgba(8,8,10,.55);transition:opacity .15s}
+.bm-lpl{min-width:0;line-height:1.35;font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:6px;background:rgba(8,8,10,.55);transition:opacity .15s}
 .bm-lpt{flex:none;display:flex;gap:2px;padding:2px;border-radius:8px;background:rgba(8,8,10,.7);border:1px solid var(--line);pointer-events:auto;transition:opacity .15s}
 .bm-lp.clean .bm-lpt{opacity:.3}
 .bm-lpt button{min-width:26px;height:24px;padding:0 6px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:15px;line-height:1;cursor:pointer}
 .bm-lpt button.wide{font-size:12px}
 .bm-lpt button:hover:not(:disabled){background:var(--accbg);color:var(--acct)}
 .bm-lpt button:disabled{opacity:.35;cursor:default}
+.bm-lpl.warn{color:var(--acct)}
+.bm-lpl.need{animation:bmLpNeed .9s ease}
+@keyframes bmLpNeed{0%,60%{background:rgba(var(--acl-rgb),.35);color:var(--acct2)}}
+/* правка в «Крупно»: рамка выбранного объекта с ручками, рамка под курсором, переключатель «Картинка / Фон» */
+.bm-lpv.ov{cursor:move}
+.bm-lpv.drag,.bm-lpv.drag .bm-lpsl i,.bm-lpv.drag .bm-lpsl u{cursor:grabbing}
+.bm-lphv,.bm-lpsl{position:absolute;box-sizing:border-box;pointer-events:none;transform-origin:50% 50%}
+.bm-lphv{border:1px solid rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.bm-lphv.cur{display:none}
+.bm-lpsl{outline:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.bm-lpsl.el{outline-style:dashed}
+.bm-lpsl i{position:absolute;width:10px;height:10px;margin:-5px;box-sizing:border-box;border-radius:2px;background:#fff;border:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:auto}
+.bm-lpsl i[data-h=nw]{left:0;top:0;cursor:nwse-resize}.bm-lpsl i[data-h=se]{left:100%;top:100%;cursor:nwse-resize}
+.bm-lpsl i[data-h=ne]{left:100%;top:0;cursor:nesw-resize}.bm-lpsl i[data-h=sw]{left:0;top:100%;cursor:nesw-resize}
+.bm-lpsl u{display:none;position:absolute;left:50%;top:-24px;width:11px;height:11px;margin-left:-5.5px;box-sizing:border-box;border-radius:50%;background:#fff;border:1.5px solid var(--acc);box-shadow:0 0 0 1px rgba(0,0,0,.35);pointer-events:auto;cursor:grab}
+.bm-lpsl u::before{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:13px;margin-left:-.75px;background:var(--acc)}
+.bm-lpsl.el u{display:block}
+.bm-lpi.k100 .bm-lpsl{outline-color:#ff4fa3}
+.bm-lpi.snx .bm-g.v,.bm-lpi.sny .bm-g.h{display:block}
+.bm-lp.o-elf .bm-clip img.art{opacity:.35;transition:opacity .12s}
+.bm-lp.clean .bm-lpsl,.bm-lp.clean .bm-lphv,.bm-lp.clean .bm-g{display:none!important}
+.bm-lp.clean .bm-clip img.art{opacity:1}
+.bm-lpk{position:absolute;left:10px;top:8px;display:flex;gap:2px;padding:2px;border-radius:8px;background:rgba(8,8,10,.7);border:1px solid var(--line)}
+.bm-lpk button{height:24px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.bm-lpk button:hover:not(:disabled){background:var(--accbg);color:var(--acct)}
+.bm-lpk button.on{background:var(--accbg);box-shadow:inset 0 0 0 1px rgba(var(--acl-rgb),.55);color:var(--acct2)}
 .bm-lp.hasel .bm-clip .el{display:block}
 /* строка ползунка: подпись, ползунок, число; колонки одинаковые во всех строках, поэтому ползунки стоят ровно */
 .bm-sl{display:grid;grid-template-columns:minmax(64px,100px) minmax(48px,1fr) auto;align-items:center;column-gap:10px;min-height:28px;font-size:12.5px;color:var(--tx2)}
