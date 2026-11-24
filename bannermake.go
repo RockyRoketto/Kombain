@@ -247,6 +247,41 @@ func (s *Server) bmkRoutes(mux *http.ServeMux) {
 		writeJSON(w, map[string]any{"slots": bmkSlots, "shapes": bmkShapes()})
 	}))
 
+	// «Убрать фон» у картинки для баннеров: тело — PNG из окна, ответ — PNG с прозрачностью (на диск ничего не пишется)
+	mux.HandleFunc("/api/bmk-cut", s.api(func(w http.ResponseWriter, r *http.Request) {
+		fail := func(msg string, need bool) {
+			writeJSON(w, map[string]any{"error": msg, "needModel": need})
+		}
+		data, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+		if err != nil || len(data) == 0 {
+			fail(tr("err.badRequest"), false)
+			return
+		}
+		if !bgReady() {
+			fail(tr("bg.notInstalled"), true)
+			return
+		}
+		aiWork.Lock()
+		out, err := bgSrv.CutPNG(r.Context(), data)
+		aiWork.Unlock()
+		if err != nil {
+			fail(err.Error(), false)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(out)
+	}))
+
+	// есть ли такая папка (строка пути под выбором папки сохранения, pathline.js: plDir)
+	mux.HandleFunc("/api/dir-check", s.api(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Path string `json:"path"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		p := strings.TrimSpace(body.Path)
+		writeJSON(w, map[string]any{"exists": p != "" && dirExists(p), "abs": filepath.IsAbs(p)})
+	}))
+
 	// куда лягут баннеры и что из папок уже есть
 	mux.HandleFunc("/api/bmk-check", s.api(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

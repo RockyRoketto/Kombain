@@ -38,6 +38,7 @@ let lastNote = '';
 function renderOut() {
   document.querySelectorAll('#outMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === outMode));
   $('folderRow').classList.toggle('hide', outMode !== 'folder');
+  plDir('outLine', outMode === 'folder' ? $('outDir').value : '');
   const dir = $('outDir').value.trim();
   const drop = dropOut || snap.defaultOut || t('out.defaultDir');
   const note = outMode === 'same'

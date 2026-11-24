@@ -31,20 +31,84 @@ async function bmTake(file) {
     say('warn', t('drop.notSuitableTitle'), t('bm.badType')); return;
   }
   try {
-    const url = URL.createObjectURL(file);
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    URL.revokeObjectURL(url);
-    const o = bmTrimCanvas(img);   // bannerfx.js
-    const blob = await new Promise(res => o.cv.toBlob(res, 'image/png'));
-    if (!blob) throw new Error('png');
+    const d = await bmDecode(file);
     bmDropImg();
-    bmImg = {name: file.name || 'image.png', url: URL.createObjectURL(blob), cv: o.cv, w: o.w, h: o.h, trimmed: o.trimmed};
+    bmImg = {name: file.name || 'image.png', url: d.url, cv: d.cv, w: d.w, h: d.h, trimmed: d.trimmed, bg: bmHasBg(d.cv) ? 'ask' : ''};
     Object.keys(bmSt).forEach(k => delete bmSt[k]);
     bmResetAdj();
     bmFxNewArt();   // до отрисовки: старый спрайт эффектов от прошлой картинки
     bmRender();
   } catch (e) { toast({type: 'warn', title: t('drop.notSuitableTitle'), text: t('bm.badFile', {name: esc(file.name || '')}), ttl: 7000}); }
 }
+// файл или blob → {cv: холст без прозрачных полей, url: ссылка на PNG, w, h, trimmed}
+async function bmDecode(file) {
+  const src = URL.createObjectURL(file);
+  let img;
+  try { img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+  finally { URL.revokeObjectURL(src); }
+  const o = bmTrimCanvas(img);   // bannerfx.js
+  const blob = await new Promise(res => o.cv.toBlob(res, 'image/png'));
+  if (!blob) throw new Error('png');
+  return {cv: o.cv, w: o.w, h: o.h, trimmed: o.trimmed, url: URL.createObjectURL(blob)};
+}
+// фон есть, если по краю картинки почти нет прозрачности (JPG, скриншот, картинка с белой подложкой)
+function bmHasBg(cv) {
+  const g = cv.getContext('2d', {willReadFrequently: true}), W = cv.width, H = cv.height;
+  if (W < 8 || H < 8) return false;
+  let n = 0, op = 0;
+  const px = (x, y) => { n++; if (g.getImageData(x, y, 1, 1).data[3] >= 250) op++; };
+  const sx = Math.max(1, Math.floor(W / 40)), sy = Math.max(1, Math.floor(H / 40));
+  for (let x = 0; x < W; x += sx) { px(x, 0); px(x, H - 1); }
+  for (let y = 0; y < H; y += sy) { px(0, y); px(W - 1, y); }
+  return op / n > 0.9;
+}
+// плашка «есть фон»: спросить, убрать (нейросеть, /api/bmk-cut), вернуть как было
+function bmBgSync() {
+  const s = bmImg ? bmImg.bg : '', box = $('bmBgn');
+  box.classList.toggle('hide', !s);
+  if (!s) return;
+  $('bmBgnTx').textContent = t(s === 'busy' ? 'bm.bgBusy' : s === 'done' ? 'bm.bgDone' : 'bm.bgAsk');
+  $('bmBgnGo').classList.toggle('hide', s !== 'ask');
+  $('bmBgnGo').disabled = bmBusy;
+  const no = $('bmBgnNo');
+  no.classList.toggle('hide', s === 'busy');
+  no.textContent = t(s === 'done' ? 'bm.bgUndo' : 'bm.bgKeep');
+  no.disabled = bmBusy;
+}
+async function bmBgCut() {
+  const prev = bmImg;
+  if (!prev || bmBusy || prev.bg !== 'ask') return;
+  prev.bg = 'busy'; bmBgSync();
+  let out = null, err = '', need = false;
+  try {
+    const blob = await new Promise(res => prev.cv.toBlob(res, 'image/png'));
+    const r = await fetch('/api/bmk-cut', {method: 'POST', headers: {'X-Token': TOKEN, 'Content-Type': 'application/octet-stream'}, body: blob});
+    if ((r.headers.get('Content-Type') || '').includes('image/png')) out = await r.blob();
+    else { const j = await r.json(); err = j.error || ''; need = !!j.needModel; }
+  } catch (e) { err = t('net.err'); }
+  if (bmImg !== prev) return;   // за это время убрали или заменили картинку
+  if (!out) {
+    prev.bg = 'ask'; bmBgSync();
+    if (need) bgNeedModel(err); else say('warn', t('bm.bgFail'), esc(err));
+    return;
+  }
+  try {
+    const d = await bmDecode(out);
+    if (bmImg !== prev) { URL.revokeObjectURL(d.url); return; }
+    bmImg = {name: prev.name, url: d.url, cv: d.cv, w: d.w, h: d.h, trimmed: d.trimmed, bg: 'done', orig: prev};   // положение и правки остаются
+    Object.keys(bmSt).forEach(k => delete bmSt[k]);
+    bmFxNewArt(); bmRender();
+  } catch (e) { prev.bg = 'ask'; bmBgSync(); say('warn', t('bm.bgFail'), ''); }
+}
+function bmBgBack() {
+  const cur = bmImg;
+  if (!cur || !cur.orig) return;
+  URL.revokeObjectURL(cur.url);
+  bmImg = cur.orig; bmImg.bg = 'ask';
+  bmFxNewArt(); bmRender();
+}
+$('bmBgnGo').onclick = bmBgCut;
+$('bmBgnNo').onclick = () => { if (!bmImg || bmBusy) return; if (bmImg.bg === 'done') bmBgBack(); else { bmImg.bg = ''; bmBgSync(); } };
 // перетаскивание (вызывает drop.js): нужен сам файл в окне, путь на диске не нужен
 function bmDrop(e) {
   const f = [...(e.dataTransfer.files || [])][0];
@@ -63,7 +127,7 @@ $('bmPick').onclick = () => dialog(async () => {
   const ext = x.name.split('.').pop().toLowerCase();
   await bmTake(new File([u8], x.name, {type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'}));
 });
-const bmDropImg = () => { if (bmImg) URL.revokeObjectURL(bmImg.url); bmImg = null; };
+const bmDropImg = () => { if (bmImg) { URL.revokeObjectURL(bmImg.url); if (bmImg.orig) URL.revokeObjectURL(bmImg.orig.url); } bmImg = null; };
 $('bmClear').onclick = () => { if (!bmBusy) { bmDropImg(); bmResetAdj(); Object.keys(bmSt).forEach(k => delete bmSt[k]); bmFxNewArt(); bmRender(); } };
 // Ctrl+V: картинка из буфера; в поле ввода с текстом в буфере — обычная вставка
 document.addEventListener('paste', e => {
@@ -127,6 +191,15 @@ function bmRenderPath() {
     if (c.others && c.others.length) h += `<div class="bm-others"><span>${t('bm.others', {n: c.others.length})}</span>${c.others.map(o => `<i>${esc(o)}</i>`).join('')}</div>`;
   }
   if ($('bmPath').innerHTML !== h) $('bmPath').innerHTML = h;
+  // та же картина одной строкой под полями (pathline.js); подробное древо осталось в «?»
+  let line = '';
+  if (q.root && c.rootOk) {
+    const site = bmSlots.filter(s => s.site).length, steps = [{name: mm, ok: !!c.monthOk}, {name: dd, ok: !!c.dayOk}];
+    if (c.matchName) steps.push({name: c.matchName, ok: !!c.matchOk, strong: true});
+    line = pathLine({root: q.root, steps, warn: !!(c.matchName && c.matchOk),
+      chips: c.matchName ? [['png', bmSlots.length], ['jpeg', site], ['webp', site]] : null});
+  }
+  if ($('bmPathLine').innerHTML !== line) $('bmPathLine').innerHTML = line;
   const m = $('bmPathMsg');
   m.classList.toggle('hide', !msg);
   m.classList.toggle('warn', warn);
@@ -256,7 +329,21 @@ function bmSnap() {
   for (const n in bmOne) if (!bmIsId(bmOne[n])) one[n] = bmOne[n];
   return JSON.stringify({all: bmAll, one, fx: bmFx});
 }
+// первая же правка после сборки: пометки «готово» снимаются, а режим «Без рамок» выключается, чтобы всё было под рукой
+function bmEditStart() {
+  bmPeekSet(false);
+  let any = false;
+  for (const k in bmSt) if (bmSt[k].st === 'ok') { delete bmSt[k]; any = true; }
+  if (any) bmRender();
+}
+function bmPeekSet(on) {
+  $('bmGrid').classList.toggle('peek', on);
+  $('bmPeek').classList.toggle('on', on);
+}
+$('bmPeek').onclick = () => bmPeekSet(!$('bmGrid').classList.contains('peek'));
+$('bmGrid').addEventListener('pointerdown', () => bmPeekSet(false), true);
 function bmMark(key) {
+  bmEditStart();
   const now = Date.now();
   if (key && key === bmHist.key && now - bmHist.at < 900) { bmHist.at = now; return; }   // серия клавиш одним шагом
   bmHist.key = key || ''; bmHist.at = now;
@@ -659,6 +746,8 @@ function bmRender() {
   $('bmSrc').classList.toggle('hide', !has);
   $('bmZoomL').classList.toggle('hide', !has);
   $('bmLpBtn').classList.toggle('hide', !has);
+  $('bmPeek').classList.toggle('hide', !has);
+  bmBgSync();
   $('bmDrop').classList.toggle('has', has);
   if (has) {
     if ($('bmThumb').getAttribute('src') !== bmImg.url) $('bmThumb').src = bmImg.url;
@@ -681,6 +770,7 @@ function bmRender() {
 async function bmRun() {
   if (bmBusy || snap.running) return;
   if (!bmImg) { say('warn', t('start.emptyTitle'), t('bm.needImg')); return; }
+  if (bmImg.bg === 'busy') return;   // фон ещё убирается
   const q = bmReq();
   if (!q.root) { say('warn', t('start.whereTitle'), t('bm.noRoot')); return; }
   if (!q.match.trim()) { say('warn', t('start.whereTitle'), t('bm.noMatch')); $('bmMatch').focus(); return; }

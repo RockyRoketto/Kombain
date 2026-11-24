@@ -66,9 +66,11 @@ let upOutMode = 'same';   // same | folder
 function upOutSync() {
   document.querySelectorAll('#upOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === upOutMode));
   $('upFolderRow').classList.toggle('hide', upOutMode !== 'folder');
+  plDir('upLine', upOutMode === 'folder' ? $('upOutDir').value : '');
 }
 function upOutSave() {
   try { localStorage.setItem(UP_KEY, JSON.stringify({mode: upOutMode, dir: $('upOutDir').value.trim()})); } catch (e) {}
+  plDir('upLine', upOutMode === 'folder' ? $('upOutDir').value : '');
 }
 try {
   const o = JSON.parse(localStorage.getItem(UP_KEY) || 'null');

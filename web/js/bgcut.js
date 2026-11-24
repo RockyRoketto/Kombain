@@ -65,9 +65,11 @@ let bgOutMode = 'same';   // same | folder
 function bgOutSync() {
   document.querySelectorAll('#bgOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === bgOutMode));
   $('bgFolderRow').classList.toggle('hide', bgOutMode !== 'folder');
+  plDir('bgLine', bgOutMode === 'folder' ? $('bgOutDir').value : '');
 }
 function bgOutSave() {
   try { localStorage.setItem(BG_KEY, JSON.stringify({mode: bgOutMode, dir: $('bgOutDir').value.trim()})); } catch (e) {}
+  plDir('bgLine', bgOutMode === 'folder' ? $('bgOutDir').value : '');
 }
 try {
   const o = JSON.parse(localStorage.getItem(BG_KEY) || 'null');

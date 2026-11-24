@@ -2289,6 +2289,30 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-fld .rowf input{flex:1;min-width:0}
 .bm-where input[type=text]{height:32px;padding:0 10px;font-size:13px}
 .bm-where #bmPickRoot{flex:none;height:32px;padding:0 14px;font-size:13px;border-radius:10px}
+/* строка пути (web/js/pathline.js): общая папка › вложенные › форматы, всё в одну строку с переносом */
+.pl{display:flex;flex-wrap:wrap;align-items:center;gap:3px 4px;padding:7px 9px;border-radius:10px;background:var(--s2);border:1px solid var(--line);font-size:12px;color:var(--tx2);min-width:0}
+.pl-s{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;padding:1px 7px;border-radius:7px;background:var(--s3);color:var(--tx-em)}
+.pl-s>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-s svg{flex:none;width:13px;height:13px;color:var(--dim)}
+.pl-s.root{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--tx2)}
+.pl-s.new{background:var(--accbg);color:var(--acct)}
+.pl-s.new>span::before{content:"+";margin-right:3px;font-weight:700}
+.pl-s.strong>span{font-weight:600}
+.pl-s.warn{background:rgba(232,163,60,.15);color:var(--warn)}
+.pl-s.warn>span::before{content:"!";margin-right:4px;font-weight:700}
+.pl-sep{flex:none;font-style:normal;color:var(--dim)}
+.pl-chips{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:4px}
+.pl-c{display:inline-flex;align-items:center;gap:4px;padding:0 6px 0 2px;border-radius:6px;background:var(--s3);color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.pl-c b{font-weight:600;font-size:10.5px;padding:0 5px;border-radius:4px;background:var(--s4);color:var(--tx-em)}
+/* «Без рамок» в шапке превью и пометки готовых баннеров: после сборки не затемняют плитку, редактор сразу доступен */
+.bm-zbtn.on{background:var(--accbg);color:var(--acct)}
+#bmGrid.peek .bm-bx,#bmGrid.peek .bm-zf,#bmGrid.peek .bm-g,#bmGrid.peek .bm-hm,#bmGrid.peek .bm-eb{display:none!important}
+#bmGrid.peek .bm-clip img.art{opacity:1!important}
+.bm-t.ok .bm-ov{background:none;place-items:start end;padding:6px}
+.bm-t.ok .bm-chk{width:20px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+.bm-bgn{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px;padding:7px 10px;border-radius:10px;background:var(--accbg);border:1px solid rgba(var(--acl-rgb),.3);font-size:12.5px;color:var(--tx-em)}
+.bm-bgn>span{flex:1 1 auto;min-width:0}
+.bm-bgn .btn{flex:none;padding:4px 12px;font-size:12.5px;border-radius:9px}
 .bm-pmsg{font-size:12px;color:var(--dim)}
 .bm-pmsg.warn{color:var(--warn)}
 .bm-pl{flex:none;font-style:normal;font-size:11px;line-height:1.5;padding:0 7px;border-radius:99px}
@@ -2368,3 +2392,4 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
   background:repeating-conic-gradient(var(--s3) 0 25%,var(--s1) 0 50%) 0 0/12px 12px}
 .bm-zm img{max-width:96%;max-height:96%;display:block}
 .bm-zm b{flex:none;font-size:12.5px;font-weight:600;text-align:center;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-host{margin-top:8px}.pl-host:empty{display:none}

@@ -58,6 +58,7 @@ let imOutMode = 'same';   // same | folder
 function imOutSync() {
   document.querySelectorAll('#imOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === imOutMode));
   $('imFolderRow').classList.toggle('hide', imOutMode !== 'folder');
+  plDir('imLine', imOutMode === 'folder' ? $('imOutDir').value : '');
 }
 function imSaveOpts() {
   const o = imOpts(); delete o.wmPath; o.outMode = imOutMode; o.outDir = $('imOutDir').value.trim();
@@ -120,7 +121,7 @@ $('imOutMode').addEventListener('click', e => {
   imOutMode = b.dataset.m; imOutSync(); imSaveOpts();
   if (imOutMode === 'folder' && !$('imOutDir').value.trim()) $('imPickOut').click();
 });
-$('imOutDir').addEventListener('input', imSaveOpts);
+$('imOutDir').addEventListener('input', () => { imSaveOpts(); plDir('imLine', imOutMode === 'folder' ? $('imOutDir').value : ''); });
 $('imPickOut').onclick = () => dialog(async () => {
   const r = await api('pick-folder', {purpose: 'out'});
   if (r.error) alert(r.error);

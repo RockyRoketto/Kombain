@@ -151,6 +151,7 @@ function pdfRender() {
   $('pdfPassSum').textContent = t($('pdfPass').value ? 'pdf.passSet' : 'pdf.passNone');
   document.querySelectorAll('#pdfOutMode .segb').forEach(b => b.classList.toggle('on', b.dataset.m === pdfSet.mode));
   $('pdfFolderRow').classList.toggle('hide', pdfSet.mode !== 'folder');
+  plDir('pdfLine', pdfSet.mode === 'folder' ? pdfSet.dir : '');
   if ($('pdfOutDir').value !== pdfSet.dir && document.activeElement !== $('pdfOutDir')) $('pdfOutDir').value = pdfSet.dir;
   const outName = base(pdfSet.dir.replace(/[\\/]+$/, '')) || pdfSet.dir;
   $('pdfOutSum').textContent = pdfSet.mode === 'same' ? t('out.same') : pdfSet.dir ? t('out.sumFolder', {name: outName}) : t('out.noFolder');
