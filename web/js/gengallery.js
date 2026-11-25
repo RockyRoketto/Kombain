@@ -206,7 +206,9 @@ function ggLbRender() {
   $('gnLbImg').src = mediaUrl(x.path);
   $('gnLbImg').classList.toggle('cut', !!m.cutout);
   $('gnLbBg').classList.toggle('hide', !!m.cutout);
-  $('gnLbFix').classList.toggle('hide', !m.cutout);   // «Поправить вырезку» (cutedit.js)
+  $('gnLbFix').classList.toggle('hide', !m.cutout);   // «Доработать вырезку» (cutedit.js): у вырезки это главный следующий шаг
+  $('gnLbFix').classList.toggle('main', !!m.cutout);
+  if (!m.cutout && ng.el === $('gnLbFix')) nextGlow(null);   // листнули на другую картинку — подсветка не к ней
   $('gnLbInp').classList.toggle('hide', !!m.cutout);   // прозрачную перерисовывать не умеем: движок рисует без прозрачности
   $('gnLbOut').classList.toggle('hide', !!m.cutout);
   const [w, h] = ggSize(m);
@@ -338,6 +340,7 @@ async function ggRun(kind, f) {
   if (gg.open) await ggLoad(true);
   if (gg.lb) { await ggLbPath(r.path); if (ggCur()?.path === r.path) gcmpOpen(before); }
   toast({type: 'ok', title: t(bg ? 'gg.bgDone' : 'gg.upDone'), ttl: 3000});
+  if (bg && gg.lb && ggCur()?.path === r.path) nextGlow($('gnLbFix'));   // следующий шаг — дочистить край
 }
 const ggBg = () => ggRun('bg');
 

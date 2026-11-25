@@ -1885,6 +1885,10 @@
   .gn-seg{flex:none;display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--s1);border:1px solid var(--line)}
   .gn-seg button{min-width:38px;padding:4px 9px;border:0;border-radius:8px;background:none;color:var(--tx2);font-size:13px;font-weight:600;transition:background .15s,color .15s}
   .gn-seg button:hover{background:var(--acc);color:var(--on-acc)}
+  /* главная следующая кнопка блока (у вырезки — «Доработать вырезку») */
+  .gn-pb.main{border-color:rgba(var(--acc-rgb),.6);background:rgba(var(--acc-rgb),.1)}
+  .gn-pb.main svg{stroke:var(--acct)}
+  .gn-pb.main>span{color:var(--acct);font-weight:600}
   .gn-proc.busy .gn-pb{opacity:.45;pointer-events:none}
   .gn-proc.busy .gn-pb:has(.run),.gn-proc.busy .gn-pb.run{opacity:1;border-color:var(--acc)}
   .gn-seg button.run{background:var(--acc);color:var(--on-acc)}
@@ -1923,6 +1927,18 @@
   .f .cmpb{flex:none;padding:3px 10px;border:1px solid var(--line2);border-radius:999px;background:var(--s3);color:var(--tx2);font-size:12px;font-weight:500;white-space:nowrap}
   .f .cmpb:hover{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
   .f .cmpb+.cmpb{margin-left:-4px}
+  /* «Доработать» у готовой вырезки: открывает редактор (cutedit.js); значок кисти, акцентная рамка — не путать с «До / после» */
+  .f .cmpb.ce-go{display:inline-flex;align-items:center;gap:5px;padding-left:8px;border-color:rgba(var(--acc-rgb),.6);color:var(--acct)}
+  .f .cmpb.ce-go svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .f .cmpb.ce-go:hover{color:var(--on-acc)}
+  .f .cmpb+.cmpb.ce-go{margin-left:0}
+  #bgList{container-type:inline-size}
+  @container (max-width:520px){#bgList .ce-go{padding:3px 7px}#bgList .ce-go span{display:none}}   /* узкий список: только значок, подпись во всплывающей подсказке */
+
+  /* подсветка следующего шага: nextGlow() в core.js. Мягкое свечение акцентом, гаснет по нажатию или через 20 с */
+  .next-glow{position:relative;border-color:var(--acc)!important;animation:nextGlow 2.4s ease-in-out infinite}
+  @keyframes nextGlow{0%,100%{box-shadow:0 0 0 1px rgba(var(--acc-rgb),.5),0 0 6px 0 rgba(var(--acc-rgb),.25)}50%{box-shadow:0 0 0 2px rgba(var(--acc-rgb),.75),0 0 16px 2px rgba(var(--acc-rgb),.45)}}
+  @media (prefers-reduced-motion:reduce){.next-glow{animation:none;box-shadow:0 0 0 2px rgba(var(--acc-rgb),.7)}}
 
   /* «Поправить вырезку» (cutedit.js): поверх окна просмотра галереи; вопрос «закрыть без сохранения?» ещё выше */
   .modal.ce{z-index:56;padding:20px}
@@ -1956,10 +1972,11 @@
   .ce-pen{left:0;top:0;width:100%;height:100%}
   .ce-pen *{pointer-events:none!important}
   .ce-pen-fill{fill:rgba(var(--acl-rgb),.22);stroke:none}
-  .ce-stage.pen{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3C/svg%3E") 2 22,crosshair}
-  .ce-stage.pen.pen-close{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Ccircle cx='19' cy='19' r='3' stroke='%23000' stroke-width='3.5'/%3E%3Ccircle cx='19' cy='19' r='3' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") 2 22,crosshair}
+  /* курсоры инструментов повторяют их значки на панели; горячая точка — кончик (перо — остриё, палочка — оранжевый кончик) */
+  .ce-stage.pen{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='3.5'%3E%3Cpath d='M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6'/%3E%3Ccircle cx='11' cy='11' r='2'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='1.5'%3E%3Cpath d='M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6'/%3E%3Ccircle cx='11' cy='11' r='2'/%3E%3C/g%3E%3C/svg%3E") 2 2,crosshair}
+  .ce-stage.pen.pen-close{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='3.5'%3E%3Cpath d='M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6'/%3E%3Ccircle cx='11' cy='11' r='2'/%3E%3Ccircle cx='21' cy='3' r='2'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='1.5'%3E%3Cpath d='M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6'/%3E%3Ccircle cx='11' cy='11' r='2'/%3E%3C/g%3E%3Ccircle cx='21' cy='3' r='2' stroke='%23e9b872' stroke-width='1.5'/%3E%3C/svg%3E") 2 2,crosshair}
   .ce-stage.pen.pen-pt{cursor:move}
-  .ce-stage.wand{cursor:crosshair}
+  .ce-stage.wand{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M8.5 8.5l13 13'/%3E%3Cpath stroke='%23000' stroke-width='3.5' d='M13 1.5v4M11 3.5h4M3.5 11v4M1.5 13h4'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M8.5 8.5l13 13'/%3E%3Cpath stroke='%23fff' stroke-width='1.5' d='M13 1.5v4M11 3.5h4M3.5 11v4M1.5 13h4'/%3E%3Cpath fill='%23e9b872' stroke='%23000' stroke-width='1.2' d='M1 1l8 4.4-3.6 3.6z'/%3E%3C/svg%3E") 1 1,crosshair}
   .ce-mode svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .ce-sl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
   .ce-sl>span{display:flex;justify-content:space-between;gap:6px}
@@ -1978,11 +1995,16 @@
   .ce-stage[data-bg="color"]{background:var(--ce-col,#3f7fd8)}
   .ce-stage.hand{cursor:grab}
   .ce-stage.panning{cursor:grabbing}
+  .ce-stage.over{box-shadow:inset 0 0 0 2px var(--acc)}   /* сюда бросают PNG (drop.js) */
   .ce-box{position:absolute;left:0;top:0;transform-origin:0 0}
   .ce-box canvas{display:block;width:100%;height:100%}
   .ce-box canvas.px{image-rendering:pixelated}
   .ce-cur{position:absolute;left:0;top:0;pointer-events:none;border:1.5px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.6)}
   .ce-cur.erase{border-style:dashed}
+  /* у кружка кисти — значок инструмента, как на панели: видно, ластик это или «Вернуть» */
+  .ce-cur::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:8px 0 0 8px;background:no-repeat center/18px 18px}
+  .ce-cur.erase::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Cpath d='M8.5 20H20M3.8 14.2 13.2 4.8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L10 20H6.8L3.8 17a2 2 0 0 1 0-2.8zM8.5 9.5l6 6'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Cpath d='M8.5 20H20M3.8 14.2 13.2 4.8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L10 20H6.8L3.8 17a2 2 0 0 1 0-2.8zM8.5 9.5l6 6'/%3E%3C/g%3E%3C/svg%3E")}
+  .ce-cur:not(.erase)::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Cpath d='M14 4.5 19.5 10 11 18.5H5.5V13zM3 21h8M18 2v5M15.5 4.5h5'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Cpath d='M14 4.5 19.5 10 11 18.5H5.5V13zM3 21h8M18 2v5M15.5 4.5h5'/%3E%3C/g%3E%3C/svg%3E")}
   .ce-zoom{position:absolute;right:8px;bottom:8px;display:flex;align-items:center;gap:8px;padding:3px 4px 3px 10px;border-radius:9px;background:var(--toast-bg);border:1px solid var(--line2);font-size:12px;color:var(--tx2);cursor:default}
   .ce-zoom span{order:-1;font-variant-numeric:tabular-nums}
   .ce-zoom button{border:0;border-radius:6px;padding:2px 8px;background:var(--s3);font-size:12px}

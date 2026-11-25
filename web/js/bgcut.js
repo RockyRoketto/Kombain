@@ -1,6 +1,8 @@
 // ---------- «Убрать фон» в «Утилитах»: любые картинки с диска, результат <имя>-nobg.png рядом (bgremove.go, /api/bg-file) ----------
 let bgFiles = [];         // {name, dir, path, size, st: '' | run | ok | error, msg, out}
 let bgBusy = false;
+// значок «Доработать» (кисть с искрой): тот же, что у кнопки в галерее генератора (index.html, #gnLbFix)
+const CE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5a2 2 0 0 0-2.8 0L9.5 11.7l2.8 2.8 8.2-8.2a2 2 0 0 0 0-2.8z"/><path d="M9 12.5c-2 0-3.5 1.5-3.5 3.5 0 1.6-1.2 2.4-2.5 2.8 1 1 2.6 1.7 4.5 1.7 2.5 0 4.3-1.8 4.3-4.3"/><path d="M5 2.5v4M3 4.5h4"/></svg>';
 const BG_EXT = /\.(png|jpe?g|webp|gif)$/i;
 function bgAdd(list) {
   const have = new Set(bgFiles.map(f => f.path.toLowerCase()));
@@ -22,10 +24,10 @@ function bgRender() {
     return `<div class="f sel ${it.st === 'run' ? 'running' : it.st}" title="${esc(it.path)}">` +
       (snap.ffmpeg ? `<div class="badge th"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext)}</span></div>` : `<div class="badge">${esc(ext)}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
-      (it.st === 'ok' ? `<button class="cmpb" data-bgf="${esc(it.path)}" title="${esc(t('ce.btnS'))}">${t('ce.btn')}</button><button class="cmpb" data-bgc="${esc(it.path)}">${t('ut.cmp')}</button>` : '') +
+      (it.st === 'ok' ? `<button class="cmpb" data-bgc="${esc(it.path)}">${t('ut.cmp')}</button><button class="cmpb ce-go" data-bgf="${esc(it.path)}" title="${esc(t('ce.btn') + ': ' + t('ce.btnS'))}" aria-label="${esc(t('ce.btn'))}">${CE_ICON}<span>${t('ce.btn')}</span></button>` : '') +
       `<div class="pill">${pill}</div>` + (bgBusy ? '' : `<button class="x" data-bgx="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
-  if ($('bgList').innerHTML !== list) $('bgList').innerHTML = list;
+  if ($('bgList').innerHTML !== list) { $('bgList').innerHTML = list; nextGlowSync(); }
   $('bgEmpty').classList.toggle('hide', bgFiles.length > 0);
   $('bgList').classList.toggle('hide', !bgFiles.length);
   $('bgCnt').textContent = bgFiles.length ? String(bgFiles.length) : '';
@@ -54,6 +56,9 @@ async function bgRun() {
   bgBusy = false; bgAbort = null; bgRender();
   if (stopped) toast({type: 'warn', title: t('upc.stopped'), text: done ? esc(t('bgc.done', {n: done})) : '', ttl: 3000});
   else if (done) toast({type: 'ok', title: t('bgc.done', {n: done}), text: fail ? esc(t('bgc.fail', {n: fail})) : '', ttl: 4000, actions: last ? [{t: t('bgc.show'), fn: () => api('gen-reveal', {path: last})}] : []});
+  // следующий шаг — «Доработать» у первой готовой строки
+  const first = bgFiles.find(f => f.st === 'ok');
+  if (done && first) nextGlow(`#bgList [data-bgf="${CSS.escape(first.path)}"]`);
   else if (fail) toast({type: 'warn', title: t('gg.bgFail'), text: esc(bgFiles.find(f => f.st === 'error').msg), ttl: 8000});
 }
 function bgNeedModel(msg) {

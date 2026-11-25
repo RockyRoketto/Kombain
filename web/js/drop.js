@@ -22,12 +22,13 @@ $('pickOut').onclick = () => dialog(async () => {
 // ---------- перетаскивание ----------
 let dragDepth = 0;
 let dropAim = null;   // куда на дорожках бросили: пути файлов приходят от программы позже
-const dropEl = () => $(tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'imgops' ? 'imDrop' : tab === 'upscale' ? 'upDrop' : tab === 'bmake' ? 'bmDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
+const dropEl = () => $(ce.on ? 'ceStage' : tab === 'color' ? 'csPhView' : tab === 'util' ? 'fvDrop' : tab === 'banner' ? 'bDrop' : tab === 'pdf' ? 'pdfDrop' : tab === 'bgcut' ? 'bgDrop' : tab === 'imgops' ? 'imDrop' : tab === 'upscale' ? 'upDrop' : tab === 'bmake' ? 'bmDrop' : tab === 'play' ? 'plDrop' : tab === 'mont' ? 'mtDrop' : tab === 'gen' ? 'gnStage' : 'drop');
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; if (ce.on) dropEl().classList.add('over'); else if (tab === 'util') fvDropHover(e); else if (tab === 'color') csDragIn(); else dropEl().classList.add('over'); });
 window.addEventListener('dragover', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  if (ce.on) return;   // открыт редактор вырезки: PNG откроется в нём (cutedit.js)
   if (tab === 'util') fvDropHover(e);   // подсвечивается ячейка иконки, а не всё окно
   if (tab === 'mont') dropEl().classList.toggle('over', !mtDropHover(e));   // над дорожкой файл встанет на неё, окно файлов не подсвечивается
   if (tab === 'gen') gnRefOver(e);   // над блоком «Референсы» картинка станет референсом
@@ -43,6 +44,11 @@ window.addEventListener('dragleave', e => {
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over'); fvDropHover(null);
+  if (ce.on) {   // в открытый редактор вырезки: нужен путь на диске
+    if (NATIVE_DROP) { try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); dropAim = 'ce'; return; } catch (err) {} }
+    say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
+    return;
+  }
   const aim = tab === 'mont' ? mtDropHover(e) : null;
   if (tab === 'mont') mtDropHide();
   if (tab === 'color') { csDrop(e); return; }   // на вкладку «Цвет» — картинка в «Из фото»
@@ -77,6 +83,7 @@ window.addEventListener('drop', e => {
 window.__konvDrop = (list, raw) => {
   const aim = dropAim;
   dropAim = null;
+  if (aim === 'ce') { ceDropPaths(list); return; }
   if (tab === 'gen') { gnDropPaths(list); return; }
   if (tab === 'pdf') pdfAddPaths(raw || list.map(f => f.path));   // из папок нужны PDF, а list — только медиафайлы
   else if (tab === 'mont' && aim) mtAddAt(list, aim);

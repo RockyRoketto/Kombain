@@ -64,6 +64,25 @@ async function api(path, body, signal) {
     return await r.json();
   } catch (e) { return e && e.name === 'AbortError' ? {aborted: true, error: ''} : {error:t('net.err')}; }
 }
+// nextGlow: мягко подсветить кнопку следующего шага (класс .next-glow в style.css; без анимации при prefers-reduced-motion).
+// target — элемент или CSS-селектор: селектор переживает перерисовку списка (nextGlowSync после render).
+// Гаснет после нажатия на неё, через ms или при nextGlow(null). Одна подсветка на всю программу.
+const ng = {sel: null, el: null, t: 0};
+function nextGlow(target, ms = 20000) {
+  clearTimeout(ng.t);
+  document.querySelectorAll('.next-glow').forEach(el => el.classList.remove('next-glow'));
+  ng.sel = typeof target === 'string' ? target : null;
+  ng.el = target && typeof target !== 'string' ? target : null;
+  if (!target) return;
+  nextGlowSync();
+  ng.t = setTimeout(() => nextGlow(null), ms);
+}
+function nextGlowSync() {
+  const el = ng.sel ? document.querySelector(ng.sel) : ng.el;
+  if (el && !el.classList.contains('next-glow')) el.classList.add('next-glow');
+}
+document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('.next-glow')) nextGlow(null); }, true);
+
 // цвет с экрана «#rrggbb»; null — отменили. Сначала своя пипетка окна (Go), запасная — системный EyeDropper
 let screenPicking = false;
 async function screenColor() {
