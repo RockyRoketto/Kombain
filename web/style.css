@@ -1942,10 +1942,24 @@
   .ce-swl input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
   .ce-body{flex:1;min-height:0;display:grid;grid-template-columns:172px minmax(0,1fr) 210px;gap:12px}
   .ce-tools,.ce-side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding:2px}
-  .ce-mode{display:flex;gap:6px}
-  .ce-mode button{flex:1;display:grid;place-items:center;height:40px;border:1px solid var(--line2);border-radius:10px;background:var(--s2);color:var(--tx2)}
+  .ce-mode{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .ce-mode button{display:grid;place-items:center;height:36px;padding:0;border:1px solid var(--line2);border-radius:10px;background:var(--s2);color:var(--tx2)}
   .ce-mode button:hover{background:var(--s3)}
   .ce-mode button.on{background:var(--accbg);color:var(--acct2);border-color:rgba(var(--acl-rgb),.6)}
+  .ce-opt{display:flex;flex-direction:column;gap:10px}
+  .ce-seg{display:flex;flex-direction:column;gap:3px}
+  .ce-seg button{text-align:left;padding:5px 9px;border:1px solid var(--line2);border-radius:8px;background:var(--s2);color:var(--tx2);font-size:12px;line-height:1.3}
+  .ce-seg button:hover{background:var(--s3)}
+  .ce-seg button.on{background:var(--accbg);color:var(--acct2);border-color:rgba(var(--acl-rgb),.6)}
+  .ce-row{display:flex;flex-wrap:wrap;gap:6px}
+  .ce-row .btn.sm{padding:4px 10px;font-size:12px}
+  .ce-pen{left:0;top:0;width:100%;height:100%}
+  .ce-pen *{pointer-events:none!important}
+  .ce-pen-fill{fill:rgba(var(--acl-rgb),.22);stroke:none}
+  .ce-stage.pen{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3C/svg%3E") 2 22,crosshair}
+  .ce-stage.pen.pen-close{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23000' stroke-width='4' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M2 22l2.5-8.5L14 4l6 6-9.5 9.5zM2 22l6-6M12 6l6 6'/%3E%3Ccircle cx='19' cy='19' r='3' stroke='%23000' stroke-width='3.5'/%3E%3Ccircle cx='19' cy='19' r='3' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") 2 22,crosshair}
+  .ce-stage.pen.pen-pt{cursor:move}
+  .ce-stage.wand{cursor:crosshair}
   .ce-mode svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .ce-sl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
   .ce-sl>span{display:flex;justify-content:space-between;gap:6px}

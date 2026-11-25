@@ -51,7 +51,7 @@ Gradients (linear, radial, conic, OKLCH blending) and mesh gradients, palettes b
 
 - **Favicons:** a full website set from one icon, with `site.webmanifest` and a ready `head.html`.
 - **Remove background** and **Upscale ×2 / ×4** with neural networks, transparency is kept.
-- **Fix cutout:** when the neural network misses, clean up the edge with an eraser or bring back what it erased (hair, fine details) with a brush that paints from the original. You can also feather, shrink or expand the edge and remove the fringe left by the old background. The result is saved as a separate PNG and the original stays as it is. The same window opens from the generator gallery.
+- **Fix cutout:** when the neural network misses, clean up the edge with an eraser or bring back what it erased (hair, fine details) with a brush that paints from the original. Outline the subject with a Bézier pen (keep, erase or restore inside the path), or click the background with the magic wand to erase an area of similar color. You can also feather, shrink or expand the edge and remove the fringe left by the old background. The result is saved as a separate PNG and the original stays as it is. The same window opens from the generator gallery.
 - **Image batch:** size, format, metadata removal and a watermark for a whole pile.
 - **Banners** and **Banner builder:** one picture is placed on all 14 templates inside its safe zone, with a background element, shadow and glow, mouse editing and saving into `month\day\match` folders.
 - **PDF:** images to PDF, compress to a target size, merge and split, repair, watermark, page numbers, AES-256 password.
