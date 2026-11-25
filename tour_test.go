@@ -280,3 +280,32 @@ func TestTourTips(t *testing.T) {
 		}
 	}
 }
+
+// «!» не должен гаснуть от клика после наведения и не должен висеть на новой вкладке
+func TestTourTipMarkGuards(t *testing.T) {
+	b, err := webFS.ReadFile("web/js/tour.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	if strings.Contains(src, "tipOpen(!m.classList.contains('open'))") {
+		t.Error("клик по «!» снова переключает плашку: после наведения она закроется и совет пометится просмотренным")
+	}
+	if !strings.Contains(src, "m.addEventListener('click', e => { e.stopPropagation(); tipOpen(true); });") {
+		t.Error("клик по «!» должен только открывать плашку")
+	}
+	i := strings.Index(src, "function tipRender(")
+	if i < 0 {
+		t.Fatal("не нашёл tipRender")
+	}
+	head := src[i:]
+	if len(head) > 700 {
+		head = head[:700]
+	}
+	if !strings.Contains(head, "nb.tipTab !== ") || !strings.Contains(head, "m.classList.add('hide')") {
+		t.Error("tipRender должен сразу прятать «!» при смене вкладки")
+	}
+	if !strings.Contains(src, "#tabs .tab, #utTools .cl-tool") {
+		t.Error("нет немедленной перерисовки по клику на вкладку или инструмент")
+	}
+}

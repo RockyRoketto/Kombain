@@ -459,7 +459,7 @@ const TIPS = [
 ];
 const TIP_TABS = ['mont', 'color', 'gen', 'util'];
 const tipKey = id => 'tip.' + id;   // тексты tip.<id> проверяет TestTourTips
-const nb = {show: new Set(), layer: null, badges: new Map(), tip: null, tipId: '', tipWait: 0, hover: null, hoverT: 0, raf: 0};
+const nb = {show: new Set(), layer: null, badges: new Map(), tip: null, tipId: '', tipTab: null, tipWait: 0, hover: null, hoverT: 0, raf: 0};
 // вкладка шапки, на которой живёт тур
 const tourHeadTab = k => k === 'util' || Object.values(UT_TOUR).includes(k) ? 'util' : TOUR_TAB[k] || k;
 const nbSteps = () => Object.entries(TOURS).flatMap(([k, ss]) => ss.filter(s => s.kind === 'new').map(s => ({...s, head: tourHeadTab(k)})));
@@ -556,7 +556,8 @@ function tipEl() {
   m.addEventListener('focus', () => tipOpen(true));
   m.addEventListener('mouseleave', () => tipOpen(false));
   m.addEventListener('blur', () => tipOpen(false));
-  m.addEventListener('click', e => { e.stopPropagation(); tipOpen(!m.classList.contains('open')); });
+  // клик только открывает: после наведения плашка уже открыта, и переключатель закрывал её сразу
+  m.addEventListener('click', e => { e.stopPropagation(); tipOpen(true); });
   nbLayer().appendChild(m);
   return m;
 }
@@ -581,6 +582,14 @@ function tipOpen(on) {
 }
 function tipRender(covered) {
   const m = tipEl();
+  const cur0 = tourTab();
+  if (nb.tipTab !== cur0) {   // сменили вкладку: «!» старой вкладки гаснет сразу, новый — после того как раскладка встанет
+    nb.tipTab = cur0;
+    nb.tipId = ''; m.classList.remove('open'); m.classList.add('hide');
+    nb.tipWait = Date.now() + 250;
+    setTimeout(nbSoon, 280);
+    return;
+  }
   if (m.classList.contains('open')) {   // открытый совет не переносим на другой элемент
     const tip = TIPS.find(x => x.id === nb.tipId), r = tip && nbBox(document.querySelector(tip.sel));
     if (r && !covered) { tipAt(m, r); return; }
@@ -622,6 +631,8 @@ document.addEventListener('click', e => {
   if (el && el.dataset.nb) tourMark([el.dataset.nb]);
   if (nb.tip && nb.tip.classList.contains('open') && !nb.tip.contains(e.target)) tipOpen(false);
 }, true);
+// смена вкладки или инструмента: сразу перерисовать, не ждать тика
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#tabs .tab, #utTools .cl-tool')) setTimeout(nbSoon, 0); });
 window.addEventListener('resize', nbSoon);
 document.addEventListener('scroll', nbSoon, true);
 setInterval(() => { if (!document.hidden) nbRender(); }, 400);   // панели раскрываются и едут без событий

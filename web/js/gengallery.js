@@ -98,7 +98,7 @@ function ggRender(reset) {
   sel.value = gg.model;
   $('gnGalN').textContent = (gg.q || gg.fav || gg.model) ? t('gg.found', {n: r.total}) : '';
   const tiles = gg.items.map((x, i) =>
-    `<button type="button" class="gn-gt${gg.sel && gg.sel.has(x.path) ? " on" : ""}" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${gg.sel ? "<span class=\"ck\">✓</span>" : ""}${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
+    `<button type="button" class="gn-gt${gg.sel && gg.sel.has(x.path) ? " on" : ""}" data-i="${i}"><img src="${ggThumb(x)}" alt="" loading="lazy">${gg.sel ? "<span class=\"gck\"></span>" : ""}${x.meta.fav ? '<span class="st">★</span>' : ''}<span class="p">${esc(ggPrompt(x))}</span></button>`).join('');
   const more = gg.items.length < r.total ? `<button type="button" class="btn sm gn-gal-more" id="gnGalMore">${esc(t('gg.showMore', {n: Math.min(GG_PAGE, r.total - gg.items.length)}))}</button>` : '';
   grid.innerHTML = tiles + more;
   ggSelUI();
@@ -119,7 +119,59 @@ $('gnGalQ').addEventListener('input', () => { clearTimeout(ggQTimer); ggQTimer =
 $('gnGalQ').addEventListener('keydown', e => { if (e.key === 'Escape' && $('gnGalQ').value) { e.stopPropagation(); $('gnGalQ').value = ''; gg.q = ''; ggLoad(true); } });
 $('gnGalF').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; gg.fav = b.dataset.v === 'fav'; ggLoad(true); });
 $('gnGalModel').addEventListener('change', () => { gg.model = $('gnGalModel').value; ggLoad(true); });
+// выделение рамкой: зажал кнопку и потянул — появляется обычная прямоугольная рамка, плитки под ней выбираются
+// (Ctrl или Shift — добавить к уже выбранным). Без режима выбора он включается сам. Рамка якорится к содержимому
+// сетки, поэтому держится при прокрутке; у верхнего и нижнего края сетка сама прокручивается.
+let ggDrag = null, ggDragDone = false, ggBand = null;
+$('gnGalGrid').addEventListener('dragstart', e => e.preventDefault());
+$('gnGalGrid').addEventListener('pointerdown', e => {
+  const g = $('gnGalGrid');
+  if (e.button !== 0 || gg.pick || e.target.closest('#gnGalMore') || e.offsetX > g.clientWidth) { ggDrag = null; return; }
+  const gr = g.getBoundingClientRect();
+  ggDrag = {x: e.clientX, y: e.clientY, ax: e.clientX - gr.left + g.scrollLeft, ay: e.clientY - gr.top + g.scrollTop,
+    cx: e.clientX, cy: e.clientY, moved: false, add: e.ctrlKey || e.metaKey || e.shiftKey, base: null};
+});
+function ggBandUpdate() {
+  const d = ggDrag, g = $('gnGalGrid'); if (!d || !d.moved) return;
+  const gr = g.getBoundingClientRect();
+  const x0 = d.ax - g.scrollLeft + gr.left, y0 = d.ay - g.scrollTop + gr.top;
+  const l = Math.min(x0, d.cx), r = Math.max(x0, d.cx), tp = Math.min(y0, d.cy), bt = Math.max(y0, d.cy);
+  const cl = Math.max(l, gr.left), cr = Math.min(r, gr.right), ct = Math.max(tp, gr.top), cb = Math.min(bt, gr.bottom);
+  if (!ggBand) { ggBand = document.createElement('div'); ggBand.className = 'gg-band'; document.body.appendChild(ggBand); }
+  Object.assign(ggBand.style, {left: cl + 'px', top: ct + 'px', width: Math.max(0, cr - cl) + 'px', height: Math.max(0, cb - ct) + 'px'});
+  const next = new Set(d.base);
+  g.querySelectorAll('.gn-gt').forEach(tile => {
+    const b = tile.getBoundingClientRect(), on = b.right > l && b.left < r && b.bottom > tp && b.top < bt;
+    if (on) next.add(gg.items[+tile.dataset.i].path);
+    tile.classList.toggle('on', next.has(gg.items[+tile.dataset.i].path));
+  });
+  gg.sel = next;
+  ggSelUI();
+}
+document.addEventListener('pointermove', e => {
+  const d = ggDrag; if (!d) return;
+  d.cx = e.clientX; d.cy = e.clientY;
+  if (!d.moved) {
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+    d.moved = true;
+    if (!gg.sel) { gg.sel = new Set(); ggSelUI(); }   // плитки перерисуются с галочками
+    d.base = d.add ? new Set(gg.sel) : new Set();
+    document.body.classList.add('gg-banding');
+  }
+  const g = $('gnGalGrid'), gr = g.getBoundingClientRect();
+  if (e.clientY < gr.top + 30) g.scrollTop -= 20; else if (e.clientY > gr.bottom - 30) g.scrollTop += 20;
+  ggBandUpdate();
+});
+function ggDragEnd() {
+  if (ggDrag && ggDrag.moved) ggDragDone = true;
+  ggDrag = null;
+  if (ggBand) { ggBand.remove(); ggBand = null; }
+  document.body.classList.remove('gg-banding');
+}
+document.addEventListener('pointerup', ggDragEnd);
+document.addEventListener('pointercancel', ggDragEnd);
 $('gnGalGrid').addEventListener('click', e => {
+  if (ggDragDone) { ggDragDone = false; return; }   // после протаскивания щелчка по плитке не было
   if (e.target.closest('#gnGalMore')) { ggLoad(false); return; }
   const b = e.target.closest('.gn-gt'); if (!b) return;
   if (gg.pick) { const p = gg.items[+b.dataset.i].path; ggOpen(false); gnRefFromGallery(p); return; }
@@ -143,13 +195,13 @@ function ggSelUI() {
   b.textContent = t(on ? 'gg.selDone' : 'gg.select');
   b.classList.toggle('primary', on);
   $('gnGalSelBar').classList.toggle('hide', !on);
-  if (!on) { $('gnGalGrid').querySelectorAll('.ck').forEach(c => c.remove()); return; }
+  if (!on) { $('gnGalGrid').querySelectorAll('.gck').forEach(c => c.remove()); return; }
   $('gnGalSelN').textContent = t('gg.selN', {n});
   $('gnGalSelFav').disabled = $('gnGalSelDel').disabled = !n;
   const picked = gg.items.filter(x => gg.sel.has(x.path));
   $('gnGalSelFav').textContent = t(picked.length && picked.every(x => x.meta.fav) ? 'gg.selUnfav' : 'gg.selFav');
   // галочки есть у всех плиток (после включения выбора плитки перерисовываются)
-  if (gg.page && gg.items.length && !$('gnGalGrid').querySelector('.ck')) ggRender(false);
+  if (gg.page && gg.items.length && !$('gnGalGrid').querySelector('.gck')) ggRender(false);
 }
 $('gnGalSel').addEventListener('click', () => { gg.sel = gg.sel ? null : new Set(); ggSelUI(); if (gg.page && !gg.sel) ggRender(false); });
 $('gnGalSelAll').addEventListener('click', () => { if (!gg.sel) return; gg.items.forEach(x => gg.sel.add(x.path)); ggRender(false); });
