@@ -1,12 +1,15 @@
-// «Доработать вырезку» (раньше «Поправить вырезку»): ручная доработка картинки после «Убрать фон». Одно окно на два входа:
-// «Утилиты» → «Убрать фон» (кнопка «Доработать» у готового файла, «Доработать PNG…», PNG в открытое окно) и окно просмотра галереи генератора.
+// «Доработать вырезку» (раньше «Поправить вырезку»): ручная доработка картинки, устроенная как в Фотошопе: слева инструменты
+// (V, M, W, P, E, Y, H, Z), над картинкой параметры инструмента, справа выделение, край и оригинал. Входы: «Утилиты» → «Убрать фон»
+// (кнопка «Доработать» у готового файла, карточка «Редактор вырезки» с любой картинкой, перетаскивание), галерея генератора.
 // Картинка = цвет × маска. Цвет (ce.col): пиксели вырезки, а там, где нейросеть стёрла всё, — пиксели оригинала.
 // Маска (ce.mk): белое с прозрачностью; ластик стирает её (destination-out), «Вернуть» докрашивает (source-over).
 // Без оригинала цвет — сама вырезка с её прозрачностью, маска — белая целиком: «Вернуть» возвращает только то, что было.
 // Мазки хранятся списком, отмена перерисовывает маску с начала (как в geninpaint.js).
 // Край (сжать/расширить, растушёвка, кайма) считается по пикселям после мазка и при движении ползунков: ceFx.
-// Перо (контур Безье, точки как у пера Монтажа в shapes.js) и волшебная палочка тоже ложатся в маску и в список мазков,
-// поэтому отмена у всех общая. Палочка хранит выделение сжатым по строкам (RLE), а не параметры: повтор не зависит от порядка.
+// Обычная картинка без прозрачности (ce.plain): цвет — она сама, маска белая; фон стирается инструментами, альфа появляется сама.
+// Прямоугольник, перо (контур Безье, точки как у пера Монтажа в shapes.js) и волшебная палочка дают выделение (муравьи);
+// стирает его Delete, возвращает кнопка «Вернуть». Выделение и стирание лежат в общем списке мазков сжатыми по строкам (RLE),
+// поэтому отмена у всех общая и повтор не зависит от порядка.
 // Сервер: cutedit.go (cut-src ищет оригинал, cut-save кладёт PNG отдельным файлом).
 const CE_ZMAX = 32;
 const ce = {
@@ -19,20 +22,20 @@ const ce = {
   mk0: null,        // маска до правок
   cv: null,         // показ: цвет × маска (или ce.fx)
   fx: null,         // показ с обработанным краем; null — край не трогали или идёт мазок
-  strokes: [],      // {erase, r, soft, pts: [[x, y], …]}, {reset: true}, {pen: точки, op, soft}, {sel: RLE, erase}
+  strokes: [],      // {erase, r, soft, pts: [[x, y], …]}, {reset: true}, {sel: RLE, erase}
                     // или {selset: RLE | null, ox, oy} — выделение (маску не меняет, но отменяется вместе со всем)
   redo: [],
   cur: null,
-  tool: 'erase',    // erase | restore | pen | wand | move | hand
+  tool: 'erase',    // move | rect | wand | pen | erase | restore | hand | zoom (порядок и клавиши как в Фотошопе)
   pen: null,        // контур пера: {pts: [[x, y, ix, iy, ox, oy], …], closed, hover, close}
-  penOp: 'sel',     // sel — в выделение; сразу: keep — оставить внутри, cut — стереть внутри, add — вернуть внутри
   wandAll: false,   // палочка по всей картинке, а не связной областью
-  wandNow: false,   // палочка стирает сразу (левая) и возвращает (правая), а не выделяет
   selA: null,       // выделение 0…255 на точку (Uint8Array w×h) без сдвига; null — нет
   selR: null,       // его RLE из истории (по ссылке видно, что массив тот же)
   selX: 0, selY: 0, // сдвиг выделения инструментом «Переместить»
   ants: null,       // контур муравьёв (Path2D в точках картинки, без сдвига)
-  selMode: {pen: 'new', wand: 'new'},   // new | add | sub | inter
+  selMode: {rect: 'new', pen: 'new', wand: 'new'},   // new | add | sub | inter
+  rc: null,         // рамка инструмента «Прямоугольное выделение» при протяжке: {a: [x, y], b, mode}
+  plain: false,     // открыта обычная картинка без прозрачности: «Вернуть» берёт из неё самой
   mods: {shift: false, alt: false}, mx: 0, my: 0,
   drag: null,       // тяга точки или ручки контура: {move(e), end(ok)}
   z: 1, px: 0, py: 0,
@@ -49,7 +52,7 @@ const ceCanvas = (w, h) => { const c = document.createElement('canvas'); c.width
 async function ceOpen(o) {
   if (ce.on) return;
   Object.assign(ce, {on: true, busy: true, path: o.path, done: o.done || null, strokes: [], redo: [], cur: null, fx: null, pan: null, pen: null, drag: null,
-    selA: null, selR: null, selX: 0, selY: 0, ants: null});
+    selA: null, selR: null, selX: 0, selY: 0, ants: null, rc: null});
   cePenDraw();
   $('ceName').textContent = base(o.path);
   $('ceName').title = o.path;
@@ -64,8 +67,14 @@ async function ceOpen(o) {
     ce.w = im.naturalWidth; ce.h = im.naturalHeight;
     ce.cut = ceCanvas(ce.w, ce.h);
     ce.cut.getContext('2d').drawImage(im, 0, 0);
+    // без единой прозрачной точки — обычная картинка: оригинал не нужен, «Вернуть» берёт из неё самой
+    const A = ce.cut.getContext('2d').getImageData(0, 0, ce.w, ce.h).data;
+    let solid = true;
+    for (let i = 3; i < A.length && solid; i += 4) solid = A[i] === 255;
+    ce.plain = solid;
     let src = o.src;
-    if (src === undefined) { const r = await api('cut-src', {path: o.path}); src = r.src || ''; }
+    if (solid) src = '';
+    else if (src === undefined) { const r = await api('cut-src', {path: o.path}); src = r.src || ''; }
     await ceSetSrc(src);
     if (!ce.on) return;
     const cv = $('ceCv'); cv.width = ce.w; cv.height = ce.h; ce.cv = cv;
@@ -122,9 +131,10 @@ async function ceSetSrc(src) {
 }
 
 function ceSrcNote() {
-  $('ceSrc').textContent = ce.src ? base(ce.src) : t(ce.srcBad ? 'ce.srcBad' : 'ce.srcNone');
+  $('ceSrc').textContent = ce.src ? base(ce.src) : t(ce.plain ? 'ce.srcSelf' : ce.srcBad ? 'ce.srcBad' : 'ce.srcNone');
   $('ceSrc').title = ce.src || '';
-  $('ceSrc').classList.toggle('warn', !ce.src);
+  $('ceSrc').classList.toggle('warn', !ce.src && !ce.plain);
+  $('ceSrcS').classList.toggle('hide', ce.plain && !ce.src);
 }
 
 function ceDirty() {
@@ -135,8 +145,8 @@ async function ceClose(force) {
   if (!ce.on) return;
   if (!force && ceDirty() && !await askYes(t('ce.dropAsk'), t('ce.drop'))) return;
   Object.assign(ce, {on: false, cut: null, col: null, colData: null, mk: null, mk0: null, fx: null, strokes: [], redo: [], cur: null, done: null,
-    pen: null, drag: null, tmp: null, tmpD: null, selA: null, selR: null, ants: null, mv: null});
-  ceAntsTick(); ceAntsDraw(); ceMenuClose(); $('ceSign').classList.add('hide');
+    pen: null, drag: null, tmp: null, tmpD: null, selA: null, selR: null, ants: null, mv: null, rc: null});
+  ceAntsTick(); ceAntsDraw();
   cePenDraw();
   $('ce').classList.add('hide');
   $('ceCur').classList.add('hide');
@@ -205,7 +215,6 @@ function ceReplay() {
   g.drawImage(ce.mk0, 0, 0);
   for (const s of ce.strokes) {
     if (s.reset) { g.globalCompositeOperation = 'copy'; g.drawImage(ce.mk0, 0, 0); continue; }
-    if (s.pen) { cePenPaint(g, s); continue; }
     if (s.sel) { ceSelPaint(g, s); continue; }
     if ('selset' in s) continue;
     delete s.rest;
@@ -237,6 +246,8 @@ function ceVals() {
   $('ceSmoothV').textContent = $('ceSmooth').value + ' px';
 }
 
+// ключи текстов инструмента: ce.n.* — имя, ce.o.* — строка параметров, ce.h.* — подсказка справа
+const ceTK = (g, tool) => `ce.${g}.${tool}`;
 function ceState() {
   const live = ce.on && !ce.busy;
   $('ceUndo').disabled = !live || !ce.strokes.length;
@@ -244,31 +255,29 @@ function ceState() {
   $('ceReset').disabled = !live || !ce.strokes.length || !!ce.strokes[ce.strokes.length - 1].reset;
   $('ceSave').disabled = !live;
   $('ceSrcPick').disabled = !live;
-  document.querySelectorAll('#ceMode button').forEach(b => b.classList.toggle('on', b.dataset.v === ce.tool));
+  const tool = ce.tool;
+  document.querySelectorAll('#ceMode button').forEach(b => { const on = b.dataset.v === tool; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   document.querySelectorAll('#ceBgs [data-bg]').forEach(b => b.classList.toggle('on', b.dataset.bg === ce.bg));
-  document.querySelectorAll('#ce .ce-opt').forEach(el => el.classList.toggle('hide', !el.dataset.for.split(' ').includes(ce.tool)));
-  document.querySelectorAll('#cePenOp button').forEach(b => b.classList.toggle('on', b.dataset.v === ce.penOp));
-  document.querySelectorAll('#ceWandArea button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'all') === ce.wandAll));
+  document.querySelectorAll('#ce .ce-opt').forEach(el => el.classList.toggle('hide', !el.dataset.for.split(' ').includes(tool)));
+  // строка параметров: имя инструмента, режим выделения четырьмя кнопками, короткая подсказка; справа — подробная
+  $('ceTName').textContent = t(ceTK('n', tool));
+  $('ceOHint').textContent = t(ceTK('o', tool));
+  $('ceHintCap').textContent = t(ceTK('n', tool));
+  $('ceHint').textContent = t(ceTK('h', tool));
+  document.querySelectorAll('#ceModes [data-m]').forEach(b => { const on = b.dataset.m === ce.selMode[tool]; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+  $('ceNear').checked = !ce.wandAll;
   $('cePenApply').disabled = !live || !ce.pen || ce.pen.pts.length < 2;
   $('cePenDrop').disabled = !live || !ce.pen || !ce.pen.pts.length;
-  const st = $('ceStage'), hand = ce.tool === 'hand' || ce.space || !!ce.pan;
+  const st = $('ceStage');
   st.dataset.bg = ce.bg;
-  st.classList.toggle('hand', hand);
-  st.classList.toggle('panning', !!ce.pan);
-  st.classList.toggle('pen', !hand && ce.tool === 'pen');
-  st.classList.toggle('wand', !hand && ce.tool === 'wand');
-  st.classList.toggle('move', !hand && ce.tool === 'move');
-  // выделение: действия доступны, когда оно есть; режим сложения виден значком на кнопке инструмента
+  // выделение: действия доступны, когда оно есть
   const has = live && !!ce.selA;
   for (const id of ['ceSelDel', 'ceSelFill', 'ceSelNone']) $(id).disabled = !has;
   $('ceSelInv').disabled = !live;
-  document.querySelectorAll('#ceMode [data-mb]').forEach(i => { i.dataset.m = ce.selMode[i.dataset.mb]; });
-  document.querySelectorAll('#ceWandDo button').forEach(b => b.classList.toggle('on', (b.dataset.v === 'now') === ce.wandNow));
-  $('cePenApply').textContent = t(ce.penOp === 'sel' ? 'ce.toSel' : 'ce.penApply');
-  $('cePenApply').title = t(ce.penOp === 'sel' ? 'ce.toSelS' : 'ce.penApplyS');
+  ceCurSet();
 }
 
-function ceTool(v) { ce.tool = v; ceState(); cePenDraw(); ceSign(); }
+function ceTool(v) { if (ce.rc) return; ce.tool = v; ceState(); cePenDraw(); }
 function ceSize(k) { const r = $('ceSize'); r.value = Math.round(Math.min(+r.max, Math.max(+r.min, +r.value * k + (k > 1 ? 1 : -1)))); ceVals(); }
 
 function ceUndo() {
@@ -427,45 +436,17 @@ function cePath(pts) {
   P.closePath();
   return P;
 }
-// контур в маску: op cut — стереть внутри, add — вернуть внутри, keep — стереть снаружи. Мягкий край — размытием заливки,
-// у keep заливается всё вокруг контура с запасом за краем картинки, чтобы размытие не задело её край.
-function cePenPaint(g, s) {
-  const P = cePath(s.pen);
-  g.save();
-  g.filter = s.soft ? `blur(${s.soft / 2}px)` : 'none';
-  g.fillStyle = '#fff';
-  if (s.op === 'keep') {
-    const m = Math.max(ce.w, ce.h) + s.soft * 4, big = new Path2D();
-    big.rect(-m, -m, ce.w + 2 * m, ce.h + 2 * m);
-    big.addPath(P);
-    g.globalCompositeOperation = 'destination-out';
-    g.fill(big, 'evenodd');
-  } else {
-    g.globalCompositeOperation = s.op === 'add' ? 'source-over' : 'destination-out';
-    g.fill(P);
-  }
-  g.restore();
-}
-// Enter или кнопка: контур в выделение (режим — Shift/Alt при нажатии, иначе выбранный у пера) или сразу в маску.
+// «Создать выделение» (кнопка, Enter или Ctrl+Enter, как в Фотошопе): контур становится выделением с муравьями.
+// Режим — Shift/Alt при нажатии, иначе выбранный в строке параметров. Стереть выделенное — Delete, отдельным шагом.
 // Контур помнится в шаге истории: Ctrl+Z возвращает его на место, чтобы поправить точки.
 function cePenApply(e) {
   const pen = ce.pen;
   if (!ce.on || ce.busy || ce.drag || !pen || pen.pts.length < 2) return;
   const pts = pen.pts.map(p => p.slice()), soft = +$('ceSmooth').value;
-  if (ce.penOp === 'sel') {
-    ce.pen = null;
-    cePenDraw();
-    const mode = ceModeOf(e && e.shiftKey, e && e.altKey, 'pen');
-    const a = ceSelMix(cePenSel(pts, soft), mode);
-    ceSelCommit(a, {penPts: pts});
-    return;
-  }
-  const s = {pen: pts, op: ce.penOp, soft};
   ce.pen = null;
-  ce.strokes.push(s);
-  ce.redo = [];
-  cePenPaint(ce.mk.getContext('2d'), s);
-  cePenDraw(); ceRender(); ceFxSoon(0); ceState();
+  cePenDraw();
+  const mode = ceModeOf(e && e.shiftKey, e && e.altKey, 'pen');
+  ceSelCommit(ceSelMix(cePenSel(pts, soft), mode), {penPts: pts});
 }
 function cePenDrop() { ce.pen = null; cePenDraw(); ceState(); }
 // шаг назад в контуре: замкнутый размыкается, у открытого уходит последняя точка
@@ -543,7 +524,7 @@ function cePenDown(e) {
     cePenPull(e, f, ok => {
       pen.close = false;
       if (ok) pen.closed = true; else f.splice(0, 6, ...keep);
-      $('ceStage').classList.remove('pen-close');
+      ce.penCur = '';
       cePenDraw(); ceState();
     });
     cePenDraw();
@@ -576,6 +557,11 @@ function cePenToggle(e) {
 // контур поверх картинки в точках экрана; у замкнутого подкрашено то, что изменится
 function cePenDraw() {
   const sv = $('cePen'), pen = ce.pen;
+  if (ce.on && ce.rc) {   // рамка прямоугольного выделения при протяжке
+    const [x0, y0, x1, y1] = ceRectBox(ce.rc.a, ce.rc.b), X = x => +(ce.px + x * ce.z).toFixed(1), Y = y => +(ce.py + y * ce.z).toFixed(1);
+    sv.innerHTML = mvDual('path', `d="M${X(x0)} ${Y(y0)}H${X(x1)}V${Y(y1)}H${X(x0)}Z"`);
+    return;
+  }
   if (!ce.on || ce.tool !== 'pen' || !pen || !pen.pts.length) { if (sv.innerHTML) sv.innerHTML = ''; return; }
   const pts = pen.pts, f = v => +v.toFixed(1), X = x => f(ce.px + x * ce.z), Y = y => f(ce.py + y * ce.z);
   const seg = (a, b) => `C${X(a[4])} ${Y(a[5])} ${X(b[2])} ${Y(b[3])} ${X(b[0])} ${Y(b[1])}`;
@@ -584,9 +570,7 @@ function cePenDraw() {
   let out = '';
   if (pen.closed) {
     d += seg(pts[pts.length - 1], pts[0]) + 'Z';
-    const st = $('ceStage'), W = st.clientWidth, H = st.clientHeight;
-    const fill = ce.penOp === 'keep' ? `M-9 -9H${W + 9}V${H + 9}H-9Z${d}` : d;
-    out += `<path class="ce-pen-fill" fill-rule="evenodd" d="${fill}"/>`;
+    out += `<path class="ce-pen-fill" d="${d}"/>`;
   } else if (pen.close) d += seg(pts[pts.length - 1], pts[0]);
   else if (pen.hover) { const h = pen.hover; d += seg(pts[pts.length - 1], [h[0], h[1], h[0], h[1]]); }
   out += mvDual('path', `d="${d}"`);
@@ -691,25 +675,7 @@ function ceSelPaint(g, s) {
   g.drawImage(ce.tmp, 0, 0);
   g.globalCompositeOperation = 'source-over';
 }
-// щелчок палочкой: стереть видимое похожего цвета или (restore) вернуть похожее из цвета, в том числе уже стёртое
-function ceWand(p, erase) {
-  const x = Math.floor(p[0]), y = Math.floor(p[1]), w = ce.w, h = ce.h;
-  if (x < 0 || y < 0 || x >= w || y >= h) return;
-  const C = ce.colData, tol = +$('ceTol').value / 100 * 0.4;
-  let vis = i => C[i * 4 + 3] > 0;
-  if (erase) {   // стирается только то, что сейчас видно: уже прозрачное — граница, через него заливка не течёт
-    const M = ce.mk.getContext('2d').getImageData(0, 0, w, h).data;
-    vis = i => M[i * 4 + 3] * C[i * 4 + 3] > 255 * 4;
-  }
-  const sel = ceWandSel(C, w, h, x, y, tol, ce.wandAll, vis);
-  if (!ceSoften(sel)) return;
-  const s = {sel: ceRle(sel), erase};
-  ce.strokes.push(s);
-  ce.redo = [];
-  ceSelPaint(ce.mk.getContext('2d'), s);
-  ceRender(); ceFxSoon(0); ceState();
-}
-// щелчок палочкой в режиме выделения: похожее среди видимого (по прозрачному — прозрачное), сложить по режиму
+// щелчок палочкой: похожее среди видимого (по прозрачному — прозрачное) становится выделением, сложить по режиму
 function ceWandPick(p, mode) {
   const x = Math.floor(p[0]), y = Math.floor(p[1]), w = ce.w, h = ce.h;
   if (x < 0 || y < 0 || x >= w || y >= h) return;
@@ -831,13 +797,70 @@ function cePenSel(pts, soft) {
 function ceModeOf(shift, alt, tool) {
   return shift && alt ? 'inter' : shift ? 'add' : alt ? 'sub' : ce.selMode[tool || ce.tool] || 'new';
 }
-const CE_SIGN = {add: '+', sub: '−', inter: '×'};
-// знак у курсора: палочка — по зажатым клавишам и режиму, перо — по режиму (Alt у пера ломает ручки)
-function ceSign() {
-  const el = $('ceSign'), wand = ce.tool === 'wand' && !ce.wandNow, pen = ce.tool === 'pen' && ce.penOp === 'sel';
-  const m = ce.over && !ce.space && !ce.pan && (wand || pen) ? (wand ? ceModeOf(ce.mods.shift, ce.mods.alt) : ce.selMode.pen) : 'new';
-  el.classList.toggle('hide', m === 'new');
-  if (m !== 'new') { el.textContent = CE_SIGN[m]; el.style.transform = `translate(${ce.mx + 13}px, ${ce.my + 13}px)`; }
+// ---- курсоры, как в Фотошопе ----
+// Курсор = значок инструмента (белый с тёмной обводкой), горячая точка на его кончике. Режим выделения — маленький знак
+// справа снизу от значка (+ добавить, − вычесть, × пересечь) по зажатым Shift/Alt или выбранному режиму.
+const CE_SELTOOLS = ['rect', 'wand', 'pen'];   // инструменты выделения: у каждого свой режим в строке параметров
+const CE_SIGN = {add: 'M22.5 26h7M26 22.5v7', sub: 'M22.5 26h7', inter: 'M23.3 23.3l5.4 5.4M28.7 23.3l-5.4 5.4'};
+const CE_CUR_PATHS = {
+  wand: {p: 'M10 10l10.5 10.5M16.5 3v3M15 4.5h3M4.5 15v3M3 16.5h3', star: 'M7 2.6l1.3 3.1 3.1 1.3-3.1 1.3L7 11.4 5.7 8.3 2.6 7l3.1-1.3z', hx: 7, hy: 7},
+  pen: {p: 'M3 3l4.6 13.4 5.4 1.8 5.2-5.2-1.8-5.4zM3 3l6.3 6.3M13 18.2l2.6 2.6 5.2-5.2-2.6-2.6', c: [10.6, 10.6, 1.7], hx: 3, hy: 3},
+  rect: {p: 'M16 6v7M16 19v7M6 16h7M19 16h7', hx: 16, hy: 16},
+  move: {p: 'M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3', hx: 12, hy: 12},
+  zoom: {p: 'M15.2 15.2l6.3 6.3', c: [10, 10, 6.8], hx: 10, hy: 10},
+};
+const ceCurCache = {};
+function ceCurOf(kind, extra, sign) {
+  const key = kind + extra + sign;
+  if (ceCurCache[key]) return ceCurCache[key];
+  const k = CE_CUR_PATHS[kind];
+  let p = k.p;
+  if (k.c) p += `M${k.c[0] - k.c[2]} ${k.c[1]}a${k.c[2]} ${k.c[2]} 0 1 0 ${2 * k.c[2]} 0a${k.c[2]} ${k.c[2]} 0 1 0 ${-2 * k.c[2]} 0`;
+  if (kind === 'zoom') p += extra === 'out' ? 'M7 10h6' : 'M7 10h6M10 7v6';
+  if (sign) p += CE_SIGN[sign];
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke-linecap="round" stroke-linejoin="round">` +
+    `<path stroke="#000" stroke-width="3.6" d="${p}"/><path stroke="#fff" stroke-width="1.6" d="${p}"/>`;
+  if (k.star) s += `<path fill="#e9b872" stroke="#000" stroke-width="1.1" d="${k.star}"/>`;
+  if (extra === 'close') s += `<circle cx="23" cy="7" r="2.6" stroke="#000" stroke-width="3.4"/><circle cx="23" cy="7" r="2.6" stroke="#e9b872" stroke-width="1.6"/>`;
+  s += '</svg>';
+  return (ceCurCache[key] = `url("data:image/svg+xml,${encodeURIComponent(s)}") ${k.hx} ${k.hy}, crosshair`);
+}
+// курсор над картинкой по инструменту и клавишам; кисти рисуют свой кружок (ceCursor), системный курсор у них спрятан
+function ceCurSet() {
+  const st = $('ceStage'), tool = ce.tool;
+  let c = 'default';
+  if (ce.pan) c = 'grabbing';
+  else if (tool === 'hand' || ce.space) c = 'grab';
+  else if (tool === 'erase' || tool === 'restore') c = 'none';
+  else if (tool === 'move') c = ceCurOf('move', '', '');
+  else if (tool === 'zoom') c = ceCurOf('zoom', ce.mods.alt ? 'out' : 'in', '');
+  else if (tool === 'pen') { const pc = ce.pen ? ce.penCur : ''; c = pc === 'pt' ? 'move' : ceCurOf('pen', pc === 'close' ? 'close' : '', ''); }
+  else if (tool === 'wand' || tool === 'rect') {
+    const m = ce.rc ? ce.rc.mode : ceModeOf(ce.mods.shift, ce.mods.alt);
+    c = ceCurOf(tool, '', m === 'new' ? '' : m);
+  }
+  if (ce.curNow !== c) { ce.curNow = c; st.style.cursor = c; }
+}
+
+// ---- прямоугольное выделение (M) ----
+// рамка от a до b в точках картинки, обрезанная краем картинки
+function ceRectBox(a, b) {
+  const cl = (v, m) => Math.max(0, Math.min(m, Math.round(v)));
+  return [cl(Math.min(a[0], b[0]), ce.w), cl(Math.min(a[1], b[1]), ce.h), cl(Math.max(a[0], b[0]), ce.w), cl(Math.max(a[1], b[1]), ce.h)];
+}
+// конец протяжки: рамка — в выделение по режиму; щелчок без протяжки в режиме «Новое» снимает выделение, как в Фотошопе
+function ceRectEnd(ok) {
+  const rc = ce.rc; ce.rc = null;
+  cePenDraw();
+  if (!ok || !rc) { ceCurSet(); return; }
+  const [x0, y0, x1, y1] = ceRectBox(rc.a, rc.b);
+  const tiny = Math.abs(rc.b[0] - rc.a[0]) * ce.z < 3 && Math.abs(rc.b[1] - rc.a[1]) * ce.z < 3;
+  if (tiny || x1 <= x0 || y1 <= y0) { if (rc.mode === 'new') ceSelNone(); ceCurSet(); return; }
+  const a = new Uint8Array(ce.w * ce.h);
+  for (let y = y0; y < y1; y++) a.fill(255, y * ce.w + x0, y * ce.w + x1);
+  ceSoften(a);
+  ceSelCommit(ceSelMix(a, rc.mode));
+  ceCurSet();
 }
 
 // муравьи: границы между точками внутри и снаружи (порог 128), соседние отрезки склеены в длинные линии
@@ -898,30 +921,11 @@ function ceAntsTick() {
   else if (!want && ceAntsT) { clearInterval(ceAntsT); ceAntsT = 0; }
 }
 
-// меню режима у кнопок пера и палочки: по образцу clQPlace (color.js) — fixed, границы по видимой области
-function ceMenuOpen(tool, btn) {
-  const m = $('ceSelMenu');
-  m.dataset.tool = tool;
-  m.querySelectorAll('[data-m]').forEach(b => b.setAttribute('aria-checked', b.dataset.m === ce.selMode[tool]));
-  m.classList.remove('hide');
-  const hero = document.querySelector('.hero'), minTop = (hero ? hero.getBoundingClientRect().bottom : 0) + 8;
-  m.style.maxHeight = '';
-  const r = btn.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
-  const below = window.innerHeight - r.bottom - 14, above = r.top - 6 - minTop;
-  let top;
-  if (h <= below) top = r.bottom + 6;
-  else if (h <= above) top = r.top - h - 6;
-  else { m.style.maxHeight = Math.max(above, below, 60) + 'px'; top = below >= above ? r.bottom + 6 : minTop; }
-  m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
-  m.style.top = top + 'px';
-  m.querySelector('[aria-checked="true"]')?.focus();
-}
-const ceMenuOn = () => !$('ceSelMenu').classList.contains('hide');
-function ceMenuClose() { $('ceSelMenu').classList.add('hide'); }
+// режим выделения инструмента: четыре кнопки в строке параметров (как в Фотошопе), помнится между запусками
 function ceSelModeSet(tool, m) {
   ce.selMode[tool] = m;
   try { localStorage.setItem('k9000.ceSelMode', JSON.stringify(ce.selMode)); } catch (er) {}
-  ceState(); ceSign();
+  ceState();
 }
 
 // ---- мышь ----
@@ -947,10 +951,13 @@ function ceCursor(e) {
     if (e.button === 1 || ce.tool === 'hand' || ce.space) { ce.pan = {x: e.clientX - ce.px, y: e.clientY - ce.py}; ceState(); ceCursor(e); return; }
     if (e.button !== 0 && e.button !== 2) return;
     if (ce.tool === 'pen') { if (e.button === 0) cePenDown(e); return; }
-    if (ce.tool === 'wand') {
-      // выделение: Shift — добавить, Alt — вычесть, оба — пересечь, правая кнопка — вычесть; «сразу» — стереть / вернуть
-      if (ce.wandNow) ceWand(cePt(e), e.button === 0);
-      else ceWandPick(cePt(e), e.button === 2 ? 'sub' : ceModeOf(e.shiftKey, e.altKey));
+    // палочка и рамка: Shift — добавить, Alt — вычесть, оба — пересечь, правая кнопка — вычесть
+    const mode = e.button === 2 ? 'sub' : ceModeOf(e.shiftKey, e.altKey);
+    if (ce.tool === 'wand') { ceWandPick(cePt(e), mode); return; }
+    if (ce.tool === 'rect') { const p = cePt(e); ce.rc = {a: p, b: p, mode}; ceCurSet(); return; }
+    if (ce.tool === 'zoom') {   // щелчок — крупнее вдвое, Alt+щелчок или правая кнопка — мельче
+      const r = st.getBoundingClientRect();
+      ceZoomAt(ce.z * (e.altKey || e.button === 2 ? 0.5 : 2), e.clientX - r.left, e.clientY - r.top);
       return;
     }
     if (ce.tool === 'move') {   // тянуть контур выделения; пиксели не двигаются
@@ -970,7 +977,8 @@ function ceCursor(e) {
     if (!ce.on) return;
     const sr = st.getBoundingClientRect();
     Object.assign(ce, {mx: e.clientX - sr.left, my: e.clientY - sr.top, over: true, mods: {shift: e.shiftKey, alt: e.altKey}});
-    ceSign();
+    ceCurSet();
+    if (ce.rc) { ce.rc.b = cePt(e); cePenDraw(); return; }
     if (ce.mv) {
       const q = cePt(e);
       ce.selX = ce.mv.ox + Math.round(q[0] - ce.mv.p[0]); ce.selY = ce.mv.oy + Math.round(q[1] - ce.mv.p[1]);
@@ -984,8 +992,8 @@ function ceCursor(e) {
       const p = cePt(e), pen = ce.pen;
       pen.close = cePenCanClose(p);
       pen.hover = pen.closed ? null : p;
-      st.classList.toggle('pen-close', pen.close);
-      st.classList.toggle('pen-pt', !pen.close && (pen.closed || e.altKey) && !!cePenHit(p));
+      ce.penCur = pen.close ? 'close' : (pen.closed || e.altKey) && cePenHit(p) ? 'pt' : '';
+      ceCurSet();
       cePenDraw();
       return;
     }
@@ -997,6 +1005,7 @@ function ceCursor(e) {
   });
   const end = e => {
     if (ce.pan) { ce.pan = null; ceState(); }
+    if (ce.rc) ceRectEnd(e.type !== 'pointercancel');
     if (ce.drag) { const d = ce.drag; ce.drag = null; d.end(e.type !== 'pointercancel'); cePenDraw(); ceState(); }
     if (ce.cur) { ce.cur = null; ceState(); ceRender(); ceFxSoon(0); }
     if (ce.mv) {
@@ -1009,7 +1018,7 @@ function ceCursor(e) {
   st.addEventListener('pointercancel', end);
   st.addEventListener('pointerleave', () => {
     $('ceCur').classList.add('hide');
-    ce.over = false; ceSign();
+    ce.over = false;
     if (ce.pen && ce.pen.hover && !ce.drag) { ce.pen.hover = null; cePenDraw(); }
   });
   st.addEventListener('dblclick', cePenToggle);
@@ -1048,18 +1057,11 @@ async function ceSave() {
 }
 
 // ---- кнопки ----
-// у пера и палочки уголок со стрелкой (или правая кнопка) открывает меню режима выделения
 $('ceMode').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if (!b) return;
-  ceTool(b.dataset.v);
-  if (e.target.closest('[data-mb]')) ceMenuOn() ? ceMenuClose() : ceMenuOpen(b.dataset.v, b);
+  const b = e.target.closest('button[data-v]'); if (b) ceTool(b.dataset.v);
 });
-$('ceMode').addEventListener('contextmenu', e => {
-  const b = e.target.closest('button[data-v]');
-  if (!b || !b.querySelector('[data-mb]')) return;
-  e.preventDefault();
-  ceTool(b.dataset.v);
-  ceMenuOpen(b.dataset.v, b);
+$('ceModes').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); if (b && CE_SELTOOLS.includes(ce.tool)) ceSelModeSet(ce.tool, b.dataset.m);
 });
 $('ceBgs').addEventListener('click', e => {
   const b = e.target.closest('[data-bg]'); if (!b) return;
@@ -1081,30 +1083,14 @@ $('ceStage').style.setProperty('--ce-col', $('ceColor').value);
 $('ceSwColor').style.background = $('ceColor').value;
 for (const id of ['ceSize', 'ceSoft', 'ceTol', 'ceSmooth']) $(id).addEventListener('input', ceVals);
 for (const id of ['ceTol', 'ceSmooth']) $(id).addEventListener('change', () => { try { localStorage.setItem('k9000.' + id, $(id).value); } catch (er) {} });
-$('cePenOp').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if (!b) return;
-  ce.penOp = b.dataset.v; ceState(); cePenDraw();
-  try { localStorage.setItem('k9000.cePenOp2', ce.penOp); } catch (er) {}
-  ceSign();
-});
-$('ceWandDo').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if (!b) return;
-  ce.wandNow = b.dataset.v === 'now'; ceState(); ceSign();
-  try { localStorage.setItem('k9000.ceWandNow', ce.wandNow ? '1' : ''); } catch (er) {}
-});
-$('ceWandArea').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if (!b) return;
-  ce.wandAll = b.dataset.v === 'all'; ceState();
+$('ceNear').addEventListener('change', () => {
+  ce.wandAll = !$('ceNear').checked;
   try { localStorage.setItem('k9000.ceWandAll', ce.wandAll ? '1' : ''); } catch (er) {}
 });
 try {
   for (const id of ['ceTol', 'ceSmooth']) { const v = localStorage.getItem('k9000.' + id); if (v !== null) $(id).value = v; }
-  // перо раньше сразу стирало (k9000.cePenOp); теперь по умолчанию даёт выделение, прежний выбор не переносится
-  const op = localStorage.getItem('k9000.cePenOp2');
-  if (['sel', 'keep', 'cut', 'add'].includes(op)) ce.penOp = op;
-  ce.wandNow = localStorage.getItem('k9000.ceWandNow') === '1';
   const sm = JSON.parse(localStorage.getItem('k9000.ceSelMode') || '{}');
-  for (const k of ['pen', 'wand']) if (['new', 'add', 'sub', 'inter'].includes(sm[k])) ce.selMode[k] = sm[k];
+  for (const k of CE_SELTOOLS) if (['new', 'add', 'sub', 'inter'].includes(sm[k])) ce.selMode[k] = sm[k];
   ce.wandAll = localStorage.getItem('k9000.ceWandAll') === '1';
 } catch (er) {}
 $('cePenApply').addEventListener('click', cePenApply);
@@ -1112,21 +1098,15 @@ $('ceSelInv').addEventListener('click', ceSelInvert);
 $('ceSelDel').addEventListener('click', () => ceSelApply(true));
 $('ceSelFill').addEventListener('click', () => ceSelApply(false));
 $('ceSelNone').addEventListener('click', ceSelNone);
-$('ceSelMenu').addEventListener('click', e => {
-  const b = e.target.closest('[data-m]'); if (!b) return;
-  ceSelModeSet($('ceSelMenu').dataset.tool, b.dataset.m);
-  ceMenuClose();
-});
-// меню закрывается щелчком мимо и сменой размера окна
-document.addEventListener('pointerdown', e => { if (ceMenuOn() && !e.target.closest('#ceSelMenu, #ceMode [data-mb]')) ceMenuClose(); }, true);
-window.addEventListener('resize', () => { if (ceMenuOn()) ceMenuClose(); });
-window.addEventListener('blur', () => { ce.mods = {shift: false, alt: false}; if (ce.on) ceSign(); });
+window.addEventListener('blur', () => { ce.mods = {shift: false, alt: false}; if (ce.on) ceCurSet(); });
 $('cePenDrop').addEventListener('click', cePenDrop);
 for (const id of ['ceFeather', 'ceShift', 'ceFringe']) $(id).addEventListener('input', () => { ceVals(); ceFxSoon(90); });
 $('ceUndo').addEventListener('click', ceUndo);
 $('ceRedo').addEventListener('click', ceRedo);
 $('ceReset').addEventListener('click', ceReset);
 $('ceFit').addEventListener('click', ceFit);
+$('ceZFit').addEventListener('click', ceFit);
+$('ceZ100').addEventListener('click', () => ceZoomBy(0));
 $('ceSave').addEventListener('click', ceSave);
 $('ceCancel').addEventListener('click', () => ceClose(false));
 $('ceClose').addEventListener('click', () => ceClose(false));
@@ -1138,28 +1118,25 @@ $('ceSrcPick').addEventListener('click', () => dialog(async () => {
   try { await ceSetSrc(f.path); ceRender(); ceFxSoon(0); } finally { ce.busy = false; ceState(); }
   if (!ce.src) toast({type: 'warn', title: t('ce.srcBad'), ttl: 5000});
 }));
+// масштаб от середины: k — во сколько раз, 0 — 100 %
+function ceZoomBy(k) { const st = $('ceStage'); ceZoomAt(k ? ce.z * k : 1, st.clientWidth / 2, st.clientHeight / 2); }
 
-// клавиши окна: на window, раньше всех остальных, чтобы E, B, пробел и Ctrl+Z не доставались окнам и вкладкам под ним.
-// Пока открыт вопрос (askBox), клавиши его.
+// Клавиши как в Фотошопе: V, M, W, P, E, Y (и B), H, Z — инструменты; пробел — рука; Enter или Ctrl+Enter — контур в выделение;
+// Ctrl+D, Ctrl+Shift+I, Ctrl+A, Delete; Ctrl+Z, Ctrl+Shift+Z/Ctrl+Y; Ctrl+= / Ctrl+− / Ctrl+0 / Ctrl+1 — масштаб.
+// Слушаем на window раньше всех, чтобы клавиши не доставались окнам и вкладкам под редактором. Пока открыт вопрос (askBox), клавиши его.
+const CE_KEYS = {KeyV: 'move', KeyM: 'rect', KeyW: 'wand', KeyP: 'pen', KeyE: 'erase', KeyY: 'restore', KeyB: 'restore', KeyH: 'hand', KeyZ: 'zoom'};
 window.addEventListener('keydown', e => {
   if (!ce.on || askDone) return;
   const typing = e.target.closest && e.target.closest('input[type=text], textarea, select');
   const c = e.code, mod = e.ctrlKey || e.metaKey;
   const penLive = ce.tool === 'pen' && ce.pen && ce.pen.pts.length;
-  if (ceMenuOn()) {   // открыто меню режима: стрелки ходят по нему, Enter выбирает, Esc и прочее закрывают
-    const items = [...$('ceSelMenu').querySelectorAll('[data-m]')], at = items.indexOf(document.activeElement);
-    if (c === 'ArrowDown' || c === 'ArrowUp') items[(at + (c === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
-    else if (c === 'Enter' || c === 'NumpadEnter' || c === 'Space') return;
-    else ceMenuClose();
-    e.preventDefault(); e.stopPropagation(); return;
-  }
-  if (e.key === 'Shift' || e.key === 'Alt') {   // знак у курсора; Alt не отдаём меню окна
+  if (e.key === 'Shift' || e.key === 'Alt') {   // знак режима у курсора; Alt не отдаём меню окна
     ce.mods[e.key === 'Shift' ? 'shift' : 'alt'] = true;
-    ceSign();
+    ceCurSet();
     if (e.key === 'Alt') e.preventDefault();
     return;
   }
-  if (e.key === 'Escape') { if (!ce.drag) penLive ? cePenDrop() : ceClose(false); }
+  if (e.key === 'Escape') { if (ce.rc) ceRectEnd(false); else if (!ce.drag) penLive ? cePenDrop() : ceClose(false); }
   else if (typing) { e.stopPropagation(); return; }
   else if (penLive && (c === 'Enter' || c === 'NumpadEnter')) cePenApply(e);
   else if (penLive && !ce.pen.closed && (c === 'Backspace' || c === 'Delete') && !ce.drag) cePenBack();
@@ -1175,23 +1152,21 @@ window.addEventListener('keydown', e => {
   else if (mod && e.shiftKey && c === 'KeyI') ceSelInvert();
   else if (mod && c === 'KeyD') ceSelNone();
   else if (mod && c === 'KeyA') ceSelAll();
-  else if ((c === 'Delete' || c === 'Backspace') && !mod && ce.selA) { if (!ce.cur && !ce.mv) ceSelApply(true); }
+  else if ((c === 'Delete' || c === 'Backspace') && !mod && ce.selA) { if (!ce.cur && !ce.mv && !ce.rc) ceSelApply(true); }
   else if (mod && c === 'KeyZ') e.shiftKey ? ceRedo() : ceUndo();
   else if (mod && c === 'KeyY') ceRedo();
   else if (mod && c === 'KeyS') ceSave();
   else if (mod && (c === 'Digit0' || c === 'Numpad0')) ceFit();
+  else if (mod && (c === 'Digit1' || c === 'Numpad1')) ceZoomBy(0);
+  else if (mod && (c === 'Equal' || c === 'NumpadAdd')) ceZoomBy(2);
+  else if (mod && (c === 'Minus' || c === 'NumpadSubtract')) ceZoomBy(0.5);
   else if (mod || e.altKey) return;
   else if (c === 'Space') { if (!ce.space) { ce.space = true; ceState(); $('ceCur').classList.add('hide'); } }
-  else if (c === 'KeyE') ceTool('erase');
-  else if (c === 'KeyB') ceTool('restore');
-  else if (c === 'KeyH') ceTool('hand');
-  else if (c === 'KeyP') ceTool('pen');
-  else if (c === 'KeyW') ceTool('wand');
-  else if (c === 'KeyV') ceTool('move');
+  else if (CE_KEYS[c]) ceTool(CE_KEYS[c]);
   else if (c === 'BracketLeft') ceSize(1 / 1.15);
   else if (c === 'BracketRight') ceSize(1.15);
   else if (c === 'Digit0') ceFit();
-  else if (c === 'Digit1') { const st = $('ceStage'); ceZoomAt(1, st.clientWidth / 2, st.clientHeight / 2); }
+  else if (c === 'Digit1') ceZoomBy(0);
   else if (['Delete', 'KeyF'].includes(c)) {}
   else return;
   e.preventDefault(); e.stopPropagation();
@@ -1199,7 +1174,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   if (!ce.on) return;
   if (e.code === 'Space') { ce.space = false; ceState(); e.preventDefault(); e.stopPropagation(); }
-  if (e.key === 'Shift' || e.key === 'Alt') { ce.mods[e.key === 'Shift' ? 'shift' : 'alt'] = false; ceSign(); e.preventDefault(); }
+  if (e.key === 'Shift' || e.key === 'Alt') { ce.mods[e.key === 'Shift' ? 'shift' : 'alt'] = false; ceCurSet(); e.preventDefault(); }
 }, true);
 
 // ---- входы ----
@@ -1213,18 +1188,24 @@ function ggFix() {
   }});
 }
 $('gnLbFix').addEventListener('click', ggFix);
-// PNG, брошенная в открытое окно (drop.js): открыть её вместо текущей; несохранённое — с вопросом, как при закрытии
+// картинка для редактора: PNG, JPG или WebP — с прозрачностью (вырезка) или обычная (фон сотрётся инструментами)
+const CE_EXT = /\.(png|jpe?g|webp)$/i;
+// брошенная картинка (drop.js): в открытый редактор — вместо текущей (несохранённое — с вопросом, как при закрытии),
+// на карточку «Редактор вырезки» в «Убрать фон» — открыть редактор
 async function ceDropPaths(list) {
-  const f = (list || []).find(f => /\.(png|webp)$/i.test(f.path));
+  const f = (list || []).find(f => CE_EXT.test(f.path));
   if (!f) { say('warn', t('drop.notSuitableTitle'), t('ce.onlyPng')); return; }
-  if (!ce.on || ce.busy || f.path === ce.path) return;
-  await ceClose();
-  if (!ce.on) ceOpen({path: f.path});
+  if (ce.on) {
+    if (ce.busy || f.path === ce.path) return;
+    await ceClose();
+    if (ce.on) return;
+  }
+  ceOpen({path: f.path});
 }
-// «Утилиты» → «Убрать фон»: любая PNG с диска
+// «Утилиты» → «Убрать фон», карточка «Редактор вырезки»: любая картинка с диска
 $('bgFixPick').addEventListener('click', () => dialog(async () => {
   const r = await api('pick-files'); if (r.error) { alert(r.error); return; }
-  const f = (r.files || []).find(f => /\.(png|webp)$/i.test(f.path));
+  const f = (r.files || []).find(f => CE_EXT.test(f.path));
   if (f) ceOpen({path: f.path});
   else if ((r.files || []).length) say('warn', t('drop.notSuitableTitle'), t('ce.onlyPng'));
 }));

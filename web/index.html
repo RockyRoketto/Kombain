@@ -1048,7 +1048,6 @@ __CSS__
           <button class="btn sm" id="bgAddFiles" data-i18n="add.files"></button>
           <button class="btn sm" id="bgAddFolder" data-i18n="add.folder"></button>
           <button class="btn sm" id="bgClear" data-i18n="btn.clear"></button>
-          <button class="btn sm" id="bgFixPick" data-i18n="ce.open" data-i18n-title="ce.openS"></button>
           <span class="cnt" id="bgCnt"></span>
         </div>
         <div class="empty" id="bgEmpty">
@@ -1066,6 +1065,15 @@ __CSS__
           <h2 data-i18n="ut.tBg"></h2>
           <div class="note" data-i18n="bgc.note"></div>
           <div class="note" data-i18n="bgc.noteOut"></div>
+        </section>
+        <!-- редактор вырезки на любой картинке, без «Убрать фон»: кнопка и перетаскивание сюда (cutedit.js, drop.js) -->
+        <section class="card ce-dock" id="bgEdit">
+          <h2 data-i18n="ce.dockT"></h2>
+          <div class="note" data-i18n="ce.dockS"></div>
+          <button type="button" class="ce-dock-btn" id="bgFixPick" data-i18n-title="ce.openS">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="9.5" r="1.8"/><path d="M3.5 17.5l5-4.5 3.5 3 3-2.5 5.5 4.5"/></svg>
+            <b data-i18n="ce.open"></b><span data-i18n="ce.dockDrop"></span>
+          </button>
         </section>
         <section class="card">
           <h2 data-i18n="acc.out"></h2>
@@ -2189,7 +2197,7 @@ __CSS__
   </div>
 </div>
 
-<!-- «Поправить вырезку»: ластик и «Вернуть» по маске, край, сохранение отдельным PNG; web/js/cutedit.js -->
+<!-- «Доработать вырезку»: редактор как в Фотошопе — слева инструменты, над картинкой параметры инструмента, справа выделение, край, оригинал; web/js/cutedit.js -->
 <div id="ce" class="modal hide ce" role="dialog" aria-modal="true" aria-labelledby="ceT">
   <div class="ce-card">
     <div class="phead ce-head"><h3 id="ceT" data-i18n="ce.title"></h3><span class="ce-name" id="ceName"></span>
@@ -2202,78 +2210,77 @@ __CSS__
       </div>
       <button type="button" class="x" id="ceClose" data-i18n-title="btn.close" data-i18n-aria="btn.close">✕</button></div>
     <div class="ce-body">
-      <div class="ce-tools">
-        <div class="ce-mode" id="ceMode" role="group">
-          <button type="button" data-v="erase" data-i18n-title="ce.erase" data-i18n-aria="ce.erase"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 20H20"/><path d="M3.8 14.2 13.2 4.8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L10 20H6.8L3.8 17a2 2 0 0 1 0-2.8z"/><path d="M8.5 9.5l6 6"/></svg></button>
-          <button type="button" data-v="restore" data-i18n-title="ce.restore" data-i18n-aria="ce.restore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4.5 19.5 10 11 18.5H5.5V13z"/><path d="M3 21h8"/><path d="M18 2v5M15.5 4.5h5"/></svg></button>
-          <button type="button" data-v="pen" data-i18n-title="ce.pen" data-i18n-aria="ce.pen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/></svg><i class="ce-mb" data-mb="pen" data-i18n-title="ce.mMenu"></i></button>
-          <button type="button" data-v="wand" data-i18n-title="ce.wand" data-i18n-aria="ce.wand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 20.5 9.5 9.5"/><path d="M3 3l6.8 3.7-3.1 3.1z"/><path d="M14 2.5v4M12 4.5h4M4.5 12v4M2.5 14h4"/></svg><i class="ce-mb" data-mb="wand" data-i18n-title="ce.mMenu"></i></button>
-          <button type="button" data-v="move" data-i18n-title="ce.move" data-i18n-aria="ce.move"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3H3v12" stroke-dasharray="2.2 2.6"/><path d="M16 9v13M9.5 15.5h13M13.5 11.5 16 9l2.5 2.5M13.5 19.5 16 22l2.5-2.5M12 13l-2.5 2.5L12 18M20 13l2.5 2.5L20 18"/></svg></button>
-          <button type="button" data-v="hand" data-i18n-title="ce.hand" data-i18n-aria="ce.hand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5v-7a1.5 1.5 0 0 1 3 0v7"/><path d="M14 11.5v-5a1.5 1.5 0 0 1 3 0v7"/><path d="M17 10.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.5a6 6 0 0 1-4.6-2.2L4 16a1.6 1.6 0 0 1 2.4-2.1L8 15.5"/></svg></button>
-        </div>
-        <div class="ce-opt" data-for="erase restore">
-          <label class="ce-sl"><span><span data-i18n="ce.size"></span><b id="ceSizeV"></b></span><input type="range" id="ceSize" min="1" max="400" value="30" data-i18n-title="ce.sizeS"></label>
-          <label class="ce-sl"><span><span data-i18n="ce.soft"></span><b id="ceSoftV"></b></span><input type="range" id="ceSoft" min="0" max="100" value="50" data-i18n-title="ce.softS"></label>
-        </div>
-        <div class="ce-opt hide" data-for="pen">
-          <span class="ce-lbl" data-i18n="ce.penOp"></span>
-          <div class="ce-seg" id="cePenOp" role="group" data-i18n-aria="ce.penOp">
-            <button type="button" data-v="sel" data-i18n="ce.penSel" data-i18n-title="ce.penSelS"></button>
-            <button type="button" data-v="keep" data-i18n="ce.penKeep"></button>
-            <button type="button" data-v="cut" data-i18n="ce.penCut"></button>
-            <button type="button" data-v="add" data-i18n="ce.penAdd"></button>
+      <!-- панель инструментов: квадратные кнопки в порядке Фотошопа -->
+      <div class="ce-tools ce-ic" id="ceMode" role="toolbar" aria-orientation="vertical" data-i18n-aria="ce.tools">
+        <button type="button" data-v="move" data-i18n-title="ce.move" data-i18n-aria="ce.move"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v12.5l3.4-3.1 2.4 5.3 2.1-1-2.4-5.2H14z"/><path d="M18 13.5v9M13.5 18h9M16.6 15l1.4-1.5 1.4 1.5M16.6 21l1.4 1.5 1.4-1.5M15 16.6 13.5 18l1.5 1.4M21 16.6l1.5 1.4-1.5 1.4"/></svg></button>
+        <button type="button" data-v="rect" data-i18n-title="ce.rect" data-i18n-aria="ce.rect"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="1" stroke-dasharray="3 2.2"/></svg></button>
+        <button type="button" data-v="wand" data-i18n-title="ce.wand" data-i18n-aria="ce.wand"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="a h" cx="7" cy="7" r="5.6"/><path class="w" d="M10 10l10.5 10.5"/><path class="a" d="M7 2.6l1.3 3.1 3.1 1.3-3.1 1.3L7 11.4 5.7 8.3 2.6 7l3.1-1.3z"/><path d="M16.5 3v3M15 4.5h3M4.5 15v3M3 16.5h3"/></svg></button>
+        <button type="button" data-v="pen" data-i18n-title="ce.pen" data-i18n-aria="ce.pen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l4.6 13.4 5.4 1.8 5.2-5.2-1.8-5.4z"/><path d="M3 3l6.3 6.3"/><circle cx="10.6" cy="10.6" r="1.7"/><path d="M13 18.2l2.6 2.6 5.2-5.2-2.6-2.6"/></svg></button>
+        <button type="button" data-v="erase" data-i18n-title="ce.erase" data-i18n-aria="ce.erase"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M8.6 9.9l5.6 5.6-4.5 4.5H8.4l-4.5-4.5a.6.6 0 0 1 0-.9z"/><path d="M8.4 20H20M3.9 14.6l9.2-9.2a2 2 0 0 1 2.8 0l3.7 3.7a2 2 0 0 1 0 2.8L11.5 20H8.4l-4.5-4.5a.6.6 0 0 1 0-.9z"/></svg></button>
+        <button type="button" data-v="restore" data-i18n-title="ce.restore" data-i18n-aria="ce.restore"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="w" d="M20.5 3.5l-8 8"/><path class="f" d="M11.4 12.6c-2.4-.4-4.5 1.2-4.6 3.6-.1 1.6-1.1 2.6-2.6 3.1 3.6 1.4 7.6.2 8-3.7z"/><path d="M3.4 11A6.4 6.4 0 0 1 9.6 4"/><path d="M7.4 2 9.8 4l-2 2.4"/></svg></button>
+        <button type="button" data-v="hand" data-i18n-title="ce.hand" data-i18n-aria="ce.hand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5v-7a1.5 1.5 0 0 1 3 0v7"/><path d="M14 11.5v-5a1.5 1.5 0 0 1 3 0v7"/><path d="M17 10.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7h-1.5a6 6 0 0 1-4.6-2.2L4 16a1.6 1.6 0 0 1 2.4-2.1L8 15.5"/></svg></button>
+        <button type="button" data-v="zoom" data-i18n-title="ce.zoom" data-i18n-aria="ce.zoom"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path class="w" d="M15.4 15.4 21 21"/><path d="M10.5 7.6v5.8M7.6 10.5h5.8"/></svg></button>
+      </div>
+      <div class="ce-main">
+        <!-- строка параметров инструмента, как в Фотошопе -->
+        <div class="ce-opts" id="ceOpts">
+          <b class="ce-tname" id="ceTName"></b>
+          <div class="ce-opt ce-modes ce-ic hide" data-for="rect wand pen" id="ceModes" role="radiogroup" data-i18n-aria="ce.mMenu">
+            <button type="button" role="radio" data-m="new" data-i18n-title="ce.mNew" data-i18n-aria="ce.mNew"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="f" x="4.5" y="4.5" width="15" height="15" rx="1.2"/></svg></button>
+            <button type="button" role="radio" data-m="add" data-i18n-title="ce.mAdd" data-i18n-aria="ce.mAdd"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3 3h11.5v6.5H21V21H9.5v-6.5H3z"/></svg></button>
+            <button type="button" role="radio" data-m="sub" data-i18n-title="ce.mSub" data-i18n-aria="ce.mSub"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3 3h11.5v6.5h-5v5H3z"/><path class="d" d="M9.5 9.5H21V21H9.5z"/></svg></button>
+            <button type="button" role="radio" data-m="inter" data-i18n-title="ce.mInter" data-i18n-aria="ce.mInter"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="d" d="M3 3h11.5v11.5H3zM9.5 9.5H21V21H9.5z"/><path class="f" d="M9.5 9.5h5v5h-5z"/></svg></button>
           </div>
-          <div class="ce-row">
-            <button type="button" class="btn sm primary" id="cePenApply"></button>
+          <div class="ce-opt hide" data-for="erase restore">
+            <label class="ce-sl"><span data-i18n="ce.size"></span><input type="range" id="ceSize" min="1" max="400" value="30" data-i18n-title="ce.sizeS"><b id="ceSizeV"></b></label>
+            <label class="ce-sl"><span data-i18n="ce.soft"></span><input type="range" id="ceSoft" min="0" max="100" value="50" data-i18n-title="ce.softS"><b id="ceSoftV"></b></label>
+          </div>
+          <div class="ce-opt hide" data-for="wand">
+            <label class="ce-sl"><span data-i18n="ce.tol"></span><input type="range" id="ceTol" min="0" max="100" value="20" data-i18n-title="ce.tolS"><b id="ceTolV"></b></label>
+            <label class="ce-chk" data-i18n-title="ce.wandNearS"><input type="checkbox" id="ceNear" checked><span data-i18n="ce.wandNear"></span></label>
+          </div>
+          <div class="ce-opt hide" data-for="rect wand pen">
+            <label class="ce-sl"><span data-i18n="ce.smooth"></span><input type="range" id="ceSmooth" min="0" max="20" value="1" data-i18n-title="ce.smoothS"><b id="ceSmoothV"></b></label>
+          </div>
+          <div class="ce-opt hide" data-for="pen">
+            <button type="button" class="btn sm primary ce-mksel" id="cePenApply" data-i18n-title="ce.toSelS"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="6.5" stroke-dasharray="2.6 2.2"/></svg><span data-i18n="ce.toSel"></span></button>
             <button type="button" class="btn sm" id="cePenDrop" data-i18n="ce.penDrop" data-i18n-title="ce.penDropS"></button>
           </div>
-          <p class="ce-note" data-i18n="ce.penHint"></p>
-        </div>
-        <div class="ce-opt hide" data-for="wand">
-          <label class="ce-sl"><span><span data-i18n="ce.tol"></span><b id="ceTolV"></b></span><input type="range" id="ceTol" min="0" max="100" value="20" data-i18n-title="ce.tolS"></label>
-          <div class="ce-seg" id="ceWandDo" role="group">
-            <button type="button" data-v="sel" data-i18n="ce.wandSel" data-i18n-title="ce.wandSelS"></button>
-            <button type="button" data-v="now" data-i18n="ce.wandNow" data-i18n-title="ce.wandNowS"></button>
+          <div class="ce-opt hide" data-for="zoom">
+            <button type="button" class="btn sm" id="ceZ100" data-i18n="ce.z100" data-i18n-title="ce.z100S"></button>
+            <button type="button" class="btn sm" id="ceZFit" data-i18n="ce.fit" data-i18n-title="ce.fitS"></button>
           </div>
-          <div class="ce-seg" id="ceWandArea" role="group">
-            <button type="button" data-v="near" data-i18n="ce.wandNear" data-i18n-title="ce.wandNearS"></button>
-            <button type="button" data-v="all" data-i18n="ce.wandAll" data-i18n-title="ce.wandAllS"></button>
-          </div>
+          <span class="ce-oh" id="ceOHint"></span>
         </div>
-        <div class="ce-opt hide" data-for="pen wand">
-          <label class="ce-sl"><span><span data-i18n="ce.smooth"></span><b id="ceSmoothV"></b></span><input type="range" id="ceSmooth" min="0" max="20" value="1" data-i18n-title="ce.smoothS"></label>
+        <div class="ce-stage" id="ceStage" data-bg="chk">
+          <div class="ce-box" id="ceBox"><canvas id="ceCv" width="1" height="1"></canvas></div>
+          <canvas class="ce-ants" id="ceAnts" width="1" height="1" aria-hidden="true"></canvas>
+          <svg class="mv-draw ce-pen" id="cePen" aria-hidden="true"></svg>
+          <div class="ce-cur hide" id="ceCur"></div>
+          <div class="ce-zoom"><button type="button" id="ceFit" data-i18n="ce.fit" data-i18n-title="ce.fitS"></button><span id="ceZoomV"></span></div>
+          <div class="ce-load hide" id="ceLoad"><span class="spin"></span></div>
         </div>
-        <p class="ce-note ce-opt hide" data-for="wand" data-i18n="ce.wandHint"></p>
-        <p class="ce-note ce-opt hide" data-for="move" data-i18n="ce.moveHint"></p>
-        <div class="ce-selbox">
-          <h4 class="gn-cap" data-i18n="ce.selCap"></h4>
-          <div class="ce-row">
-            <button type="button" class="btn sm" id="ceSelInv" data-i18n="ce.selInv" data-i18n-title="ce.selInvS"></button>
-            <button type="button" class="btn sm" id="ceSelDel" data-i18n="ce.selDel" data-i18n-title="ce.selDelS"></button>
-            <button type="button" class="btn sm" id="ceSelFill" data-i18n="ce.selFill" data-i18n-title="ce.selFillS"></button>
-            <button type="button" class="btn sm" id="ceSelNone" data-i18n="ce.selNone" data-i18n-title="ce.selNoneS"></button>
-          </div>
-        </div>
-        <p class="ce-keys" data-i18n="ce.keys"></p>
-      </div>
-      <div class="ce-stage" id="ceStage" data-bg="chk">
-        <div class="ce-box" id="ceBox"><canvas id="ceCv" width="1" height="1"></canvas></div>
-        <canvas class="ce-ants" id="ceAnts" width="1" height="1" aria-hidden="true"></canvas>
-        <svg class="mv-draw ce-pen" id="cePen" aria-hidden="true"></svg>
-        <div class="ce-cur hide" id="ceCur"></div>
-        <div class="ce-sign hide" id="ceSign" aria-hidden="true"></div>
-        <div class="ce-zoom"><button type="button" id="ceFit" data-i18n="ce.fit" data-i18n-title="ce.fitS"></button><span id="ceZoomV"></span></div>
-        <div class="ce-load hide" id="ceLoad"><span class="spin"></span></div>
       </div>
       <div class="ce-side">
+        <h4 class="gn-cap" data-i18n="ce.selCap"></h4>
+        <div class="ce-acts ce-ic">
+          <button type="button" class="btn sm" id="ceSelInv" data-i18n-title="ce.selInvS"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5" stroke-dasharray="2.6 2.2"/><path class="f" d="M7.5 7.5h9v9z"/></svg><span data-i18n="ce.selInv"></span></button>
+          <button type="button" class="btn sm" id="ceSelDel" data-i18n-title="ce.selDelS"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M9.5 6.5V4h5v2.5M6.5 6.5l1 13.5h9l1-13.5M10 10.5v6M14 10.5v6"/></svg><span data-i18n="ce.selDel"></span></button>
+          <button type="button" class="btn sm" id="ceSelFill" data-i18n-title="ce.selFillS"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M6.5 2.8v4.1h4.1"/></svg><span data-i18n="ce.selFill"></span></button>
+          <button type="button" class="btn sm" id="ceSelNone" data-i18n-title="ce.selNoneS"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5" stroke-dasharray="2.6 2.2"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span data-i18n="ce.selNone"></span></button>
+        </div>
         <h4 class="gn-cap" data-i18n="ce.edge"></h4>
-        <label class="ce-sl" data-i18n-title="ce.featherS"><span><span data-i18n="ce.feather"></span><b id="ceFeatherV"></b></span><input type="range" id="ceFeather" min="0" max="20" value="0"></label>
-        <label class="ce-sl" data-i18n-title="ce.shiftS"><span><span data-i18n="ce.shift"></span><b id="ceShiftV"></b></span><input type="range" id="ceShift" min="-3" max="3" value="0"></label>
-        <label class="ce-sl" data-i18n-title="ce.fringeS"><span><span data-i18n="ce.fringe"></span><b id="ceFringeV"></b></span><input type="range" id="ceFringe" min="0" max="100" step="5" value="0"></label>
+        <label class="ce-sl ce-slc" data-i18n-title="ce.featherS"><span><span data-i18n="ce.feather"></span><b id="ceFeatherV"></b></span><input type="range" id="ceFeather" min="0" max="20" value="0"></label>
+        <label class="ce-sl ce-slc" data-i18n-title="ce.shiftS"><span><span data-i18n="ce.shift"></span><b id="ceShiftV"></b></span><input type="range" id="ceShift" min="-3" max="3" value="0"></label>
+        <label class="ce-sl ce-slc" data-i18n-title="ce.fringeS"><span><span data-i18n="ce.fringe"></span><b id="ceFringeV"></b></span><input type="range" id="ceFringe" min="0" max="100" step="5" value="0"></label>
         <h4 class="gn-cap" data-i18n="ce.src"></h4>
         <p class="ce-src" id="ceSrc"></p>
-        <p class="ce-note" data-i18n="ce.srcS"></p>
+        <p class="ce-note" id="ceSrcS" data-i18n="ce.srcS"></p>
         <button type="button" class="btn sm" id="ceSrcPick" data-i18n="ce.srcPick"></button>
+        <h4 class="gn-cap" id="ceHintCap"></h4>
+        <p class="ce-note" id="ceHint"></p>
+        <h4 class="gn-cap" data-i18n="ce.keysCap"></h4>
+        <p class="ce-keys" data-i18n="ce.keys"></p>
       </div>
     </div>
     <div class="ce-foot">
@@ -2286,15 +2293,6 @@ __CSS__
     </div>
   </div>
 </div>
-
-<!-- меню режима выделения у пера и палочки в окне «Доработать вырезку» (cutedit.js, ceMenuOpen): вне окна, чтобы не обрезалось -->
-<div class="ce-menu hide" id="ceSelMenu" role="menu" data-i18n-aria="ce.mMenu">
-  <button type="button" role="menuitemradio" data-m="new"><i>▢</i><span data-i18n="ce.mNew"></span><kbd></kbd></button>
-  <button type="button" role="menuitemradio" data-m="add"><i>+</i><span data-i18n="ce.mAdd"></span><kbd>Shift</kbd></button>
-  <button type="button" role="menuitemradio" data-m="sub"><i>−</i><span data-i18n="ce.mSub"></span><kbd>Alt</kbd></button>
-  <button type="button" role="menuitemradio" data-m="inter"><i>×</i><span data-i18n="ce.mInter"></span><kbd>Shift+Alt</kbd></button>
-</div>
-
 <!-- просмотр картинки из галереи генератора: web/js/gengallery.js -->
 <div id="gnLb" class="modal hide gn-lb" role="dialog" aria-modal="true" aria-labelledby="gnLbT">
   <div class="gn-lb-card">
