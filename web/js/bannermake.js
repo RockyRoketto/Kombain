@@ -293,7 +293,7 @@ let bmOne = {};
 // Пока ничего не выбрано, картинки не двигаются.
 let bmMode = '';
 let bmSel = '';
-const bmIsId = a => !a || (Math.abs(a.k - 1) < 1e-3 && Math.abs(a.dx) < 1e-3 && Math.abs(a.dy) < 1e-3);
+const bmIsId = a => !a || (!a.eg && Math.abs(a.k - 1) < 1e-3 && Math.abs(a.dx) < 1e-3 && Math.abs(a.dy) < 1e-3);
 function bmAdj(name) {
   const o = bmOne[name] || BM_ID;
   return {k: bmAll.k * o.k, dx: bmAll.dx + o.dx, dy: bmAll.dy + o.dy};
@@ -409,7 +409,7 @@ function bmEditSync() {
     f.classList.toggle('sel', bmMode === 'one' && f.dataset.n === bmSel);
     f.classList.toggle('own', !bmIsId(bmOne[f.dataset.n]));
   });
-  bmObjSync();   // «Сбросить всё» и переключатель «что правишь» (bannerfx.js)
+  bmFxSync();   // поля фона (у выбранного баннера свои), «Сбросить всё» и переключатель «что правишь» (bannerfx.js)
 }
 // положение картинки и рамки на плитках без перерисовки списка (её дёргает каждое движение мыши)
 function bmPlace() {
@@ -452,7 +452,7 @@ $('bmCenter').onclick = () => { bmMark(); bmSet({dx: 0, dy: 0}); };
 $('bmReset').onclick = () => {
   if (!bmCur()) return;
   bmMark();
-  if (bmMode === 'one') delete bmOne[bmSel]; else bmAll = {...BM_ID};
+  if (bmMode === 'one') { const eg = bmOne[bmSel] && bmOne[bmSel].eg; delete bmOne[bmSel]; if (eg) bmOne[bmSel] = {...BM_ID, eg}; } else bmAll = {...BM_ID};
   bmPlace(); bmEditSync();
 };
 
@@ -461,7 +461,7 @@ $('bmToAll').onclick = () => {
   if (bmMode !== 'one' || !bmSel) return;
   bmMark();
   bmAll = bmAdj(bmSel);
-  for (const n in bmOne) delete bmOne[n];
+  for (const n in bmOne) { const eg = bmOne[n].eg; delete bmOne[n]; if (eg) bmOne[n] = {...BM_ID, eg}; }
   bmPlace(); bmEditSync();
 };
 
@@ -582,17 +582,19 @@ function bmDragMove(e) {
     const a = -bmFx.er * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
     const dx = e.clientX - d.cx, dy = e.clientY - d.cy;
     const px = dx * ca - dy * sa, py = dx * sa + dy * ca;   // мышь в осях элемента, от его середины
-    const ax = -d.sx * d.gw / 2, ay = -d.sy * d.gh / 2;     // стоящий угол
-    let kt = Math.max((px - ax) * d.sx / d.gw, (py - ay) * d.sy / d.gh);
+    const c = e.shiftKey;   // Shift: растягиваем от центра, середина стоит на месте
+    const ax = c ? 0 : -d.sx * d.gw / 2, ay = c ? 0 : -d.sy * d.gh / 2;     // стоящий угол
+    let kt = Math.max((px - ax) * d.sx / d.gw, (py - ay) * d.sy / d.gh) * (c ? 2 : 1);
     let nk = Math.min(Math.max(d.ek * kt, 0.2), 3);
     const one = !free && Math.abs(nk - 1) * d.gw / d.ek < BM_SNAP;
     if (one) nk = 1;
     kt = nk / d.ek;
-    const lx = ax + d.sx * d.gw * kt / 2, ly = ay + d.sy * d.gh * kt / 2, b = -a, cb = Math.cos(b), sb = Math.sin(b);
+    const lx = c ? 0 : ax + d.sx * d.gw * kt / 2, ly = c ? 0 : ay + d.sy * d.gh * kt / 2, b = -a, cb = Math.cos(b), sb = Math.sin(b);
     const cx = d.cx + lx * cb - ly * sb, cy = d.cy + lx * sb + ly * cb;   // новая середина на экране
-    bmFx.ek = nk;
-    bmFx.ex = Math.min(Math.max(d.ex0 + (cx - d.cx) / d.sc / sl.zw, -BM_EL_D), BM_EL_D);
-    bmFx.ey = Math.min(Math.max(d.ey0 + (cy - d.cy) / d.sc / sl.zh, -BM_EL_D), BM_EL_D);
+    const q = bmEgW(sl.name);
+    q.ek = nk;
+    q.ex = Math.min(Math.max(d.ex0 + (cx - d.cx) / d.sc / sl.zw, -BM_EL_D), BM_EL_D);
+    q.ey = Math.min(Math.max(d.ey0 + (cy - d.cy) / d.sc / sl.zh, -BM_EL_D), BM_EL_D);
     d.f.classList.toggle('k100', one);
     bmFxChanged(true);
     return;
@@ -610,19 +612,22 @@ function bmDragMove(e) {
   if (d.el) {   // сдвиг элемента: его середина прилипает к середине баннера и сейв-зоны, как у картинки
     const gx = bmZx(sl) + d.ex * sl.zw + mx / d.sc, gy = bmZy(sl) + d.ey * sl.zh + my / d.sc;
     const sx = bmSnapTo(gx, bmSnapX(sl), tol), sy = bmSnapTo(gy, bmSnapY(sl), tol);
-    bmFx.ex = Math.min(Math.max(((sx ?? gx) - bmZx(sl)) / sl.zw, -BM_EL_D), BM_EL_D);
-    bmFx.ey = Math.min(Math.max(((sy ?? gy) - bmZy(sl)) / sl.zh, -BM_EL_D), BM_EL_D);
+    const q = bmEgW(sl.name);
+    q.ex = Math.min(Math.max(((sx ?? gx) - bmZx(sl)) / sl.zw, -BM_EL_D), BM_EL_D);
+    q.ey = Math.min(Math.max(((sy ?? gy) - bmZy(sl)) / sl.zh, -BM_EL_D), BM_EL_D);
     bmFxChanged(true);
     bmGuides(d.f, sx == null ? null : sx / sl.w * 100, sy == null ? null : sy / sl.h * 100);
     return;
   }
   if (d.h) {   // растягиваем за уголок: противоположный угол стоит на месте
     const px = (e.clientX - d.r.left) / d.sc, py = (e.clientY - d.r.top) / d.sc, bk = d.t0.k / d.a0.k;
-    let kt = Math.max((px - d.ax) * d.sx / d.g.bw, (py - d.ay) * d.sy / d.g.bh);
+    const c = e.shiftKey;   // Shift: растягиваем от центра, середина картинки стоит на месте
+    let kt = c ? Math.max((px - d.g.cx) * d.sx / d.g.bw, (py - d.g.cy) * d.sy / d.g.bh) * 2
+      : Math.max((px - d.ax) * d.sx / d.g.bw, (py - d.ay) * d.sy / d.g.bh);
     if (!free && Math.abs(kt - 1) * d.g.bw * d.sc < BM_SNAP) kt = 1;
     const k = Math.min(Math.max(kt / bk, 0.2), 3);
     kt = k * bk;
-    const cx = d.ax + d.sx * d.g.bw * kt / 2, cy = d.ay + d.sy * d.g.bh * kt / 2;
+    const cx = c ? d.g.cx : d.ax + d.sx * d.g.bw * kt / 2, cy = c ? d.g.cy : d.ay + d.sy * d.g.bh * kt / 2;
     bmSet({k, dx: d.a0.dx + (cx - bmZx(sl)) / sl.zw - d.t0.dx, dy: d.a0.dy + (cy - bmZy(sl)) / sl.zh - d.t0.dy});
     d.f.classList.toggle('k100', kt === 1);
     return;
@@ -671,9 +676,10 @@ document.addEventListener('keydown', e => {
   if (bmFxObj === 'elf') {   // правим фон: стрелки двигают элемент, + и − меняют его размер
     if (!bmElCur()) return;
     const c = (v, a, b) => Math.min(Math.max(v, a), b);
-    const m = {ArrowLeft: {ex: c(bmFx.ex - st, -BM_EL_D, BM_EL_D)}, ArrowRight: {ex: c(bmFx.ex + st, -BM_EL_D, BM_EL_D)}, ArrowUp: {ey: c(bmFx.ey - st, -BM_EL_D, BM_EL_D)}, ArrowDown: {ey: c(bmFx.ey + st, -BM_EL_D, BM_EL_D)},
-      '+': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '=': {ek: c(bmFx.ek * 1.02, 0.2, 3)}, '-': {ek: c(bmFx.ek / 1.02, 0.2, 3)}}[e.key];
-    if (m) { e.preventDefault(); bmMark('key'); Object.assign(bmFx, m); bmFxChanged(true); }
+    const q = bmEgR(bmMode === 'one' ? bmSel : '');
+    const m = {ArrowLeft: {ex: c(q.ex - st, -BM_EL_D, BM_EL_D)}, ArrowRight: {ex: c(q.ex + st, -BM_EL_D, BM_EL_D)}, ArrowUp: {ey: c(q.ey - st, -BM_EL_D, BM_EL_D)}, ArrowDown: {ey: c(q.ey + st, -BM_EL_D, BM_EL_D)},
+      '+': {ek: c(q.ek * 1.02, 0.2, 3)}, '=': {ek: c(q.ek * 1.02, 0.2, 3)}, '-': {ek: c(q.ek / 1.02, 0.2, 3)}}[e.key];
+    if (m) { e.preventDefault(); bmMark('key'); Object.assign(bmEgW(bmSel), m); bmFxChanged(true); bmEditSync(); }
     return;
   }
   const a = bmCur();

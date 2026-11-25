@@ -53,10 +53,18 @@ const bmRotOf = kind => kind === 'el' ? bmFx.er : 0;
 // элемент в баннере sl без поворота: середина и размер в пикселях шаблона
 // Если сейв-зона баннера занимает слишком большую его часть (315x250: зона на всю ширину), элемент по умолчанию
 // получался огромным; его размер тогда уменьшается, чтобы по отношению к баннеру он был как у остальных (зона до ~20% площади)
-const bmElK = sl => Math.min(1, Math.sqrt(0.2 / (sl.zw * sl.zh / (sl.w * sl.h))));
+// Размер и сдвиг фона (ek, ex, ey): общие в bmFx, а в режиме «Один баннер» у баннера своя запись bmOne[имя].eg.
+// Поворот и эффекты фона общие для всех (спрайт один на всех).
+const bmEgR = n => (n && bmOne[n] && bmOne[n].eg) || bmFx;   // чьи значения у баннера n
+function bmEgW(n) {   // куда писать правку, идущую на баннере n (n пусто — правка общая)
+  if (bmMode !== 'one' || !n) return bmFx;
+  const o = bmOne[n] = bmOne[n] || {...BM_ID};
+  return o.eg = o.eg || {ek: bmFx.ek, ex: bmFx.ex, ey: bmFx.ey};
+}
+const bmElK = sl => Math.min(1, Math.sqrt(0.35 / (sl.zw * sl.zh / (sl.w * sl.h))));
 function bmElGeo(sl, e) {
-  const z = bmZs(sl, e.w, e.h) * bmFx.ek * bmElK(sl);
-  return {cx: bmZx(sl) + bmFx.ex * sl.zw, cy: bmZy(sl) + bmFx.ey * sl.zh, w: e.w * z, h: e.h * z};
+  const q = bmEgR(sl.name), z = bmZs(sl, e.w, e.h) * q.ek * bmElK(sl);
+  return {cx: bmZx(sl) + q.ex * sl.zw, cy: bmZy(sl) + q.ey * sl.zh, w: e.w * z, h: e.h * z};
 }
 // рамка элемента по краям с учётом поворота, в пикселях шаблона, без округления
 function bmElRect(sl, e) {
@@ -295,10 +303,11 @@ const BM_ROWS = [
   ['bmBlBox', 'bl', 'bm.fxBl', 0, 60, 0.5, 0, 'px', 1],
 ];
 // где лежит значение пути: элемент (ek, ex, ey) — в самом bmFx, остальное — у выбранного объекта
-function bmFxRef(path) {
+function bmFxRef(path, write) {
   if (!path.includes('.')) {
     if (path === 'bl') return [bmFx.elf, 'bl'];
-    return [bmFx, path];
+    if (path === 'er') return [bmFx, path];
+    return [write ? bmEgW(bmSel) : bmEgR(bmMode === 'one' ? bmSel : ''), path];   // ek, ex, ey: у выбранного баннера или общие
   }
   const [a, b] = path.split('.');
   return [bmFxOf(bmFxObj)[a], b];
@@ -377,7 +386,7 @@ function bmFxInput(el) {
   const p = el.dataset.p, r = bmRow(p), v = +el.value;
   if (el.value === '' || !Number.isFinite(v)) return;
   if (!bmFxMarkOn) { bmMark(); bmFxMarkOn = true; }
-  const [o, k] = bmFxRef(p);
+  const [o, k] = bmFxRef(p, true);
   const lo = el.type === 'number' && r[10] ? -r[10] : r[3], hi = el.type === 'number' && r[10] ? r[10] : r[4];
   let n = Math.min(Math.max(v, lo), hi);
   if (r[9] && n < 0) n += 360;
@@ -393,7 +402,12 @@ bmFxOnCards('dblclick', e => {   // двойной щелчок по ползу�
   bmMark(); r.value = r.dataset.origin; bmFxInput(r); bmFxMarkOn = false;
 });
 bmFxOnCards('click', e => {
-  if (e.target.closest('#bmElRs')) { bmMark(); Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0, er: 0}); bmFxChanged(true); return; }
+  if (e.target.closest('#bmElRs')) {
+    bmMark();
+    if (bmMode === 'one' && bmSel) { if (bmOne[bmSel]) delete bmOne[bmSel].eg; }   // у выбранного баннера — к общим значениям
+    else { Object.assign(bmFx, {ek: 1.5, ex: 0, ey: 0, er: 0}); for (const n in bmOne) delete bmOne[n].eg; }
+    bmFxChanged(true); bmEditSync(); return;
+  }
 });
 ['Sh', 'Gl'].forEach(w => $(`bm${w}On`).addEventListener('change', e => {
   bmMark();
@@ -416,6 +430,7 @@ function bmObjDirty(kind) {
     return !bmSame(bmFx.art, {sh: BM_SH0, gl: BM_GL0});
   }
   const d = bmFxDef();
+  if (Object.values(bmOne).some(o => o.eg)) return true;
   return bmFx.ek !== d.ek || bmFx.ex !== d.ex || bmFx.ey !== d.ey || bmFx.er !== d.er || !bmSame(bmFx.elf, d.elf);
 }
 function bmObjSync() {
@@ -458,11 +473,12 @@ $('bmRsAll').onclick = () => {
   bmMark();
   if (bmFxObj === 'art') {
     bmAll = {...BM_ID};
-    for (const n in bmOne) delete bmOne[n];
+    for (const n in bmOne) { const eg = bmOne[n].eg; delete bmOne[n]; if (eg) bmOne[n] = {...BM_ID, eg}; }
     bmFx.art = {sh: {...BM_SH0}, gl: {...BM_GL0}};
   } else {
     const d = bmFxDef();
     Object.assign(bmFx, {ek: d.ek, ex: d.ex, ey: d.ey, er: d.er, elf: d.elf});
+    for (const n in bmOne) delete bmOne[n].eg;
   }
   bmEditSync();
   bmFxChanged(true);
@@ -720,11 +736,12 @@ function bmGrab(e, kind, hd, sl, f, box) {
     const el = bmElCur();
     if (!el) return false;
     const g = bmElGeo(sl, el), cx = r.left + g.cx * sc, cy = r.top + g.cy * sc;
-    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: bmFx.ex, ey: bmFx.ey, sl, f, sc, moved: false};
+    const q = bmEgR(sl.name);
+    bmDrag = {el: true, x: e.clientX, y: e.clientY, ex: q.ex, ey: q.ey, sl, f, sc, moved: false};
     if (hd && hd.tagName === 'U') Object.assign(bmDrag, {er: bmFx.er, cx, cy});
     else if (hd && hd.dataset.h) {   // размер за уголок, как у картинки: противоположный угол стоит на месте
       const h = hd.dataset.h;
-      Object.assign(bmDrag, {ek: bmFx.ek, cx, cy, gw: g.w * sc, gh: g.h * sc, sx: h.includes('e') ? 1 : -1, sy: h.includes('s') ? 1 : -1, ex0: bmFx.ex, ey0: bmFx.ey, moved: true});
+      Object.assign(bmDrag, {ek: q.ek, cx, cy, gw: g.w * sc, gh: g.h * sc, sx: h.includes('e') ? 1 : -1, sy: h.includes('s') ? 1 : -1, ex0: q.ex, ey0: q.ey, moved: true});
       bmMark();
     }
   } else {

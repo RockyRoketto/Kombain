@@ -2276,7 +2276,7 @@
 #bmGrid.clean .bm-bx,#bmGrid.clean .bm-zf,#bmGrid.clean .bm-g,#bmGrid.clean .bm-hm,#bmGrid.clean .bm-eb{display:none!important}
 #bmGrid.clean .bm-clip img.art{opacity:1}
 /* группа «Вид» в шапке превью: «Крупно», сейв-зоны, размер превью */
-.bm-vg{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px;padding:3px;border-radius:10px;background:var(--s2);border:1px solid var(--line)}
+.bm-vg{flex:none;margin-left:6px;display:flex;align-items:center;gap:2px;padding:3px;border-radius:10px;background:var(--s2);border:1px solid var(--line)}
 .bm-zbtn{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--tx2);font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
 .bm-zbtn svg{width:15px;height:15px;flex:none}
 .bm-zbtn:hover{background:var(--accbg);color:var(--acct)}
