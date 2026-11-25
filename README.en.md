@@ -17,6 +17,8 @@ Batch video, audio and image converter for Windows, built on ffmpeg. Plus a play
 
 Theme, language and settings are behind the gear icon in the top right.
 
+**Learning.** Every tab has a short tour that highlights the right spots and explains them step by step; it starts by itself on your first visit. New features carry an orange "New" badge, and less obvious ones a green "!" with a hint. You can replay every tour in the settings, under "Learning", and the "Show new" button in the "What's new" window walks through just the fresh features.
+
 ## Features
 
 ### Converter
