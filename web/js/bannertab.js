@@ -45,7 +45,7 @@ function setTab(t) {
   if (tab === 'color') clShow();
   mtTabChanged();   // сначала отпускает файл: плеер вкладки «Плеер» заберёт его следующим
   plTabChanged();
-  tourTabChanged();   // обучающий тур вкладки (tour.js)
+  tourCtxChanged();   // обучающий тур вкладки или инструмента (tour.js)
   gnTabChanged();
   updateButtons(); bRender(); renderSummary(snap);   // строка внизу сразу под новую вкладку, не ждёт опроса
 }

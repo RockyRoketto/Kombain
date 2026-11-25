@@ -73,6 +73,7 @@ function ggOpen(on) {
   document.querySelector('.gn-center').classList.toggle('gal', on);
   $('gnGal').classList.toggle('hide', !on);
   if (on) { ggLoad(true); $('gnGalQ').focus(); } else ggStripLoad();
+  tourCtxChanged();   // тур галереи (tour.js)
 }
 
 async function ggLoad(reset) {
@@ -183,9 +184,11 @@ $('gnGalSelDel').addEventListener('click', async () => {
 
 function ggLb(list, i) {
   if (!list[i]) return;
+  const was = !$('gnLb').classList.contains('hide');
   gg.lb = {list, i};
   $('gnLb').classList.remove('hide');
   ggLbRender();
+  if (!was) tourCtxChanged();   // тур окна просмотра (tour.js)
 }
 
 // ggLbPath: открыть картинку с холста (её может ещё не быть в ленте)
@@ -198,6 +201,7 @@ async function ggLbPath(path) {
 function ggLbClose() {
   if (ggJob) { ggJob.closed = true; ggJob.ac.abort(); }   // обработка без окна не нужна
   gcmpClose(); giClose(); gopClose(); $('gnLb').classList.add('hide'); gg.lb = null;
+  tourCtxChanged();   // тур окна закрывается вместе с ним
 }
 
 function ggLbRender() {

@@ -9,6 +9,7 @@ const TOURS = {
   conv: [   // общий тур первого запуска: шапка, файлы, куда сохранить, «Конвертировать»
     {id: 'hi.tabs', sel: '#tabs', kind: 'base'},
     {id: 'hi.drop', sel: '#drop', kind: 'base'},
+    {id: 'hi.from', sel: '#drop', kind: 'new'},
     {id: 'hi.any', sel: '#accFmt', kind: 'base'},
     {id: 'hi.out', sel: '#accOut .acc-h', kind: 'base'},
     {id: 'hi.start', sel: '#start', kind: 'base'},
@@ -37,6 +38,7 @@ const TOURS = {
     {id: 'cl.bar', sel: '#clBar', kind: 'base'},
     {id: 'cl.out', sel: '#clGrad .cl-out', kind: 'base'},
     {id: 'cl.lib', sel: '#clLib', kind: 'base'},
+    {id: 'cl.from', sel: '#clTools [data-tool="photo"]', kind: 'new'},
   ],
   gen: [   // без скачанной модели вместо холста экран установки: шаги холста и ленты покажутся позже
     {id: 'gn.prompt', sel: '#gnPrompt', kind: 'base'},
@@ -46,23 +48,85 @@ const TOURS = {
     {id: 'gn.stage', sel: '#gnStage', kind: 'base'},
     {id: 'gn.strip', sel: ['#gnStrip', '#gnGalBtn'], kind: 'base'},
   ],
-  util: [   // общий для всех инструментов «Утилит» (tourTab): рамка на видимом элементе выбранного инструмента
+  ggal: [   // галерея генератора (карточка #gnGal вместо холста): автопоказ при её открытии (ggOpen)
+    {id: 'ga.find', sel: ['#gnGalQ', '#gnGalF', '#gnGalModel'], kind: 'base'},
+    {id: 'ga.sel', sel: '#gnGalSel', kind: 'base'},
+    {id: 'ga.open', sel: '#gnGalGrid', kind: 'base'},
+  ],
+  gview: [   // окно просмотра картинки (модальное #gnLb): автопоказ при открытии (ggLb), закрывается вместе с окном
+    {id: 'gv.bg', sel: ['#gnLbBg', '#gnLbFix'], kind: 'base'},
+    {id: 'gv.up', sel: '#gnLbUpBox', kind: 'base'},
+    {id: 'gv.inp', sel: '#gnLbInp', kind: 'base'},
+    {id: 'gv.out', sel: '#gnLbOut', kind: 'base'},
+    {id: 'gv.save', sel: '#gnLbSave', kind: 'base'},
+    {id: 'gv.send', sel: '#gnLbSend', kind: 'base'},
+  ],
+  util: [   // общий для всех инструментов «Утилит»: рамка на видимом элементе выбранного инструмента
     {id: 'ut.tools', sel: '#utTools', kind: 'base'},
     {id: 'ut.drop', sel: ['#fvDrop', '#bDrop', '#bmDrop', '#bgDrop', '#upDrop', '#imDrop', '#pdfDrop'], kind: 'base'},
     {id: 'ut.start', sel: ['#fvSave', '#bStart', '#bmStart', '#bgStart', '#upStart', '#imStart', '#pdfStart'], kind: 'base'},
     {id: 'ut.cmp', sel: ['#bgList .cmpb:not(.ce-go)', '#upList .cmpb'], kind: 'base'},
     {id: 'ut.fix', sel: '#bgEdit', kind: 'base'},
   ],
+  // туры инструментов «Утилит» (UT_TOUR): идут сразу после непросмотренного общего тура util, одной лентой
+  fav: [
+    {id: 'fv.slots', sel: ['#fvSlotLight', '#fvSlotDark'], kind: 'base'},
+    {id: 'fv.mocks', sel: '#fvMocks', kind: 'base'},
+    {id: 'fv.set', sel: '.fv-set', kind: 'base'},
+    {id: 'fv.out', sel: ['#fvWhere', '#fvKind'], kind: 'base'},
+  ],
+  banner: [
+    {id: 'bn.need', sel: '#bNeed', kind: 'base'},
+    {id: 'bn.dirs', sel: ['.sw:has(#bAutoDirs)', '#bManualDirs'], kind: 'base'},
+    {id: 'bn.from', sel: '#bDrop', kind: 'base'},
+  ],
+  bmake: [
+    {id: 'bm.grid', sel: '#bmGrid', kind: 'base'},
+    {id: 'bm.pos', sel: '#bmPosCard', kind: 'base'},
+    {id: 'bm.path', sel: '.bm-grp[data-g="where"]', kind: 'base'},
+    {id: 'bm.from', sel: '#bmDrop', kind: 'base'},
+  ],
+  bgcut: [
+    {id: 'bg.how', sel: '#bgView .col > .card:first-child', kind: 'base'},
+    {id: 'bg.out', sel: '#bgOutMode', kind: 'base'},
+  ],
+  upscale: [
+    {id: 'up.factor', sel: '#upFactor', kind: 'base'},
+    {id: 'up.kind', sel: '#upKind', kind: 'base'},
+    {id: 'up.out', sel: '#upOutMode', kind: 'base'},
+  ],
+  imgops: [
+    {id: 'im.size', sel: '#imResize', kind: 'base'},
+    {id: 'im.fmt', sel: ['#imFormat', '#imQRow'], kind: 'base'},
+    {id: 'im.wm', sel: ['#imWmPick', '#imWmSet'], kind: 'base'},
+    {id: 'im.out', sel: '#imOutMode', kind: 'base'},
+  ],
+  pdf: [
+    {id: 'pdf.op', sel: '#pdfOp', kind: 'base'},
+    {id: 'pdf.par', sel: ['#pdfImgCard', '#pdfCompCard', '#pdfRasCard', '#pdfPgCard', '#pdfFixCard', '#pdfDecCard'], kind: 'base'},
+    {id: 'pdf.pv', sel: '#pdfPv', kind: 'base'},
+    {id: 'pdf.out', sel: '#pdfAccOut', kind: 'base'},
+  ],
 };
-// вкладка шапки, чей тур показывать: у «Утилит» `tab` — выбранный инструмент
-const UT_TOOLS = ['util', 'banner', 'bmake', 'pdf', 'bgcut', 'upscale', 'imgops'];
+// инструмент «Утилит» (значение `tab`) → его тур; у фавиконов `tab` = 'util', а тур 'util' — общий
+const UT_TOUR = {util: 'fav', banner: 'banner', bmake: 'bmake', pdf: 'pdf', bgcut: 'bgcut', upscale: 'upscale', imgops: 'imgops'};
+const UT_TOOLS = Object.keys(UT_TOUR);
+// вкладка шапки: у «Утилит» `tab` — выбранный инструмент
 const tourTab = () => UT_TOOLS.includes(tab) ? 'util' : tab;
-const TOUR_AUTO_DELAY = 1500, TOUR_MAX_DECLINES = 3;
+// какие туры к месту сейчас (по порядку): окно просмотра картинки, галерея, общий тур «Утилит» + тур инструмента, вкладка
+function tourCtx() {
+  if (!$('gnLb').classList.contains('hide')) return ['gview'];
+  if (tab === 'gen' && gg.open) return ['ggal'];
+  return UT_TOOLS.includes(tab) ? ['util', UT_TOUR[tab]] : [tab];
+}
+// где тур открывается из настроек: вкладка (`tab`) и, для галереи и просмотра, что открыть
+const TOUR_TAB = {fav: 'util', ggal: 'gen', gview: 'gen'};
+const TOUR_AUTO_DELAY = 1500, TOUR_WIN_DELAY = 1200, TOUR_MAX_DECLINES = 3;
 const tourS = {
   st: {seen: [], declined: {}},   // с сервера: seen, declined, off, fresh
   loaded: null,
-  open: false, steps: [], i: 0, tab: '', manual: false, els: [],
-  timer: 0, quietTab: '',          // закрытый тур не возвращается, пока не уйдёшь с вкладки и не вернёшься
+  open: false, steps: [], i: 0, keys: [], tool: '', manual: false, els: [],
+  timer: 0, quiet: new Set(),      // закрытый тур не возвращается, пока не уйдёшь из его места (вкладки, инструмента, окна)
   down: false, dragAt: 0, back: null, dom: null,
 };
 
@@ -112,13 +176,16 @@ function tourBuild() {
 
 // mode: 'all' — весь тур (из настроек), 'unseen' — непросмотренные шаги, 'must' — только обязательные из них,
 // 'new' — непросмотренные новинки (кнопка «Показать новое»)
-function tourStart(tabId, mode = 'all') {
+const tourPick = (key, mode) => (TOURS[key] || []).filter(s => mode === 'all' ||
+  (!tourSeen(s.id) && (mode !== 'must' || s.must) && (mode !== 'new' || s.kind === 'new')));
+function tourStart(key, mode = 'all') { return tourRun([[key, mode]], mode === 'all'); }
+// несколько туров одной лентой: parts = [[ключ тура, режим], …] (общий тур «Утилит» и тур инструмента)
+function tourRun(parts, manual) {
   if (tourS.open) tourEnd('away');
-  const steps = (TOURS[tabId] || []).filter(s => mode === 'all' || (!tourSeen(s.id) && (mode !== 'must' || s.must) && (mode !== 'new' || s.kind === 'new')))
-    .filter(s => tourTargets(s).length);
+  const steps = parts.flatMap(([k, m]) => tourPick(k, m)).filter(s => tourTargets(s).length);
   if (!steps.length) return false;
   const D = tourBuild();
-  Object.assign(tourS, {steps, tab: tabId, tool: tab, manual: mode === 'all', i: -1, open: true, back: document.activeElement});
+  Object.assign(tourS, {steps, keys: parts.map(p => p[0]), tool: tab, manual, i: -1, open: true, back: document.activeElement});
   D.root.classList.remove('hide');
   D.root.classList.add('tour-first');   // первый показ: рамка не едет из угла
   document.body.classList.add('tour-on');
@@ -178,8 +245,10 @@ function tourPlace() {
   const rs = els.map(e => e.getBoundingClientRect());
   const r = {left: Math.min(...rs.map(x => x.left)), top: Math.min(...rs.map(x => x.top)),
     right: Math.max(...rs.map(x => x.right)), bottom: Math.max(...rs.map(x => x.bottom))};
+  // в модальном окне (просмотр картинки) шапка закрыта самим окном: граница — край окна программы
   const hero = document.querySelector('.hero'), inHero = hero && els.every(e => hero.contains(e));
-  const minTop = (hero && !inHero ? hero.getBoundingClientRect().bottom : 0) + 8;
+  const inModal = els.every(e => e.closest('.modal'));
+  const minTop = (hero && !inHero && !inModal ? hero.getBoundingClientRect().bottom : 0) + 8;
   // рамка: в пределах окна, ниже шапки
   const hl = Math.max(2, r.left - pad), ht = Math.max(inHero ? 2 : minTop - 6, r.top - pad);
   const hr = Math.min(W - 2, r.right + pad), hb = Math.min(H - 2, r.bottom + pad);
@@ -220,43 +289,64 @@ function tourEnd(how) {
   tourS.open = false;
   tourS.dom.root.classList.add('hide');
   document.body.classList.remove('tour-on');
-  if (how === 'close' && !tourS.manual && (TOURS[tourS.tab] || []).some(s => !tourSeen(s.id))) {
+  // отказ считается каждому туру ленты, в котором ещё есть непросмотренное: у каждого свои 3 возврата
+  if (how === 'close' && !tourS.manual) {
     const dc = tourS.st.declined || (tourS.st.declined = {});
-    dc[tourS.tab] = (dc[tourS.tab] || 0) + 1;
-    api('tours', {decline: tourS.tab});
+    for (const k of tourS.keys) {
+      if (!(TOURS[k] || []).some(s => !tourSeen(s.id))) continue;
+      dc[k] = (dc[k] || 0) + 1;
+      api('tours', {decline: k});
+    }
   }
-  if (how !== 'away') tourS.quietTab = tourS.tab;
+  if (how !== 'away') tourS.keys.forEach(k => tourS.quiet.add(k));
   const b = tourS.back;
   if (b && b.isConnected && b.focus) b.focus({preventScroll: true});
 }
 
-// занят ли человек: идёт конвертация, открыто окно или меню, тянет мышью или файл, печатает
-function tourBusy() {
+// занят ли человек: идёт конвертация, открыто окно или меню, тянет мышью или файл, печатает.
+// Окно просмотра картинки не мешает своему туру, если в нём не идёт обработка, перерисовка или сравнение.
+function tourBusy(ctx) {
   if (document.hidden || snap.running || tourS.down || Date.now() - tourS.dragAt < 1500) return true;
-  if (document.querySelector('.modal:not(.hide), #setPanel:not(.hide), .ctx:not(.hide)')) return true;
+  const own = ctx[0] === 'gview' ? $('gnLb') : null;
+  if ([...document.querySelectorAll('.modal:not(.hide), #setPanel:not(.hide), .ctx:not(.hide)')].some(m => m !== own)) return true;
+  if (own && ['gnLbBusy', 'gnInp', 'gnOut', 'gnCmp'].some(id => !$(id).classList.contains('hide'))) return true;
   const a = document.activeElement;
+  if (a && a.id === 'gnGalQ' && !a.value) return false;   // галерея сама ставит курсор в пустой поиск
   return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'range' && a.type !== 'checkbox'));
+}
+
+// что показать сейчас: по каждому туру места его непросмотренные шаги; замолчавший тур (автопоказ выключен
+// или 3 отказа) — только обязательные. Общий тур «Утилит» и тур инструмента идут одной лентой.
+function tourParts(ctx) {
+  const parts = [];
+  for (const k of ctx) {
+    if (!TOURS[k] || tourS.quiet.has(k)) continue;
+    const left = TOURS[k].filter(s => !tourSeen(s.id));
+    if (!left.length) continue;
+    const quiet = tourS.st.off || ((tourS.st.declined || {})[k] || 0) >= TOUR_MAX_DECLINES;
+    if (quiet && !left.some(s => s.must)) continue;
+    parts.push([k, quiet ? 'must' : 'unseen']);
+  }
+  return parts;
 }
 
 async function tourAuto() {
   await tourS.loaded;
-  const tb = tourTab();
-  if (tourS.open || !TOURS[tb] || tourS.quietTab === tb) return;
-  const left = TOURS[tb].filter(s => !tourSeen(s.id));
-  if (!left.length) return;
-  const quiet = tourS.st.off || ((tourS.st.declined || {})[tb] || 0) >= TOUR_MAX_DECLINES;
-  if (quiet && !left.some(s => s.must)) return;
-  if (tourBusy()) { tourS.timer = setTimeout(tourAuto, 2000); return; }
-  tourStart(tb, quiet ? 'must' : 'unseen');
+  if (tourS.open) return;
+  const ctx = tourCtx(), parts = tourParts(ctx);
+  if (!parts.length) return;
+  if (tourBusy(ctx)) { tourS.timer = setTimeout(tourAuto, 2000); return; }
+  tourRun(parts, false);
 }
 
-// вызывается из setTab: тур только на своей вкладке и через полторы секунды после захода
-function tourTabChanged() {
+// Место сменилось: вкладка (setTab), инструмент «Утилит», открыли или закрыли галерею или окно просмотра.
+// Тур чужого места закрывается, «тишина» снимается с туров, из чьих мест ушли, а через паузу — автопоказ.
+function tourCtxChanged() {
   clearTimeout(tourS.timer);
-  const tb = tourTab();
-  if (tourS.open && (tourS.tab !== tb || tourS.tool !== tab)) tourEnd('away');   // другой инструмент «Утилит» — другие элементы
-  if (tourS.quietTab !== tb) tourS.quietTab = '';
-  if (TOURS[tb]) tourS.timer = setTimeout(tourAuto, TOUR_AUTO_DELAY);
+  const ctx = tourCtx();
+  if (tourS.open && (tourS.keys.some(k => !ctx.includes(k)) || tourS.tool !== tab)) tourEnd('away');
+  for (const k of [...tourS.quiet]) if (!ctx.includes(k)) tourS.quiet.delete(k);
+  if (ctx.some(k => TOURS[k])) tourS.timer = setTimeout(tourAuto, ctx[0] === 'gview' || ctx[0] === 'ggal' ? TOUR_WIN_DELAY : TOUR_AUTO_DELAY);
 }
 
 window.addEventListener('pointerdown', () => { tourS.down = true; }, true);
@@ -280,27 +370,40 @@ window.addEventListener('keydown', e => {
 }, true);
 
 // ---------- настройки → «Обучение» и кнопка «Показать новое» в окне «Что нового» ----------
-const LEARN_TABS = ['conv', 'play', 'mont', 'color', 'gen', 'util'];
-const LEARN_NAME = {conv: 'tab.conv', play: 'tab.play', mont: 'tab.mont', color: 'tab.color', gen: 'tab.gen', util: 'tab.util'};
+// список туров: вкладки, под ними (sub) галерея и просмотр генератора и инструменты «Утилит»
+const LEARN_TABS = [['conv'], ['play'], ['mont'], ['color'], ['gen'], ['ggal', 1], ['gview', 1], ['util'],
+  ['fav', 1], ['banner', 1], ['bmake', 1], ['bgcut', 1], ['upscale', 1], ['imgops', 1], ['pdf', 1]];
+const LEARN_NAME = {conv: 'tab.conv', play: 'tab.play', mont: 'tab.mont', color: 'tab.color', gen: 'tab.gen', util: 'tab.util',
+  ggal: 'gg.open', gview: 'learn.gview', fav: 'ut.tFav', banner: 'ut.tBanner', bmake: 'ut.tBm', bgcut: 'ut.tBg',
+  upscale: 'ut.tUp', imgops: 'ut.tImg', pdf: 'ut.tPdf'};
 const tourDone = id => (TOURS[id] || []).every(s => tourSeen(s.id));
-// вкладки с непросмотренными новинками; текущая первой
+// туры с непросмотренными новинками; тур текущего места первым
 function tourNewTabs() {
   const ids = Object.keys(TOURS).filter(id => TOURS[id].some(s => s.kind === 'new' && !tourSeen(s.id)));
-  const cur = tourTab();
-  return ids.includes(cur) ? [cur, ...ids.filter(id => id !== cur)] : ids;
+  const cur = tourCtx().filter(id => ids.includes(id));
+  return [...cur, ...ids.filter(id => !cur.includes(id))];
 }
 // кнопка в «Что нового» нужна, только пока есть что показать
 function newsShowRender() { tourS.loaded.then(() => $('newsShow').classList.toggle('hide', !tourNewTabs().length)); }
-// открыть вкладку и через паузу (пока она перерисуется) запустить тур
-function tourOpen(id, mode) {
-  if (tourTab() !== id) setTab(id);
+// открыть место тура (вкладку, инструмент, галерею или первую картинку ленты) и через паузу запустить тур
+async function tourOpen(id, mode) {
+  const want = TOUR_TAB[id] || id;
+  if (id === 'util' ? tourTab() !== 'util' : tab !== want) setTab(want);
+  if (id === 'ggal') { if (gg.lb) ggLbClose(); if (!gg.open) ggOpen(true); }
+  if (id === 'gview' && !gg.lb) {
+    if (!gg.strip.length) await ggStripLoad();
+    if (gg.strip.length) ggLb(gg.strip, 0);
+  }
   clearTimeout(tourS.timer);
-  setTimeout(() => { if (!tourStart(id, mode)) say('warn', t(LEARN_NAME[id]), t('learn.none')); }, 450);
+  setTimeout(() => {
+    clearTimeout(tourS.timer);
+    if (!tourStart(id, mode)) say('warn', t(LEARN_NAME[id]), t(id === 'gview' ? 'learn.noImg' : 'learn.none'));
+  }, 450);
 }
 function learnRender() {
-  $('learnList').innerHTML = LEARN_TABS.map(id => {
+  $('learnList').innerHTML = LEARN_TABS.map(([id, sub]) => {
     const done = tourDone(id);
-    return `<div class="st-row"><div><span class="lb">${esc(t(LEARN_NAME[id]))}</span><span class="hint${done ? '' : ' upd'}">${esc(t(done ? 'learn.done' : 'learn.todo'))}</span></div><button class="btn sm" data-tour="${id}">${esc(t('learn.show'))}</button></div>`;
+    return `<div class="st-row${sub ? ' st-sub' : ''}"><div><span class="lb">${esc(t(LEARN_NAME[id]))}</span><span class="hint${done ? '' : ' upd'}">${esc(t(done ? 'learn.done' : 'learn.todo'))}</span></div><button class="btn sm" data-tour="${id}">${esc(t('learn.show'))}</button></div>`;
   }).join('');
   tourS.loaded.then(() => { $('learnAuto').checked = !tourS.st.off; });
 }
@@ -319,7 +422,7 @@ $('learnReset').onclick = async () => {
   const r = await api('tours', {reset: true});
   if (!r || r.error) { say('err', t('learn.reset'), (r && r.error) || ''); return; }
   tourS.st = r.tours || {seen: [], declined: {}};
-  tourS.quietTab = '';
+  tourS.quiet.clear();
   learnRender();
   newsShowRender();
   say('ok', t('setp.learn'), t('learn.resetDone'));

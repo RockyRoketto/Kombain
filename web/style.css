@@ -128,6 +128,8 @@
   .st-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0}
   .st-row+.st-row{border-top:1px solid var(--line)}
   .st-row .lb{color:var(--tx2)}
+  .st-row.st-sub{padding-left:18px}   /* «Обучение»: туры галереи, просмотра и инструментов «Утилит» под своей вкладкой */
+  .st-row.st-sub .lb::before{content:"↳ ";color:var(--dim)}
   .st-row .lb b{font-weight:600;color:var(--tx)}
   .st-row .hint{display:block;font-size:11px;color:var(--dim2)}
   .st-row .hint.upd{color:var(--acct)}

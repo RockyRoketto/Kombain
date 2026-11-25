@@ -57,6 +57,9 @@ func TestTourSteps(t *testing.T) {
 			if i := strings.Index(sel, "["); i >= 0 {
 				sel = sel[:i]
 			}
+			if i := strings.Index(sel, ":"); i >= 0 {
+				sel = sel[:i] // .sw:has(#id), .card:first-child
+			}
 			switch {
 			case strings.HasPrefix(sel, "#"):
 				if !strings.Contains(page, `id="`+sel[1:]+`"`) && !strings.Contains(page, `id='`+sel[1:]+`'`) {
@@ -66,6 +69,78 @@ func TestTourSteps(t *testing.T) {
 				if !strings.Contains(page, sel[1:]) {
 					t.Errorf("шаг %s: в index.html нет класса %s", id, s[1])
 				}
+			}
+		}
+	}
+}
+
+// Туры инструментов «Утилит» и список «Обучения»: у каждого инструмента (UT_TOUR) свой тур из 2–4 шагов,
+// каждый тур из TOURS есть на странице «Обучение» (LEARN_TABS) с названием на двух языках.
+func TestTourToolsAndLearn(t *testing.T) {
+	b, err := webFS.ReadFile("web/js/tour.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	start := strings.Index(src, "const TOURS = {")
+	end := -1
+	if start >= 0 {
+		end = strings.Index(src[start:], "\n};\n") + start
+	}
+	if start < 0 || end <= start {
+		t.Fatal("не нашёл таблицу TOURS в tour.js")
+	}
+	keyRe := regexp.MustCompile(`(?m)^  (\w+): \[`)
+	stepRe := regexp.MustCompile(`\{id: '`)
+	table := src[start:end]
+	locs := keyRe.FindAllStringSubmatchIndex(table, -1)
+	steps := map[string]int{}
+	var keys []string
+	for i, l := range locs {
+		k, to := table[l[2]:l[3]], len(table)
+		if i+1 < len(locs) {
+			to = locs[i+1][0]
+		}
+		keys = append(keys, k)
+		steps[k] = len(stepRe.FindAllString(table[l[0]:to], -1))
+	}
+	if len(keys) < 10 {
+		t.Fatalf("найдено только %d туров: %v", len(keys), keys)
+	}
+	section := func(name string) string {
+		i := strings.Index(src, name)
+		if i < 0 {
+			t.Fatalf("нет %s в tour.js", name)
+		}
+		j := strings.Index(src[i:], ";\n")
+		return src[i : i+j]
+	}
+	pairRe := regexp.MustCompile(`(\w+): '([^']+)'`)
+	tools := pairRe.FindAllStringSubmatch(section("const UT_TOUR = "), -1)
+	if len(tools) < 7 {
+		t.Fatalf("UT_TOUR: найдено %d инструментов", len(tools))
+	}
+	page, _ := webFS.ReadFile("web/index.html")
+	for _, m := range tools {
+		if !strings.Contains(string(page), `class="cl-tool" data-tool="`+m[1]+`"`) {
+			t.Errorf("UT_TOUR: инструмента %s нет в #utTools", m[1])
+		}
+		if n := steps[m[2]]; n < 2 || n > 4 {
+			t.Errorf("тур инструмента %s (%s): %d шагов, нужно 2–4", m[1], m[2], n)
+		}
+	}
+	learn := section("const LEARN_TABS = ")
+	names := map[string]string{}
+	for _, m := range pairRe.FindAllStringSubmatch(section("const LEARN_NAME = "), -1) {
+		names[m[1]] = m[2]
+	}
+	for _, k := range keys {
+		if !strings.Contains(learn, "['"+k+"'") {
+			t.Errorf("тура %s нет в LEARN_TABS (страница «Обучение»)", k)
+		}
+		for _, lang := range []string{langRU, langEN} {
+			if _, ok := pageDict()[lang][names[k]]; names[k] == "" || !ok {
+				t.Errorf("%s: нет названия тура %s (LEARN_NAME → %q)", lang, k, names[k])
 			}
 		}
 	}
