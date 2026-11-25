@@ -2353,7 +2353,23 @@
     "tour.hi.out.h": "Куда сохранить",
     "tour.hi.out.d": "По умолчанию результат ложится рядом с оригиналом. Если нужно, выбери другую папку.",
     "tour.hi.start.h": "Конвертировать",
-    "tour.hi.start.d": "Выбери формат справа и нажми эту кнопку. Файлы пойдут по очереди, а ход виден внизу."
+    "tour.hi.start.d": "Выбери формат справа и нажми эту кнопку. Файлы пойдут по очереди, а ход виден внизу.",
+    "tour.pl.drop.h": "Просто посмотреть",
+    "tour.pl.drop.d": "Перетащи сюда видео, звук или картинку. Файл откроется здесь и в список конвертации не попадёт.",
+    "tour.pl.queue.h": "Очередь",
+    "tour.pl.queue.d": "Добавь несколько файлов или папку, и они сыграют по порядку. Порядок меняется перетаскиванием.",
+    "tour.pl.ctl.h": "Управление",
+    "tour.pl.ctl.d": "Пробел — пауза, стрелки — на 5 секунд назад или вперёд. Рядом повтор по кругу и кнопка, которая сохраняет кадр в PNG.",
+    "tour.pl.send.h": "Дальше в работу",
+    "tour.pl.send.d": "Открытый файл можно сразу отправить в конвертацию или в монтаж либо обрезать.",
+    "tour.cl.tools.h": "Инструменты цвета",
+    "tour.cl.tools.d": "В «Создать» — градиенты, палитры, оттенки и смешивание. В «Взять» — пипетка, проверка контраста и цвета из фото.",
+    "tour.cl.bar.h": "Точки градиента",
+    "tour.cl.bar.d": "Щёлкни по точке, чтобы сменить цвет, по пустому месту — чтобы добавить новую. Тяни точку вбок, чтобы сдвинуть, вниз — чтобы убрать.",
+    "tour.cl.out.h": "Забрать результат",
+    "tour.cl.out.d": "Выбери размер и сохрани PNG или SVG, скопируй CSS. «Отправить в» передаёт цвета в другой инструмент.",
+    "tour.cl.lib.h": "Мои цвета",
+    "tour.cl.lib.d": "Сюда сохраняются градиенты и цвета, а ниже — недавние. Щелчок возвращает их в работу."
   },
   "en": {
     "app.name": "Kombain",
@@ -4709,6 +4725,22 @@
     "tour.hi.out.h": "Where it saves",
     "tour.hi.out.d": "By default the result lands next to the original. Pick another folder if you need one.",
     "tour.hi.start.h": "Convert",
-    "tour.hi.start.d": "Pick a format on the right and press this button. Files go one by one, and progress shows at the bottom."
+    "tour.hi.start.d": "Pick a format on the right and press this button. Files go one by one, and progress shows at the bottom.",
+    "tour.pl.drop.h": "Just watch",
+    "tour.pl.drop.d": "Drop a video, audio or image here. It opens right here and won't be added to the conversion list.",
+    "tour.pl.queue.h": "Queue",
+    "tour.pl.queue.d": "Add several files or a folder and they play in order. Drag them to change the order.",
+    "tour.pl.ctl.h": "Controls",
+    "tour.pl.ctl.d": "Space pauses, arrows jump 5 seconds back or forward. Next to them: loop and a button that saves the frame as a PNG.",
+    "tour.pl.send.h": "Put it to work",
+    "tour.pl.send.d": "Send the open file straight to the converter or the editor, or trim it.",
+    "tour.cl.tools.h": "Color tools",
+    "tour.cl.tools.d": "Create has gradients, palettes, shades and mixing. Sample has the eyedropper, a contrast check and colors from a photo.",
+    "tour.cl.bar.h": "Gradient stops",
+    "tour.cl.bar.d": "Click a stop to change its color, click an empty spot to add one. Drag a stop sideways to move it, down to remove it.",
+    "tour.cl.out.h": "Take the result",
+    "tour.cl.out.d": "Pick a size and save a PNG or SVG, or copy the CSS. Send to passes the colors to another tool.",
+    "tour.cl.lib.h": "My colors",
+    "tour.cl.lib.d": "Saved gradients and colors live here, recent ones below. Click one to bring it back to work."
   }
 }

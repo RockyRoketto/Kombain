@@ -25,6 +25,18 @@ const TOURS = {
     {id: 'mt.project', sel: ['#mtOpenProject', '#mtSaveProject'], kind: 'base'},
     {id: 'mt.send', sel: '#mtSend', kind: 'base'},
   ],
+  play: [   // без файла видны только первые два шага, остальные покажутся, когда файл откроют
+    {id: 'pl.drop', sel: '#plDrop', kind: 'base'},
+    {id: 'pl.queue', sel: '.pl-side', kind: 'base'},
+    {id: 'pl.ctl', sel: '#plCtl', kind: 'base'},
+    {id: 'pl.send', sel: ['#plToConv', '#plToMont', '#plTrim'], kind: 'base'},
+  ],
+  color: [
+    {id: 'cl.tools', sel: '#clTools', kind: 'base'},
+    {id: 'cl.bar', sel: '#clBar', kind: 'base'},
+    {id: 'cl.out', sel: '#clGrad .cl-out', kind: 'base'},
+    {id: 'cl.lib', sel: '#clLib', kind: 'base'},
+  ],
 };
 const TOUR_AUTO_DELAY = 1500, TOUR_MAX_DECLINES = 3;
 const tourS = {
