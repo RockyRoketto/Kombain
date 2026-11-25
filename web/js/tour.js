@@ -9,6 +9,7 @@ const TOURS = {
   conv: [   // общий тур первого запуска: шапка, файлы, куда сохранить, «Конвертировать»
     {id: 'hi.tabs', sel: '#tabs', kind: 'base'},
     {id: 'hi.drop', sel: '#drop', kind: 'base'},
+    {id: 'hi.any', sel: '#accFmt', kind: 'base'},
     {id: 'hi.out', sel: '#accOut .acc-h', kind: 'base'},
     {id: 'hi.start', sel: '#start', kind: 'base'},
   ],
@@ -37,7 +38,25 @@ const TOURS = {
     {id: 'cl.out', sel: '#clGrad .cl-out', kind: 'base'},
     {id: 'cl.lib', sel: '#clLib', kind: 'base'},
   ],
+  gen: [   // без скачанной модели вместо холста экран установки: шаги холста и ленты покажутся позже
+    {id: 'gn.prompt', sel: '#gnPrompt', kind: 'base'},
+    {id: 'gn.style', sel: '#gnPresets', kind: 'base'},
+    {id: 'gn.model', sel: ['#gnModel', '#gnModelsBtn'], kind: 'base'},
+    {id: 'gn.go', sel: '#gnGo', kind: 'base'},
+    {id: 'gn.stage', sel: '#gnStage', kind: 'base'},
+    {id: 'gn.strip', sel: ['#gnStrip', '#gnGalBtn'], kind: 'base'},
+  ],
+  util: [   // общий для всех инструментов «Утилит» (tourTab): рамка на видимом элементе выбранного инструмента
+    {id: 'ut.tools', sel: '#utTools', kind: 'base'},
+    {id: 'ut.drop', sel: ['#fvDrop', '#bDrop', '#bmDrop', '#bgDrop', '#upDrop', '#imDrop', '#pdfDrop'], kind: 'base'},
+    {id: 'ut.start', sel: ['#fvSave', '#bStart', '#bmStart', '#bgStart', '#upStart', '#imStart', '#pdfStart'], kind: 'base'},
+    {id: 'ut.cmp', sel: ['#bgList .cmpb:not(.ce-go)', '#upList .cmpb'], kind: 'base'},
+    {id: 'ut.fix', sel: '#bgEdit', kind: 'base'},
+  ],
 };
+// вкладка шапки, чей тур показывать: у «Утилит» `tab` — выбранный инструмент
+const UT_TOOLS = ['util', 'banner', 'bmake', 'pdf', 'bgcut', 'upscale', 'imgops'];
+const tourTab = () => UT_TOOLS.includes(tab) ? 'util' : tab;
 const TOUR_AUTO_DELAY = 1500, TOUR_MAX_DECLINES = 3;
 const tourS = {
   st: {seen: [], declined: {}},   // с сервера: seen, declined, off, fresh
@@ -98,7 +117,7 @@ function tourStart(tabId, mode = 'all') {
     .filter(s => tourTargets(s).length);
   if (!steps.length) return false;
   const D = tourBuild();
-  Object.assign(tourS, {steps, tab: tabId, manual: mode === 'all', i: -1, open: true, back: document.activeElement});
+  Object.assign(tourS, {steps, tab: tabId, tool: tab, manual: mode === 'all', i: -1, open: true, back: document.activeElement});
   D.root.classList.remove('hide');
   D.root.classList.add('tour-first');   // первый показ: рамка не едет из угла
   document.body.classList.add('tour-on');
@@ -220,21 +239,23 @@ function tourBusy() {
 
 async function tourAuto() {
   await tourS.loaded;
-  if (tourS.open || !TOURS[tab] || tourS.quietTab === tab) return;
-  const left = TOURS[tab].filter(s => !tourSeen(s.id));
+  const tb = tourTab();
+  if (tourS.open || !TOURS[tb] || tourS.quietTab === tb) return;
+  const left = TOURS[tb].filter(s => !tourSeen(s.id));
   if (!left.length) return;
-  const quiet = tourS.st.off || ((tourS.st.declined || {})[tab] || 0) >= TOUR_MAX_DECLINES;
+  const quiet = tourS.st.off || ((tourS.st.declined || {})[tb] || 0) >= TOUR_MAX_DECLINES;
   if (quiet && !left.some(s => s.must)) return;
   if (tourBusy()) { tourS.timer = setTimeout(tourAuto, 2000); return; }
-  tourStart(tab, quiet ? 'must' : 'unseen');
+  tourStart(tb, quiet ? 'must' : 'unseen');
 }
 
 // вызывается из setTab: тур только на своей вкладке и через полторы секунды после захода
 function tourTabChanged() {
   clearTimeout(tourS.timer);
-  if (tourS.open && tourS.tab !== tab) tourEnd('away');
-  if (tourS.quietTab !== tab) tourS.quietTab = '';
-  if (TOURS[tab]) tourS.timer = setTimeout(tourAuto, TOUR_AUTO_DELAY);
+  const tb = tourTab();
+  if (tourS.open && (tourS.tab !== tb || tourS.tool !== tab)) tourEnd('away');   // другой инструмент «Утилит» — другие элементы
+  if (tourS.quietTab !== tb) tourS.quietTab = '';
+  if (TOURS[tb]) tourS.timer = setTimeout(tourAuto, TOUR_AUTO_DELAY);
 }
 
 window.addEventListener('pointerdown', () => { tourS.down = true; }, true);
