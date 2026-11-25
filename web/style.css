@@ -2005,6 +2005,28 @@
   .ce-cur::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:8px 0 0 8px;background:no-repeat center/18px 18px}
   .ce-cur.erase::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Cpath d='M8.5 20H20M3.8 14.2 13.2 4.8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L10 20H6.8L3.8 17a2 2 0 0 1 0-2.8zM8.5 9.5l6 6'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Cpath d='M8.5 20H20M3.8 14.2 13.2 4.8a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L10 20H6.8L3.8 17a2 2 0 0 1 0-2.8zM8.5 9.5l6 6'/%3E%3C/g%3E%3C/svg%3E")}
   .ce-cur:not(.erase)::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='4'%3E%3Cpath d='M14 4.5 19.5 10 11 18.5H5.5V13zM3 21h8M18 2v5M15.5 4.5h5'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='2'%3E%3Cpath d='M14 4.5 19.5 10 11 18.5H5.5V13zM3 21h8M18 2v5M15.5 4.5h5'/%3E%3C/g%3E%3C/svg%3E")}
+  /* выделение в «Доработать вырезку»: муравьи, знак режима у курсора, уголок меню у пера и палочки, «Переместить» */
+  .ce-mode{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .ce-mode button{position:relative}
+  .ce-mb{position:absolute;right:0;bottom:0;width:15px;height:15px;border-radius:0 0 9px 0;cursor:pointer}
+  .ce-mb::before{content:"";position:absolute;right:3px;bottom:3px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.8}
+  .ce-mb:hover{background:rgba(var(--acl-rgb),.25)}
+  .ce-mb::after{position:absolute;right:2px;bottom:17px;font:700 12px/1 system-ui,sans-serif;color:var(--acct2)}
+  .ce-mb[data-m="add"]::after{content:"+"}
+  .ce-mb[data-m="sub"]::after{content:"\2212"}
+  .ce-mb[data-m="inter"]::after{content:"\00d7"}
+  .ce-ants{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+  .ce-sign{position:absolute;left:0;top:0;min-width:15px;height:15px;padding:0 2px;border-radius:4px;background:rgba(0,0,0,.78);color:#fff;font:700 13px/15px system-ui,sans-serif;text-align:center;pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+  .ce-stage.move{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23000' stroke-width='3.5'%3E%3Cpath d='M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='1.5'%3E%3Cpath d='M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3'/%3E%3C/g%3E%3C/svg%3E") 12 12,move}
+  .ce-selbox{display:flex;flex-direction:column;gap:6px}
+  .ce-selbox .gn-cap{margin:0}
+  .ce-menu{position:fixed;left:0;top:0;z-index:70;display:flex;flex-direction:column;min-width:210px;padding:4px;overflow:auto;background:var(--s1);border:1px solid var(--line2);border-radius:10px;box-shadow:0 14px 40px -8px var(--sh)}
+  .ce-menu button{display:flex;align-items:center;gap:10px;padding:6px 10px;border:0;border-radius:7px;background:none;color:var(--tx);font-size:13px;text-align:left;white-space:nowrap}
+  .ce-menu button:hover,.ce-menu button:focus-visible{background:var(--s3);outline:none}
+  .ce-menu button[aria-checked="true"]{background:var(--accbg);color:var(--acct2)}
+  .ce-menu i{width:16px;font-style:normal;font-weight:700;text-align:center}
+  .ce-menu span{flex:1}
+  .ce-menu kbd{font:11px/1 inherit;color:var(--dim)}
   .ce-zoom{position:absolute;right:8px;bottom:8px;display:flex;align-items:center;gap:8px;padding:3px 4px 3px 10px;border-radius:9px;background:var(--toast-bg);border:1px solid var(--line2);font-size:12px;color:var(--tx2);cursor:default}
   .ce-zoom span{order:-1;font-variant-numeric:tabular-nums}
   .ce-zoom button{border:0;border-radius:6px;padding:2px 8px;background:var(--s3);font-size:12px}
