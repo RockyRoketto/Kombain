@@ -97,6 +97,7 @@ func startServer() *Server {
 	}
 	s := &Server{token: hex.EncodeToString(tok), host: ln.Addr().String(), ownsDrop: fixed, last: time.Now(), ffmpeg: findFFmpeg(),
 		settings: loadSettings(), inst: afterUpdate(inst)}
+	s.initTours() // до initNews: пустая SeenVersion ещё отличает новую установку
 	s.initNews(prevInstalled, hasArg("--updated"))
 	s.addLog("%s %s", tr("app.name"), appVersion)
 	go s.checkFFmpeg()

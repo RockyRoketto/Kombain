@@ -43,14 +43,15 @@ func init() {
 // ---------- настройки ----------
 
 type Settings struct {
-	SkipFFmpeg    string `json:"skipFFmpeg,omitempty"`    // «пропустить эту версию ffmpeg»
-	SetupDeclined string `json:"setupDeclined,omitempty"` // версия программы, на которой нажали «без установки»
-	SkipApp       string `json:"skipApp,omitempty"`       // «пропустить эту версию программы»
-	SeenVersion   string `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
-	Theme         string `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
-	Lang          string `json:"lang,omitempty"`          // язык интерфейса, см. i18n.go; пусто = русский
-	BannerJpgRel  string `json:"bannerJpgRel,omitempty"`  // где папка JPEG относительно папки PNG, см. banner.go
-	BannerWebpRel string `json:"bannerWebpRel,omitempty"` // то же для WebP
+	SkipFFmpeg    string     `json:"skipFFmpeg,omitempty"`    // «пропустить эту версию ffmpeg»
+	SetupDeclined string     `json:"setupDeclined,omitempty"` // версия программы, на которой нажали «без установки»
+	SkipApp       string     `json:"skipApp,omitempty"`       // «пропустить эту версию программы»
+	SeenVersion   string     `json:"seenVersion,omitempty"`   // до какой версии показали «Что нового», см. whatsnew.go
+	Theme         string     `json:"theme,omitempty"`         // тема оформления, см. theme.go; пусто = тёмная
+	Lang          string     `json:"lang,omitempty"`          // язык интерфейса, см. i18n.go; пусто = русский
+	BannerJpgRel  string     `json:"bannerJpgRel,omitempty"`  // где папка JPEG относительно папки PNG, см. banner.go
+	BannerWebpRel string     `json:"bannerWebpRel,omitempty"` // то же для WebP
+	Tours         *TourState `json:"tours,omitempty"`         // обучающие туры, см. tours.go
 }
 
 func settingsPath() string { return filepath.Join(dataDir(), "settings.json") }
@@ -75,6 +76,7 @@ func saveSettings(st Settings) error {
 	if seen := loadSettings().SeenVersion; seen != "" && cmpVer(seen, st.SeenVersion) > 0 {
 		st.SeenVersion = seen
 	}
+	st.Tours = mergeTours(loadSettings().Tours, st.Tours)
 	b, _ := json.MarshalIndent(st, "", "  ")
 	f, err := os.CreateTemp(dataDir(), "settings-*.part") // своё имя: другая копия не подменит файл на полпути
 	if err != nil {

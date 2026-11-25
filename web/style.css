@@ -2537,3 +2537,47 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
 .bm-zm img{max-width:96%;max-height:96%;display:block}
 .bm-zm b{flex:none;font-size:12.5px;font-weight:600;text-align:center;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl-host{margin-top:8px}.pl-host:empty{display:none}
+
+/* ---------- обучающий тур (web/js/tour.js): затемнение с вырезом, пульсирующая рамка, плашка шага ---------- */
+.tour{position:fixed;inset:0;z-index:1000}
+.tour.hide{display:none}
+.tour-block{position:fixed;inset:0}
+.tour-hole{position:fixed;border-radius:10px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.58);
+  transition:left .4s cubic-bezier(.2,.8,.2,1),top .4s cubic-bezier(.2,.8,.2,1),width .4s cubic-bezier(.2,.8,.2,1),height .4s cubic-bezier(.2,.8,.2,1)}
+.tour-hole::after{content:'';position:absolute;inset:-2px;border-radius:inherit;border:2px solid var(--acc);animation:tourPulse 1.8s ease-in-out infinite}
+@keyframes tourPulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--acc-rgb),.55)}50%{box-shadow:0 0 0 9px rgba(var(--acc-rgb),0)}}
+.tour-pop{position:fixed;width:340px;max-width:calc(100vw - 16px);box-sizing:border-box;display:flex;flex-direction:column;
+  background:var(--s2);color:var(--tx);border:1.5px solid var(--acc);border-radius:var(--r2);padding:14px 16px 12px;
+  box-shadow:0 14px 44px rgba(0,0,0,.55);transition:left .4s cubic-bezier(.2,.8,.2,1),top .4s cubic-bezier(.2,.8,.2,1)}
+.tour-first .tour-hole,.tour-first .tour-pop{transition:none}
+.tour-body{min-height:0;overflow:auto;padding-right:18px}
+.tour-pop.tour-in .tour-body{animation:tourIn .32s ease-out}
+@keyframes tourIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.tour-new{display:inline-block;margin-bottom:6px;padding:1px 8px;border-radius:99px;background:var(--acc);color:var(--on-acc);font-size:11px;font-weight:700;letter-spacing:.02em}
+.tour-new.hide{display:none}
+.tour-pop h3{margin:0 0 5px;font-size:15px;font-weight:700;color:var(--tx)}
+.tour-d{margin:0;font-size:13px;line-height:1.45;color:var(--tx2)}
+.tour-x{position:absolute;top:8px;right:8px;width:24px;height:24px;padding:0;border:0;border-radius:7px;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer}
+.tour-x:hover{background:var(--s4);color:var(--tx)}
+.tour-x svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.tour-foot{flex:none;display:flex;align-items:center;gap:8px;margin-top:12px;white-space:nowrap}
+.tour-foot button{white-space:nowrap;flex:none}
+.tour-foot .hide{display:none}
+.tour-dots{display:flex;gap:4px;margin-right:auto;min-width:0;overflow:hidden}
+.tour-dots i{flex:none;width:6px;height:6px;border-radius:3px;background:var(--line3);transition:width .3s,background .3s}
+.tour-dots i.on{width:16px;background:var(--acc)}
+.tour-count{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.tour-skip{border:0;background:none;padding:4px 2px;color:var(--dim);font-size:12.5px;cursor:pointer}
+.tour-skip:hover{color:var(--tx2);text-decoration:underline}
+.tour-foot .btn.sm{padding:5px 12px;font-size:12.5px}
+.tour-arr{position:absolute;width:12px;height:12px;background:var(--s2);border:1.5px solid var(--acc);transform:rotate(45deg);pointer-events:none}
+.tour-pop[data-side="b"] .tour-arr{top:-7.5px;margin-left:-6px;border-right:0;border-bottom:0}
+.tour-pop[data-side="t"] .tour-arr{top:auto!important;bottom:-7.5px;margin-left:-6px;border-left:0;border-top:0}
+.tour-pop[data-side="r"] .tour-arr{left:-7.5px!important;margin-top:-6px;border-right:0;border-top:0}
+.tour-pop[data-side="l"] .tour-arr{left:auto!important;right:-7.5px;margin-top:-6px;border-left:0;border-bottom:0}
+.tour-pop[data-side="in"] .tour-arr{display:none}
+@media (prefers-reduced-motion:reduce){
+  .tour-hole,.tour-pop,.tour-dots i{transition:none}
+  .tour-hole::after{animation:none;box-shadow:0 0 0 3px rgba(var(--acc-rgb),.35)}
+  .tour-pop.tour-in .tour-body{animation:none}
+}

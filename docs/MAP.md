@@ -186,6 +186,7 @@
 | `i18n.go`, `i18n_strings.go` | язык интерфейса: `normLang`, `setLang`, `tr`, `errT`; словарь `goDict` |
 | `selfupdate.go` | `updateRepo`, `splitNotes`, `latestApp`, `checkApp`, `updateEvery`, `watchUpdates` (повторная проверка, пока программа открыта), `updateApp`, `fetchApp` |
 | `whatsnew.go` | окно «Что нового»: `changelogSince` (разбор вшитых `CHANGELOG.md` и `CHANGELOG.en.md`), `whatsNewSince`, `initNews`, `newsSeen` |
+| `tours.go` | обучающие туры: учёт показанных шагов `TourState` в настройках (`Settings.Tours`), `initTours` (новая установка — `Fresh`), слияние с другой копией `mergeTours`, маршрут `/api/tours` |
 | `install_windows.go` | `doInstall`, `createShortcut`, `addSendTo`, `writeUninstallEntry`, `replaceSelf`, `restartSelf`, `afterUpdate`, `runUninstall` |
 | `ui_windows.go` | `runUI`, `wndProc`, `activateRunning` и `receivePaths` (второй запуск), `applyWindowTheme` (заголовок и фон окна), `onWebMessage` (перетаскивание), `showDialog`, `pickFiles`, `pickFolder`, `pickSound`, `comCall` |
 | `winplace.go` | размер и положение окна между запусками: `winPlace`, `loadWinPlace`, `saveWinPlace`, `fit`; вызовы Windows: `saveWindowPlace`, `showMainWindow` в `ui_windows.go` |
@@ -240,6 +241,7 @@
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner` (плашка ffmpeg), `appBanner` и `newsBanner` (окна поверх программы «Вышел Kombain» и «Что нового»), `notesHtml` (список из CHANGELOG) |
+| `js/tour.js` | обучающие туры по вкладкам: шаги `TOURS` (тексты `tour.<id>.h/.d`), `tourStart`, `tourPlace` (плашка по правилам clQPlace), автопоказ `tourTabChanged` из `setTab`, `tourAuto`, `tourBusy`; стили — раздел «обучающий тур» в конце `web/style.css` |
 | `js/sounds.js` | звуки: `batchSound`, `playSound`, `beep` (запасной сигнал), `renderSounds`; выбор в `localStorage` |
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/color.js` | вкладка «Цвет»: градиент, пипетка и форматы, «Мои цвета»; подробно в таблице задач |

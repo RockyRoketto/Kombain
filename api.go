@@ -62,6 +62,7 @@ func (s *Server) routes() *http.ServeMux {
 	})
 
 	s.pdfRoutes(mux)
+	s.toursRoute(mux)
 	mux.HandleFunc("/thumb", s.thumbHandler)
 	mux.HandleFunc("/wave", s.waveHandler)
 	mux.HandleFunc("/media", s.mediaHandler)
