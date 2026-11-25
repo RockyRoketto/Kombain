@@ -3,6 +3,13 @@
 English version of CHANGELOG.md, with the same "## X.Y" sections. release.cmd adds new versions at the top.
 A section goes into the GitHub release text and into the program's update windows when English is selected.
 
+## 7.3
+
+- Learning: every tab has a short step-by-step tour that starts by itself on the first visit. Replay it in settings, under «Learning».
+- New features carry a «New» badge, and less obvious ones a green «!» with a hint. The «Show new» button in the «What's new» window walks through just the fresh ones.
+- The cut-out editor works like Photoshop: square tools, an options bar, selection modes as buttons, a Bezier pen and a magic wand.
+- Banner builder: the background is edited per selected banner, Shift stretches from the centre.
+
 ## 7.2
 
 - Generator: new «Sports 3D» style for banners: semi-realistic 3D, custom colours per object, variations and cut-out from a green background. The picture can be sent straight to the Banner builder.
