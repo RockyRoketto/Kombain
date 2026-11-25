@@ -246,7 +246,7 @@ function ceVals() {
   $('ceSmoothV').textContent = $('ceSmooth').value + ' px';
 }
 
-// ключи текстов инструмента: ce.n.* — имя, ce.o.* — строка параметров, ce.h.* — подсказка справа
+// ключи текстов инструмента: ce.n.* — имя, ce.o.* — строка параметров, ce.h.* — короткая подсказка за «?» справа
 const ceTK = (g, tool) => `ce.${g}.${tool}`;
 function ceState() {
   const live = ce.on && !ce.busy;
@@ -1124,9 +1124,19 @@ function ceZoomBy(k) { const st = $('ceStage'); ceZoomAt(k ? ce.z * k : 1, st.cl
 // Клавиши как в Фотошопе: V, M, W, P, E, Y (и B), H, Z — инструменты; пробел — рука; Enter или Ctrl+Enter — контур в выделение;
 // Ctrl+D, Ctrl+Shift+I, Ctrl+A, Delete; Ctrl+Z, Ctrl+Shift+Z/Ctrl+Y; Ctrl+= / Ctrl+− / Ctrl+0 / Ctrl+1 — масштаб.
 // Слушаем на window раньше всех, чтобы клавиши не доставались окнам и вкладкам под редактором. Пока открыт вопрос (askBox), клавиши его.
+// окно «Клавиши»: все сочетания по темам, сам список показывает общее окно хоткеев (khShow в tracks.js)
+const CE_HELP = [
+  ['ce.kg.tools', [[['V'], 'ce.k.move'], [['M'], 'ce.k.rect'], [['W'], 'ce.k.wand'], [['P'], 'ce.k.pen'], [['E'], 'ce.k.erase'], [['Y', 'B'], 'ce.k.restore'], [['H'], 'ce.k.hand'], [['Z'], 'ce.k.zoom'], [['[', ']'], 'ce.k.brush']]],
+  ['ce.kg.sel', [[['Shift'], 'ce.k.add'], [['Alt', 'ce.k.rclick'], 'ce.k.sub'], [['Shift+Alt'], 'ce.k.inter'], [['Ctrl+Shift+I'], 'ce.k.inv'], [['Delete'], 'ce.k.del'], [['Ctrl+D'], 'ce.k.none'], [['Ctrl+A'], 'ce.k.all'], [['←', '↑', '→', '↓'], 'ce.k.arrows'], [['Shift+←', 'Shift+↑', 'Shift+→', 'Shift+↓'], 'ce.k.arrows10']]],
+  ['ce.kg.pen', [[['ce.k.click'], 'ce.k.pPoint'], [['ce.k.drag'], 'ce.k.pCurve'], [['ce.k.first'], 'ce.k.pClose'], [['ce.k.dragPt'], 'ce.k.pEdit'], [['ce.k.altHandle'], 'ce.k.pBreak'], [['ce.k.dbl'], 'ce.k.pCorner'], [['ce.k.altClick'], 'ce.k.pRemove'], [['Backspace'], 'ce.k.pBack'], [['Enter', 'Ctrl+Enter'], 'ce.k.pMake'], [['Shift+Enter'], 'ce.k.pAdd'], [['Alt+Enter'], 'ce.k.pSub'], [['Esc'], 'ce.k.pDrop']]],
+  ['ce.kg.view', [[['kh.space'], 'ce.k.vHand'], [['ce.k.wheel'], 'ce.k.vWheel'], [['Ctrl+0'], 'ce.k.vFit'], [['Ctrl+1'], 'ce.k.v100'], [['Ctrl+=', 'Ctrl+−'], 'ce.k.vZoom'], [['ce.k.click', 'Alt'], 'ce.k.vZoomTool']]],
+  ['ce.kg.file', [[['Ctrl+Z'], 'ce.k.undo'], [['Ctrl+Shift+Z', 'Ctrl+Y'], 'ce.k.redo'], [['Ctrl+S'], 'ce.k.save'], [['Esc'], 'ce.k.close']]],
+];
+$('ceKeys').addEventListener('click', () => khShow('ce.keysT', CE_HELP, true));
 const CE_KEYS = {KeyV: 'move', KeyM: 'rect', KeyW: 'wand', KeyP: 'pen', KeyE: 'erase', KeyY: 'restore', KeyB: 'restore', KeyH: 'hand', KeyZ: 'zoom'};
 window.addEventListener('keydown', e => {
   if (!ce.on || askDone) return;
+  if (e.key === 'Escape' && !$('keysHelp').classList.contains('hide')) return;   // Esc закрывает окно клавиш (tracks.js), а не редактор
   const typing = e.target.closest && e.target.closest('input[type=text], textarea, select');
   const c = e.code, mod = e.ctrlKey || e.metaKey;
   const penLive = ce.tool === 'pen' && ce.pen && ce.pen.pts.length;

@@ -719,13 +719,13 @@ function clQPlace(q) {
   tip.style.top = top + 'px';
 }
 ['mouseover', 'focusin'].forEach(ev => document.addEventListener(ev, e => {
-  const q = e.target.closest && e.target.closest('#colorView .cl-q, #genView .cl-q, #bmView .cl-q');
+  const q = e.target.closest && e.target.closest('#colorView .cl-q, #genView .cl-q, #bmView .cl-q, #ce .cl-q');
   if (q) clQPlace(q);
 }));
 document.addEventListener('click', e => {
-  const q = e.target.closest('#colorView .cl-q, #genView .cl-q, #bmView .cl-q');
+  const q = e.target.closest('#colorView .cl-q, #genView .cl-q, #bmView .cl-q, #ce .cl-q');
   if (q) clQPlace(q);
-  document.querySelectorAll('#colorView .cl-q.open, #genView .cl-q.open, #bmView .cl-q.open').forEach(x => { if (x !== q) x.classList.remove('open'); });
+  document.querySelectorAll('#colorView .cl-q.open, #genView .cl-q.open, #bmView .cl-q.open, #ce .cl-q.open').forEach(x => { if (x !== q) x.classList.remove('open'); });
   if (q) { q.classList.toggle('open'); e.stopPropagation(); }
 }, true);
 $('clBig').addEventListener('click', () => $('clPickSw').click());

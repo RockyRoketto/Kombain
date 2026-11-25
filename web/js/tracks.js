@@ -1022,13 +1022,17 @@ const TK_HELP = [
     [['kh.m.altRow'], 'kh.m.scrub'], [['kh.m.altSlider'], 'kh.m.noMagnet'], [['kh.m.rightClip'], 'kh.m.menu']]],
   ['kh.g.project', [[['Ctrl+S'], 'kh.save'], [['Ctrl+Shift+S'], 'kh.saveAs']]],
 ];
-function tkHelpOpen() {
-  const key = k => `<kbd>${esc(k.startsWith('kh.') ? t(k) : k)}</kbd>`;
-  $('khBody').innerHTML = TK_HELP.map(([group, rows]) => `<section><h4>${esc(t(group))}</h4>` +
+// окно клавиш общее: Монтаж и «Доработать вырезку» (cutedit.js) кладут сюда свой список групп; over — выше окна вырезки
+function khShow(titleKey, groups, over) {
+  const key = k => `<kbd>${esc(/^(kh|ce)\./.test(k) ? t(k) : k)}</kbd>`;
+  $('khTitle').textContent = t(titleKey);
+  $('keysHelp').classList.toggle('over', !!over);
+  $('khBody').innerHTML = groups.map(([group, rows]) => `<section><h4>${esc(t(group))}</h4>` +
     rows.map(([keys, text]) => `<div class="kh-row"><span class="kh-keys">${keys.map(key).join('')}</span><span>${esc(t(text))}</span></div>`).join('') +
     '</section>').join('');
   $('keysHelp').classList.remove('hide');
 }
+const tkHelpOpen = () => khShow('tk.keysTitle', TK_HELP);
 const tkHelpClose = () => $('keysHelp').classList.add('hide');
 $('tkKeysBtn').onclick = tkHelpOpen;
 $('khClose').onclick = tkHelpClose;

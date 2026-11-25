@@ -2003,6 +2003,10 @@
   .ce-side .gn-cap{margin:6px 0 0}
   .ce-side .gn-cap:first-child{margin-top:0}
   .ce-side>.btn{align-self:flex-start}
+  .ce-hcap{display:flex;align-items:center;gap:8px}
+  .ce-keysbtn{display:inline-flex;align-items:center;gap:6px}
+  .ce-keysbtn svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #keysHelp.over{z-index:60}
   .ce-pen{left:0;top:0;width:100%;height:100%}
   .ce-pen *{pointer-events:none!important}
   .ce-pen-fill{fill:rgba(var(--acl-rgb),.22);stroke:none}
