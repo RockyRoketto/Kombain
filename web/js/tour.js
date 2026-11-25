@@ -143,6 +143,7 @@ function tourMark(ids, freshDone) {
   tourS.st.seen = (tourS.st.seen || []).concat(ids);
   if (freshDone) tourS.st.fresh = false;
   if (ids.length || freshDone) api('tours', {seen: ids, freshDone: !!freshDone});
+  if (ids.length) nbSoon();   // просмотренный шаг или совет гасит свой бейдж или «!»
 }
 
 function tourVisible(el) {
@@ -406,6 +407,7 @@ function learnRender() {
     return `<div class="st-row${sub ? ' st-sub' : ''}"><div><span class="lb">${esc(t(LEARN_NAME[id]))}</span><span class="hint${done ? '' : ' upd'}">${esc(t(done ? 'learn.done' : 'learn.todo'))}</span></div><button class="btn sm" data-tour="${id}">${esc(t('learn.show'))}</button></div>`;
   }).join('');
   tourS.loaded.then(() => { $('learnAuto').checked = !tourS.st.off; });
+  learnTipsRender();
 }
 $('learnList').addEventListener('click', e => {
   const b = e.target.closest('[data-tour]');
@@ -423,6 +425,7 @@ $('learnReset').onclick = async () => {
   if (!r || r.error) { say('err', t('learn.reset'), (r && r.error) || ''); return; }
   tourS.st = r.tours || {seen: [], declined: {}};
   tourS.quiet.clear();
+  nbInit();   // бейджи «Новое» снова живы и считают запуски заново
   learnRender();
   newsShowRender();
   say('ok', t('setp.learn'), t('learn.resetDone'));
@@ -433,3 +436,202 @@ $('newsShow').onclick = () => {
   newsClose();
   tourOpen(ids[0], 'new');
 };
+
+// ---------- бейдж «Новое» на новинках и советы «!» ----------
+// Бейдж «Новое» — по шагам kind 'new' из TOURS (один источник): на самом элементе и, пока на вкладку
+// не заходили, на вкладке в шапке. Гаснет, когда навёл (полсекунды) или нажал (id шага в toursSeen), или через
+// NEW_LAUNCHES запусков программы (счётчик на id в tours.go). Советы «!» — редкие функции (TIPS): на вкладке
+// горит один, навёл — плашка по правилам clQPlace, увёл — совет просмотрен ('tip.<id>' в toursSeen),
+// через 0,5 с загорается следующий. Значки лежат в своём слое position:fixed поверх страницы,
+// поэтому их не срезает overflow узких панелей; слой ниже окон (.modal) и тура.
+const NEW_LAUNCHES = 3;
+// советы: текст tip.<id>; tab — вкладка шапки (tourTab), sel — элемент, в углу которого стоит «!»
+const TIPS = [
+  {id: 'mt.ctx', tab: 'mont', sel: '#tkScroll'},
+  {id: 'mt.zoom', tab: 'mont', sel: '#mvZoomBtn'},
+  {id: 'mt.split', tab: 'mont', sel: '#mtVSplit'},
+  {id: 'cl.mesh', tab: 'color', sel: '#meshMap'},
+  {id: 'cl.undo', tab: 'color', sel: '#clLib'},
+  {id: 'gn.paste', tab: 'gen', sel: '#gnRefsSec'},
+  {id: 'gn.split', tab: 'gen', sel: '#gnVSplit'},
+  {id: 'bm.zoom', tab: 'util', sel: '#bmZoomL'},
+  {id: 'pdf.lens', tab: 'util', sel: '#pdfPvLensB'},
+];
+const TIP_TABS = ['mont', 'color', 'gen', 'util'];
+const tipKey = id => 'tip.' + id;   // тексты tip.<id> проверяет TestTourTips
+const nb = {show: new Set(), layer: null, badges: new Map(), tip: null, tipId: '', tipWait: 0, hover: null, hoverT: 0, raf: 0};
+// вкладка шапки, на которой живёт тур
+const tourHeadTab = k => k === 'util' || Object.values(UT_TOUR).includes(k) ? 'util' : TOUR_TAB[k] || k;
+const nbSteps = () => Object.entries(TOURS).flatMap(([k, ss]) => ss.filter(s => s.kind === 'new').map(s => ({...s, head: tourHeadTab(k)})));
+
+// при загрузке: какие бейджи живы (не просмотрены, не старше NEW_LAUNCHES запусков); этот запуск им засчитывается
+async function nbInit() {
+  await tourS.loaded;
+  const live = () => nbSteps().filter(s => !tourSeen(s.id) && ((tourS.st.beacons || {})[s.id] || 0) <= NEW_LAUNCHES).map(s => s.id);
+  const ids = live();
+  if (ids.length) {
+    const r = await api('tours', {beacon: ids});
+    if (r && r.tours) tourS.st.beacons = r.tours.beacons || {};
+  }
+  nb.show = new Set(live().filter(id => ids.includes(id)));
+  nbSoon();
+}
+
+function nbLayer() {
+  if (!nb.layer) {
+    nb.layer = document.createElement('div');
+    nb.layer.className = 'nb-layer';
+    document.body.appendChild(nb.layer);
+  }
+  return nb.layer;
+}
+function nbSoon() { if (!nb.raf) nb.raf = requestAnimationFrame(() => { nb.raf = 0; nbRender(); }); }
+// окно, настройки или тур закрывают страницу: значки прячутся
+const nbCovered = () => tourS.open || !!document.querySelector('.modal:not(.hide), #setPanel:not(.hide)');
+// элемент виден: сверху граница — низ шапки (если элемент не в ней), снизу и по бокам — окно
+function nbBox(el) {
+  if (!el || !el.isConnected || !tourVisible(el)) return null;
+  const r = el.getBoundingClientRect(), hero = document.querySelector('.hero');
+  const top = hero && !hero.contains(el) ? hero.getBoundingClientRect().bottom : 0;
+  if (r.bottom < top + 8 || r.top > innerHeight - 8 || r.right < 8 || r.left > innerWidth - 8) return null;
+  return r;
+}
+
+function nbRender() {
+  const cur = tourTab(), covered = nbCovered(), want = new Map();   // элемент → бейдж
+  const live = nbSteps().filter(s => nb.show.has(s.id) && !tourSeen(s.id));
+  // на вкладку зашли — бейдж на ней в шапке больше не нужен (id 'nt.<шаг>' в toursSeen)
+  const entered = live.filter(s => s.head === cur && !tourSeen('nt.' + s.id)).map(s => 'nt.' + s.id);
+  if (entered.length && !document.hidden) tourMark(entered);
+  // порядок «тур → новинки → советы»: пока здесь ждёт непросмотренный автотур, бейджи этой вкладки молчат
+  // (шаги тура сами отметятся просмотренными); после тура или отказа (тишина) — бейджи; «!» — когда нет ни того, ни другого
+  const pending = !covered && tourParts(tourCtx()).length > 0;
+  let hereNew = false;
+  for (const s of live) {
+    if (s.head !== cur) {
+      const b = !tourSeen('nt.' + s.id) && document.querySelector(`#tabs .tab[data-t="${s.head}"]`);
+      if (b) want.set(b, {id: '', tab: true});
+      continue;
+    }
+    if (pending) continue;
+    for (const el of [].concat(s.sel).flatMap(q => [...document.querySelectorAll(q)])) {
+      if (!want.has(el)) want.set(el, {id: s.id});
+      if (!hereNew && nbBox(el)) hereNew = true;
+    }
+  }
+  for (const [el, b] of nb.badges) {
+    if (want.has(el) && !covered) continue;
+    b.remove(); el.classList.remove('is-new', 'is-new-tab'); delete el.dataset.nb; nb.badges.delete(el);
+  }
+  if (!covered) for (const [el, w] of want) {
+    let b = nb.badges.get(el);
+    el.classList.add(w.tab ? 'is-new-tab' : 'is-new');
+    el.dataset.nb = w.id;
+    if (!b) {
+      b = document.createElement('span');
+      b.className = 'nb-b';
+      nbLayer().appendChild(b);
+      nb.badges.set(el, b);
+    }
+    const r = nbBox(el);
+    if (!r) { b.style.visibility = 'hidden'; continue; }
+    b.textContent = t('tour.new');
+    // правый верхний угол, чуть заходит на кнопку; у края окна — внутрь
+    const bw = b.offsetWidth;
+    b.style.left = Math.max(4, Math.min(r.right + 7 - bw, innerWidth - 4 - bw)) + 'px';
+    b.style.top = Math.max(2, r.top - 9) + 'px';
+    b.style.visibility = '';
+  }
+  tipRender(covered || pending || hereNew || tourBusy(tourCtx()));
+}
+
+// ---------- советы «!» ----------
+function tipEl() {
+  if (nb.tip) return nb.tip;
+  const m = nb.tip = document.createElement('button');
+  m.type = 'button';
+  m.className = 'tip-mark hide';
+  m.innerHTML = '!<span class="cl-qt" role="tooltip"></span>';
+  m.addEventListener('mouseenter', () => tipOpen(true));
+  m.addEventListener('focus', () => tipOpen(true));
+  m.addEventListener('mouseleave', () => tipOpen(false));
+  m.addEventListener('blur', () => tipOpen(false));
+  m.addEventListener('click', e => { e.stopPropagation(); tipOpen(!m.classList.contains('open')); });
+  nbLayer().appendChild(m);
+  return m;
+}
+function tipOpen(on) {
+  const m = tipEl();
+  if (!nb.tipId) return;
+  if (on) {
+    if (m.classList.contains('open')) return;
+    m.querySelector('.cl-qt').textContent = t(tipKey(nb.tipId));
+    m.classList.add('open');
+    clQPlace(m);
+    return;
+  }
+  if (!m.classList.contains('open')) return;
+  // прочитан: прячем, следующий загорится через полсекунды
+  m.classList.remove('open');
+  const id = nb.tipId;
+  nb.tipId = ''; m.classList.add('hide');
+  nb.tipWait = Date.now() + 500;
+  setTimeout(nbSoon, 520);
+  tourMark(['tip.' + id]);
+}
+function tipRender(covered) {
+  const m = tipEl();
+  if (m.classList.contains('open')) {   // открытый совет не переносим на другой элемент
+    const tip = TIPS.find(x => x.id === nb.tipId), r = tip && nbBox(document.querySelector(tip.sel));
+    if (r && !covered) { tipAt(m, r); return; }
+    m.classList.remove('open');
+  }
+  let pick = null, r = null;
+  if (!covered && Date.now() >= nb.tipWait && !document.hidden) {
+    const cur = tourTab();
+    for (const x of TIPS) {
+      if (x.tab !== cur || tourSeen('tip.' + x.id)) continue;
+      const el = document.querySelector(x.sel);
+      if (!el || el.closest('.is-new')) continue;   // «Новое» и «!» на одном элементе не стоят
+      if ((r = nbBox(el))) { pick = x; break; }
+    }
+  }
+  if (!pick) { nb.tipId = ''; m.classList.add('hide'); return; }
+  nb.tipId = pick.id;
+  m.setAttribute('aria-label', t('tip.mark'));
+  m.classList.remove('hide');
+  tipAt(m, r);
+}
+// в правом верхнем углу элемента, в пределах окна и ниже шапки
+function tipAt(m, r) {
+  const hero = document.querySelector('.hero'), minTop = hero ? hero.getBoundingClientRect().bottom + 2 : 2;
+  m.style.left = Math.max(4, Math.min(r.right - 12, innerWidth - 16)) + 'px';
+  m.style.top = Math.max(minTop, r.top - 8) + 'px';
+}
+
+// наведение на новинку (полсекунды) или нажатие — бейдж просмотрен
+document.addEventListener('pointerover', e => {
+  const el = (e.target.closest && e.target.closest('.is-new')) || null;
+  if (el === nb.hover) return;
+  clearTimeout(nb.hoverT);
+  nb.hover = el;
+  if (el) nb.hoverT = setTimeout(() => { if (nb.hover === el && el.dataset.nb) tourMark([el.dataset.nb]); }, 500);
+});
+document.addEventListener('click', e => {
+  const el = e.target.closest && e.target.closest('.is-new');
+  if (el && el.dataset.nb) tourMark([el.dataset.nb]);
+  if (nb.tip && nb.tip.classList.contains('open') && !nb.tip.contains(e.target)) tipOpen(false);
+}, true);
+window.addEventListener('resize', nbSoon);
+document.addEventListener('scroll', nbSoon, true);
+setInterval(() => { if (!document.hidden) nbRender(); }, 400);   // панели раскрываются и едут без событий
+nbInit();
+
+// страница «Обучение»: все советы, чтобы перечитать
+function learnTipsRender() {
+  $('learnTips').innerHTML = TIP_TABS.map(tb => {
+    const list = TIPS.filter(x => x.tab === tb);
+    return list.length ? `<div class="learn-tg">${esc(t(LEARN_NAME[tb]))}</div>` +
+      list.map(x => `<p class="learn-tip">${esc(t(tipKey(x.id)))}</p>`).join('') : '';
+  }).join('');
+}

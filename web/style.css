@@ -2586,3 +2586,30 @@ input.bm-num::-webkit-inner-spin-button,input.bm-num::-webkit-outer-spin-button{
   .tour-hole::after{animation:none;box-shadow:0 0 0 3px rgba(var(--acc-rgb),.35)}
   .tour-pop.tour-in .tour-body{animation:none}
 }
+
+/* ---------- бейдж «Новое» и советы «!» (web/js/tour.js, nbRender): свой слой position:fixed ниже окон и тура ---------- */
+.nb-layer{position:fixed;inset:0;z-index:40;pointer-events:none}
+body:has(.modal:not(.hide)) .nb-layer{display:none}
+.nb-b{position:fixed;left:0;top:0;padding:2px 4px;border-radius:6px;background:#e9b872;color:#3a2a10;border:1px solid var(--bg);
+  font-size:8.5px;font-weight:500;line-height:1.1;white-space:nowrap;animation:nbGlow 3s ease-in-out infinite}
+@keyframes nbGlow{0%,100%{box-shadow:0 0 3px rgba(233,184,114,.55)}50%{box-shadow:0 0 7px rgba(233,184,114,.75),0 0 12px rgba(233,184,114,.35)}}
+.is-new{outline:1.5px solid var(--acc);outline-offset:0;animation:nbPulse 1.8s ease-in-out infinite}
+@keyframes nbPulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--acc-rgb),.45)}50%{box-shadow:0 0 0 3px rgba(var(--acc-rgb),.22)}}
+.tab.is-new-tab{box-shadow:inset 0 0 0 1px var(--acc)}
+.tip-mark{--tip:#6fd08c;position:fixed;left:0;top:0;width:14px;height:20px;padding:0;border:0;background:none;pointer-events:auto;
+  color:var(--tip);font-family:inherit;font-size:15px;font-weight:800;line-height:20px;text-align:center;cursor:help;text-shadow:0 0 6px rgba(111,208,140,.55);
+  animation:tipBreath 3s ease-in-out infinite}
+:root[data-theme="light"] .tip-mark{--tip:#2f9a55;text-shadow:0 0 5px rgba(47,154,85,.35)}
+.tip-mark.hide{display:none}
+.tip-mark:hover,.tip-mark.open{animation:none;opacity:1}
+.tip-mark .cl-qt{text-shadow:none}
+.tip-mark.open .cl-qt,.tip-mark:focus-visible .cl-qt{opacity:1;visibility:visible}
+@keyframes tipBreath{0%,100%{opacity:.7}50%{opacity:1;text-shadow:0 0 9px rgba(111,208,140,.8)}}
+.learn-h{margin:18px 0 4px;font-size:13px;font-weight:700;color:var(--tx)}
+.learn-tg{margin:12px 0 4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.learn-tip{margin:0 0 6px;padding-left:12px;border-left:2px solid #6fd08c;font-size:12.5px;line-height:1.45;color:var(--tx2)}
+@media (prefers-reduced-motion:reduce){
+  .nb-b,.is-new,.tip-mark{animation:none}
+  .is-new{box-shadow:0 0 0 3px rgba(var(--acc-rgb),.22)}
+  .tip-mark{opacity:1}
+}

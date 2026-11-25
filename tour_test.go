@@ -182,3 +182,101 @@ func TestToursAutoAndReset(t *testing.T) {
 		t.Fatalf("сброс не дошёл до диска: %+v", d)
 	}
 }
+
+// Бейдж «Новое» гаснет через 3 запуска: счётчик на id растёт раз за запуск (перезагрузка страницы не считается),
+// при слиянии с диском берётся больший, «Сбросить всё» обнуляет.
+func TestToursBeaconLaunches(t *testing.T) {
+	t.Setenv("LOCALAPPDATA", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	beaconRun = map[string]bool{}
+	defer func() { beaconRun = map[string]bool{} }()
+	s := &Server{host: "h", token: "t"}
+	mux := http.NewServeMux()
+	s.toursRoute(mux)
+	call := func(body string) TourState {
+		r := httptest.NewRequest("POST", "/api/tours", strings.NewReader(body))
+		r.Host, r.Header = "h", http.Header{"X-Token": {"t"}}
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		var res struct{ Tours TourState }
+		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+			t.Fatal(err, w.Body.String())
+		}
+		return res.Tours
+	}
+	for launch := 1; launch <= 4; launch++ {
+		beaconRun = map[string]bool{} // новый запуск программы
+		call(`{"beacon":["mt.anim"]}`)
+		st := call(`{"beacon":["mt.anim","cl.from"]}`) // перезагрузка страницы в том же запуске
+		if st.Beacons["mt.anim"] != launch || st.Beacons["cl.from"] != launch {
+			t.Fatalf("запуск %d: %v", launch, st.Beacons)
+		}
+	}
+	if d := loadSettings().Tours; d == nil || d.Beacons["mt.anim"] != 4 {
+		t.Fatalf("счётчик не дошёл до диска: %+v", d)
+	}
+	m := mergeTours(&TourState{Beacons: map[string]int{"a": 5, "b": 1}}, &TourState{Beacons: map[string]int{"b": 2}})
+	if m.Beacons["a"] != 5 || m.Beacons["b"] != 2 {
+		t.Fatalf("слияние: %v", m.Beacons)
+	}
+	if st := call(`{"reset":true}`); len(st.Beacons) != 0 {
+		t.Fatalf("сброс не обнулил бейджи: %v", st.Beacons)
+	}
+	if st := call(`{"beacon":["mt.anim"]}`); st.Beacons["mt.anim"] != 1 {
+		t.Fatalf("после сброса бейдж считается заново: %v", st.Beacons)
+	}
+}
+
+// Советы «!» (TIPS в tour.js): селектор есть в index.html, текст tip.<id> на двух языках, id уникальны,
+// на вкладку 1–3 совета, вкладка есть в TIP_TABS (список на странице «Обучение»).
+func TestTourTips(t *testing.T) {
+	b, err := webFS.ReadFile("web/js/tour.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	i := strings.Index(src, "const TIPS = [")
+	j := strings.Index(src, "const TIP_TABS = ")
+	if i < 0 || j < i {
+		t.Fatal("не нашёл TIPS в tour.js")
+	}
+	tabsLine := src[j : j+strings.Index(src[j:], ";")]
+	page, _ := webFS.ReadFile("web/index.html")
+	tipRe := regexp.MustCompile(`\{id: '([^']+)', tab: '([^']+)', sel: '#([\w-]+)'\}`)
+	tips := tipRe.FindAllStringSubmatch(src[i:j], -1)
+	if len(tips) < 5 {
+		t.Fatalf("найдено только %d советов, разбор сломался?", len(tips))
+	}
+	per, seen := map[string]int{}, map[string]bool{}
+	for _, m := range tips {
+		id, tab, sel := m[1], m[2], m[3]
+		if seen[id] {
+			t.Errorf("совет %q повторяется", id)
+		}
+		seen[id] = true
+		per[tab]++
+		if !strings.Contains(tabsLine, "'"+tab+"'") {
+			t.Errorf("совет %s: вкладки %s нет в TIP_TABS", id, tab)
+		}
+		if !strings.Contains(string(page), `id="`+sel+`"`) {
+			t.Errorf("совет %s: в index.html нет #%s", id, sel)
+		}
+		for _, lang := range []string{langRU, langEN} {
+			if _, ok := pageDict()[lang]["tip."+id]; !ok {
+				t.Errorf("%s: нет текста tip.%s", lang, id)
+			}
+		}
+	}
+	for tab, n := range per {
+		if n > 3 {
+			t.Errorf("на вкладке %s %d советов, нужно не больше 3", tab, n)
+		}
+	}
+	for _, k := range []string{"tip.mark", "learn.tips", "learn.tipsHint", "tour.new"} {
+		for _, lang := range []string{langRU, langEN} {
+			if _, ok := pageDict()[lang][k]; !ok {
+				t.Errorf("%s: нет ключа %s", lang, k)
+			}
+		}
+	}
+}

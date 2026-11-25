@@ -17,7 +17,13 @@ type TourState struct {
 	Off      bool           `json:"off,omitempty"`      // автопоказ выключен (кроме шагов must)
 	Fresh    bool           `json:"fresh,omitempty"`    // новая установка: страница отметит шаги «new» просмотренными
 	Gen      int            `json:"gen,omitempty"`      // растёт при «Сбросить всё»: старый список с диска не возвращается
+	// бейдж «Новое» (шаги kind 'new'): id шага → в скольких запусках программы бейдж уже висел.
+	// Страница прячет бейдж после 3 запусков (считаем запуски, а не дни: вдруг месяц не открывали).
+	Beacons map[string]int `json:"beacons,omitempty"`
 }
+
+// beaconRun — какие бейджи уже посчитаны в этом запуске: страницу перезагружают, а запуск один (под s.mu)
+var beaconRun = map[string]bool{}
 
 // initTours при запуске: первая версия с турами. Новая установка (ещё ни разу не показывали «Что нового»)
 // получает отметку Fresh: новинки для неё не новинки. У прежних пользователей всё непросмотрено.
@@ -62,6 +68,17 @@ func mergeTours(disk, mem *TourState) *TourState {
 			out.Declined[k] = v
 		}
 	}
+	out.Beacons = nil
+	for _, m := range []map[string]int{disk.Beacons, mem.Beacons} {
+		for k, v := range m {
+			if out.Beacons == nil {
+				out.Beacons = map[string]int{}
+			}
+			if v > out.Beacons[k] {
+				out.Beacons[k] = v
+			}
+		}
+	}
 	return &out
 }
 
@@ -75,6 +92,7 @@ func (s *Server) toursRoute(mux *http.ServeMux) {
 			Fresh   bool     `json:"freshDone"`
 			Auto    *bool    `json:"auto"`
 			Reset   bool     `json:"reset"`
+			Beacon  []string `json:"beacon"` // бейджи «Новое», которые висят сейчас: +1 запуск, раз за запуск
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
 			writeJSON(w, map[string]any{"error": tr("err.badRequest")})
@@ -90,6 +108,18 @@ func (s *Server) toursRoute(mux *http.ServeMux) {
 		if body.Reset {
 			// «Сбросить всё»: туры заново; новые установки тоже видят новинки
 			*ts = TourState{Off: ts.Off, Gen: ts.Gen + 1}
+			beaconRun = map[string]bool{}
+			changed = true
+		}
+		for _, id := range body.Beacon {
+			if id == "" || len(id) > 80 || beaconRun[id] {
+				continue
+			}
+			beaconRun[id] = true
+			if ts.Beacons == nil {
+				ts.Beacons = map[string]int{}
+			}
+			ts.Beacons[id]++
 			changed = true
 		}
 		have := map[string]bool{}
@@ -122,7 +152,9 @@ func (s *Server) toursRoute(mux *http.ServeMux) {
 		if changed {
 			err = saveSettings(s.settings)
 		}
-		out := *ts
+		out := *ts // карты копируем: ответ пишется уже без замка
+		out.Seen = append([]string(nil), ts.Seen...)
+		out.Declined, out.Beacons = copyCounts(ts.Declined), copyCounts(ts.Beacons)
 		s.mu.Unlock()
 		res := map[string]any{"ok": err == nil, "tours": out}
 		if err != nil {
@@ -130,4 +162,15 @@ func (s *Server) toursRoute(mux *http.ServeMux) {
 		}
 		writeJSON(w, res)
 	}))
+}
+
+func copyCounts(m map[string]int) map[string]int {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]int, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
