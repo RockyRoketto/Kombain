@@ -195,6 +195,7 @@ func (s *Server) genRoutes(mux *http.ServeMux) {
 	s.genRefRoutes(mux)
 	s.bgRoutes(mux)
 	s.bgFileRoutes(mux)
+	s.cutRoutes(mux)
 	s.imgBatchRoutes(mux)
 	s.upRoutes(mux)
 	s.bmkRoutes(mux)

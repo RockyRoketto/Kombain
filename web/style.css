@@ -1922,6 +1922,65 @@
   /* кнопка «До / после» в строке готового файла */
   .f .cmpb{flex:none;padding:3px 10px;border:1px solid var(--line2);border-radius:999px;background:var(--s3);color:var(--tx2);font-size:12px;font-weight:500;white-space:nowrap}
   .f .cmpb:hover{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+  .f .cmpb+.cmpb{margin-left:-4px}
+
+  /* «Поправить вырезку» (cutedit.js): поверх окна просмотра галереи; вопрос «закрыть без сохранения?» ещё выше */
+  .modal.ce{z-index:56;padding:20px}
+  #askBox{z-index:60}
+  .ce-card{display:flex;flex-direction:column;width:100%;height:100%;max-width:1500px;padding:14px 16px;background:var(--s1);border:1px solid var(--line2);border-radius:20px;box-shadow:0 30px 90px -20px var(--sh);animation:popin .2s cubic-bezier(.2,.8,.2,1)}
+  .ce-head{flex:none;flex-wrap:wrap;row-gap:6px}
+  .ce-head h3{margin:0;font-size:15px;font-weight:600;white-space:nowrap}
+  .ce-name{flex:1;min-width:60px;font-size:13px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ce-bgs{display:flex;align-items:center;gap:4px}
+  .ce-lbl{font-size:12px;color:var(--dim);margin-right:2px}
+  .ce-bgs button,.ce-swl{display:grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid var(--line2);border-radius:8px;background:var(--s2);cursor:pointer;position:relative}
+  .ce-bgs .on{border-color:var(--accs);box-shadow:inset 0 0 0 1px var(--accs)}
+  .ce-sw{display:block;width:18px;height:18px;border-radius:4px;border:1px solid var(--line3)}
+  .ce-sw.chk{background:repeating-conic-gradient(#bdbdc2 0 25%,#fff 0 50%) 0 0/9px 9px}
+  .ce-sw.white{background:#fff}
+  .ce-sw.dark{background:#111113}
+  .ce-swl input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+  .ce-body{flex:1;min-height:0;display:grid;grid-template-columns:172px minmax(0,1fr) 210px;gap:12px}
+  .ce-tools,.ce-side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding:2px}
+  .ce-mode{display:flex;gap:6px}
+  .ce-mode button{flex:1;display:grid;place-items:center;height:40px;border:1px solid var(--line2);border-radius:10px;background:var(--s2);color:var(--tx2)}
+  .ce-mode button:hover{background:var(--s3)}
+  .ce-mode button.on{background:var(--accbg);color:var(--acct2);border-color:rgba(var(--acl-rgb),.6)}
+  .ce-mode svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .ce-sl{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+  .ce-sl>span{display:flex;justify-content:space-between;gap:6px}
+  .ce-sl b{font-weight:500;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .ce-sl input{width:100%}
+  .ce-keys,.ce-note{margin:0;font-size:12px;line-height:1.45;color:var(--dim)}
+  .ce-src{margin:0;font-size:13px;line-height:1.4;color:var(--tx2);overflow-wrap:anywhere}
+  .ce-src.warn{color:var(--warn)}
+  .ce-side .gn-cap{margin:4px 0 0}
+  .ce-side .btn{align-self:flex-start}
+  .ce-stage{position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:12px;border:1px solid var(--line);cursor:none;touch-action:none}
+  .ce-stage[data-bg="chk"]{background:repeating-conic-gradient(#3a3a40 0 25%,#2a2a30 0 50%) 0 0/24px 24px}
+  :root[data-theme="light"] .ce-stage[data-bg="chk"]{background:repeating-conic-gradient(#cfcdc7 0 25%,#f4f3f0 0 50%) 0 0/24px 24px}
+  .ce-stage[data-bg="white"]{background:#fff}
+  .ce-stage[data-bg="dark"]{background:#111113}
+  .ce-stage[data-bg="color"]{background:var(--ce-col,#3f7fd8)}
+  .ce-stage.hand{cursor:grab}
+  .ce-stage.panning{cursor:grabbing}
+  .ce-box{position:absolute;left:0;top:0;transform-origin:0 0}
+  .ce-box canvas{display:block;width:100%;height:100%}
+  .ce-box canvas.px{image-rendering:pixelated}
+  .ce-cur{position:absolute;left:0;top:0;pointer-events:none;border:1.5px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.6)}
+  .ce-cur.erase{border-style:dashed}
+  .ce-zoom{position:absolute;right:8px;bottom:8px;display:flex;align-items:center;gap:8px;padding:3px 4px 3px 10px;border-radius:9px;background:var(--toast-bg);border:1px solid var(--line2);font-size:12px;color:var(--tx2);cursor:default}
+  .ce-zoom span{order:-1;font-variant-numeric:tabular-nums}
+  .ce-zoom button{border:0;border-radius:6px;padding:2px 8px;background:var(--s3);font-size:12px}
+  .ce-load{position:absolute;inset:0;display:grid;place-items:center;background:var(--scrim)}
+  .ce-foot{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:12px;margin-top:12px;border-top:1px solid var(--line)}
+  .ce-foot .btn.sm{padding:4px 10px;font-size:12px}
+  .ce-sp{flex:1}
+  @media (max-width:980px){
+    .modal.ce{padding:10px}
+    .ce-body{grid-template-columns:142px minmax(0,1fr) 168px;gap:8px}
+    .ce-name{display:none}
+  }
   /* идёт обработка файла: бегущая полоска по низу строки */
   #bgList .f.running::after,#upList .f.running::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:38%;background:linear-gradient(90deg,transparent,var(--acc),var(--acc-hi),transparent);animation:gnBusy 1.3s ease-in-out infinite}
   .gn-lb-nav{position:absolute;top:50%;width:40px;height:64px;margin-top:-32px;border:0;border-radius:12px;background:var(--ex-bg);color:var(--ex-tx);font-size:28px;line-height:1;opacity:0;transition:opacity .2s}

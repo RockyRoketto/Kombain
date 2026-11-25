@@ -22,7 +22,7 @@ function bgRender() {
     return `<div class="f sel ${it.st === 'run' ? 'running' : it.st}" title="${esc(it.path)}">` +
       (snap.ffmpeg ? `<div class="badge th"><img src="${thumbUrl(it.path, .1, 160)}" alt="" loading="lazy" onerror="this.remove()"><span class="ex">${esc(ext)}</span></div>` : `<div class="badge">${esc(ext)}</div>`) +
       `<div class="meta"><div class="n">${esc(it.name)}</div><div class="sub">${sub}</div></div>` +
-      (it.st === 'ok' ? `<button class="cmpb" data-bgc="${esc(it.path)}">${t('ut.cmp')}</button>` : '') +
+      (it.st === 'ok' ? `<button class="cmpb" data-bgf="${esc(it.path)}" title="${esc(t('ce.btnS'))}">${t('ce.btn')}</button><button class="cmpb" data-bgc="${esc(it.path)}">${t('ut.cmp')}</button>` : '') +
       `<div class="pill">${pill}</div>` + (bgBusy ? '' : `<button class="x" data-bgx="${esc(it.path)}" title="${t('list.remove')}">✕</button>`) + '</div>';
   }).join('');
   if ($('bgList').innerHTML !== list) $('bgList').innerHTML = list;
@@ -95,6 +95,9 @@ $('bgStop').onclick = () => { if (bgAbort) bgAbort.abort(); };
 $('bgList').addEventListener('click', e => {
   const c = e.target.closest('[data-bgc]'), it = c && bgFiles.find(f => f.path === c.dataset.bgc);
   if (it && it.out) { utCmpOpen(it.path, it.out, true, it.name); return; }
+  // «Поправить»: правится последняя готовая копия, оригинал — исходный файл строки (cutedit.js)
+  const f = e.target.closest('[data-bgf]'), fi = f && bgFiles.find(x => x.path === f.dataset.bgf);
+  if (fi && fi.out && !bgBusy) { ceOpen({path: fi.out, src: fi.path, done: p => { fi.out = p; bgRender(); }}); return; }
   const x = e.target.closest('[data-bgx]');
   if (x && !bgBusy) { bgFiles = bgFiles.filter(f => f.path !== x.dataset.bgx); bgRender(); }
 });

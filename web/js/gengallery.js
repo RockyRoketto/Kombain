@@ -206,6 +206,7 @@ function ggLbRender() {
   $('gnLbImg').src = mediaUrl(x.path);
   $('gnLbImg').classList.toggle('cut', !!m.cutout);
   $('gnLbBg').classList.toggle('hide', !!m.cutout);
+  $('gnLbFix').classList.toggle('hide', !m.cutout);   // «Поправить вырезку» (cutedit.js)
   $('gnLbInp').classList.toggle('hide', !!m.cutout);   // прозрачную перерисовывать не умеем: движок рисует без прозрачности
   $('gnLbOut').classList.toggle('hide', !!m.cutout);
   const [w, h] = ggSize(m);

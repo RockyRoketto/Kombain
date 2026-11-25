@@ -51,6 +51,7 @@ Gradients (linear, radial, conic, OKLCH blending) and mesh gradients, palettes b
 
 - **Favicons:** a full website set from one icon, with `site.webmanifest` and a ready `head.html`.
 - **Remove background** and **Upscale ×2 / ×4** with neural networks, transparency is kept.
+- **Fix cutout:** when the neural network misses, clean up the edge with an eraser or bring back what it erased (hair, fine details) with a brush that paints from the original. You can also feather, shrink or expand the edge and remove the fringe left by the old background. The result is saved as a separate PNG and the original stays as it is. The same window opens from the generator gallery.
 - **Image batch:** size, format, metadata removal and a watermark for a whole pile.
 - **Banners** and **Banner builder:** one picture is placed on all 14 templates inside its safe zone, with a background element, shadow and glow, mouse editing and saving into `month\day\match` folders.
 - **PDF:** images to PDF, compress to a target size, merge and split, repair, watermark, page numbers, AES-256 password.
@@ -63,7 +64,7 @@ Offline text-to-image, no subscriptions and no limits.
 - Write your request in Russian or English: the assistant rewrites it into a detailed English prompt that you can edit. Flags and countries are drawn in their real colours.
 - 39 styles with sample pictures and a sample request in each, including "Sports banner" and "Sports 3D" for banners.
 - Up to 8 references with roles "Base", "Style", "Character" and a strength slider.
-- Gallery with search and favourites, variations, "Repaint a part", "Outpaint", "Remove background", "Upscale". Settings are stored inside the PNG: drop the picture back and the fields fill in.
+- Gallery with search and favourites, variations, "Repaint a part", "Outpaint", "Remove background" and "Fix" for the cutout, "Upscale". Settings are stored inside the PNG: drop the picture back and the fields fill in.
 
 Only the generator needs an NVIDIA, AMD or Intel GPU with 4 GB+ of video memory (8 GB is comfortable); everything else runs on any PC.
 

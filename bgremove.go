@@ -607,12 +607,17 @@ func bgWrite(img string, data []byte, m GenMeta) error {
 // bgGallerySave: вырезанная картинка — новая запись галереи рядом с исходной (исходник не трогаем).
 // Параметры берутся у исходной, с пометкой Cutout.
 func bgGallerySave(src string, data []byte) (string, error) {
-	return genDerive(src, "-nobg", data, func(m *GenMeta) { m.Cutout = true })
+	return genDerive(src, "-nobg", data, func(m *GenMeta) { m.Cutout, m.Src = true, src })
 }
 
 // genDerive: картинка, сделанная из картинки галереи src (без фона, увеличенная), — новая запись галереи
 // <имя><suffix>.png с параметрами исходной; mod дописывает пометку. Исходник не трогаем.
 func genDerive(src, suffix string, data []byte, mod func(*GenMeta)) (string, error) {
+	return genDeriveAs(src, strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))+suffix, data, mod)
+}
+
+// genDeriveAs: то же, имя новой записи (без расширения) задано целиком
+func genDeriveAs(src, name string, data []byte, mod func(*GenMeta)) (string, error) {
 	m := genMetaOf(src)
 	mod(&m)
 	now := time.Now()
@@ -621,7 +626,6 @@ func genDerive(src, suffix string, data []byte, mod func(*GenMeta)) (string, err
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + suffix
 	img := filepath.Join(dir, name+".png")
 	for i := 2; fileExists(img); i++ {
 		img = filepath.Join(dir, fmt.Sprintf("%s-%d.png", name, i))

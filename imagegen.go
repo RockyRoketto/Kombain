@@ -427,6 +427,7 @@ type GenMeta struct {
 	Fav     bool       `json:"fav,omitempty"`     // избранное в галерее
 	Cutout  bool       `json:"cutout,omitempty"`  // фон убран нейросетью (прозрачный PNG)
 	Upscale int        `json:"upscale,omitempty"` // во сколько раз увеличена (upscale.go); Params остаются исходными
+	Src     string     `json:"src,omitempty"`     // у вырезки: картинка до «Убрать фон», из неё кисть «Вернуть» (cutedit.go)
 }
 
 // genSave кладёт картинку в gallery\ГГГГ-ММ\ под именем «дата-время-задача-зерно.png» и .json рядом.
