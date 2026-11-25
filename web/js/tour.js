@@ -6,6 +6,12 @@
 // Тексты: tour.<id>.h и tour.<id>.d в i18n.json. Нет элемента на экране — шаг тихо пропускается.
 // Учёт по шагам (tours.go): шаг просмотрен, когда до него дошли; брошенный тур потом продолжится с непросмотренного.
 const TOURS = {
+  conv: [   // общий тур первого запуска: шапка, файлы, куда сохранить, «Конвертировать»
+    {id: 'hi.tabs', sel: '#tabs', kind: 'base'},
+    {id: 'hi.drop', sel: '#drop', kind: 'base'},
+    {id: 'hi.out', sel: '#accOut .acc-h', kind: 'base'},
+    {id: 'hi.start', sel: '#start', kind: 'base'},
+  ],
   mont: [
     {id: 'mt.anim', sel: '#mtTabs [data-tab="anim"]', kind: 'new'},
     {id: 'mt.files', sel: '#mtDrop', kind: 'base'},

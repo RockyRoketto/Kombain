@@ -2345,7 +2345,15 @@
     "tour.mt.project.h": "Проект",
     "tour.mt.project.d": "Сохрани монтаж в файл .kb (Ctrl+S) и открой потом, чтобы доделать.",
     "tour.mt.send.h": "В конвертер",
-    "tour.mt.send.d": "Готовый монтаж уходит в конвертер: там выбираешь формат и жмёшь «Конвертировать»."
+    "tour.mt.send.d": "Готовый монтаж уходит в конвертер: там выбираешь формат и жмёшь «Конвертировать».",
+    "tour.hi.tabs.h": "Вкладки",
+    "tour.hi.tabs.d": "Здесь все инструменты: конвертер, плеер, монтаж, цвет, генератор картинок и утилиты. На каждой вкладке есть свой короткий тур.",
+    "tour.hi.drop.h": "Добавь файлы",
+    "tour.hi.drop.d": "Перетащи видео, аудио или картинки из Проводника или нажми «Добавить файлы». Можно сразу целую папку.",
+    "tour.hi.out.h": "Куда сохранить",
+    "tour.hi.out.d": "По умолчанию результат ложится рядом с оригиналом. Если нужно, выбери другую папку.",
+    "tour.hi.start.h": "Конвертировать",
+    "tour.hi.start.d": "Выбери формат справа и нажми эту кнопку. Файлы пойдут по очереди, а ход виден внизу."
   },
   "en": {
     "app.name": "Kombain",
@@ -4693,6 +4701,14 @@
     "tour.mt.project.h": "Project",
     "tour.mt.project.d": "Save the edit to a .kb file (Ctrl+S) and open it later to finish.",
     "tour.mt.send.h": "To the converter",
-    "tour.mt.send.d": "The finished edit goes to the converter: pick a format there and press Convert."
+    "tour.mt.send.d": "The finished edit goes to the converter: pick a format there and press Convert.",
+    "tour.hi.tabs.h": "Tabs",
+    "tour.hi.tabs.d": "All the tools live here: converter, player, editor, color, image generator and utilities. Each tab has its own short tour.",
+    "tour.hi.drop.h": "Add your files",
+    "tour.hi.drop.d": "Drag video, audio or images in from Explorer or press Add files. A whole folder works too.",
+    "tour.hi.out.h": "Where it saves",
+    "tour.hi.out.d": "By default the result lands next to the original. Pick another folder if you need one.",
+    "tour.hi.start.h": "Convert",
+    "tour.hi.start.d": "Pick a format on the right and press this button. Files go one by one, and progress shows at the bottom."
   }
 }
