@@ -201,6 +201,7 @@ function setpShow(p) {
   try { localStorage.setItem('konv9000.setpPage', p); } catch (e) {}
   if (p === 'store' || p === 'about') storeLoad();
   if (p === 'about') aboutRender(snap);
+  if (p === 'learn') learnRender();
 }
 $('setpNav').addEventListener('click', e => {
   const b = e.target.closest('.setp-tab');

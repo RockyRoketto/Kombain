@@ -241,7 +241,7 @@
 | `js/trim.js` | окно обрезки: `openTrim`, `closeTrim`, `trimSet`, `trimSeek`, `trimStep`, `trimUseFrames`, `trimBound`, `trimFmt`, `trimParse`, `trimTag` |
 | `js/setup.js` | окно установки: `openSetup`, `renderSetup`, `ffSetupRow` |
 | `js/updates.js` | `ffBanner` (плашка ffmpeg), `appBanner` и `newsBanner` (окна поверх программы «Вышел Kombain» и «Что нового»), `notesHtml` (список из CHANGELOG) |
-| `js/tour.js` | обучающие туры по вкладкам: шаги `TOURS` (тексты `tour.<id>.h/.d`), `tourStart`, `tourPlace` (плашка по правилам clQPlace), автопоказ `tourTabChanged` из `setTab`, `tourAuto`, `tourBusy`; стили — раздел «обучающий тур» в конце `web/style.css` |
+| `js/tour.js` | обучающие туры по вкладкам: страница настроек «Обучение» (`learnRender`, `tourOpen`) и кнопка «Показать новое» (`newsShowRender`), шаги `TOURS` (тексты `tour.<id>.h/.d`), `tourStart`, `tourPlace` (плашка по правилам clQPlace), автопоказ `tourTabChanged` из `setTab`, `tourAuto`, `tourBusy`; стили — раздел «обучающий тур» в конце `web/style.css` |
 | `js/sounds.js` | звуки: `batchSound`, `playSound`, `beep` (запасной сигнал), `renderSounds`; выбор в `localStorage` |
 | `js/poll.js` | `poll`, `updateButtons`, `renderSummary`, кнопки «Закрыть программу» (только в браузере) и «лог» |
 | `js/color.js` | вкладка «Цвет»: градиент, пипетка и форматы, «Мои цвета»; подробно в таблице задач |

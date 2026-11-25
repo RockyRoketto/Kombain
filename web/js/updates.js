@@ -80,6 +80,7 @@ function newsBanner(s) {
   if (!on) return;
   $('newsTitle').textContent = 'Kombain ' + (ver || '');
   setNotes($('newsNotes'), lang === 'en' && s.newsEn ? s.newsEn : s.news);
+  if (typeof newsShowRender === 'function') newsShowRender();   // кнопка «Показать новое» (tour.js)
 }
 const newsClose = () => { newsClosed = true; newsMark((snap.app || {}).version || ''); newsBanner(snap); appBanner(snap); api('news-seen'); };
 $('newsOk').onclick = newsClose;

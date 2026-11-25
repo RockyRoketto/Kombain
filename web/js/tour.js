@@ -110,10 +110,11 @@ function tourBuild() {
   return tourS.dom;
 }
 
-// mode: 'all' — весь тур (из настроек), 'unseen' — непросмотренные шаги, 'must' — только обязательные из них
+// mode: 'all' — весь тур (из настроек), 'unseen' — непросмотренные шаги, 'must' — только обязательные из них,
+// 'new' — непросмотренные новинки (кнопка «Показать новое»)
 function tourStart(tabId, mode = 'all') {
   if (tourS.open) tourEnd('away');
-  const steps = (TOURS[tabId] || []).filter(s => mode === 'all' || (!tourSeen(s.id) && (mode !== 'must' || s.must)))
+  const steps = (TOURS[tabId] || []).filter(s => mode === 'all' || (!tourSeen(s.id) && (mode !== 'must' || s.must) && (mode !== 'new' || s.kind === 'new')))
     .filter(s => tourTargets(s).length);
   if (!steps.length) return false;
   const D = tourBuild();
@@ -277,3 +278,55 @@ window.addEventListener('keydown', e => {
   else if ((e.key === 'Enter' || e.key === ' ') && onBtn) return;   // кнопка нажмётся сама
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
+
+// ---------- настройки → «Обучение» и кнопка «Показать новое» в окне «Что нового» ----------
+const LEARN_TABS = ['conv', 'play', 'mont', 'color', 'gen', 'util'];
+const LEARN_NAME = {conv: 'tab.conv', play: 'tab.play', mont: 'tab.mont', color: 'tab.color', gen: 'tab.gen', util: 'tab.util'};
+const tourDone = id => (TOURS[id] || []).every(s => tourSeen(s.id));
+// вкладки с непросмотренными новинками; текущая первой
+function tourNewTabs() {
+  const ids = Object.keys(TOURS).filter(id => TOURS[id].some(s => s.kind === 'new' && !tourSeen(s.id)));
+  const cur = tourTab();
+  return ids.includes(cur) ? [cur, ...ids.filter(id => id !== cur)] : ids;
+}
+// кнопка в «Что нового» нужна, только пока есть что показать
+function newsShowRender() { tourS.loaded.then(() => $('newsShow').classList.toggle('hide', !tourNewTabs().length)); }
+// открыть вкладку и через паузу (пока она перерисуется) запустить тур
+function tourOpen(id, mode) {
+  if (tourTab() !== id) setTab(id);
+  clearTimeout(tourS.timer);
+  setTimeout(() => { if (!tourStart(id, mode)) say('warn', t(LEARN_NAME[id]), t('learn.none')); }, 450);
+}
+function learnRender() {
+  $('learnList').innerHTML = LEARN_TABS.map(id => {
+    const done = tourDone(id);
+    return `<div class="st-row"><div><span class="lb">${esc(t(LEARN_NAME[id]))}</span><span class="hint${done ? '' : ' upd'}">${esc(t(done ? 'learn.done' : 'learn.todo'))}</span></div><button class="btn sm" data-tour="${id}">${esc(t('learn.show'))}</button></div>`;
+  }).join('');
+  tourS.loaded.then(() => { $('learnAuto').checked = !tourS.st.off; });
+}
+$('learnList').addEventListener('click', e => {
+  const b = e.target.closest('[data-tour]');
+  if (!b) return;
+  setPanel(false);
+  tourOpen(b.dataset.tour, 'all');
+});
+$('learnAuto').onchange = e => {
+  tourS.st.off = !e.target.checked;
+  api('tours', {auto: e.target.checked});
+};
+$('learnReset').onclick = async () => {
+  if (!await askYes(t('learn.resetAsk'), t('ask.reset'))) return;
+  const r = await api('tours', {reset: true});
+  if (!r || r.error) { say('err', t('learn.reset'), (r && r.error) || ''); return; }
+  tourS.st = r.tours || {seen: [], declined: {}};
+  tourS.quietTab = '';
+  learnRender();
+  newsShowRender();
+  say('ok', t('setp.learn'), t('learn.resetDone'));
+};
+$('newsShow').onclick = () => {
+  const ids = tourNewTabs();
+  if (!ids.length) return;
+  newsClose();
+  tourOpen(ids[0], 'new');
+};

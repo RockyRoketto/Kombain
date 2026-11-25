@@ -25,6 +25,7 @@ function applyLang() {
   newsBanner(snap); appBanner(snap); ffBanner(snap); renderSetup(snap); renderInstallBtn(snap);
   render(); bLast = ''; bRender(); pdfLast = ''; pdfRender(); updateButtons(); renderSummary(snap);
   storeRender(); aboutRender(snap); fvRender();
+  if (typeof learnRender === 'function') learnRender();   // страница «Обучение» (tour.js)
   if (typeof gnStyleRender === 'function') gnStyleRender();
   if (typeof gmRender === 'function') gmRender();        // экран первого запуска / панель «Модели» во вкладке «Картинки»
   if (typeof bgFixSync === 'function') bgFixSync();       // подсказка у «Доработать» в «Убрать фон»

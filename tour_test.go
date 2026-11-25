@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
@@ -65,5 +68,42 @@ func TestTourSteps(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Тумблер автопоказа и «Сбросить всё» из настроек («Обучение»): off и reset сохраняются на диск.
+func TestToursAutoAndReset(t *testing.T) {
+	t.Setenv("LOCALAPPDATA", t.TempDir()) // настоящие настройки не трогаем
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	s := &Server{host: "h", token: "t"}
+	mux := http.NewServeMux()
+	s.toursRoute(mux)
+	call := func(body string) TourState {
+		r := httptest.NewRequest("POST", "/api/tours", strings.NewReader(body))
+		r.Host, r.Header = "h", http.Header{"X-Token": {"t"}}
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		var res struct{ Tours TourState }
+		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+			t.Fatal(err, w.Body.String())
+		}
+		return res.Tours
+	}
+	if st := call(`{"seen":["a","b"],"decline":"mont"}`); len(st.Seen) != 2 || st.Declined["mont"] != 1 {
+		t.Fatalf("после отметок: %+v", st)
+	}
+	if st := call(`{"auto":false}`); !st.Off || !loadSettings().Tours.Off {
+		t.Fatalf("автопоказ не выключился: %+v", st)
+	}
+	if st := call(`{"auto":true}`); st.Off || loadSettings().Tours.Off {
+		t.Fatalf("автопоказ не включился: %+v", st)
+	}
+	call(`{"auto":false}`)
+	st := call(`{"reset":true}`)
+	if len(st.Seen) != 0 || len(st.Declined) != 0 || st.Gen != 1 || !st.Off {
+		t.Fatalf("после сброса (тумблер должен остаться): %+v", st)
+	}
+	if d := loadSettings().Tours; d == nil || len(d.Seen) != 0 || d.Gen != 1 {
+		t.Fatalf("сброс не дошёл до диска: %+v", d)
 	}
 }
