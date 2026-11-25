@@ -32,20 +32,19 @@ window.addEventListener('dragover', e => {
   if (tab === 'util') fvDropHover(e);   // подсвечивается ячейка иконки, а не всё окно
   if (tab === 'mont') dropEl().classList.toggle('over', !mtDropHover(e));   // над дорожкой файл встанет на неё, окно файлов не подсвечивается
   if (tab === 'gen') gnRefOver(e);   // над блоком «Референсы» картинка станет референсом
-  if (tab === 'bgcut') { const on = !!(e.target.closest && e.target.closest('#bgEdit')); $('bgEdit').classList.toggle('over', on); $('bgDrop').classList.toggle('over', !on); }   // на карточку «Редактор вырезки» — открыть в нём
 });
 window.addEventListener('dragleave', e => {
   if (!hasFiles(e)) return;
   dragDepth = Math.max(0, dragDepth - 1);
   if (dragDepth) return;
-  dropEl().classList.remove('over'); fvDropHover(null); gnRefOver(null); $('bgEdit').classList.remove('over');
+  dropEl().classList.remove('over'); fvDropHover(null); gnRefOver(null);
   if (tab === 'color') csDragOut(false);
   if (tab === 'mont') mtDropHide();
 });
 window.addEventListener('drop', e => {
   if (!hasFiles(e)) return;
-  e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over'); fvDropHover(null); $('bgEdit').classList.remove('over');
-  if (ce.on || (tab === 'bgcut' && e.target.closest && e.target.closest('#bgEdit'))) {   // в редактор вырезки (открытый или карточкой в «Убрать фон»): нужен путь на диске
+  e.preventDefault(); dragDepth = 0; dropEl().classList.remove('over'); fvDropHover(null);
+  if (ce.on) {   // в открытый редактор вырезки: нужен путь на диске
     if (NATIVE_DROP) { try { window.chrome.webview.postMessageWithAdditionalObjects('konv:drop', e.dataTransfer.files); dropAim = 'ce'; return; } catch (err) {} }
     say('warn', t('drop.notSuitableTitle'), t('drop.notSuitable'));
     return;

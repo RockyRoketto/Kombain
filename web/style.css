@@ -2041,12 +2041,10 @@
   @media (max-height:620px){
     .ce-tools{display:grid;grid-template-columns:38px 38px;align-content:start}
   }
-  /* «Утилиты» → «Убрать фон»: карточка редактора с любой картинкой; сюда же бросают файл (drop.js) */
-  .ce-dock-btn{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;margin-top:10px;padding:14px 10px;border:1.5px dashed var(--line3);border-radius:12px;background:var(--s2);color:var(--tx2);text-align:center;cursor:pointer}
-  .ce-dock-btn:hover,.ce-dock.over .ce-dock-btn{border-color:var(--accs);background:var(--accbg);color:var(--acct2)}
-  .ce-dock-btn svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-  .ce-dock-btn b{font-size:13px;font-weight:600}
-  .ce-dock-btn span{font-size:12px;color:var(--dim)}
+  /* «Утилиты» → «Убрать фон»: карточка «Редактор вырезки» — одна кнопка «Доработать» на файле из списка (bgcut.js, bgFixSync) */
+  .ce-dock-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:10px 0 6px}
+  .ce-dock-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #bgList .f.picked{box-shadow:inset 0 0 0 1.5px rgba(var(--acc-rgb),.7)}   /* этот файл откроет «Доработать» справа */
   /* идёт обработка файла: бегущая полоска по низу строки */
   #bgList .f.running::after,#upList .f.running::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:38%;background:linear-gradient(90deg,transparent,var(--acc),var(--acc-hi),transparent);animation:gnBusy 1.3s ease-in-out infinite}
   .gn-lb-nav{position:absolute;top:50%;width:40px;height:64px;margin-top:-32px;border:0;border-radius:12px;background:var(--ex-bg);color:var(--ex-tx);font-size:28px;line-height:1;opacity:0;transition:opacity .2s}
