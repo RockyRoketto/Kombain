@@ -236,7 +236,7 @@ function tourShow(els) {
   D.next.focus({preventScroll: true});
 }
 
-// Плашка по правилам из CLAUDE.md (образец clQPlace): position:fixed, сверху граница — низ шапки .hero
+// Правила для плашки (образец clQPlace): position:fixed, сверху граница — низ шапки .hero
 // (если сам элемент не в шапке), не влезает ни снизу, ни сверху — сбоку, иначе внутри большого элемента с ужатой высотой.
 function tourPlace() {
   if (!tourS.open) return;
