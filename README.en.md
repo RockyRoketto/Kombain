@@ -15,7 +15,7 @@
 
 </div>
 
-<img src="docs/screens/en/editor.jpg" width="100%" alt="The Kombain editor: files, preview with a title, inspector and tracks">
+<img src="docs/screens/en/editor-main.jpg" width="100%" alt="The Kombain editor: files, preview with a title, inspector and tracks">
 
 Drop files or a folder into the window, pick a format and press "Convert". When that is not enough, there is a multitrack editor, a player, tools for color and images, and a generator that draws on your own GPU. All of it is a single exe built on ffmpeg, with the interface in English and Russian.
 
