@@ -1,12 +1,25 @@
-<img src="winres/icon.png" width="88" alt="">
+<div align="center">
+
+<img src="winres/icon.png" width="96" alt="">
 
 # Kombain
 
-[Русский](README.md) · **English**
+**Converter, player, video editor, color tools, utilities and an image generator in one Windows app**
 
-Batch video, audio and image converter for Windows, built on ffmpeg. Plus a player, a multitrack editor, colour tools, utilities and an image generator that runs on your own GPU. Drop files or a folder into the window, pick a format and press "Convert".
+[![Version](https://img.shields.io/github/v/release/RockyRoketto/Kombain?label=version&color=e9b872)](https://github.com/RockyRoketto/Kombain/releases/latest)
+![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-4a4a52)
 
-**[⬇ Download](https://github.com/RockyRoketto/Kombain/releases/latest/download/Konvertor.exe)** · [What's new](CHANGELOG.en.md)
+### [⬇ Download Konvertor.exe](https://github.com/RockyRoketto/Kombain/releases/latest/download/Konvertor.exe)
+
+[Русский](README.md) · **English** · [What's new](CHANGELOG.en.md)
+
+</div>
+
+<img src="docs/screens/en/editor.jpg" width="100%" alt="The Kombain editor: files, preview with a title, inspector and tracks">
+
+Drop files or a folder into the window, pick a format and press "Convert". When that is not enough, there is a multitrack editor, a player, tools for color and images, and a generator that draws on your own GPU. All of it is a single exe built on ffmpeg, with the interface in English and Russian.
+
+[Getting started](#getting-started) · [Converter](#converter) · [Player](#player) · [Editor](#editor) · [Color](#color) · [Utilities](#utilities) · [Image generator](#image-generator)
 
 ## Getting started
 
@@ -30,45 +43,74 @@ Theme, language and settings are behind the gear icon in the top right.
 - The original is never changed: by default the result is saved next to it.
 - Video to PNG sequence and back, fine control of codec, CRF, FPS and bitrate.
 
+<img src="docs/screens/en/converter.jpg" width="100%" alt="Converter: file list on the left, format picker on the right">
+
 ### Player
 
-Video and audio from a file or folder, a drag-and-drop queue, a frame to PNG in one click, send a file to the converter, trimming or the editor. Formats the window cannot play itself (ProRes, for example) are prepared for viewing.
+Watch and listen right in the app: one file or a whole folder, with the queue on the right.
+
+- Drag to reorder the queue.
+- Save a frame as PNG in one click.
+- Send the open file to the converter, trimming or the editor.
+- Formats the window cannot play itself (ProRes, for example) are prepared for viewing.
+
+<img src="docs/screens/en/player.jpg" width="100%" alt="Player: video, file details and the queue">
 
 ### Editor
 
-A timeline desk: files on the left, preview in the centre, inspector on the right, tracks below.
+A timeline desk: files on the left, preview in the center, inspector on the right, tracks below.
 
 - Clips sit freely: move, cut, copy, up to 100 undo steps. Video with sound is placed as a linked pair.
 - Text and shapes (rectangle, ellipse, line, arrow, Bézier pen), transitions between clips.
 - Keyframes with easing curves, ready-made animations, speed 0.25–8×, reverse.
-- Colour correction and chroma key, blur, shadow, blend modes, audio with a level meter.
+- Color correction and chroma key, blur, shadow, blend modes, audio with a level meter.
 - Subtitles from speech (whisper.cpp, works offline), line editing, effects such as Karaoke, Typewriter, Glitch and ready-made styles.
 - Sizes for Full HD, 4K, 9:16, square, 4:5, safe zones for Reels, Shorts and TikTok. Projects are saved as `.kb`; after a crash the app offers to restore it.
 
-### Colour
+<img src="docs/screens/en/transitions.jpg" width="100%" alt="Editor: transition samples in the inspector and a dissolve in the preview">
 
-Gradients (linear, radial, conic, OKLCH blending) and mesh gradients, palettes built on colour-wheel rules, an on-screen eyedropper, colours from a photo, WCAG contrast check, a 50–950 shade scale. Export to PNG, SVG, CSS, JSON and ASE (Photoshop, Illustrator, InDesign).
+### Color
+
+Gradients, palettes and everything you need to pick and check a color.
+
+- Linear, radial and conic gradients with OKLCH blending, plus mesh gradients.
+- Palettes built on color-wheel rules, a 50–950 shade scale.
+- An on-screen eyedropper and colors from a photo.
+- WCAG contrast check.
+- Export to PNG, SVG, CSS, JSON and ASE (Photoshop, Illustrator, InDesign).
+
+<img src="docs/screens/en/color.jpg" width="100%" alt="Color: a mesh gradient with its grid of points">
 
 ### Utilities
 
-- **Favicons:** a full website set from one icon, with `site.webmanifest` and a ready `head.html`.
+Image and PDF tools you would otherwise hunt for across different websites.
+
 - **Remove background** and **Upscale ×2 / ×4** with neural networks, transparency is kept.
-- **Cutout editor:** laid out like Photoshop: square tools on the left (Move V, Rectangular marquee M, Magic wand W, Pen P, Eraser E, Restore Y, Hand H, Zoom Z), tool options above the image, selection, edge and tips on the right. It opens from the "Refine" button on a finished file after "Remove background", from the generator gallery, or from the "Refine" button in the "Cutout editor" card on the right: it takes the file from the list on the left (the one you clicked, or the first), and that can be an ordinary image with its background — erase it by hand, transparency appears on its own. Select with the marquee, the wand or the pen (a Bézier path, then "Make selection" or Enter), and marching ants run along the edge; the new / add / subtract / intersect mode is picked with buttons or with Shift and Alt, and its sign shows next to the cursor. Delete erases the selection, Ctrl+Shift+I inverts, Ctrl+D deselects, Ctrl+Z undoes. You can also feather, shrink or expand the edge and remove the fringe; the result is saved as a separate PNG and the original stays as it is.
-- **Image batch:** size, format, metadata removal and a watermark for a whole pile.
-- **Banners** and **Banner builder:** one picture is placed on all 14 templates inside its safe zone, with a background element, shadow and glow, mouse editing and saving into `month\day\match` folders.
+- **Cutout editor** in the spirit of Photoshop: marquee, magic wand, pen, eraser and restore brush, feathering and fringe removal. The original stays as it was.
+- **Banners** and **Banner builder:** one picture is placed on all 14 templates inside its safe zone, with a background element, shadow and glow.
+- **Favicons:** a full website set from one icon, with `site.webmanifest` and a ready `head.html`.
+- **Batch images:** size, format, metadata removal and a watermark for a whole pile.
 - **PDF:** images to PDF, compress to a target size, merge and split, repair, watermark, page numbers, AES-256 password.
+
+<img src="docs/screens/en/cutout.jpg" width="100%" alt="Cutout editor: a fox without its background, tools on the left, edge settings on the right">
+
+<img src="docs/screens/en/banners.jpg" width="100%" alt="Banner builder: one picture on every template">
 
 ### Image generator
 
-Offline text-to-image, no subscriptions and no limits.
+Text-to-image on your own computer: offline, no subscriptions and no limits.
 
 - Models: FLUX.2 klein (default), Z-Image Turbo, SDXL, Qwen-Image, ERNIE-Image, Chroma1-HD. Downloads resume and files are verified.
-- Write your request in Russian or English: the assistant rewrites it into a detailed English prompt that you can edit. Flags and countries are drawn in their real colours.
-- 39 styles with sample pictures and a sample request in each, including "Sports banner" and "Sports 3D" for banners.
-- Up to 8 references with roles "Base", "Style", "Character" and a strength slider.
-- Gallery with search and favourites, variations, "Repaint a part", "Outpaint", "Remove background" and the cutout editor, "Upscale". Settings are stored inside the PNG: drop the picture back and the fields fill in.
+- Write your request in Russian or English: the assistant rewrites it into a detailed English prompt that you can edit. Flags and countries are drawn in their real colors.
+- 39 styles with sample pictures, including "Sports banner" and "Sports 3D", and up to 8 references with roles "Base", "Style", "Character".
+- Gallery with search and favorites, variations, "Repaint a part", "Outpaint", "Remove background", "Upscale".
+- Settings are stored inside the PNG: drop the picture back and the fields fill in.
 
-Only the generator needs an NVIDIA, AMD or Intel GPU with 4 GB+ of video memory (8 GB is comfortable); everything else runs on any PC.
+The generator needs an NVIDIA, AMD or Intel GPU with 4 GB+ of video memory (8 GB is comfortable); all other tabs run on any PC.
+
+<img src="docs/screens/en/generator.jpg" width="100%" alt="Generator: prompt and style on the left, the finished picture in the center, hardware monitor below">
+
+<img src="docs/screens/en/gallery.jpg" width="100%" alt="Generator gallery with search and favorites">
 
 ## For developers
 
@@ -82,4 +124,8 @@ Checks: `gofmt -l .` is empty, `go test ./...`. Release: `release.cmd X.Y`, then
 
 ---
 
+<div align="center">
+
 © Dmitrii Trudnikov
+
+</div>

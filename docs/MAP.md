@@ -292,6 +292,7 @@
 | `.github/workflows/release.yml` | проверки, сборка exe, релиз по тегу |
 | `CHANGELOG.md`, `CHANGELOG.en.md` | что нового на двух языках; разделы версии становятся текстом релиза и плашек в программе (`splitNotes` в `selfupdate.go`) |
 | `winres/`, `rsrc_windows_amd64.syso` | иконка, манифест и свойства exe |
+| `README.md`, `README.en.md`, `docs/screens/{ru,en}/` | описание на GitHub и скриншоты к нему (одинаковые имена в обеих папках, в exe не входят) |
 | `assets-original/` | исходники старого фото и иконки |
 
 ## Проверка
